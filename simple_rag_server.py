@@ -417,21 +417,20 @@ class SimpleRAGPipeline:
             if not self.groq_api_key:
                 return "Error: GROQ_API_KEY not configured"
             
-            prompt = f"""You are an expert medical assistant with strong analytical reasoning. Analyze the provided context and answer the question with careful reasoning.
+            prompt = f"""You are an expert medical assistant. Analyze the provided context and answer the question accurately and concisely.
 
 INSTRUCTIONS:
 1. Carefully examine the medical context provided
-2. If the context contains relevant information, reason through it step-by-step
-3. Provide a clear, medically accurate answer
-4. If the context lacks sufficient information, clearly state this
+2. If the context contains relevant information, provide a clear, medically accurate answer
+3. If the context lacks sufficient information, clearly state this
+4. Be direct and concise - do not include reasoning steps in your response
 
 MEDICAL CONTEXT:
 {context}
 
 QUESTION: {question}
 
-REASONING AND ANSWER:
-Let me analyze this step-by-step:"""
+ANSWER:"""
             
             headers = {
                 "Authorization": f"Bearer {self.groq_api_key}",
@@ -439,7 +438,7 @@ Let me analyze this step-by-step:"""
             }
             
             payload = {
-                "model": "qwen-qwq-32b",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [
                     {
                         "role": "user",
@@ -447,7 +446,7 @@ Let me analyze this step-by-step:"""
                     }
                 ],
                 "temperature": 0.3,  # Lower temperature for more consistent medical responses
-                "max_tokens": 2048   # Increased for Qwen's detailed reasoning
+                "max_tokens": 2048
             }
             
             response = requests.post(
@@ -477,15 +476,14 @@ Let me analyze this step-by-step:"""
             # Create citation mapping
             citation_text = self._format_citation_context(context, metadatas)
             
-            prompt = f"""You are an expert medical assistant with strong reasoning capabilities. Your task is to analyze medical documents and provide accurate, well-reasoned answers.
+            prompt = f"""You are an expert medical assistant. Your task is to analyze medical documents and provide accurate, concise answers with proper citations.
 
-REASONING PROCESS:
-1. First, carefully analyze the provided medical context
-2. Determine if the context contains sufficient information to answer the question
-3. If insufficient, respond with: "INSUFFICIENT_INFORMATION"
-4. If sufficient, reason through the medical concepts step-by-step
-5. Provide a comprehensive but concise medical explanation
-6. Always conclude with a proper citation
+INSTRUCTIONS:
+1. Carefully analyze the provided medical context
+2. If the context contains sufficient information, provide a clear, medically accurate answer
+3. If insufficient information, respond with: "INSUFFICIENT_INFORMATION"
+4. Be direct and concise - do not include reasoning steps in your response
+5. Always conclude with a proper citation
 
 CITATION REQUIREMENTS:
 - End your response with: {{retrieved from: [Document Name], [Medical Section], page [number]}}
@@ -496,8 +494,7 @@ MEDICAL CONTEXT:
 
 QUESTION: {question}
 
-REASONING AND ANSWER:
-Let me analyze the medical context and provide a reasoned response:"""
+ANSWER:"""
             
             headers = {
                 "Authorization": f"Bearer {self.groq_api_key}",
@@ -505,7 +502,7 @@ Let me analyze the medical context and provide a reasoned response:"""
             }
             
             payload = {
-                "model": "qwen-qwq-32b",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [
                     {
                         "role": "user", 
@@ -513,7 +510,7 @@ Let me analyze the medical context and provide a reasoned response:"""
                     }
                 ],
                 "temperature": 0.2,  # Very low temperature for consistent medical responses
-                "max_tokens": 2048   # Increased for Qwen's detailed reasoning and citations
+                "max_tokens": 2048
             }
             
             response = requests.post(
