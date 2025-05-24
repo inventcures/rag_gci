@@ -1,0 +1,343 @@
+# RAG Server with WhatsApp Bot Integration
+
+A comprehensive RAG (Retrieval-Augmented Generation) pipeline built with Kotaemon, featuring:
+- 📄 Document processing and indexing
+- 🖥️ Web-based admin UI for corpus management  
+- 📱 WhatsApp bot with voice message support
+- 🗣️ Speech-to-Text for Indian languages (Hindi, Bengali, Tamil, Gujarati)
+- 🔊 Text-to-Speech responses in multiple languages
+- 🌐 ngrok integration for external access
+
+## Features
+
+### 🎯 Core RAG Pipeline
+- Built on Kotaemon framework for robust document processing
+- Support for PDF, DOCX, TXT, HTML, XLSX files
+- Vector search with citation support
+- Multiple retrieval strategies and reranking
+
+### 🌍 Multilingual Support
+- **STT Languages**: Hindi, Bengali, Tamil, Gujarati, English
+- **TTS Languages**: Same as STT with native voice synthesis
+- Automatic language detection from audio
+- Language-specific response generation
+
+### 📱 WhatsApp Integration
+- Text message queries
+- Voice message support with automatic transcription
+- Audio responses in user's preferred language
+- Language selection commands (`/lang hi`, `/lang bn`, etc.)
+
+### 🖥️ Admin Interface
+- Document upload and management
+- Query testing interface
+- Index statistics and monitoring
+- Configuration management
+
+## Quick Start
+
+### 1. Setup Environment
+
+```bash
+# Clone and navigate to the project
+cd rag_gci
+
+# Run the setup script
+python setup.py
+
+# Install dependencies (handled by setup)
+pip install -r requirements.txt
+```
+
+### 2. Configure API Keys
+
+Edit `.env` file with your API keys:
+
+```bash
+# Required for LLM and STT
+GROQ_API_KEY=your_groq_api_key_here
+
+# Optional - for WhatsApp Bot
+WHATSAPP_VERIFY_TOKEN=your_verify_token
+WHATSAPP_ACCESS_TOKEN=your_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+```
+
+**Get Groq API Key**: 
+- Visit [Groq Console](https://console.groq.com/)
+- Sign up for free account
+- Generate API key
+- Free tier includes LLM access and Whisper STT
+
+### 3. Start the Server
+
+#### Option A: Using the run script (Recommended)
+```bash
+./run.sh
+```
+
+#### Option B: Direct Python execution
+```bash
+python main.py
+```
+
+#### Option C: Custom configuration
+```bash
+python main.py --host 0.0.0.0 --port 8000 --no-ngrok
+```
+
+### 4. Access the Application
+
+Once started, you'll see:
+
+```
+🚀 RAG SERVER WITH WHATSAPP BOT
+==================================================
+📊 Admin UI: http://localhost:8000/admin
+🔗 API Docs: http://localhost:8000/docs
+💚 Health Check: http://localhost:8000/health
+📱 WhatsApp Webhook: http://localhost:8000/webhook
+🌐 Public URL: https://abc123.ngrok.io (if ngrok enabled)
+```
+
+## Usage Guide
+
+### 📄 Document Management
+
+1. Open Admin UI at `http://localhost:8000/admin`
+2. Go to "Upload Documents" tab
+3. Select files (PDF, DOCX, TXT, etc.)
+4. Add metadata (optional): `{"category": "medical", "language": "en"}`
+5. Click "Upload & Index"
+
+### 💬 Testing Queries
+
+1. Use "Test Queries" tab in Admin UI
+2. Enter questions like:
+   - "What is palliative care?"
+   - "How to manage pain in cancer patients?"
+   - "What are the principles of hospice care?"
+
+### 📱 WhatsApp Bot Setup
+
+1. **Get WhatsApp Business Account**:
+   - Create Facebook Business account
+   - Set up WhatsApp Business API
+   - Get access token and phone number ID
+
+2. **Configure Webhook**:
+   - Use the public ngrok URL: `https://your-ngrok-url.ngrok.io/webhook`
+   - Set verify token in `.env` file
+
+3. **Test the Bot**:
+   - Send text messages
+   - Send voice messages in supported languages
+   - Use language commands: `/lang hi`, `/lang bn`, `/lang ta`, `/lang gu`
+
+### 🗣️ Voice Features
+
+**Sending Voice Queries**:
+1. Send voice message to WhatsApp bot
+2. Bot transcribes automatically
+3. Detects language from speech
+4. Returns text + audio response
+
+**Language Commands**:
+- `/lang hi` - Set to Hindi
+- `/lang bn` - Set to Bengali  
+- `/lang ta` - Set to Tamil
+- `/lang gu` - Set to Gujarati
+- `/lang en` - Set to English
+
+## Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   WhatsApp      │───▶│   FastAPI        │───▶│   RAG Pipeline  │
+│   Bot           │    │   Server         │    │   (Kotaemon)    │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   STT Service   │    │   Admin UI       │    │   Vector Store  │
+│   (Groq)        │    │   (Gradio)       │    │   (Chroma)      │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│   TTS Service   │
+│   (Edge TTS)    │
+└─────────────────┘
+```
+
+## API Endpoints
+
+### Core Endpoints
+- `GET /` - Redirect to admin UI
+- `GET /admin` - Admin interface
+- `GET /health` - Health check
+- `GET /docs` - API documentation
+
+### WhatsApp Webhook
+- `GET /webhook` - Webhook verification
+- `POST /webhook` - Message handling
+
+### API Routes
+- `POST /api/query` - Direct query endpoint
+- `POST /api/upload` - File upload endpoint
+- `POST /api/set_language` - Set user language preference
+
+## Configuration
+
+### Settings Files
+- `config.yaml` - Main configuration
+- `.env` - Environment variables and API keys
+- `kotaemon-main/settings.yaml` - Kotaemon-specific settings
+
+### Key Configuration Options
+
+```yaml
+# LLM Configuration
+llm:
+  provider: "groq"
+  model: "llama-3.1-8b-instant"
+  
+# Embedding Configuration  
+embedding:
+  provider: "fastembed"
+  model: "BAAI/bge-small-en-v1.5"
+
+# STT Configuration
+stt:
+  provider: "groq"
+  model: "whisper-large-v3"
+  
+# TTS Configuration
+tts:
+  provider: "edge_tts"
+  supported_languages:
+    hi: "hi-IN-SwaraNeural"
+    bn: "bn-IN-TanishaaNeural"
+    ta: "ta-IN-PallaviNeural"
+    gu: "gu-IN-DhwaniNeural"
+```
+
+## Testing
+
+Run the comprehensive test suite:
+
+```bash
+python test_pipeline.py
+```
+
+Tests include:
+- ✅ Document processing and indexing
+- ✅ Query processing and responses
+- ✅ STT service functionality
+- ✅ TTS service functionality  
+- ✅ Multilingual support
+- ✅ End-to-end pipeline
+
+## Deployment
+
+### Local Development
+```bash
+# Start with ngrok for external access
+./run.sh
+
+# Start without ngrok (local only)
+./run.sh --no-ngrok
+```
+
+### Production Considerations
+1. **Security**: Enable authentication in admin UI
+2. **Scaling**: Use multiple workers with gunicorn
+3. **Monitoring**: Add logging and metrics
+4. **Backup**: Regular database and index backups
+
+### ngrok for External Access
+```bash
+# Install ngrok
+brew install ngrok
+
+# Authenticate (one-time setup)
+ngrok authtoken your_auth_token
+
+# ngrok will start automatically with the server
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**"GROQ_API_KEY not configured"**
+- Set your Groq API key in `.env` file
+- Get free key from [Groq Console](https://console.groq.com/)
+
+**"kotaemon-main directory not found"**
+- Ensure Kotaemon codebase is in the project directory
+- Check the directory structure matches requirements
+
+**"ngrok not found"**
+- Install ngrok: `brew install ngrok`
+- Or run with `--no-ngrok` flag for local testing
+
+**Audio processing fails**
+- Check if edge-tts is installed: `pip install edge-tts`
+- Verify audio file permissions and storage
+
+**WhatsApp webhook verification fails**
+- Check webhook URL and verify token
+- Ensure ngrok tunnel is active
+- Verify WhatsApp Business API setup
+
+### Logs and Debugging
+
+Check logs in:
+- `logs/main.log` - Main application logs
+- `logs/rag_server.log` - RAG pipeline logs
+- Console output for real-time debugging
+
+## Free Tier Usage
+
+This solution is designed to work within free tiers:
+
+### Groq (Free Tier)
+- **LLM**: 14,400 tokens/day (enough for ~100-200 queries)
+- **STT**: 100 minutes/day audio transcription
+- **Cost**: $0
+
+### Edge TTS (Free)
+- **Unlimited**: Text-to-speech generation
+- **Cost**: $0
+
+### Local Storage (Free)
+- **Vector DB**: Chroma (local files)
+- **Document Store**: Local file system
+- **Cost**: $0
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## License
+
+This project is open source. Please check individual component licenses:
+- Kotaemon: [MIT License](https://github.com/Cinnamon/kotaemon/blob/main/LICENSE)
+- Other dependencies as per their respective licenses
+
+## Support
+
+For issues and questions:
+1. Check the troubleshooting section
+2. Review logs for error details
+3. Test with the provided test suite
+4. Create an issue with detailed information
+
+---
+
+**🚀 Ready to get started? Run `./run.sh` and visit http://localhost:8000/admin**

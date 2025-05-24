@@ -1,0 +1,104 @@
+# RAG Server Configuration
+# Configuration for the RAG pipeline, admin UI, and WhatsApp bot
+
+# API Keys (set these as environment variables for security)
+api_keys:
+  groq_api_key: ${GROQ_API_KEY}  # For LLM and STT
+  twilio_account_sid: ${TWILIO_ACCOUNT_SID}  # Twilio Account SID
+  twilio_auth_token: ${TWILIO_AUTH_TOKEN}  # Twilio Auth Token
+
+# LLM Configuration
+llm:
+  provider: "groq"  # groq, openai, azure, ollama
+  model: "llama-3.1-8b-instant"  # Free tier model on Groq
+  temperature: 0.7
+  max_tokens: 1024
+  
+# Embedding Configuration  
+embedding:
+  provider: "fastembed"  # Local embedding model
+  model: "BAAI/bge-small-en-v1.5"
+  batch_size: 32
+
+# Reranking Configuration
+reranking:
+  enabled: true
+  provider: "llm"  # Use LLM for reranking to keep it free
+  top_k: 5
+
+# Vector Store Configuration
+vectorstore:
+  provider: "chroma"  # Local vector database
+  persist_directory: "./data/chroma_db"
+  collection_name: "rag_documents"
+
+# Document Store Configuration
+docstore:
+  provider: "simple_file"
+  storage_path: "./data/documents"
+
+# File Upload Configuration
+upload:
+  max_file_size_mb: 50
+  allowed_extensions: [".pdf", ".txt", ".docx", ".md", ".html", ".xlsx"]
+  upload_directory: "./uploads"
+
+# Processing Configuration
+processing:
+  chunk_size: 1000
+  chunk_overlap: 200
+  max_chunks_per_doc: 100
+
+# STT Configuration (Speech-to-Text)
+stt:
+  provider: "groq"  # Using Groq's Whisper API
+  model: "whisper-large-v3"
+  supported_languages:
+    - "hi"  # Hindi
+    - "bn"  # Bengali
+    - "ta"  # Tamil
+    - "gu"  # Gujarati
+    - "en"  # English
+
+# TTS Configuration (Text-to-Speech)
+tts:
+  provider: "edge_tts"  # Free Edge TTS
+  supported_languages:
+    hi: "hi-IN-SwaraNeural"     # Hindi
+    bn: "bn-IN-TanishaaNeural"  # Bengali
+    ta: "ta-IN-PallaviNeural"   # Tamil
+    gu: "gu-IN-DhwaniNeural"    # Gujarati
+    en: "en-IN-NeerjaNeural"    # English (Indian accent)
+
+# Twilio WhatsApp Bot Configuration
+twilio_whatsapp:
+  webhook_url: "/webhook"
+  sandbox_number: "+14155238886"  # Twilio WhatsApp Sandbox
+  account_sid: ${TWILIO_ACCOUNT_SID}
+  auth_token: ${TWILIO_AUTH_TOKEN}
+  
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false
+  workers: 1
+
+# Admin UI Configuration
+admin_ui:
+  title: "RAG Pipeline Admin"
+  theme: "soft"
+  auth_required: false  # Set to true for production
+  
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/rag_server.log"
+
+# Data Directories
+directories:
+  data: "./data"
+  uploads: "./uploads"
+  logs: "./logs"
+  cache: "./cache"

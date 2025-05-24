@@ -1,0 +1,54 @@
+# Core Dependencies
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+gradio>=4.7.1
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# Kotaemon Dependencies (from kotaemon-main)
+ktem
+kotaemon
+
+# RAG and ML Dependencies
+chromadb>=0.4.18
+sentence-transformers>=2.2.2
+transformers>=4.36.0
+torch>=2.1.0
+fastembed>=0.1.6
+langchain>=0.1.0
+langchain-community>=0.0.8
+
+# Document Processing
+unstructured[local-inference]>=0.11.8
+python-docx>=0.8.11
+PyPDF2>=3.0.1
+openpyxl>=3.1.2
+python-pptx>=0.6.23
+Pillow>=10.1.0
+pypandoc>=1.12
+
+# Audio Processing (STT/TTS)
+requests>=2.31.0
+edge-tts>=6.1.9
+whisper-openai>=20231117
+pydub>=0.25.1
+
+# WhatsApp Integration via Twilio
+twilio>=8.10.3
+
+# Utilities
+python-dotenv>=1.0.0
+PyYAML>=6.0.1
+aiofiles>=23.2.1
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Database
+alembic>=1.13.0
+SQLAlchemy>=2.0.23
+
+# Development and Testing
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+black>=23.11.0
+flake8>=6.1.0
