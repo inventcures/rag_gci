@@ -589,7 +589,9 @@ class EnhancedWhatsAppBot:
             user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
 
             # Query RAG pipeline
+            logger.info(f"  🔍 About to query RAG pipeline with text: '{text}', user_id: '{from_number}'")
             result = await self.rag_pipeline.query(text, user_id=from_number)
+            logger.info(f"  📊 RAG pipeline result status: {result.get('status')}, answer length: {len(result.get('answer', ''))}")
 
             if result["status"] == "success":
                 response_text = result["answer"]
@@ -613,12 +615,9 @@ class EnhancedWhatsAppBot:
                 logger.info("  ⏳ Waiting 2 seconds before sending audio...")
                 await asyncio.sleep(2)
 
-                # Generate and send audio response
-                logger.info(f"  📤 STEP 2: Starting TTS synthesis for language: {user_lang}")
-                logger.info(f"  📝 TTS input text: {response_text[:100]}...")
-                
-                tts_result = await self.tts_service.synthesize_speech(response_text, user_lang)
-                logger.info(f"  🎤 TTS synthesis result: {tts_result}")
+                # Generate and send audio response (TEMPORARILY DISABLED FOR DEBUGGING)
+                logger.info("  🚫 Audio generation temporarily disabled for debugging - only text response sent")
+                return  # Skip audio generation to test if this is causing the issue
 
                 if tts_result.get("audio_available"):
                     logger.info("  ✅ TTS audio available, preparing to send...")

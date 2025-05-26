@@ -65,7 +65,10 @@ class SimpleDocumentProcessor:
                     "error": f"Unsupported file type: {file_path.suffix}"
                 }
             
-            text = self._extract_text(file_path)
+            # Extract text and get page count
+            extraction_result = self._extract_text_with_metadata(file_path)
+            text = extraction_result["text"]
+            page_count = extraction_result.get("page_count", 1)
             
             if not text.strip():
                 return {
@@ -81,7 +84,8 @@ class SimpleDocumentProcessor:
                 "file_path": str(file_path),
                 "text": text,
                 "chunks": chunks,
-                "chunk_count": len(chunks)
+                "chunk_count": len(chunks),
+                "page_count": page_count
             }
             
         except Exception as e:
@@ -91,30 +95,39 @@ class SimpleDocumentProcessor:
                 "error": str(e)
             }
     
-    def _extract_text(self, file_path: Path) -> str:
-        """Extract text from file based on extension"""
+    def _extract_text_with_metadata(self, file_path: Path) -> Dict[str, Any]:
+        """Extract text from file and return metadata including page count"""
         
         if file_path.suffix.lower() in {'.txt', '.md'}:
             with open(file_path, 'r', encoding='utf-8') as f:
-                return f.read()
+                text = f.read()
+            return {"text": text, "page_count": 1}
         
         elif file_path.suffix.lower() == '.pdf':
             text = ""
             with open(file_path, 'rb') as f:
                 reader = PyPDF2.PdfReader(f)
+                page_count = len(reader.pages)
                 for page in reader.pages:
                     text += page.extract_text() + "\n"
-            return text
+            return {"text": text, "page_count": page_count}
         
         elif file_path.suffix.lower() == '.docx':
             doc = docx.Document(file_path)
             text = ""
             for paragraph in doc.paragraphs:
                 text += paragraph.text + "\n"
-            return text
+            # For DOCX, estimate pages based on character count (rough estimate)
+            estimated_pages = max(1, len(text) // 3000)  # ~3000 chars per page
+            return {"text": text, "page_count": estimated_pages}
         
         else:
-            return ""
+            return {"text": "", "page_count": 1}
+    
+    def _extract_text(self, file_path: Path) -> str:
+        """Extract text from file based on extension (legacy method)"""
+        result = self._extract_text_with_metadata(file_path)
+        return result["text"]
     
     def _chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
         """Simple text chunking"""
@@ -146,6 +159,406 @@ class SimpleDocumentProcessor:
         return chunks
 
 
+class VectorDBHealthManager:
+    """Handles vector database health monitoring and corruption detection"""
+    
+    def __init__(self, vector_db, document_metadata: Dict, data_dir: str):
+        self.vector_db = vector_db
+        self.document_metadata = document_metadata
+        self.data_dir = data_dir
+        self.corruption_indicators = []
+        
+    def detect_corruption(self) -> Dict[str, Any]:
+        """Comprehensive corruption detection"""
+        corruption_score = 0
+        issues = []
+        
+        try:
+            # Test 1: Basic database connectivity
+            db_accessible = self._test_db_connectivity()
+            if not db_accessible:
+                corruption_score += 50
+                issues.append("Database not accessible")
+            
+            # Test 2: Metadata consistency
+            metadata_consistent = self._validate_metadata_sync()
+            if not metadata_consistent:
+                corruption_score += 30
+                issues.append("Metadata inconsistent with vector DB")
+            
+            # Test 3: Query functionality
+            query_functional = self._test_query_functionality()
+            if not query_functional:
+                corruption_score += 40
+                issues.append("Query functionality broken")
+            
+            # Test 4: Embedding quality check
+            embeddings_valid = self._check_embedding_quality()
+            if not embeddings_valid:
+                corruption_score += 25
+                issues.append("Embedding quality degraded")
+            
+            # Test 5: Index integrity
+            index_intact = self._validate_index_integrity()
+            if not index_intact:
+                corruption_score += 35
+                issues.append("Index integrity compromised")
+            
+            is_corrupted = corruption_score >= 50
+            
+            return {
+                "is_corrupted": is_corrupted,
+                "corruption_score": corruption_score,
+                "issues": issues,
+                "severity": "critical" if corruption_score >= 80 else "moderate" if corruption_score >= 50 else "minor",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error during corruption detection: {e}")
+            return {
+                "is_corrupted": True,
+                "corruption_score": 100,
+                "issues": [f"Detection failed: {str(e)}"],
+                "severity": "critical",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def _test_db_connectivity(self) -> bool:
+        """Test basic database connectivity"""
+        try:
+            # Try to get collection info
+            collection = self.vector_db
+            collection.count()
+            return True
+        except Exception as e:
+            logger.warning(f"DB connectivity test failed: {e}")
+            return False
+    
+    def _validate_metadata_sync(self) -> bool:
+        """Check if metadata matches vector database contents"""
+        try:
+            collection = self.vector_db
+            db_count = collection.count()
+            
+            # Calculate expected count from metadata
+            expected_count = sum(meta.get("chunk_count", 0) for meta in self.document_metadata.values())
+            
+            # Allow 10% variance for minor inconsistencies
+            variance_threshold = max(1, expected_count * 0.1)
+            return abs(db_count - expected_count) <= variance_threshold
+            
+        except Exception as e:
+            logger.warning(f"Metadata sync validation failed: {e}")
+            return False
+    
+    def _test_query_functionality(self) -> bool:
+        """Test if query operations work correctly"""
+        try:
+            collection = self.vector_db
+            
+            # Try a simple query
+            results = collection.query(
+                query_texts=["test query"],
+                n_results=1
+            )
+            
+            # Check if query returned expected structure
+            return (
+                isinstance(results, dict) and
+                "documents" in results and
+                "metadatas" in results and
+                "distances" in results
+            )
+            
+        except Exception as e:
+            logger.warning(f"Query functionality test failed: {e}")
+            return False
+    
+    def _check_embedding_quality(self) -> bool:
+        """Check if embeddings are producing reasonable distances"""
+        try:
+            collection = self.vector_db
+            
+            # Get a small sample of documents
+            sample_results = collection.query(
+                query_texts=["medical"],
+                n_results=min(5, collection.count())
+            )
+            
+            if not sample_results.get("distances") or not sample_results["distances"][0]:
+                return False
+            
+            distances = sample_results["distances"][0]
+            
+            # Check for anomalous distance patterns
+            # Valid distances should be between 0 and 2 for cosine similarity
+            valid_distances = all(0 <= d <= 2 for d in distances)
+            
+            # Check for reasonable variance (not all identical)
+            if len(distances) > 1:
+                distance_variance = max(distances) - min(distances)
+                has_variance = distance_variance > 0.001
+            else:
+                has_variance = True
+            
+            return valid_distances and has_variance
+            
+        except Exception as e:
+            logger.warning(f"Embedding quality check failed: {e}")
+            return False
+    
+    def _validate_index_integrity(self) -> bool:
+        """Check if the database index is intact"""
+        try:
+            collection = self.vector_db
+            
+            # Try to access different operations that use the index
+            total_count = collection.count()
+            
+            if total_count == 0:
+                return len(self.document_metadata) == 0
+            
+            # Try to peek at data
+            peek_result = collection.peek(limit=1)
+            return bool(peek_result.get("ids"))
+            
+        except Exception as e:
+            logger.warning(f"Index integrity check failed: {e}")
+            return False
+
+
+class AutoRebuildManager:
+    """Handles automatic vector database rebuilding"""
+    
+    def __init__(self, rag_pipeline):
+        self.rag_pipeline = rag_pipeline
+        self.rebuild_in_progress = False
+        self.last_rebuild_time = None
+        
+    async def auto_rebuild_if_needed(self) -> Dict[str, Any]:
+        """Automatically rebuild vector DB if corruption detected"""
+        
+        if self.rebuild_in_progress:
+            return {
+                "status": "already_rebuilding",
+                "message": "Rebuild already in progress"
+            }
+        
+        # Check for corruption
+        health_manager = VectorDBHealthManager(
+            self.rag_pipeline.vector_db,
+            self.rag_pipeline.document_metadata,
+            self.rag_pipeline.data_dir
+        )
+        
+        health_status = health_manager.detect_corruption()
+        
+        if not health_status["is_corrupted"]:
+            return {
+                "status": "healthy",
+                "message": "Vector database is healthy, no rebuild needed",
+                "health_status": health_status
+            }
+        
+        logger.warning(f"Corruption detected: {health_status}")
+        
+        # Perform automatic rebuild
+        return await self._perform_auto_rebuild(health_status)
+    
+    async def _perform_auto_rebuild(self, corruption_info: Dict) -> Dict[str, Any]:
+        """Perform the actual rebuild process"""
+        
+        self.rebuild_in_progress = True
+        rebuild_start_time = datetime.now()
+        
+        try:
+            logger.info("🔧 Starting automatic vector database rebuild...")
+            
+            # Step 1: Backup current state
+            backup_result = await self._backup_current_state()
+            if not backup_result["success"]:
+                raise Exception(f"Backup failed: {backup_result['error']}")
+            
+            # Step 2: Collect all source documents
+            documents_to_rebuild = await self._collect_source_documents()
+            if not documents_to_rebuild:
+                raise Exception("No source documents found for rebuild")
+            
+            # Step 3: Clear corrupted database
+            await self._clear_corrupted_database()
+            
+            # Step 4: Rebuild from source documents
+            rebuild_results = await self._rebuild_from_documents(documents_to_rebuild)
+            
+            # Step 5: Validate rebuilt database
+            validation_result = await self._validate_rebuilt_database()
+            
+            if not validation_result["is_valid"]:
+                # Restore from backup if rebuild failed
+                await self._restore_from_backup(backup_result["backup_path"])
+                raise Exception(f"Rebuild validation failed: {validation_result['errors']}")
+            
+            self.last_rebuild_time = datetime.now()
+            rebuild_duration = (self.last_rebuild_time - rebuild_start_time).total_seconds()
+            
+            logger.info(f"✅ Vector database rebuilt successfully in {rebuild_duration:.1f}s")
+            
+            return {
+                "status": "success",
+                "message": f"Vector database rebuilt successfully in {rebuild_duration:.1f}s",
+                "corruption_info": corruption_info,
+                "rebuild_stats": {
+                    "documents_processed": len(documents_to_rebuild),
+                    "chunks_created": sum(result.get("chunks_added", 0) for result in rebuild_results),
+                    "duration_seconds": rebuild_duration
+                },
+                "timestamp": self.last_rebuild_time.isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Auto-rebuild failed: {e}")
+            return {
+                "status": "error",
+                "message": f"Auto-rebuild failed: {str(e)}",
+                "corruption_info": corruption_info,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        finally:
+            self.rebuild_in_progress = False
+    
+    async def _backup_current_state(self) -> Dict[str, Any]:
+        """Backup current metadata and database state"""
+        try:
+            backup_dir = Path(self.rag_pipeline.data_dir) / "backups"
+            backup_dir.mkdir(exist_ok=True)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = backup_dir / f"metadata_backup_{timestamp}.json"
+            
+            # Backup metadata
+            with open(backup_path, 'w') as f:
+                json.dump(self.rag_pipeline.document_metadata, f, indent=2)
+            
+            return {
+                "success": True,
+                "backup_path": str(backup_path),
+                "timestamp": timestamp
+            }
+            
+        except Exception as e:
+            logger.error(f"Backup failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def _collect_source_documents(self) -> List[Dict]:
+        """Collect all source documents that need to be re-indexed"""
+        documents = []
+        
+        try:
+            uploads_dir = Path(self.rag_pipeline.uploads_dir)
+            
+            for doc_id, metadata in self.rag_pipeline.document_metadata.items():
+                file_path = uploads_dir / metadata["filename"]
+                
+                if file_path.exists():
+                    documents.append({
+                        "doc_id": doc_id,
+                        "file_path": str(file_path),
+                        "metadata": metadata
+                    })
+                else:
+                    logger.warning(f"Source file not found: {file_path}")
+            
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Error collecting source documents: {e}")
+            return []
+    
+    async def _clear_corrupted_database(self):
+        """Clear the corrupted vector database"""
+        try:
+            # Get all IDs and delete them
+            all_data = self.rag_pipeline.vector_db.get()
+            if all_data.get("ids"):
+                self.rag_pipeline.vector_db.delete(ids=all_data["ids"])
+            
+            # Force persistence
+            self.rag_pipeline._persist_vector_db()
+            
+            logger.info("🗑️ Cleared corrupted vector database")
+            
+        except Exception as e:
+            logger.error(f"Error clearing database: {e}")
+            raise
+    
+    async def _rebuild_from_documents(self, documents: List[Dict]) -> List[Dict]:
+        """Rebuild vector database from source documents"""
+        rebuild_results = []
+        
+        for doc_info in documents:
+            try:
+                logger.info(f"📄 Processing: {doc_info['metadata']['filename']}")
+                
+                # Re-process the document
+                result = self.rag_pipeline.add_document(doc_info["file_path"])
+                rebuild_results.append(result)
+                
+                if result.get("status") != "success":
+                    logger.warning(f"Failed to rebuild {doc_info['metadata']['filename']}: {result}")
+                
+            except Exception as e:
+                logger.error(f"Error rebuilding document {doc_info['metadata']['filename']}: {e}")
+                rebuild_results.append({
+                    "status": "error",
+                    "filename": doc_info['metadata']['filename'],
+                    "error": str(e)
+                })
+        
+        return rebuild_results
+    
+    async def _validate_rebuilt_database(self) -> Dict[str, Any]:
+        """Validate that the rebuilt database is functional"""
+        try:
+            health_manager = VectorDBHealthManager(
+                self.rag_pipeline.vector_db,
+                self.rag_pipeline.document_metadata,
+                self.rag_pipeline.data_dir
+            )
+            
+            health_status = health_manager.detect_corruption()
+            
+            return {
+                "is_valid": not health_status["is_corrupted"],
+                "health_status": health_status,
+                "errors": health_status["issues"] if health_status["is_corrupted"] else []
+            }
+            
+        except Exception as e:
+            return {
+                "is_valid": False,
+                "errors": [f"Validation failed: {str(e)}"]
+            }
+    
+    async def _restore_from_backup(self, backup_path: str):
+        """Restore from backup if rebuild fails"""
+        try:
+            with open(backup_path, 'r') as f:
+                backup_metadata = json.load(f)
+            
+            self.rag_pipeline.document_metadata = backup_metadata
+            self.rag_pipeline._save_metadata()
+            
+            logger.info(f"🔄 Restored metadata from backup: {backup_path}")
+            
+        except Exception as e:
+            logger.error(f"Failed to restore from backup: {e}")
+
+
 class SimpleRAGPipeline:
     """Simplified RAG Pipeline without database dependencies"""
     
@@ -157,6 +570,7 @@ class SimpleRAGPipeline:
         self.vector_db_path = self.data_dir / "chroma_db"
         self.metadata_file = self.data_dir / "document_metadata.json"
         self.conversation_file = self.data_dir / "conversations.json"
+        self.uploads_dir = "uploads"  # Directory where uploaded files are stored
         
         # Initialize components
         self.document_processor = SimpleDocumentProcessor()
@@ -189,11 +603,50 @@ class SimpleRAGPipeline:
                 )
             )
             
+            # Initialize corruption detection and auto-rebuild managers
+            self.health_manager = VectorDBHealthManager(
+                self.vector_db, 
+                self.document_metadata, 
+                str(self.data_dir)
+            )
+            self.rebuild_manager = AutoRebuildManager(self)
+            
             logger.info("RAG Pipeline initialized successfully")
             
         except Exception as e:
             logger.error(f"Failed to initialize RAG pipeline: {e}")
             raise
+    
+    def _persist_vector_db(self):
+        """Force persistence of vector database changes"""
+        try:
+            # ChromaDB automatically persists, but we can trigger a manual persist if needed
+            if hasattr(self.vector_db, '_client') and hasattr(self.vector_db._client, 'persist'):
+                self.vector_db._client.persist()
+            logger.debug("Vector database persistence triggered")
+        except Exception as e:
+            logger.warning(f"Could not force vector DB persistence: {e}")
+    
+    def _verify_document_in_vector_db(self, doc_id: str) -> bool:
+        """Verify if a document's chunks exist in the vector database"""
+        try:
+            if doc_id not in self.document_metadata:
+                return False
+            
+            chunk_count = self.document_metadata[doc_id]["chunk_count"]
+            chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(chunk_count)]
+            
+            # Try to get the chunks from vector DB
+            try:
+                result = self.vector_db.get(ids=chunk_ids)
+                return len(result['ids']) == chunk_count
+            except Exception as e:
+                logger.warning(f"Error checking vector DB for doc {doc_id}: {e}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error verifying document in vector DB: {e}")
+            return False
     
     def _load_metadata(self) -> Dict:
         """Load document metadata from file"""
@@ -225,6 +678,54 @@ class SimpleRAGPipeline:
         with open(self.conversation_file, 'w') as f:
             json.dump(self.conversations, f, indent=2)
     
+    async def remove_document(self, doc_id: str) -> Dict[str, Any]:
+        """Remove a document from the RAG index"""
+        try:
+            if doc_id not in self.document_metadata:
+                return {
+                    "status": "error",
+                    "error": f"Document with ID {doc_id} not found"
+                }
+            
+            # Get document info
+            doc_info = self.document_metadata[doc_id]
+            chunk_count = doc_info["chunk_count"]
+            
+            # Generate chunk IDs to delete
+            chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(chunk_count)]
+            
+            # Remove from vector database
+            try:
+                self.vector_db.delete(ids=chunk_ids)
+                # Force persistence to ensure deletion is committed
+                self._persist_vector_db()
+            except Exception as e:
+                logger.warning(f"Error deleting from vector DB: {e}")
+                # Continue with metadata cleanup even if vector deletion fails
+            
+            # Remove from metadata
+            filename = doc_info["filename"]
+            del self.document_metadata[doc_id]
+            
+            # Save updated metadata
+            self._save_metadata()
+            
+            logger.info(f"Successfully removed document: {filename} ({chunk_count} chunks)")
+            
+            return {
+                "status": "success",
+                "message": f"Document '{filename}' removed successfully",
+                "chunks_removed": chunk_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error removing document: {e}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }
+    
     async def add_documents(self, file_paths: List[str], metadata: Optional[Dict] = None) -> Dict[str, Any]:
         """Add documents to the RAG index"""
         try:
@@ -249,6 +750,11 @@ class SimpleRAGPipeline:
                 # Generate document ID
                 doc_id = hashlib.md5(file_path.encode()).hexdigest()
                 
+                # Check if document already exists and remove it first
+                if doc_id in self.document_metadata:
+                    logger.info(f"Document {doc_id} already exists, removing old version first...")
+                    await self.remove_document(doc_id)
+                
                 # Prepare chunks for indexing
                 chunks = doc_result["chunks"]
                 chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
@@ -261,35 +767,58 @@ class SimpleRAGPipeline:
                         "filename": Path(file_path).name,
                         "chunk_index": i,
                         "total_chunks": len(chunks),
+                        "page_count": doc_result.get("page_count", 1),
                         "doc_id": doc_id,
                         **(metadata or {})
                     }
                     chunk_metadata.append(meta)
                 
-                # Add to vector database
-                self.vector_db.add(
-                    documents=chunks,
-                    metadatas=chunk_metadata,
-                    ids=chunk_ids
-                )
+                # Add to vector database with error handling
+                try:
+                    self.vector_db.add(
+                        documents=chunks,
+                        metadatas=chunk_metadata,
+                        ids=chunk_ids
+                    )
+                    # Force persistence after adding
+                    self._persist_vector_db()
+                except Exception as e:
+                    logger.error(f"Error adding document to vector DB: {e}")
+                    results.append({
+                        "file_path": file_path,
+                        "status": "error",
+                        "error": f"Vector database error: {str(e)}"
+                    })
+                    continue
                 
-                # Store document metadata
+                # Store document metadata including page count
                 self.document_metadata[doc_id] = {
                     "file_path": file_path,
                     "filename": Path(file_path).name,
                     "chunk_count": len(chunks),
+                    "page_count": doc_result.get("page_count", 1),
                     "metadata": metadata or {},
                     "indexed_at": datetime.now().isoformat()
                 }
                 
-                results.append({
-                    "file_path": file_path,
-                    "status": "success",
-                    "doc_id": doc_id,
-                    "chunks": len(chunks)
-                })
-                
-                logger.info(f"Successfully indexed: {file_path} ({len(chunks)} chunks)")
+                # Verify the document was properly indexed
+                if self._verify_document_in_vector_db(doc_id):
+                    results.append({
+                        "file_path": file_path,
+                        "status": "success",
+                        "doc_id": doc_id,
+                        "chunks": len(chunks)
+                    })
+                    logger.info(f"Successfully indexed and verified: {file_path} ({len(chunks)} chunks)")
+                else:
+                    # Remove from metadata if verification failed
+                    del self.document_metadata[doc_id]
+                    results.append({
+                        "file_path": file_path,
+                        "status": "error",
+                        "error": "Document indexing verification failed"
+                    })
+                    logger.error(f"Document indexing verification failed for: {file_path}")
             
             # Save metadata
             self._save_metadata()
@@ -313,13 +842,40 @@ class SimpleRAGPipeline:
                    user_id: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
         """Query the RAG pipeline"""
         try:
+            # Check if we have any documents indexed
+            total_docs = len(self.document_metadata)
+            logger.info(f"Query: '{question}' - Total documents in metadata: {total_docs}")
+            
+            # Debug: Print all document IDs in metadata
+            doc_ids = list(self.document_metadata.keys())
+            logger.info(f"Document IDs in metadata: {doc_ids}")
+            
+            # Debug: Check vector database collection count
+            try:
+                db_count = self.vector_db.count()
+                logger.info(f"Vector database contains {db_count} documents")
+            except Exception as e:
+                logger.warning(f"Could not get vector DB count: {e}")
+            
             # Retrieve relevant documents
             search_results = self.vector_db.query(
                 query_texts=[question],
                 n_results=top_k
             )
             
+            logger.info(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
+            if search_results.get('documents'):
+                logger.info(f"First result set has {len(search_results['documents'][0])} documents")
+                # Debug: Print some metadata from search results
+                if search_results.get('metadatas') and search_results['metadatas'][0]:
+                    first_meta = search_results['metadatas'][0][0] if search_results['metadatas'][0] else {}
+                    logger.info(f"First result metadata sample: {first_meta}")
+                if search_results.get('distances'):
+                    distances = search_results['distances'][0]
+                    logger.info(f"Search distances: {distances[:3]}...")  # First 3 distances
+            
             if not search_results['documents'] or not search_results['documents'][0]:
+                logger.warning("No search results found in vector database")
                 return {
                     "status": "success",
                     "answer": "We are afraid, we could not find the answer to your query in our medical corpus. Please consult a qualified medical doctor or visit your nearest hospital, with your query.",
@@ -338,9 +894,15 @@ class SimpleRAGPipeline:
             relevant_metadatas = []
             
             for i, (context, meta, distance) in enumerate(zip(contexts, metadatas, distances)):
+                logger.info(f"Context {i}: distance={distance:.4f}, threshold={relevance_threshold}")
                 if distance <= relevance_threshold:
                     relevant_contexts.append(context)
                     relevant_metadatas.append(meta)
+                    logger.info(f"  ✅ Context {i} ACCEPTED (distance {distance:.4f} <= {relevance_threshold})")
+                else:
+                    logger.info(f"  ❌ Context {i} REJECTED (distance {distance:.4f} > {relevance_threshold})")
+            
+            logger.info(f"Total relevant contexts found: {len(relevant_contexts)}/{len(contexts)}")
             
             # If no relevant contexts found
             if not relevant_contexts:
@@ -351,22 +913,29 @@ class SimpleRAGPipeline:
                     "conversation_id": conversation_id
                 }
             
+            # Intelligent context fusion based on distance similarity
+            relevant_distances = [distances[i] for i, (_, _, distance) in enumerate(zip(contexts, metadatas, distances)) if distance <= relevance_threshold]
+            filtered_contexts, filtered_metadatas, should_fuse = self._intelligent_context_fusion(
+                relevant_contexts, relevant_metadatas, relevant_distances
+            )
+            
             context_text = "\n\n".join([
                 f"Source: {meta['filename']} (chunk {meta['chunk_index']+1})\n{doc}"
-                for doc, meta in zip(relevant_contexts, relevant_metadatas)
+                for doc, meta in zip(filtered_contexts, filtered_metadatas)
             ])
             
             # Generate answer using Groq with citation instructions
-            answer = await self._generate_answer_with_citations(question, context_text, relevant_metadatas)
+            answer = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
             
-            # Check if the answer indicates it's not in the corpus
-            if self._is_no_answer_response(answer):
-                return {
-                    "status": "success",
-                    "answer": "We are afraid, we could not find the answer to your query in our medical corpus. Please consult a qualified medical doctor or visit your nearest hospital, with your query.",
-                    "sources": [],
-                    "conversation_id": conversation_id
-                }
+            # DISABLED: Don't override similarity threshold with LLM's uncertainty
+            # If similarity threshold passed, trust that we have relevant context
+            # if self._is_no_answer_response(answer):
+            #     return {
+            #         "status": "success", 
+            #         "answer": "We are afraid, we could not find the answer to your query in our medical corpus. Please consult a qualified medical doctor or visit your nearest hospital, with your query.",
+            #         "sources": [],
+            #         "conversation_id": conversation_id
+            #     }
             
             # Format sources
             sources = []
@@ -411,6 +980,40 @@ class SimpleRAGPipeline:
                 "traceback": traceback.format_exc()
             }
     
+    def _intelligent_context_fusion(self, contexts: List[str], metadatas: List[Dict], distances: List[float]) -> tuple:
+        """
+        Intelligently decide whether to fuse multiple contexts or use only the best one.
+        
+        Returns:
+            tuple: (filtered_contexts, filtered_metadatas, should_fuse)
+        """
+        if len(contexts) <= 1:
+            return contexts, metadatas, False
+        
+        # Calculate distance statistics
+        min_distance = min(distances)
+        max_distance = max(distances)
+        distance_range = max_distance - min_distance
+        
+        # Define similarity threshold for fusion
+        # If distances are close together (small range), fuse them
+        # If distances are far apart (large range), use only the closest
+        fusion_threshold = 0.15  # Adjust this value based on your needs
+        
+        logger.info(f"🔍 Context fusion analysis:")
+        logger.info(f"  📏 Distance range: {min_distance:.4f} to {max_distance:.4f} (spread: {distance_range:.4f})")
+        logger.info(f"  🎯 Fusion threshold: {fusion_threshold}")
+        
+        if distance_range <= fusion_threshold:
+            # Distances are close together - fuse all contexts
+            logger.info(f"  ✅ FUSING {len(contexts)} contexts (distances are similar)")
+            return contexts, metadatas, True
+        else:
+            # Distances are far apart - use only the closest context
+            best_idx = distances.index(min_distance)
+            logger.info(f"  🎯 Using ONLY closest context (distance {min_distance:.4f}) - others too far")
+            return [contexts[best_idx]], [metadatas[best_idx]], False
+    
     async def _generate_answer(self, question: str, context: str) -> str:
         """Generate answer using Groq API"""
         try:
@@ -438,7 +1041,7 @@ ANSWER:"""
             }
             
             payload = {
-                "model": "llama-3.3-70b-versatile",
+                "model": "gemma2-9b-it",  # Google's model with excellent Indic language support
                 "messages": [
                     {
                         "role": "user",
@@ -467,7 +1070,7 @@ ANSWER:"""
             logger.error(f"Error generating answer: {e}")
             return f"Error generating answer: {str(e)}"
     
-    async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict]) -> str:
+    async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> str:
         """Generate answer with citations using Groq API"""
         try:
             if not self.groq_api_key:
@@ -476,25 +1079,50 @@ ANSWER:"""
             # Create citation mapping
             citation_text = self._format_citation_context(context, metadatas)
             
-            prompt = f"""You are an expert medical assistant. Your task is to analyze medical documents and provide accurate, concise answers with proper citations.
+            if should_fuse:
+                # Multiple similar contexts - synthesize and cite all
+                prompt = f"""You are an expert medical assistant. Your task is to analyze multiple related medical contexts and synthesize them into a comprehensive answer with multiple citations.
 
-INSTRUCTIONS:
-1. Carefully analyze the provided medical context
-2. If the context contains sufficient information, provide a clear, medically accurate answer
-3. If insufficient information, respond with: "INSUFFICIENT_INFORMATION"
-4. Be direct and concise - do not include reasoning steps in your response
-5. Always conclude with a proper citation
+FUSION INSTRUCTIONS:
+1. Carefully analyze ALL provided medical contexts below
+2. Synthesize information from multiple sources to provide a comprehensive answer
+3. Extract relevant information even if the question language differs from the context language
+4. Combine complementary information from different sources
+5. Provide a well-structured, medically accurate answer that integrates insights from all relevant contexts
+6. Always conclude with citations to ALL sources used
+
+CITATION REQUIREMENTS:
+- End your response with: {{retrieved from: [Source 1], [Source 2], [Source 3] etc.}}
+- Cite ALL sources that contributed to your answer
+- Use the format: [Document Name], [Medical Section], page [number]
+
+MEDICAL CONTEXTS (MULTIPLE SOURCES):
+{citation_text}
+
+QUESTION: {question}
+
+SYNTHESIZED ANSWER:"""
+            else:
+                # Single closest context - focus on most relevant source
+                prompt = f"""You are an expert medical assistant. Your task is to analyze the most relevant medical document and provide an accurate, focused answer with proper citation.
+
+FOCUSED INSTRUCTIONS:
+1. Carefully analyze the provided medical context (most relevant to your question)
+2. Extract relevant information even if the question language differs from the context language
+3. Provide a clear, medically accurate answer based on this specific context
+4. Focus on being helpful - if there's any relevant medical information, use it to provide a useful response
+5. Always conclude with a proper citation to this specific source
 
 CITATION REQUIREMENTS:
 - End your response with: {{retrieved from: [Document Name], [Medical Section], page [number]}}
 - Use the source information provided below
 
-MEDICAL CONTEXT:
+MEDICAL CONTEXT (MOST RELEVANT):
 {citation_text}
 
 QUESTION: {question}
 
-ANSWER:"""
+FOCUSED ANSWER:"""
             
             headers = {
                 "Authorization": f"Bearer {self.groq_api_key}",
@@ -502,7 +1130,7 @@ ANSWER:"""
             }
             
             payload = {
-                "model": "llama-3.3-70b-versatile",
+                "model": "gemma2-9b-it",  # Google's model with excellent Indic language support
                 "messages": [
                     {
                         "role": "user", 
@@ -524,6 +1152,10 @@ ANSWER:"""
                 result = response.json()
                 answer = result["choices"][0]["message"]["content"].strip()
                 
+                # Debug: Log what the LLM generated
+                logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")
+                logger.info(f"🔍 Is no-answer response: {self._is_no_answer_response(answer)}")
+                
                 # If no citation was added by the model, add one automatically
                 if not self._has_citation(answer) and not self._is_no_answer_response(answer):
                     answer = self._add_automatic_citation(answer, metadatas)
@@ -544,11 +1176,12 @@ ANSWER:"""
             filename = meta['filename'].replace('.pdf', '').replace('_', ' ').replace('-', ' ')
             chunk_num = meta['chunk_index'] + 1
             total_chunks = meta['total_chunks']
+            page_count = meta.get('page_count', 1)
             
-            # Estimate page number (rough calculation)
-            estimated_page = max(1, int((chunk_num / total_chunks) * 100))  # Assume ~100 page document
+            # Calculate accurate page number based on actual page count
+            estimated_page = max(1, int((chunk_num / total_chunks) * page_count))
             
-            sections.append(f"[Document: {filename}, Chunk {chunk_num}, ~Page {estimated_page}]")
+            sections.append(f"[Document: {filename}, Chunk {chunk_num}, Page {estimated_page}]")
         
         return context + "\n\nAvailable sources: " + "; ".join(sections)
     
@@ -579,9 +1212,10 @@ ANSWER:"""
         filename = meta['filename'].replace('.pdf', '').replace('_', ' ').replace('-', ' ')
         chunk_num = meta['chunk_index'] + 1
         total_chunks = meta['total_chunks']
+        page_count = meta.get('page_count', 1)
         
-        # Estimate page number
-        estimated_page = max(1, int((chunk_num / total_chunks) * 100))
+        # Calculate accurate page number based on actual page count
+        estimated_page = max(1, int((chunk_num / total_chunks) * page_count))
         
         # Try to infer section from content or use generic term
         section = "Medical Information"  # Generic fallback
@@ -619,6 +1253,75 @@ ANSWER:"""
                 "status": "error",
                 "error": str(e)
             }
+    
+    def check_database_health(self) -> Dict[str, Any]:
+        """Check vector database health and detect corruption"""
+        try:
+            return self.health_manager.detect_corruption()
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return {
+                "is_corrupted": True,
+                "corruption_score": 100,
+                "issues": [f"Health check failed: {str(e)}"],
+                "severity": "critical",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def auto_rebuild_database(self) -> Dict[str, Any]:
+        """Automatically rebuild database if corruption detected"""
+        try:
+            return await self.rebuild_manager.auto_rebuild_if_needed()
+        except Exception as e:
+            logger.error(f"Auto-rebuild failed: {e}")
+            return {
+                "status": "error",
+                "message": f"Auto-rebuild failed: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def query_with_auto_recovery(self, question: str, top_k: int = 3) -> Dict[str, Any]:
+        """Query with automatic corruption detection and recovery"""
+        try:
+            # First, try normal query
+            result = await self.query(question, top_k)
+            
+            # Check if query failed in a way that suggests corruption
+            if (result.get("status") == "error" or 
+                "could not find the answer" in result.get("answer", "").lower()):
+                
+                logger.info("Query failed, checking database health...")
+                health_status = self.check_database_health()
+                
+                if health_status["is_corrupted"]:
+                    logger.warning("Corruption detected, attempting auto-rebuild...")
+                    
+                    rebuild_result = await self.auto_rebuild_database()
+                    
+                    if rebuild_result.get("status") == "success":
+                        logger.info("Database rebuilt, retrying query...")
+                        # Retry the query after successful rebuild
+                        result = await self.query(question, top_k)
+                        
+                        # Add rebuild info to result
+                        result["rebuild_performed"] = True
+                        result["rebuild_stats"] = rebuild_result.get("rebuild_stats")
+                    else:
+                        result["rebuild_attempted"] = True
+                        result["rebuild_error"] = rebuild_result.get("message")
+                else:
+                    result["health_check_performed"] = True
+                    result["database_healthy"] = True
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Query with auto-recovery failed: {e}")
+            return {
+                "status": "error",
+                "answer": f"Query failed: {str(e)}",
+                "error": str(e)
+            }
 
 
 class SimpleAdminUI:
@@ -636,7 +1339,10 @@ class SimpleAdminUI:
             gr.Markdown("# Simple RAG Pipeline Admin Interface")
             gr.Markdown("*No database required - file-based storage only*")
             
-            with gr.Tabs():
+            # Initialize documents_table as None, will be created later
+            documents_table = None
+            
+            with gr.Tabs() as tabs:
                 # File Upload Tab
                 with gr.TabItem("📁 Upload Documents"):
                     gr.Markdown("## Upload documents to the RAG corpus")
@@ -655,7 +1361,9 @@ class SimpleAdminUI:
                                 lines=3
                             )
                             
-                            upload_btn = gr.Button("Upload & Index", variant="primary")
+                            with gr.Row():
+                                upload_btn = gr.Button("Upload & Index", variant="primary")
+                                clear_btn = gr.Button("Clear Form", variant="secondary")
                         
                         with gr.Column():
                             upload_status = gr.Textbox(
@@ -667,7 +1375,13 @@ class SimpleAdminUI:
                     upload_btn.click(
                         fn=self._handle_file_upload,
                         inputs=[file_upload, metadata_json],
-                        outputs=[upload_status]
+                        outputs=[upload_status, file_upload, metadata_json]
+                    )
+                    
+                    clear_btn.click(
+                        fn=lambda: ("", None, ""),
+                        inputs=[],
+                        outputs=[upload_status, file_upload, metadata_json]
                     )
                 
                 # Query Test Tab
@@ -682,7 +1396,9 @@ class SimpleAdminUI:
                                 lines=3
                             )
                             
-                            query_btn = gr.Button("Submit Query", variant="primary")
+                            with gr.Row():
+                                query_btn = gr.Button("Submit Query", variant="primary")
+                                clear_query_btn = gr.Button("Clear", variant="secondary")
                         
                         with gr.Column():
                             query_response = gr.Textbox(
@@ -698,6 +1414,72 @@ class SimpleAdminUI:
                         inputs=[query_input],
                         outputs=[query_response, sources_output]
                     )
+                    
+                    clear_query_btn.click(
+                        fn=lambda: ("", "", {}),
+                        inputs=[],
+                        outputs=[query_input, query_response, sources_output]
+                    )
+                
+                # Document Management Tab
+                with gr.TabItem("📋 Manage Documents"):
+                    gr.Markdown("## View and manage documents in the corpus")
+                    gr.Markdown("💡 **Tip:** Select a document from the dropdown, then click Remove Selected")
+                    
+                    with gr.Row():
+                        with gr.Column(scale=4):
+                            documents_table = gr.Dataframe(
+                                label="Documents in Corpus",
+                                headers=["Filename", "Chunks", "Pages", "Indexed At"],
+                                interactive=False,
+                                wrap=True
+                            )
+                        
+                        with gr.Column(scale=1):
+                            document_dropdown = gr.Dropdown(
+                                label="Select Document to Remove",
+                                choices=[],
+                                value=None,
+                                interactive=True
+                            )
+                            
+                            selected_doc_info = gr.Textbox(
+                                label="Selected Document Info",
+                                placeholder="No document selected",
+                                lines=3,
+                                interactive=False
+                            )
+                            
+                            with gr.Row():
+                                remove_btn = gr.Button("🗑️ Remove Selected", variant="stop")
+                                refresh_docs_btn = gr.Button("🔄 Refresh", variant="secondary")
+                            
+                            removal_status = gr.Textbox(
+                                label="Status",
+                                lines=4,
+                                interactive=False
+                            )
+                    
+                    # Hidden component to store selected document ID
+                    selected_doc_id = gr.Textbox(visible=False)
+                    
+                    document_dropdown.change(
+                        fn=self._handle_document_selection,
+                        inputs=[document_dropdown],
+                        outputs=[selected_doc_info, selected_doc_id]
+                    )
+                    
+                    refresh_docs_btn.click(
+                        fn=self._refresh_documents,
+                        inputs=[],
+                        outputs=[documents_table, document_dropdown]
+                    )
+                    
+                    remove_btn.click(
+                        fn=self._handle_document_removal,
+                        inputs=[selected_doc_id],
+                        outputs=[removal_status, documents_table, document_dropdown, selected_doc_info, selected_doc_id]
+                    )
                 
                 # Index Stats Tab
                 with gr.TabItem("📊 Index Statistics"):
@@ -711,6 +1493,66 @@ class SimpleAdminUI:
                         inputs=[],
                         outputs=[stats_output]
                     )
+                
+                # Database Health Tab
+                with gr.TabItem("🏥 Database Health"):
+                    gr.Markdown("## Monitor and repair vector database health")
+                    gr.Markdown("*Detects corruption and performs automatic rebuilds when needed*")
+                    
+                    with gr.Row():
+                        with gr.Column():
+                            health_check_btn = gr.Button("🔍 Check Health", variant="primary")
+                            auto_rebuild_btn = gr.Button("🔧 Auto Rebuild", variant="secondary")
+                            manual_rebuild_btn = gr.Button("⚡ Force Rebuild", variant="stop")
+                        
+                        with gr.Column():
+                            health_status = gr.JSON(
+                                label="Health Status",
+                                value={"status": "Click 'Check Health' to scan database"}
+                            )
+                    
+                    with gr.Row():
+                        rebuild_log = gr.Textbox(
+                            label="Rebuild Log",
+                            lines=8,
+                            interactive=False,
+                            placeholder="Rebuild operations will be logged here..."
+                        )
+                    
+                    # Health check button
+                    health_check_btn.click(
+                        fn=self._check_health_status,
+                        inputs=[],
+                        outputs=[health_status]
+                    )
+                    
+                    # Auto rebuild button
+                    auto_rebuild_btn.click(
+                        fn=self._handle_auto_rebuild,
+                        inputs=[],
+                        outputs=[rebuild_log, health_status]
+                    )
+                    
+                    # Manual rebuild button
+                    manual_rebuild_btn.click(
+                        fn=self._handle_manual_rebuild,
+                        inputs=[],
+                        outputs=[rebuild_log, health_status]
+                    )
+        
+            # Refresh documents when the management tab is selected
+            tabs.select(
+                fn=self._handle_tab_change,
+                inputs=[],
+                outputs=[documents_table, document_dropdown]
+            )
+            
+            # Load initial data when the interface starts
+            demo.load(
+                fn=self._refresh_documents,
+                inputs=[],
+                outputs=[documents_table, document_dropdown]
+            )
         
         return demo
     
@@ -718,7 +1560,7 @@ class SimpleAdminUI:
         """Handle file upload and indexing"""
         try:
             if not files:
-                return "No files uploaded"
+                return "No files uploaded", None, ""
             
             # Parse metadata
             metadata = {}
@@ -726,7 +1568,7 @@ class SimpleAdminUI:
                 try:
                     metadata = json.loads(metadata_str)
                 except json.JSONDecodeError:
-                    return "Invalid JSON metadata format"
+                    return "Invalid JSON metadata format", files, metadata_str
             
             # Process uploaded files
             file_paths = []
@@ -742,25 +1584,10 @@ class SimpleAdminUI:
                         source_path = Path(file)
                         if source_path.exists():
                             logger.info(f"Source file exists: {source_path}, size: {source_path.stat().st_size} bytes")
-                            
-                            # Option 1: Use file directly (fastest, no copy needed)
-                            # This works fine since we're only reading the file
                             file_paths.append(str(source_path))
                             logger.info(f"Using file directly: {source_path}")
-                            
-                            # Option 2: Copy to uploads directory (uncomment if you want permanent storage)
-                            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            # unique_id = str(uuid.uuid4())[:8]
-                            # dest_filename = f"{timestamp}_{unique_id}_{source_path.name}"
-                            # dest_path = self.upload_dir / dest_filename
-                            # 
-                            # logger.info(f"Copying {source_path} to {dest_path}")
-                            # shutil.copy2(source_path, dest_path)
-                            # logger.info(f"Copy successful, file size: {dest_path.stat().st_size} bytes")
-                            # file_paths.append(str(dest_path))
-                            
                         else:
-                            return f"File not found: {file}"
+                            return f"File not found: {file}", files, metadata_str, current_table
                     
                     # Handle file-like objects (alternative Gradio format)
                     elif hasattr(file, 'name'):
@@ -778,37 +1605,36 @@ class SimpleAdminUI:
                         if hasattr(file, 'name') and Path(file.name).exists():
                             file_paths.append(str(file.name))
                             logger.info(f"Using file object directly: {file.name}")
-                        
-                        # Create permanent copy if needed (currently commented out)
-                        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        # unique_id = str(uuid.uuid4())[:8]
-                        # dest_filename = f"{timestamp}_{unique_id}_{filename}"
-                        # dest_path = self.upload_dir / dest_filename
-                        # 
-                        # if hasattr(file, 'name') and Path(file.name).exists():
-                        #     shutil.copy2(file.name, dest_path)
-                        # elif hasattr(file, 'read'):
-                        #     with open(dest_path, 'wb') as f:
-                        #         f.write(file.read())
-                        # else:
-                        #     return f"Cannot read file: {file}"
-                        # 
-                        # file_paths.append(str(dest_path))
                     
                     else:
-                        return f"Unsupported file type: {type(file)} - {file}"
+                        return f"Unsupported file type: {type(file)} - {file}", files, metadata_str
                         
                 except Exception as file_error:
                     logger.error(f"Error processing file {file}: {str(file_error)}")
-                    return f"Error processing file {file}: {str(file_error)}\n{traceback.format_exc()}"
+                    return f"Error processing file {file}: {str(file_error)}\n{traceback.format_exc()}", files, metadata_str
             
             # Index files
             result = asyncio.run(self.rag_pipeline.add_documents(file_paths, metadata))
             
-            return json.dumps(result, indent=2)
+            # Format success message and refresh table
+            if result["status"] == "success":
+                success_msg = f"✅ Successfully uploaded {result['successful']}/{result['total_files']} files\n\n"
+                for res in result["results"]:
+                    if res["status"] == "success":
+                        success_msg += f"📄 {Path(res['file_path']).name}: {res['chunks']} chunks indexed\n"
+                    else:
+                        success_msg += f"❌ {Path(res['file_path']).name}: {res['error']}\n"
+                success_msg += "\n🔄 Ready for next upload!\n💡 Visit the 'Manage Documents' tab to see the new documents."
+                
+                # Get updated documents table
+                updated_table = self._get_documents_table()
+                
+                return success_msg, None, ""
+            else:
+                return f"❌ Upload failed: {result['error']}", files, metadata_str
             
         except Exception as e:
-            return f"Error: {str(e)}\n{traceback.format_exc()}"
+            return f"Error: {str(e)}\n{traceback.format_exc()}", files, metadata_str
     
     def _handle_query(self, query):
         """Handle query testing"""
@@ -819,15 +1645,101 @@ class SimpleAdminUI:
             result = asyncio.run(self.rag_pipeline.query(query))
             
             if result["status"] == "success":
-                return result["answer"], {
+                # Enhanced response formatting
+                answer = result["answer"]
+                sources_info = {
                     "sources": result.get("sources", []),
-                    "context_used": result.get("context_used", 0)
+                    "context_used": result.get("context_used", 0),
+                    "timestamp": result.get("timestamp", "")
                 }
+                return answer, sources_info
             else:
-                return f"Error: {result['error']}", {}
+                return f"❌ Query failed: {result['error']}", {}
                 
         except Exception as e:
-            return f"Error: {str(e)}", {}
+            return f"❌ Error: {str(e)}", {}
+    
+    def _get_documents_table(self):
+        """Get documents as a table for the management interface"""
+        try:
+            docs_data = []
+            
+            for doc_id, metadata in self.rag_pipeline.document_metadata.items():
+                docs_data.append([
+                    metadata["filename"],
+                    metadata["chunk_count"],
+                    metadata.get("page_count", "N/A"),
+                    metadata["indexed_at"][:19].replace("T", " ")  # Format datetime
+                ])
+            
+            return docs_data
+        except Exception as e:
+            logger.error(f"Error getting documents table: {e}")
+            return [["Error loading documents", "", "", ""]]
+    
+    def _get_document_dropdown_choices(self):
+        """Get dropdown choices for document selection"""
+        try:
+            choices = []
+            for doc_id, metadata in self.rag_pipeline.document_metadata.items():
+                display_name = f"{metadata['filename']} ({metadata['chunk_count']} chunks)"
+                choices.append((display_name, doc_id))
+            return choices
+        except Exception as e:
+            logger.error(f"Error getting dropdown choices: {e}")
+            return []
+    
+    def _refresh_documents(self):
+        """Refresh both table and dropdown"""
+        table_data = self._get_documents_table()
+        dropdown_choices = self._get_document_dropdown_choices()
+        return table_data, gr.Dropdown(choices=dropdown_choices, value=None)
+    
+    def _handle_tab_change(self):
+        """Handle tab change - refresh documents data"""
+        return self._refresh_documents()
+    
+    def _handle_document_selection(self, selected_doc_id):
+        """Handle document selection from dropdown"""
+        try:
+            if not selected_doc_id:
+                return "No document selected", ""
+            
+            # Get document info for display
+            if selected_doc_id in self.rag_pipeline.document_metadata:
+                metadata = self.rag_pipeline.document_metadata[selected_doc_id]
+                selected_info = f"📄 {metadata['filename']}\n🆔 {selected_doc_id[:16]}...\n📊 {metadata['chunk_count']} chunks"
+                return selected_info, selected_doc_id
+            
+            return "Document not found", ""
+        except Exception as e:
+            logger.error(f"Selection error: {e}")
+            return "Selection error", ""
+    
+    def _handle_document_removal(self, doc_id):
+        """Handle document removal"""
+        try:
+            if not doc_id or not doc_id.strip():
+                table_data = self._get_documents_table()
+                dropdown_choices = self._get_document_dropdown_choices()
+                return "❌ Please select a document to remove", table_data, gr.Dropdown(choices=dropdown_choices, value=None), "No document selected", ""
+            
+            result = asyncio.run(self.rag_pipeline.remove_document(doc_id.strip()))
+            
+            # Refresh both table and dropdown after removal
+            table_data = self._get_documents_table()
+            dropdown_choices = self._get_document_dropdown_choices()
+            
+            if result["status"] == "success":
+                success_msg = f"✅ {result['message']}\n🗑️ Removed {result['chunks_removed']} chunks"
+                return success_msg, table_data, gr.Dropdown(choices=dropdown_choices, value=None), "No document selected", ""
+            else:
+                return f"❌ Removal failed: {result['error']}", table_data, gr.Dropdown(choices=dropdown_choices, value=None), "No document selected", ""
+                
+        except Exception as e:
+            table_data = self._get_documents_table()
+            dropdown_choices = self._get_document_dropdown_choices()
+            return f"❌ Error: {str(e)}", table_data, gr.Dropdown(choices=dropdown_choices, value=None), "No document selected", ""
     
     def _get_stats(self):
         """Get index statistics"""
@@ -835,6 +1747,112 @@ class SimpleAdminUI:
             return self.rag_pipeline.get_index_stats()
         except Exception as e:
             return {"error": str(e)}
+    
+    def _check_health_status(self):
+        """Check database health status"""
+        try:
+            health_status = self.rag_pipeline.check_database_health()
+            return health_status
+        except Exception as e:
+            return {
+                "error": f"Health check failed: {str(e)}",
+                "is_corrupted": True,
+                "severity": "critical"
+            }
+    
+    def _handle_auto_rebuild(self):
+        """Handle automatic rebuild based on corruption detection"""
+        try:
+            # Run the auto rebuild in a thread to prevent UI blocking
+            import asyncio
+            
+            # Create event loop if none exists
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Run the auto rebuild
+            result = loop.run_until_complete(self.rag_pipeline.auto_rebuild_database())
+            
+            # Format log output
+            if result["status"] == "success":
+                log_output = f"""🔧 AUTO REBUILD COMPLETED SUCCESSFULLY
+                
+⏱️  Duration: {result.get('rebuild_stats', {}).get('duration_seconds', 'N/A')}s
+📄 Documents processed: {result.get('rebuild_stats', {}).get('documents_processed', 'N/A')}
+🧩 Chunks created: {result.get('rebuild_stats', {}).get('chunks_created', 'N/A')}
+
+✅ {result['message']}"""
+            elif result["status"] == "healthy":
+                log_output = f"✅ DATABASE IS HEALTHY\n\n{result['message']}"
+            elif result["status"] == "already_rebuilding":
+                log_output = f"⏳ REBUILD IN PROGRESS\n\n{result['message']}"
+            else:
+                log_output = f"❌ AUTO REBUILD FAILED\n\n{result['message']}"
+            
+            # Get updated health status
+            health_status = self.rag_pipeline.check_database_health()
+            
+            return log_output, health_status
+            
+        except Exception as e:
+            error_log = f"❌ AUTO REBUILD ERROR\n\nException: {str(e)}"
+            error_health = {
+                "error": f"Auto rebuild failed: {str(e)}",
+                "is_corrupted": True,
+                "severity": "critical"
+            }
+            return error_log, error_health
+    
+    def _handle_manual_rebuild(self):
+        """Handle manual/forced rebuild"""
+        try:
+            import asyncio
+            
+            # Create event loop if none exists
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Force rebuild by directly calling the rebuild manager
+            result = loop.run_until_complete(
+                self.rag_pipeline.rebuild_manager._perform_auto_rebuild({
+                    "is_corrupted": True,
+                    "corruption_score": 100,
+                    "issues": ["Manual rebuild requested"],
+                    "severity": "manual"
+                })
+            )
+            
+            # Format log output
+            if result["status"] == "success":
+                log_output = f"""⚡ MANUAL REBUILD COMPLETED
+                
+⏱️  Duration: {result.get('rebuild_stats', {}).get('duration_seconds', 'N/A')}s
+📄 Documents processed: {result.get('rebuild_stats', {}).get('documents_processed', 'N/A')}
+🧩 Chunks created: {result.get('rebuild_stats', {}).get('chunks_created', 'N/A')}
+
+✅ {result['message']}"""
+            else:
+                log_output = f"❌ MANUAL REBUILD FAILED\n\n{result['message']}"
+            
+            # Get updated health status
+            health_status = self.rag_pipeline.check_database_health()
+            
+            return log_output, health_status
+            
+        except Exception as e:
+            error_log = f"❌ MANUAL REBUILD ERROR\n\nException: {str(e)}"
+            error_health = {
+                "error": f"Manual rebuild failed: {str(e)}",
+                "is_corrupted": True,
+                "severity": "critical"
+            }
+            return error_log, error_health
 
 
 class NgrokManager:
@@ -976,6 +1994,38 @@ def main():
         try:
             result = await rag_pipeline.query(query)
             return result
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    @app.get("/api/debug")
+    async def api_debug():
+        """Debug endpoint to check vector database state"""
+        try:
+            debug_info = {
+                "metadata_docs": len(rag_pipeline.document_metadata),
+                "document_ids": list(rag_pipeline.document_metadata.keys()),
+                "vector_db_count": 0,
+                "sample_chunks": []
+            }
+            
+            # Try to get vector DB count
+            try:
+                debug_info["vector_db_count"] = rag_pipeline.vector_db.count()
+            except Exception as e:
+                debug_info["vector_db_error"] = str(e)
+            
+            # Try to get a few sample chunks
+            try:
+                if debug_info["document_ids"]:
+                    first_doc_id = debug_info["document_ids"][0]
+                    chunk_ids = [f"{first_doc_id}_chunk_0", f"{first_doc_id}_chunk_1"]
+                    sample_result = rag_pipeline.vector_db.get(ids=chunk_ids[:1])
+                    if sample_result and sample_result.get('documents'):
+                        debug_info["sample_chunks"] = sample_result['documents'][:2]
+            except Exception as e:
+                debug_info["sample_error"] = str(e)
+            
+            return debug_info
         except Exception as e:
             return {"status": "error", "error": str(e)}
     

@@ -1,9 +1,26 @@
 {
+  "684e67af457cd9d3d482f4451acb42ae": {
+    "file_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/722d17d956fc7757fde5f31011343fbf99db671694fd9b356d7442234dafd89d/pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+    "filename": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+    "chunk_count": 35,
+    "page_count": 13,
+    "metadata": {},
+    "indexed_at": "2025-05-26T13:27:47.369818"
+  },
+  "789793faf0aa1538144e84c541e5f02d": {
+    "file_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/22aa8e8e7838ec41dd766629d15f3fe0e97d5d3945b207afa927a04432f5f3dd/NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+    "filename": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+    "chunk_count": 106,
+    "page_count": 48,
+    "metadata": {},
+    "indexed_at": "2025-05-26T13:27:49.776204"
+  },
   "529c537fc9e16a831b2d9f246ecb7e36": {
     "file_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/dcec4429a9822b89ac178c0571eded455473a56fdc8c7521fd26ac8fa5f5d256/Neurosurgery-AGuidebook18-5-2018.pdf",
     "filename": "Neurosurgery-AGuidebook18-5-2018.pdf",
     "chunk_count": 122,
+    "page_count": 82,
     "metadata": {},
-    "indexed_at": "2025-05-23T15:20:53.501914"
+    "indexed_at": "2025-05-26T14:10:25.513862"
   }
 }

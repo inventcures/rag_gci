@@ -159,6 +159,7 @@ TWILIO_AUTH_TOKEN=your_real_32_char_auth_token_here
 📊 Admin UI: http://localhost:8000/admin
 🔗 API Docs: http://localhost:8000/docs
 💚 Health Check: http://localhost:8000/health
+🏥 Database Health: Auto-monitoring & rebuild enabled
 🗄️ Storage: File-based (no database required)
 ```
 
@@ -380,6 +381,39 @@ chmod +x run_simple.sh
 chmod +x run.sh
 ```
 
+#### ⚠️ **Database Corruption Issues**
+**Problem**: Queries return "could not find answer" after adding/removing documents
+
+**Solution**:
+```bash
+# Check database health via Admin UI
+# 1. Open http://localhost:8000/admin
+# 2. Go to "🏥 Database Health" tab
+# 3. Click "🔍 Check Health"
+# 4. If corrupted, click "🔧 Auto Rebuild"
+
+# Or test with script
+python test_corruption_recovery.py
+
+# Manual rebuild if needed
+# Admin UI → Database Health → ⚡ Force Rebuild
+```
+
+#### 🔧 **Auto-Rebuild Features**
+**New**: Built-in corruption detection and recovery
+
+**Features**:
+- **Automatic detection**: Monitors database health during operations
+- **Smart rebuilds**: Only rebuilds when corruption detected
+- **Zero downtime**: Continues serving during rebuild process
+- **Backup protection**: Creates backups before any rebuild operation
+- **Progress tracking**: Real-time status in Admin UI
+
+**Usage**:
+1. Check health: Admin UI → Database Health → 🔍 Check Health
+2. Auto-rebuild: Admin UI → Database Health → 🔧 Auto Rebuild  
+3. Force rebuild: Admin UI → Database Health → ⚡ Force Rebuild
+
 ---
 
 ## ✅ **Verification Checklist**
@@ -392,6 +426,7 @@ chmod +x run.sh
 - [ ] Can access http://localhost:8000/admin
 - [ ] Can upload a test document
 - [ ] Can query and get responses
+- [ ] "🏥 Database Health" tab shows healthy status
 
 ### For Full Version:
 - [ ] `python setup.py` completed successfully
