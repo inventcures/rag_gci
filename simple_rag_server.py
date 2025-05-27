@@ -1049,7 +1049,7 @@ ANSWER:"""
                     }
                 ],
                 "temperature": 0.3,  # Lower temperature for more consistent medical responses
-                "max_tokens": 2048
+                "max_tokens": 512  # Reduced to enforce WhatsApp length limit
             }
             
             response = requests.post(
@@ -1083,6 +1083,8 @@ ANSWER:"""
                 # Multiple similar contexts - synthesize and cite all
                 prompt = f"""You are an expert medical assistant. Your task is to analyze multiple related medical contexts and synthesize them into a comprehensive answer with multiple citations.
 
+🚨 CRITICAL LENGTH REQUIREMENT: Your ENTIRE response including citations MUST BE UNDER 1500 CHARACTERS. Count carefully! If your draft is too long, shorten it while keeping medical accuracy. 🚨
+
 FUSION INSTRUCTIONS:
 1. Carefully analyze ALL provided medical contexts below
 2. Synthesize information from multiple sources to provide a comprehensive answer
@@ -1090,21 +1092,24 @@ FUSION INSTRUCTIONS:
 4. Combine complementary information from different sources
 5. Provide a well-structured, medically accurate answer that integrates insights from all relevant contexts
 6. Always conclude with citations to ALL sources used
+7. KEEP TOTAL RESPONSE UNDER 1500 CHARACTERS
 
 CITATION REQUIREMENTS:
-- End your response with: {{retrieved from: [Source 1], [Source 2], [Source 3] etc.}}
+- End your response with: {{retrieved from: [docname_pg{{pagenum}}], [docname_pg{{pagenum}}] etc.}}
 - Cite ALL sources that contributed to your answer
-- Use the format: [Document Name], [Medical Section], page [number]
+- Use the SHORT format: docname_pg{{pagenum}} (e.g., palliative_care_pg5)
 
 MEDICAL CONTEXTS (MULTIPLE SOURCES):
 {citation_text}
 
 QUESTION: {question}
 
-SYNTHESIZED ANSWER:"""
+SYNTHESIZED ANSWER (UNDER 1500 CHARS):"""
             else:
                 # Single closest context - focus on most relevant source
                 prompt = f"""You are an expert medical assistant. Your task is to analyze the most relevant medical document and provide an accurate, focused answer with proper citation.
+
+🚨 CRITICAL LENGTH REQUIREMENT: Your ENTIRE response including citations MUST BE UNDER 1500 CHARACTERS. Count carefully! If your draft is too long, shorten it while keeping medical accuracy. 🚨
 
 FOCUSED INSTRUCTIONS:
 1. Carefully analyze the provided medical context (most relevant to your question)
@@ -1112,17 +1117,18 @@ FOCUSED INSTRUCTIONS:
 3. Provide a clear, medically accurate answer based on this specific context
 4. Focus on being helpful - if there's any relevant medical information, use it to provide a useful response
 5. Always conclude with a proper citation to this specific source
+6. KEEP TOTAL RESPONSE UNDER 1500 CHARACTERS
 
 CITATION REQUIREMENTS:
-- End your response with: {{retrieved from: [Document Name], [Medical Section], page [number]}}
-- Use the source information provided below
+- End your response with: {{retrieved from: docname_pg{{pagenum}}}}
+- Use the SHORT format: docname_pg{{pagenum}} (e.g., palliative_care_pg5)
 
 MEDICAL CONTEXT (MOST RELEVANT):
 {citation_text}
 
 QUESTION: {question}
 
-FOCUSED ANSWER:"""
+FOCUSED ANSWER (UNDER 1500 CHARS):"""
             
             headers = {
                 "Authorization": f"Bearer {self.groq_api_key}",
@@ -1138,7 +1144,7 @@ FOCUSED ANSWER:"""
                     }
                 ],
                 "temperature": 0.2,  # Very low temperature for consistent medical responses
-                "max_tokens": 2048
+                "max_tokens": 512  # Reduced to enforce WhatsApp length limit
             }
             
             response = requests.post(
@@ -1172,6 +1178,7 @@ FOCUSED ANSWER:"""
     def _format_citation_context(self, context: str, metadatas: List[Dict]) -> str:
         """Format context with clear source indicators for citation"""
         sections = []
+        short_citations = []
         for i, meta in enumerate(metadatas):
             filename = meta['filename'].replace('.pdf', '').replace('_', ' ').replace('-', ' ')
             chunk_num = meta['chunk_index'] + 1
@@ -1181,9 +1188,15 @@ FOCUSED ANSWER:"""
             # Calculate accurate page number based on actual page count
             estimated_page = max(1, int((chunk_num / total_chunks) * page_count))
             
+            # Create short citation format for the LLM to use
+            short_filename = meta['filename'].replace('.pdf', '').replace(' ', '_').replace('-', '_').lower()
+            short_citation = f"{short_filename}_pg{estimated_page}"
+            
             sections.append(f"[Document: {filename}, Chunk {chunk_num}, Page {estimated_page}]")
+            short_citations.append(short_citation)
         
-        return context + "\n\nAvailable sources: " + "; ".join(sections)
+        citation_examples = ", ".join(short_citations)
+        return context + f"\n\nAvailable sources: " + "; ".join(sections) + f"\n\nFor citations, use these formats: {citation_examples}"
     
     def _has_citation(self, answer: str) -> bool:
         """Check if answer already has a citation in curly braces"""
@@ -1209,7 +1222,6 @@ FOCUSED ANSWER:"""
         
         # Use the first metadata for citation
         meta = metadatas[0]
-        filename = meta['filename'].replace('.pdf', '').replace('_', ' ').replace('-', ' ')
         chunk_num = meta['chunk_index'] + 1
         total_chunks = meta['total_chunks']
         page_count = meta.get('page_count', 1)
@@ -1217,12 +1229,100 @@ FOCUSED ANSWER:"""
         # Calculate accurate page number based on actual page count
         estimated_page = max(1, int((chunk_num / total_chunks) * page_count))
         
-        # Try to infer section from content or use generic term
-        section = "Medical Information"  # Generic fallback
+        # Create short citation format
+        short_filename = meta['filename'].replace('.pdf', '').replace(' ', '_').replace('-', '_').lower()
+        short_citation = f"{short_filename}_pg{estimated_page}"
         
-        citation = f" {{retrieved from: {filename}, {section}, page {estimated_page}}}"
+        citation = f" {{retrieved from: {short_citation}}}"
         
         return answer + citation
+    
+    async def translate_text(self, text: str, target_language: str) -> Dict[str, Any]:
+        """Translate text to target language using Groq API"""
+        try:
+            if not self.groq_api_key:
+                return {"status": "error", "error": "GROQ_API_KEY not configured"}
+            
+            # Language mapping for better translation prompts
+            language_names = {
+                "hi": "Hindi",
+                "bn": "Bengali",
+                "ta": "Tamil",
+                "gu": "Gujarati", 
+                "en": "English"
+            }
+            
+            if target_language not in language_names:
+                return {"status": "error", "error": f"Unsupported language: {target_language}"}
+            
+            if target_language == "en":
+                # No translation needed
+                return {"status": "success", "translated_text": text, "target_language": target_language}
+            
+            target_lang_name = language_names[target_language]
+            
+            prompt = f"""You are an expert medical translator. Translate the following English medical text to {target_lang_name}. 
+
+CRITICAL REQUIREMENTS:
+🚨 Your translated response MUST BE UNDER 1500 CHARACTERS including any citations! 🚨
+- Maintain medical accuracy and terminology
+- Preserve any citations in their original format
+- Use natural, fluent {target_lang_name}
+- Keep the same structure and meaning
+
+English Text to Translate:
+{text}
+
+{target_lang_name} Translation (UNDER 1500 CHARS):"""
+
+            headers = {
+                "Authorization": f"Bearer {self.groq_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "gemma2-9b-it",  # Good multilingual model
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.1,  # Very low temperature for consistent translations
+                "max_tokens": 512  # Keep within WhatsApp limits
+            }
+            
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                translated_text = result["choices"][0]["message"]["content"].strip()
+                
+                logger.info(f"🌐 TRANSLATION: {target_language}")
+                logger.info(f"  📏 Original length: {len(text)}")
+                logger.info(f"  📏 Translated length: {len(translated_text)}")
+                
+                return {
+                    "status": "success",
+                    "translated_text": translated_text,
+                    "target_language": target_language,
+                    "original_text": text
+                }
+            else:
+                logger.error(f"Translation API error: {response.status_code} - {response.text}")
+                return {
+                    "status": "error",
+                    "error": f"Translation failed: {response.status_code}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Translation error: {e}")
+            return {"status": "error", "error": str(e)}
     
     def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about the current index"""
