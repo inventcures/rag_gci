@@ -579,6 +579,7 @@ class SimpleRAGPipeline:
         self.vector_db = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.translation_model = "gemma2-9b-it"  # Model for query translation - better Indic language support
+        self.response_model = "llama-3.3-70b-versatile"  # Model for English response generation
         
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
@@ -1011,7 +1012,7 @@ class SimpleRAGPipeline:
         # Define similarity threshold for fusion
         # If distances are close together (small range), fuse them
         # If distances are far apart (large range), use only the closest
-        fusion_threshold = 0.1  # Adjust this value based on your needs
+        fusion_threshold = 0.15  # Adjust this value based on your needs
         
         logger.info(f"🔍 Context fusion analysis:")
         logger.info(f"  📏 Distance range: {min_distance:.4f} to {max_distance:.4f} (spread: {distance_range:.4f})")
@@ -1033,12 +1034,17 @@ class SimpleRAGPipeline:
             if not self.groq_api_key:
                 return "Error: GROQ_API_KEY not configured"
             
-            prompt = f"""You are an expert medical assistant. Analyze the provided context and answer the question accurately and concisely.
+            prompt = f"""You are an expert medical assistant. You MUST respond ONLY in English language using English script/alphabet.
+
+CRITICAL LANGUAGE REQUIREMENT:
+- Your response MUST be in English language only
+- Use English alphabet/script only (no Hindi, Bengali, or other scripts)
+- Even if the question is in another language, respond in English
 
 INSTRUCTIONS:
 1. Carefully examine the medical context provided
-2. If the context contains relevant information, provide a clear, medically accurate answer
-3. If the context lacks sufficient information, clearly state this
+2. If the context contains relevant information, provide a clear, medically accurate answer in English
+3. If the context lacks sufficient information, clearly state this in English
 4. Be direct and concise - do not include reasoning steps in your response
 
 MEDICAL CONTEXT:
@@ -1046,7 +1052,7 @@ MEDICAL CONTEXT:
 
 QUESTION: {question}
 
-ANSWER:"""
+ENGLISH ANSWER:"""
             
             headers = {
                 "Authorization": f"Bearer {self.groq_api_key}",
@@ -1054,7 +1060,7 @@ ANSWER:"""
             }
             
             payload = {
-                "model": "gemma2-9b-it",  # Google's model with excellent Indic language support
+                "model": self.response_model,  # Use English-optimized model for response generation
                 "messages": [
                     {
                         "role": "user",
@@ -1094,9 +1100,14 @@ ANSWER:"""
             
             if should_fuse:
                 # Multiple similar contexts - synthesize and cite all
-                prompt = f"""You are an expert medical assistant. Your task is to analyze multiple related medical contexts and synthesize them into a comprehensive answer with multiple citations.
+                prompt = f"""You are an expert medical assistant. You MUST respond ONLY in English language using English script/alphabet. Your task is to analyze multiple related medical contexts and synthesize them into a comprehensive answer with multiple citations.
 
 🚨 CRITICAL LENGTH REQUIREMENT: Your ENTIRE response including citations MUST BE UNDER 1500 CHARACTERS. Count carefully! If your draft is too long, shorten it while keeping medical accuracy. 🚨
+
+CRITICAL LANGUAGE REQUIREMENT:
+- Your response MUST be in English language only
+- Use English alphabet/script only (no Hindi, Bengali, or other scripts)
+- Even if the question is in another language, respond in English
 
 FUSION INSTRUCTIONS:
 1. Carefully analyze ALL provided medical contexts below
@@ -1120,9 +1131,14 @@ QUESTION: {question}
 SYNTHESIZED ANSWER (UNDER 1500 CHARS):"""
             else:
                 # Single closest context - focus on most relevant source
-                prompt = f"""You are an expert medical assistant. Your task is to analyze the most relevant medical document and provide an accurate, focused answer with proper citation.
+                prompt = f"""You are an expert medical assistant. You MUST respond ONLY in English language using English script/alphabet. Your task is to analyze the most relevant medical document and provide an accurate, focused answer with proper citation.
 
 🚨 CRITICAL LENGTH REQUIREMENT: Your ENTIRE response including citations MUST BE UNDER 1500 CHARACTERS. Count carefully! If your draft is too long, shorten it while keeping medical accuracy. 🚨
+
+CRITICAL LANGUAGE REQUIREMENT:
+- Your response MUST be in English language only
+- Use English alphabet/script only (no Hindi, Bengali, or other scripts)
+- Even if the question is in another language, respond in English
 
 FOCUSED INSTRUCTIONS:
 1. Carefully analyze the provided medical context (most relevant to your question)
@@ -1149,7 +1165,7 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             }
             
             payload = {
-                "model": "gemma2-9b-it",  # Google's model with excellent Indic language support
+                "model": self.response_model,  # Use English-optimized model for response generation
                 "messages": [
                     {
                         "role": "user", 
@@ -1366,7 +1382,7 @@ English Text to Translate:
             }
             
             payload = {
-                "model": "gemma2-9b-it",  # Good multilingual model
+                "model": self.translation_model,  # Good multilingual model
                 "messages": [
                     {
                         "role": "user",
