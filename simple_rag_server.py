@@ -1520,7 +1520,7 @@ STRUCTURED MEDICAL RESPONSE (UNDER 1500 CHARS):"""
             pages_str = ','.join(map(str, pages))
             citation_parts.append(f"{doc_name}: pg {pages_str}")
         
-        citation = f" {{ Sources : {' ; '.join(citation_parts)} }}"
+        citation = " { Sources : " + " ; ".join(citation_parts) + " }"
         
         return answer + citation
     
