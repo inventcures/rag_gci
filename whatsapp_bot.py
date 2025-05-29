@@ -643,12 +643,15 @@ class EnhancedWhatsAppBot:
                 
                 response_with_model = f"🇬🇧 English:\n{response_text}{model_indicator}"
                 
-                # Send English response FIRST  
-                logger.info("  📤 STEP 1: Sending English response...")
+                # ALWAYS LOG ENGLISH RESPONSE (regardless of Twilio success/failure)
+                logger.info("  📤 STEP 1: Preparing English response...")
                 logger.info(f"  📄 ENGLISH TEXT BEING SENT:")
                 logger.info(f"  📄 ****************************************************")
                 logger.info(f"  📄 {response_with_model}")
                 logger.info(f"  📄 ****************************************************")
+                
+                # Send English response FIRST  
+                logger.info("  📤 STEP 1: Sending English response...")
                 text_result = await self.twilio_api.send_text_message(from_number, response_with_model)
                 logger.info(f"  📤 Text message result: {text_result}")
                 
@@ -685,11 +688,14 @@ class EnhancedWhatsAppBot:
                         
                         translated_with_model = f"{header}{translated_text}{model_indicator}"
                         
-                        logger.info("  📤 STEP 2: Sending translated response...")
+                        # ALWAYS LOG TRANSLATED RESPONSE (regardless of Twilio success/failure)
+                        logger.info("  📤 STEP 2: Preparing translated response...")
                         logger.info(f"  📄 TRANSLATED TEXT BEING SENT ({lang_name}):")
                         logger.info(f"  📄 ****************************************************")
                         logger.info(f"  📄 {translated_with_model}")
                         logger.info(f"  📄 ****************************************************")
+                        
+                        logger.info("  📤 STEP 2: Sending translated response...")
                         translated_result = await self.twilio_api.send_text_message(
                             from_number, 
                             translated_with_model
@@ -860,6 +866,13 @@ class EnhancedWhatsAppBot:
                 
                 response_with_model = f"🇬🇧 English:\n{display_text}{model_indicator}"
                 
+                # ALWAYS LOG ENGLISH RESPONSE (regardless of Twilio success/failure)
+                logger.info("  📤 MEDIA STEP 1: Preparing English response...")
+                logger.info(f"  📄 ENGLISH TEXT BEING SENT:")
+                logger.info(f"  📄 ****************************************************")
+                logger.info(f"  📄 {response_with_model}")
+                logger.info(f"  📄 ****************************************************")
+                
                 # Send English response first
                 await self.twilio_api.send_text_message(from_number, response_with_model)
                 await asyncio.sleep(1)
@@ -883,6 +896,13 @@ class EnhancedWhatsAppBot:
                             translated_text = translated_text[:max_translated_length-3] + "..."
                         
                         translated_with_model = f"{header}{translated_text}{model_indicator}"
+                        
+                        # ALWAYS LOG TRANSLATED RESPONSE (regardless of Twilio success/failure)
+                        logger.info("  📤 MEDIA STEP 2: Preparing translated response...")
+                        logger.info(f"  📄 TRANSLATED TEXT BEING SENT ({lang_name}):")
+                        logger.info(f"  📄 ****************************************************")
+                        logger.info(f"  📄 {translated_with_model}")
+                        logger.info(f"  📄 ****************************************************")
                         
                         await self.twilio_api.send_text_message(from_number, translated_with_model)
                         await asyncio.sleep(1)
