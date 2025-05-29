@@ -930,9 +930,12 @@ class SimpleRAGPipeline:
             if not relevant_contexts:
                 return {
                     "status": "success",
-                    "answer": "We are afraid, we could not find the answer to your query in our medical corpus. Please consult a qualified medical doctor or visit your nearest hospital, with your query.",
+                    "answer": "I could not find any supporting documents in my corpus. Please consult a qualified medical doctor or visit the nearest hospital.",
+                    "model_used": "system",
                     "sources": [],
-                    "conversation_id": conversation_id
+                    "context_used": 0,
+                    "conversation_id": conversation_id,
+                    "timestamp": datetime.now().isoformat()
                 }
             
             # Intelligent context fusion based on distance similarity
@@ -1158,9 +1161,10 @@ FOCUSED INSTRUCTIONS:
 6. KEEP TOTAL RESPONSE UNDER 1500 CHARACTERS
 
 CITATION REQUIREMENTS:
-- End your response with:  [ Sources : \
-     doc_i: pg m,n,o ; \
-     doc_j: pg p,q,r,s,t ]
+- End your response with: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }
+- Multiple pages from same document: separate with commas
+- Multiple documents: separate with semicolons
+- Always use this exact format
 
 
 MEDICAL CONTEXT (MOST RELEVANT):
@@ -1249,7 +1253,7 @@ Response:
 • Start with paracetamol 500mg every 6 hours
 • Add weak opioids if pain >4/10
 
-{{ Sources: pain_management_guide: pg 23 }}
+{ Sources : pain_management_guide: pg 23 }
 
 EXAMPLE 2:
 Question: How to provide tracheostomy care?
@@ -1266,7 +1270,7 @@ Response:
 • Change tracheostomy ties when soiled
 • Monitor for signs of infection
 
-{{ Sources: nursing_handbook: pg 67 }}
+{ Sources : nursing_handbook: pg 67 }
 
 NOW ANSWER THIS QUESTION:
 
@@ -1446,24 +1450,38 @@ STRUCTURED MEDICAL RESPONSE (UNDER 1500 CHARS):"""
         return any(indicator.lower() in answer.lower() for indicator in no_answer_indicators)
     
     def _add_automatic_citation(self, answer: str, metadatas: List[Dict]) -> str:
-        """Add automatic citation if the model didn't include one"""
+        """Add automatic citation if the model didn't include one
+        Format: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }"""
         if not metadatas:
             return answer
         
-        # Use the first metadata for citation
-        meta = metadatas[0]
-        chunk_num = meta['chunk_index'] + 1
-        total_chunks = meta['total_chunks']
-        page_count = meta.get('page_count', 1)
+        # Group pages by document
+        doc_pages = {}
+        for meta in metadatas:
+            chunk_num = meta['chunk_index'] + 1
+            total_chunks = meta['total_chunks']
+            page_count = meta.get('page_count', 1)
+            
+            # Calculate accurate page number based on actual page count
+            estimated_page = max(1, int((chunk_num / total_chunks) * page_count))
+            
+            # Clean document name
+            doc_name = meta['filename'].replace('.pdf', '').replace(' ', '_').replace('-', '_').lower()
+            
+            if doc_name not in doc_pages:
+                doc_pages[doc_name] = []
+            if estimated_page not in doc_pages[doc_name]:
+                doc_pages[doc_name].append(estimated_page)
         
-        # Calculate accurate page number based on actual page count
-        estimated_page = max(1, int((chunk_num / total_chunks) * page_count))
+        # Format citation according to specifications
+        # Format: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }
+        citation_parts = []
+        for doc_name, pages in doc_pages.items():
+            pages.sort()  # Sort pages numerically
+            pages_str = ','.join(map(str, pages))
+            citation_parts.append(f"{doc_name}: pg {pages_str}")
         
-        # Create short citation format
-        short_filename = meta['filename'].replace('.pdf', '').replace(' ', '_').replace('-', '_').lower()
-        short_citation = f"{short_filename}_pg{estimated_page}"
-        
-        citation = f" {{retrieved from: {short_citation}}}"
+        citation = f" {{ Sources : {' ; '.join(citation_parts)} }}"
         
         return answer + citation
     
