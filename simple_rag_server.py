@@ -1490,21 +1490,38 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
         # Remove inline citations like (document_name_pg42)
         answer = re.sub(r'\([^)]*_pg\d+[^)]*\)', '', answer)
         
-        # Remove any standalone citations in curly braces that aren't at the end
+        # Remove citations in the format: doc_name_pg42, doc_name_pg43
+        answer = re.sub(r'[a-zA-Z0-9_]+_pg\d+(?:,\s*[a-zA-Z0-9_]+_pg\d+)*', '', answer)
+        
+        # Remove any citation blocks including { Sources : ... } and { retrieved from: ... }
+        answer = re.sub(r'\{\s*[Ss]ources?\s*:.*?\}', '', answer, flags=re.DOTALL)
+        answer = re.sub(r'\{\s*retrieved\s+from:.*?\}', '', answer, flags=re.DOTALL)
+        
+        # Remove any standalone citations in curly braces
         lines = answer.split('\n')
         cleaned_lines = []
         
         for line in lines:
-            # Skip lines that are just citations
-            if line.strip().startswith('{') and 'retrieved from' in line.lower():
+            # Skip lines that are just citations or mostly citations
+            stripped = line.strip()
+            if not stripped:
+                cleaned_lines.append(line)
                 continue
-            if line.strip().startswith('{') and 'sources' in line.lower():
+                
+            if (stripped.startswith('{') and 
+                ('retrieved from' in stripped.lower() or 'sources' in stripped.lower())):
                 continue
+                
+            # Skip lines that are just document references
+            if re.match(r'^[a-zA-Z0-9_]+_pg\d+(?:,\s*[a-zA-Z0-9_]+_pg\d+)*\s*$', stripped):
+                continue
+                
             cleaned_lines.append(line)
         
         # Clean up extra whitespace
         answer = '\n'.join(cleaned_lines)
         answer = re.sub(r'\n\s*\n\s*\n', '\n\n', answer)  # Remove excessive newlines
+        answer = re.sub(r'\s+$', '', answer, flags=re.MULTILINE)  # Remove trailing spaces
         
         return answer.strip()
 
