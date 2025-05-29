@@ -1161,6 +1161,7 @@ FOCUSED INSTRUCTIONS:
 6. KEEP TOTAL RESPONSE UNDER 1500 CHARACTERS
 
 CITATION REQUIREMENTS:
+- ONLY cite at the END of your response - NO inline citations in the text
 - End your response with: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }
 - Multiple pages from same document: separate with commas
 - Multiple documents: separate with semicolons
@@ -1216,9 +1217,14 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")
             logger.info(f"🔍 Is no-answer response: {self._is_no_answer_response(answer)}")
             
-            # If no citation was added by the model, add one automatically
-            if not self._has_citation(answer) and not self._is_no_answer_response(answer):
-                answer = self._add_automatic_citation(answer, metadatas)
+            # Always clean inline citations and ensure proper end citation
+            if not self._is_no_answer_response(answer):
+                # Clean any inline citations first
+                answer = self._clean_inline_citations(answer)
+                
+                # Add proper citation at the end if not present
+                if not self._has_citation(answer):
+                    answer = self._add_automatic_citation(answer, metadatas)
             
             return answer, model_used
                 
@@ -1234,6 +1240,12 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             
             # Create enhanced prompt for MedGemma with examples and medical structure
             english_enforced_prompt = f"""You are a medical expert providing evidence-based palliative care guidance. Analyze the provided medical literature and give structured, actionable advice.
+
+CITATION REQUIREMENTS:
+- ONLY cite at the END of your response - NO inline citations in the text
+- End your response with: {{ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }}
+- Multiple pages from same document: separate with commas
+- Multiple documents: separate with semicolons
 
 EXAMPLE FORMAT:
 Question: How to manage pain in bedridden patients?
@@ -1434,7 +1446,8 @@ STRUCTURED MEDICAL RESPONSE (UNDER 1500 CHARS):"""
     
     def _has_citation(self, answer: str) -> bool:
         """Check if answer already has a citation in curly braces"""
-        return '{' in answer and '}' in answer and 'retrieved from' in answer.lower()
+        return ('{' in answer and '}' in answer and 
+                ('retrieved from' in answer.lower() or 'sources' in answer.lower()))
     
     def _is_no_answer_response(self, answer: str) -> bool:
         """Check if the response indicates insufficient information"""
@@ -1449,6 +1462,31 @@ STRUCTURED MEDICAL RESPONSE (UNDER 1500 CHARS):"""
         ]
         return any(indicator.lower() in answer.lower() for indicator in no_answer_indicators)
     
+    def _clean_inline_citations(self, answer: str) -> str:
+        """Remove inline citations and clean up the text"""
+        import re
+        
+        # Remove inline citations like (document_name_pg42)
+        answer = re.sub(r'\([^)]*_pg\d+[^)]*\)', '', answer)
+        
+        # Remove any standalone citations in curly braces that aren't at the end
+        lines = answer.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            # Skip lines that are just citations
+            if line.strip().startswith('{') and 'retrieved from' in line.lower():
+                continue
+            if line.strip().startswith('{') and 'sources' in line.lower():
+                continue
+            cleaned_lines.append(line)
+        
+        # Clean up extra whitespace
+        answer = '\n'.join(cleaned_lines)
+        answer = re.sub(r'\n\s*\n\s*\n', '\n\n', answer)  # Remove excessive newlines
+        
+        return answer.strip()
+
     def _add_automatic_citation(self, answer: str, metadatas: List[Dict]) -> str:
         """Add automatic citation if the model didn't include one
         Format: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }"""
