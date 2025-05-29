@@ -1239,11 +1239,12 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             logger.info("🩺 Using MedGemma for response generation...")
             
             # Create enhanced prompt for MedGemma with examples and medical structure
+            citation_format = "{ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }"
             english_enforced_prompt = f"""You are a medical expert providing evidence-based palliative care guidance. Analyze the provided medical literature and give structured, actionable advice.
 
 CITATION REQUIREMENTS:
 - ONLY cite at the END of your response - NO inline citations in the text
-- End your response with: {{ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }}
+- End your response with: {citation_format}
 - Multiple pages from same document: separate with commas
 - Multiple documents: separate with semicolons
 
