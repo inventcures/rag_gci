@@ -579,7 +579,7 @@ class SimpleRAGPipeline:
         self.vector_db = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.translation_model = "gemma2-9b-it"  # Model for query translation - better Indic language support
-        self.response_model = "llama-3.3-70b-versatile"  # Model for English response generation
+        self.response_model = "gemma2-9b-it"  # Model for response generation
         
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
