@@ -632,9 +632,20 @@ class EnhancedWhatsAppBot:
                 user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
                 logger.info(f"  🌐 User language preference: {user_lang}")
 
-                # Send English response FIRST
+                # Add model indicator to response text but keep under 1550 characters
+                model_used = result.get("model_used", "unknown")
+                model_indicator = f"\n\n(model {model_used} used)"
+                
+                # Ensure total message stays under 1550 chars
+                max_response_length = 1550 - len("🇬🇧 English:\n") - len(model_indicator)
+                if len(response_text) > max_response_length:
+                    response_text = response_text[:max_response_length-3] + "..."
+                
+                response_with_model = f"🇬🇧 English:\n{response_text}{model_indicator}"
+                
+                # Send English response FIRST  
                 logger.info("  📤 STEP 1: Sending English response...")
-                text_result = await self.twilio_api.send_text_message(from_number, f"🇬🇧 English:\n{response_text}")
+                text_result = await self.twilio_api.send_text_message(from_number, response_with_model)
                 logger.info(f"  📤 Text message result: {text_result}")
                 
                 # Check if text was sent successfully
@@ -654,18 +665,26 @@ class EnhancedWhatsAppBot:
                     
                     if translation_result["status"] == "success":
                         translated_text = translation_result["translated_text"]
-                        translated_text = self._ensure_whatsapp_length_limit(translated_text)
                         
                         # Language flag mapping
                         flag_map = {
                             "hi": "🇮🇳", "bn": "🇧🇩", "ta": "🇮🇳", "gu": "🇮🇳"
                         }
                         flag = flag_map.get(user_lang, "🌐")
+                        lang_name = self.stt_service.supported_languages.get(user_lang, user_lang)
+                        
+                        # Add model indicator and ensure under 1550 chars
+                        header = f"{flag} {lang_name}:\n"
+                        max_translated_length = 1550 - len(header) - len(model_indicator)
+                        if len(translated_text) > max_translated_length:
+                            translated_text = translated_text[:max_translated_length-3] + "..."
+                        
+                        translated_with_model = f"{header}{translated_text}{model_indicator}"
                         
                         logger.info("  📤 STEP 2: Sending translated response...")
                         translated_result = await self.twilio_api.send_text_message(
                             from_number, 
-                            f"{flag} {self.stt_service.supported_languages.get(user_lang, user_lang)}:\n{translated_text}"
+                            translated_with_model
                         )
                         
                         if translated_result.get("status") == "success":
@@ -676,9 +695,11 @@ class EnhancedWhatsAppBot:
                         # Add delay before audio
                         await asyncio.sleep(1)
                         
-                        # Generate and send audio in target language
+                        # Generate and send audio in target language (use original translated_text without model indicator)
                         logger.info(f"  🎵 STEP 3: Generating audio in {user_lang}...")
-                        tts_result = await self.tts_service.synthesize_speech(translated_text, user_lang)
+                        # Use translation_result original text for TTS, not the version with model indicator
+                        original_translated_text = translation_result["translated_text"]
+                        tts_result = await self.tts_service.synthesize_speech(original_translated_text, user_lang)
                         
                         if tts_result.get("audio_available"):
                             logger.info("  ✅ TTS audio available, preparing to send...")
@@ -819,38 +840,53 @@ class EnhancedWhatsAppBot:
             if result["status"] == "success":
                 response_text = result["answer"]
 
-                # Ensure response fits Twilio's WhatsApp character limit
-                response_text = self._ensure_whatsapp_length_limit(response_text)
-
+                # Add model indicator to response text but keep under 1550 characters
+                model_used = result.get("model_used", "unknown")
+                model_indicator = f"\n\n(model {model_used} used)"
+                
+                # Ensure total message stays under 1550 chars for English
+                max_response_length = 1550 - len("🇬🇧 English:\n") - len(model_indicator)
+                display_text = response_text
+                if len(display_text) > max_response_length:
+                    display_text = display_text[:max_response_length-3] + "..."
+                
+                response_with_model = f"🇬🇧 English:\n{display_text}{model_indicator}"
+                
                 # Send English response first
-                await self.twilio_api.send_text_message(from_number, f"🇬🇧 English:\n{response_text}")
+                await self.twilio_api.send_text_message(from_number, response_with_model)
                 await asyncio.sleep(1)
 
                 # Translate and send in detected language
                 if detected_language != "en":
-                    translation_result = await self.rag_pipeline.translate_text(response_text, detected_language)
+                    translation_result = await self.rag_pipeline.translate_text(result["answer"], detected_language)  # Use original answer for translation
                     
                     if translation_result["status"] == "success":
                         translated_text = translation_result["translated_text"]
-                        translated_text = self._ensure_whatsapp_length_limit(translated_text)
                         
                         # Language flag mapping
                         flag_map = {"hi": "🇮🇳", "bn": "🇧🇩", "ta": "🇮🇳", "gu": "🇮🇳"}
                         flag = flag_map.get(detected_language, "🌐")
+                        lang_name = self.stt_service.supported_languages.get(detected_language, detected_language)
                         
-                        await self.twilio_api.send_text_message(
-                            from_number, 
-                            f"{flag} {self.stt_service.supported_languages.get(detected_language, detected_language)}:\n{translated_text}"
-                        )
+                        # Add model indicator and ensure under 1550 chars for translated response
+                        header = f"{flag} {lang_name}:\n"
+                        max_translated_length = 1550 - len(header) - len(model_indicator)
+                        if len(translated_text) > max_translated_length:
+                            translated_text = translated_text[:max_translated_length-3] + "..."
+                        
+                        translated_with_model = f"{header}{translated_text}{model_indicator}"
+                        
+                        await self.twilio_api.send_text_message(from_number, translated_with_model)
                         await asyncio.sleep(1)
                         
-                        # Use translated text for audio
-                        audio_text = translated_text
+                        # Use original translated text for audio (without model indicator)
+                        audio_text = translation_result["translated_text"]
                     else:
-                        # Fallback to original text if translation fails
-                        audio_text = response_text
+                        # Fallback to original text if translation fails (without model indicator)
+                        audio_text = result["answer"]
                 else:
-                    audio_text = response_text
+                    # Use original answer for English audio (without model indicator)
+                    audio_text = result["answer"]
 
                 # Generate and send audio response in the detected language
                 tts_result = await self.tts_service.synthesize_speech(

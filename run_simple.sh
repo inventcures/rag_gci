@@ -187,11 +187,25 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Ask for model preference
+echo -e "${BLUE}📋 Model Selection${NC}"
+echo "Do you want to use MedGemma for English response generation? (Y/y for MedGemma, Enter for default Gemma)"
+read -r USE_MEDGEMMA
+
+if [[ "$USE_MEDGEMMA" =~ ^[Yy]$ ]]; then
+    echo -e "${GREEN}✅ Using MedGemma model for English responses${NC}"
+    export USE_MEDGEMMA=true
+else
+    echo -e "${GREEN}✅ Using default Gemma model for responses${NC}"
+    export USE_MEDGEMMA=false
+fi
+
 # Start the simple server
 echo -e "${GREEN}🚀 Starting Simple RAG Server...${NC}"
 echo "Host: $HOST"
 echo "Port: $PORT"
 echo "Database: File-based (no SQL required)"
+echo "Model: $([ "$USE_MEDGEMMA" = true ] && echo "MedGemma for English responses" || echo "Gemma for all responses")"
 echo ""
 
 # Set environment variables for better performance on macOS

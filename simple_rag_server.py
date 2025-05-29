@@ -579,7 +579,14 @@ class SimpleRAGPipeline:
         self.vector_db = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.translation_model = "gemma2-9b-it"  # Model for query translation - better Indic language support
-        self.response_model = "gemma2-9b-it"  # Model for response generation
+        
+        # Check environment variable for model selection
+        use_medgemma = os.getenv("USE_MEDGEMMA", "false").lower() == "true"
+        if use_medgemma:
+            self.response_model = "medgemma"  # Will use MedGemma endpoint
+            self.medgemma_endpoint = "https://izqynpy6ktzegc74.us-east4.gcp.endpoints.huggingface.cloud"
+        else:
+            self.response_model = "gemma2-9b-it"  # Model for response generation
         
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
@@ -938,8 +945,10 @@ class SimpleRAGPipeline:
                 for doc, meta in zip(filtered_contexts, filtered_metadatas)
             ])
             
-            # Generate answer using Groq with citation instructions
-            answer = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
+            # Generate answer using selected model with citation instructions
+            answer_result = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
+            answer = answer_result["answer"]
+            model_used = answer_result["model_used"]
             
             # DISABLED: Don't override similarity threshold with LLM's uncertainty
             # If similarity threshold passed, trust that we have relevant context
@@ -983,6 +992,7 @@ class SimpleRAGPipeline:
                 "sources": sources,
                 "context_used": len(relevant_contexts),
                 "conversation_id": conversation_id,
+                "model_used": model_used,
                 "timestamp": datetime.now().isoformat()
             }
             
@@ -1029,7 +1039,7 @@ class SimpleRAGPipeline:
             return [contexts[best_idx]], [metadatas[best_idx]], False
     
     async def _generate_answer(self, question: str, context: str) -> str:
-        """Generate answer using Groq API"""
+        """Generate answer using selected model (Groq or MedGemma)"""
         try:
             if not self.groq_api_key:
                 return "Error: GROQ_API_KEY not configured"
@@ -1054,43 +1064,18 @@ QUESTION: {question}
 
 ENGLISH ANSWER:"""
             
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": self.response_model,  # Use English-optimized model for response generation
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "temperature": 0.3,  # Lower temperature for more consistent medical responses
-                "max_tokens": 512  # Reduced to enforce WhatsApp length limit
-            }
-            
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"].strip()
+            # Use MedGemma if selected, otherwise use Groq
+            if self.response_model == "medgemma":
+                return await self._call_medgemma_endpoint(prompt)
             else:
-                logger.error(f"Groq API error: {response.status_code} - {response.text}")
-                return f"Error generating response: {response.status_code}"
+                return await self._call_groq_api(prompt)
                 
         except Exception as e:
             logger.error(f"Error generating answer: {e}")
             return f"Error generating answer: {str(e)}"
     
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> str:
-        """Generate answer with citations using Groq API"""
+        """Generate answer with citations using Groq API or MedGemma endpoint"""
         try:
             if not self.groq_api_key:
                 return "Error: GROQ_API_KEY not configured"
@@ -1159,21 +1144,54 @@ QUESTION: {question}
 
 FOCUSED ANSWER (UNDER 1500 CHARS):"""
             
+            # Use MedGemma if selected, otherwise use Groq
+            if self.response_model == "medgemma":
+                answer, model_used = await self._call_medgemma_endpoint(prompt)
+            else:
+                answer = await self._call_groq_api(prompt)
+                model_used = "gemma"
+                
+            if answer.startswith("Error"):
+                return answer
+            
+            # Debug: Log what the LLM generated
+            logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")
+            logger.info(f"🔍 Is no-answer response: {self._is_no_answer_response(answer)}")
+            
+            # If no citation was added by the model, add one automatically
+            if not self._has_citation(answer) and not self._is_no_answer_response(answer):
+                answer = self._add_automatic_citation(answer, metadatas)
+            
+            # Return answer with model information
+            return {"answer": answer, "model_used": model_used}
+                
+        except Exception as e:
+            logger.error(f"Error generating answer with citations: {e}")
+            return {"answer": f"Error generating answer: {str(e)}", "model_used": "error"}
+    
+    async def _call_groq_api(self, prompt: str, model_override: str = None) -> str:
+        """Call Groq API with OpenAI-style interface"""
+        try:
             headers = {
                 "Authorization": f"Bearer {self.groq_api_key}",
                 "Content-Type": "application/json"
             }
             
+            # Use override model or fallback to gemma2-9b-it if response_model is medgemma
+            groq_model = model_override or (
+                "gemma2-9b-it" if self.response_model == "medgemma" else self.response_model
+            )
+            
             payload = {
-                "model": self.response_model,  # Use English-optimized model for response generation
+                "model": groq_model,
                 "messages": [
                     {
                         "role": "user", 
                         "content": prompt
                     }
                 ],
-                "temperature": 0.2,  # Very low temperature for consistent medical responses
-                "max_tokens": 512  # Reduced to enforce WhatsApp length limit
+                "temperature": 0.2,
+                "max_tokens": 512
             }
             
             response = requests.post(
@@ -1185,24 +1203,159 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             
             if response.status_code == 200:
                 result = response.json()
-                answer = result["choices"][0]["message"]["content"].strip()
-                
-                # Debug: Log what the LLM generated
-                logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")
-                logger.info(f"🔍 Is no-answer response: {self._is_no_answer_response(answer)}")
-                
-                # If no citation was added by the model, add one automatically
-                if not self._has_citation(answer) and not self._is_no_answer_response(answer):
-                    answer = self._add_automatic_citation(answer, metadatas)
-                
-                return answer
+                return result["choices"][0]["message"]["content"].strip()
             else:
                 logger.error(f"Groq API error: {response.status_code} - {response.text}")
                 return f"Error generating response: {response.status_code}"
                 
         except Exception as e:
-            logger.error(f"Error generating answer with citations: {e}")
-            return f"Error generating answer: {str(e)}"
+            logger.error(f"Groq API call error: {e}")
+            return f"Error calling Groq API: {str(e)}"
+    
+    async def _call_medgemma_endpoint(self, prompt: str) -> tuple:
+        """Call MedGemma endpoint with HuggingFace native format, fallback to Groq if unavailable
+        Returns: (response_text, model_used)"""
+        try:
+            logger.info("🩺 Using MedGemma for response generation...")
+            
+            # Create a simpler English-only prompt for MedGemma to avoid 422 errors
+            english_enforced_prompt = f"""You are a medical assistant. Respond only in English using English alphabet.
+
+{prompt}
+
+Answer in English:"""
+            
+            # Format prompt for MedGemma (using the same format as test script)
+            formatted_prompt = f"<start_of_turn>user\n{english_enforced_prompt}<end_of_turn>\n<start_of_turn>model\n"
+            
+            # Debug: Log prompt details to identify 422 cause
+            logger.info(f"🔍 MedGemma prompt length: {len(formatted_prompt)} chars")
+            logger.info(f"🔍 MedGemma prompt preview: {formatted_prompt[:200]}...")
+            
+            # Truncate if too long to prevent 422 errors
+            MAX_PROMPT_LENGTH = 3000  # Conservative limit
+            if len(formatted_prompt) > MAX_PROMPT_LENGTH:
+                logger.warning(f"⚠️ Truncating long prompt from {len(formatted_prompt)} to {MAX_PROMPT_LENGTH} chars")
+                # Truncate but preserve the format
+                truncated_content = english_enforced_prompt[:MAX_PROMPT_LENGTH-100]  # Leave room for formatting
+                formatted_prompt = f"<start_of_turn>user\n{truncated_content}<end_of_turn>\n<start_of_turn>model\n"
+            
+            headers = {
+                "Content-Type": "application/json"
+            }
+            
+            # Use HuggingFace native format (matching the working test script)
+            payload = {
+                "inputs": formatted_prompt,
+                "parameters": {
+                    "max_new_tokens": 512,
+                    "temperature": 0.2,  # Match closer to test script values
+                    "top_p": 0.9,        # Match test script
+                    "do_sample": True,
+                    "return_full_text": False,
+                    "stop": ["<end_of_turn>"],  # Keep only the basic stop token like test script
+                    "repetition_penalty": 1.1
+                },
+                "options": {
+                    "use_cache": False,
+                    "wait_for_model": True,
+                    "use_gpu": True
+                },
+                "stream": False
+            }
+            
+            # Increase timeout for complete response generation (60 seconds)
+            logger.info("⏳ Waiting for complete MedGemma response...")
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
+                async with session.post(self.medgemma_endpoint, 
+                                       headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        # HuggingFace format returns array with generated_text
+                        if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
+                            generated_text = result[0]["generated_text"].strip()
+                            logger.info(f"✅ MedGemma response received ({len(generated_text)} chars)")
+                            
+                            # Check if response contains non-English/Devanagari characters
+                            if self._contains_non_english_script(generated_text):
+                                logger.warning(f"⚠️ MedGemma responded in non-English script despite English prompt")
+                                logger.warning(f"🔄 Falling back to Groq for English response")
+                                fallback_response = await self._call_groq_api(prompt)
+                                return (fallback_response, "gemma")  # Fallback used Groq/Gemma
+                            
+                            return (generated_text, "medgemma")
+                        else:
+                            logger.warning(f"⚠️ Unexpected MedGemma response format: {result}")
+                            logger.warning(f"🔄 MedGemma was selected but had to fallback to Groq Gemma due to unexpected response format")
+                            fallback_response = await self._call_groq_api(prompt)
+                            return (fallback_response, "gemma")
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"❌ MedGemma HTTP {response.status} Error:")
+                        logger.error(f"📋 Request payload: {payload}")
+                        logger.error(f"📋 Response: {error_text}")
+                        
+                        # Special handling for 422 validation errors
+                        if response.status == 422:
+                            logger.error(f"🔍 422 Validation Error - likely invalid parameters or prompt format")
+                            try:
+                                error_json = json.loads(error_text)
+                                logger.error(f"🔍 Detailed error: {error_json}")
+                            except:
+                                pass
+                        
+                        logger.warning(f"🔄 MedGemma was selected but had to fallback to Groq Gemma due to endpoint error: HTTP {response.status}")
+                        # Fallback to Groq API
+                        fallback_response = await self._call_groq_api(prompt)
+                        return (fallback_response, "gemma")
+                        
+        except Exception as e:
+            logger.warning(f"⚠️ MedGemma endpoint unavailable: {e}")
+            logger.warning(f"🔄 MedGemma was selected but had to fallback to Groq Gemma due to {str(e)}")
+            # Fallback to Groq API
+            try:
+                fallback_response = await self._call_groq_api(prompt)
+                return (fallback_response, "gemma")
+            except Exception as fallback_error:
+                logger.error(f"❌ Both MedGemma and Groq fallback failed: {fallback_error}")
+                return (f"Error: Both MedGemma and fallback failed - {str(e)} / {str(fallback_error)}", "error")
+    
+    def _contains_non_english_script(self, text: str) -> bool:
+        """Check if text contains non-English scripts (like Devanagari, Bengali, etc.)"""
+        try:
+            import unicodedata
+            
+            for char in text:
+                if char.isalpha():  # Only check alphabetic characters
+                    # Get the Unicode script name
+                    script = unicodedata.name(char, '').split()
+                    if script:
+                        script_name = script[0]
+                        # Check for non-Latin scripts commonly used in Indian languages
+                        non_english_scripts = [
+                            'DEVANAGARI',  # Hindi, Sanskrit, Marathi
+                            'BENGALI',     # Bengali, Assamese
+                            'GUJARATI',    # Gujarati
+                            'TAMIL',       # Tamil
+                            'TELUGU',      # Telugu
+                            'KANNADA',     # Kannada
+                            'MALAYALAM',   # Malayalam
+                            'ORIYA',       # Odia
+                            'PUNJABI',     # Punjabi (Gurmukhi)
+                            'ARABIC',      # Arabic, Urdu
+                        ]
+                        
+                        if any(script_name.startswith(script) for script in non_english_scripts):
+                            logger.info(f"🔍 Detected non-English script: {script_name} in character '{char}'")
+                            return True
+            
+            return False
+            
+        except Exception as e:
+            logger.warning(f"Error checking script: {e}")
+            # Fallback: simple check for common Hindi characters
+            hindi_chars = ['अ', 'आ', 'इ', 'ई', 'उ', 'ऊ', 'ए', 'ऐ', 'ओ', 'औ', 'क', 'ख', 'ग', 'घ', 'च', 'छ', 'ज', 'झ', 'ट', 'ठ', 'ड', 'ढ', 'त', 'थ', 'द', 'ध', 'न', 'प', 'फ', 'ब', 'भ', 'म', 'य', 'र', 'ल', 'व', 'श', 'ष', 'स', 'ह']
+            return any(char in text for char in hindi_chars)
     
     def _format_citation_context(self, context: str, metadatas: List[Dict]) -> str:
         """Format context with clear source indicators for citation"""
