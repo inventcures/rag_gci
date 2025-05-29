@@ -1011,7 +1011,7 @@ class SimpleRAGPipeline:
         # Define similarity threshold for fusion
         # If distances are close together (small range), fuse them
         # If distances are far apart (large range), use only the closest
-        fusion_threshold = 0.15  # Adjust this value based on your needs
+        fusion_threshold = 0.1  # Adjust this value based on your needs
         
         logger.info(f"🔍 Context fusion analysis:")
         logger.info(f"  📏 Distance range: {min_distance:.4f} to {max_distance:.4f} (spread: {distance_range:.4f})")
