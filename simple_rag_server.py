@@ -1228,31 +1228,54 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
         try:
             logger.info("🩺 Using MedGemma for response generation...")
             
-            # Create enhanced prompt for MedGemma with proper citation context and structure
-            english_enforced_prompt = f"""You are an expert medical assistant specializing in palliative care and community health. You MUST respond ONLY in English language using English script/alphabet.
+            # Create enhanced prompt for MedGemma with examples and medical structure
+            english_enforced_prompt = f"""You are a medical expert providing evidence-based palliative care guidance. Analyze the provided medical literature and give structured, actionable advice.
 
-🚨 CRITICAL LENGTH REQUIREMENT: Your ENTIRE response including citations MUST BE UNDER 1500 CHARACTERS. Count carefully! If your draft is too long, shorten it while keeping medical accuracy. 🚨
+EXAMPLE FORMAT:
+Question: How to manage pain in bedridden patients?
+Medical Context: [Document: pain management guide, Page 23] Pain assessment should be done every 4 hours using standardized scales. Repositioning every 2 hours prevents pressure sores.
 
-STRUCTURED RESPONSE REQUIREMENTS:
-1. Use bullet points (*) and sections for clear organization
-2. Include specific medical details and care instructions  
-3. Reference exact page numbers and sources
-4. Provide actionable medical guidance
-5. Always conclude with citations to ALL sources used
+Response:
+*Pain Assessment:*
+• Use 0-10 pain scale every 4 hours
+• Document pain triggers and relief patterns
 
-CITATION REQUIREMENTS:
-- End your response with: {{ Sources : 
-   doc_i: pg m,n,o ; 
-   doc_j: pg p,q }}
-- Cite ALL sources that contributed to your answer
-- Use format: document_name: pg page_numbers separated by commas
+*Positioning Care:*
+• Reposition patient every 2 hours
+• Use pressure-relieving mattress
+• Check skin integrity at pressure points
 
-MEDICAL CONTEXTS WITH SOURCE INFORMATION:
+*Medication Protocol:*
+• Start with paracetamol 500mg every 6 hours
+• Add weak opioids if pain >4/10
+
+{{ Sources: pain_management_guide: pg 23 }}
+
+EXAMPLE 2:
+Question: How to provide tracheostomy care?
+Medical Context: [Document: nursing handbook, Page 67] Suction tracheostomy when secretions accumulate. Clean around stoma twice daily.
+
+Response:
+*Suctioning Technique:*
+• Suction when secretions visible or audible
+• Use sterile technique, limit to 15 seconds
+• Pre-oxygenate before suctioning
+
+*Daily Stoma Care:*
+• Clean around stoma twice daily with saline
+• Change tracheostomy ties when soiled
+• Monitor for signs of infection
+
+{{ Sources: nursing_handbook: pg 67 }}
+
+NOW ANSWER THIS QUESTION:
+
+MEDICAL LITERATURE:
 {citation_text}
 
 QUESTION: {question}
 
-STRUCTURED MEDICAL ANSWER (UNDER 1500 CHARS):"""
+STRUCTURED MEDICAL RESPONSE (UNDER 1500 CHARS):"""
             
             # Format prompt for MedGemma (using the same format as test script)
             formatted_prompt = f"<start_of_turn>user\n{english_enforced_prompt}<end_of_turn>\n<start_of_turn>model\n"
