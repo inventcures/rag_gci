@@ -617,8 +617,8 @@ class EnhancedWhatsAppBot:
             user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
 
             # Query RAG pipeline
-            logger.info(f"  🔍 About to query RAG pipeline with text: '{text}', user_id: '{from_number}'")
-            result = await self.rag_pipeline.query(text, user_id=from_number)
+            logger.info(f"  🔍 About to query RAG pipeline with text: '{text}', user_id: '{from_number}', language: '{user_lang}'")
+            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=user_lang)
             logger.info(f"  📊 RAG pipeline result status: {result.get('status')}, answer length: {len(result.get('answer', ''))}")
 
             if result["status"] == "success":
@@ -814,7 +814,7 @@ class EnhancedWhatsAppBot:
             await self.twilio_api.send_text_message(from_number, confirmation_msg)
 
             # Query RAG pipeline
-            result = await self.rag_pipeline.query(text, user_id=from_number)
+            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=detected_language)
 
             if result["status"] == "success":
                 response_text = result["answer"]
@@ -912,7 +912,7 @@ class EnhancedWhatsAppBot:
             # Query RAG pipeline
             await self._send_typing_indicator(from_number)
             
-            result = await self.rag_pipeline.query(text, user_id=from_number)
+            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=user_lang)
             
             if result["status"] == "success":
                 response_text = result["answer"]
@@ -1001,7 +1001,7 @@ class EnhancedWhatsAppBot:
             )
             
             # Query RAG pipeline
-            result = await self.rag_pipeline.query(text, user_id=from_number)
+            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=detected_language)
             
             if result["status"] == "success":
                 response_text = result["answer"]

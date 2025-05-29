@@ -35,6 +35,7 @@ import uvicorn
 import chromadb
 from chromadb.utils import embedding_functions
 import requests
+import aiohttp
 from sentence_transformers import SentenceTransformer
 
 # Document processing
@@ -577,6 +578,7 @@ class SimpleRAGPipeline:
         self.embedding_model = None
         self.vector_db = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
+        self.translation_model = "gemma2-9b-it"  # Model for query translation - better Indic language support
         
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
@@ -839,7 +841,7 @@ class SimpleRAGPipeline:
             }
     
     async def query(self, question: str, conversation_id: Optional[str] = None, 
-                   user_id: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
+                   user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en") -> Dict[str, Any]:
         """Query the RAG pipeline"""
         try:
             # Check if we have any documents indexed
@@ -857,9 +859,20 @@ class SimpleRAGPipeline:
             except Exception as e:
                 logger.warning(f"Could not get vector DB count: {e}")
             
-            # Retrieve relevant documents
+            # Translate query to English if needed for better embedding matching
+            query_for_search = question  # Default to original question
+            if source_language != "en":
+                logger.info(f"Translating {source_language} query to English for embedding")
+                translation_result = await self.translate_query_to_english(question, source_language)
+                if translation_result["status"] in ["success", "fallback"]:
+                    query_for_search = translation_result["translated_query"]
+                    logger.info(f"Using translated query for search: '{query_for_search}'")
+                else:
+                    logger.warning(f"Query translation failed, using original: {translation_result.get('error', 'Unknown error')}")
+            
+            # Retrieve relevant documents using translated query
             search_results = self.vector_db.query(
-                query_texts=[question],
+                query_texts=[query_for_search],
                 n_results=top_k
             )
             
@@ -1237,6 +1250,78 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
         
         return answer + citation
     
+    async def translate_query_to_english(self, query: str, source_language: str) -> Dict[str, Any]:
+        """Translate query from local language to English for better embedding matching"""
+        try:
+            if not self.groq_api_key:
+                return {"status": "error", "error": "GROQ_API_KEY not configured"}
+            
+            # Language mapping for better translation prompts
+            language_names = {
+                "hi": "Hindi",
+                "bn": "Bengali", 
+                "ta": "Tamil",
+                "gu": "Gujarati",
+                "en": "English"
+            }
+            
+            if source_language not in language_names:
+                return {"status": "error", "error": f"Unsupported language: {source_language}"}
+            
+            if source_language == "en":
+                # Already in English, no translation needed
+                return {"status": "success", "translated_query": query, "original_query": query}
+            
+            source_lang_name = language_names[source_language]
+            
+            prompt = f"""You are an expert medical translator. Translate the following {source_lang_name} medical query to English.
+
+CRITICAL REQUIREMENTS:
+- Maintain the exact medical meaning and intent
+- Preserve medical terminology accuracy
+- Keep the translation concise and clear
+- Focus on capturing the medical question or concern
+
+{source_lang_name} Query: {query}
+
+Respond with ONLY the English translation, no explanations or additional text."""
+
+            headers = {
+                "Authorization": f"Bearer {self.groq_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "model": self.translation_model,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.1,
+                "max_tokens": 500
+            }
+            
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                async with session.post("https://api.groq.com/openai/v1/chat/completions", 
+                                       headers=headers, json=data) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        translated_query = result['choices'][0]['message']['content'].strip()
+                        logger.info(f"Query translation: {source_lang_name} '{query}' -> English '{translated_query}'")
+                        return {
+                            "status": "success", 
+                            "translated_query": translated_query,
+                            "original_query": query
+                        }
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Query translation API error {response.status}: {error_text}")
+                        return {"status": "error", "error": f"Translation API error: {response.status}"}
+                        
+        except Exception as e:
+            logger.error(f"Query translation error: {str(e)}")
+            # Fallback: use original query if translation fails
+            return {"status": "fallback", "translated_query": query, "original_query": query}
+
     async def translate_text(self, text: str, target_language: str) -> Dict[str, Any]:
         """Translate text to target language using Groq API"""
         try:
