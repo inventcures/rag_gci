@@ -1162,7 +1162,7 @@ FOCUSED INSTRUCTIONS:
 
 CITATION REQUIREMENTS:
 - ONLY cite at the END of your response - NO inline citations in the text
-- End your response with: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }
+- End your response with: [ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]
 - Multiple pages from same document: separate with commas
 - Multiple documents: separate with semicolons
 - Always use this exact format
@@ -1241,7 +1241,7 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             logger.info(f"🔍 Debug: question = {question[:50]}...")
             
             # Create enhanced prompt for MedGemma with examples and medical structure
-            citation_format = "{ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }"
+            citation_format = "[ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]"
             logger.info(f"🔍 Debug: citation_format = {citation_format}")
             
             try:
@@ -1273,7 +1273,7 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
                     "• Start with paracetamol 500mg every 6 hours",
                     "• Add weak opioids if pain >4/10",
                     "",
-                    "{ Sources : pain_management_guide: pg 23 }",
+                    "[ Sources : pain_management_guide: pg 23 ]",
                     "",
                     "EXAMPLE 2:",
                     "Question: How to provide tracheostomy care?",
@@ -1290,7 +1290,7 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
                     "• Change tracheostomy ties when soiled",
                     "• Monitor for signs of infection",
                     "",
-                    "{ Sources : nursing_handbook: pg 67 }",
+                    "[ Sources : nursing_handbook: pg 67 ]",
                     "",
                     "NOW ANSWER THIS QUESTION:",
                     "",
@@ -1466,9 +1466,9 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
         return context + f"\n\nAvailable sources: " + "; ".join(sections) + f"\n\nFor citations, use these formats: {citation_examples}"
     
     def _has_citation(self, answer: str) -> bool:
-        """Check if answer already has a citation in curly braces"""
-        return ('{' in answer and '}' in answer and 
-                ('retrieved from' in answer.lower() or 'sources' in answer.lower()))
+        """Check if answer already has a citation in square or curly braces"""
+        return (('{' in answer and '}' in answer) or ('[' in answer and ']' in answer)) and \
+               ('retrieved from' in answer.lower() or 'sources' in answer.lower())
     
     def _is_no_answer_response(self, answer: str) -> bool:
         """Check if the response indicates insufficient information"""
@@ -1493,8 +1493,8 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
         # Remove citations in the format: doc_name_pg42, doc_name_pg43
         answer = re.sub(r'[a-zA-Z0-9_]+_pg\d+(?:,\s*[a-zA-Z0-9_]+_pg\d+)*', '', answer)
         
-        # Remove any citation blocks including { Sources : ... } and { retrieved from: ... }
-        answer = re.sub(r'\{\s*[Ss]ources?\s*:.*?\}', '', answer, flags=re.DOTALL)
+        # Remove any citation blocks including [ Sources : ... ], { Sources : ... } and { retrieved from: ... }
+        answer = re.sub(r'[\[\{]\s*[Ss]ources?\s*:.*?[\]\}]', '', answer, flags=re.DOTALL)
         answer = re.sub(r'\{\s*retrieved\s+from:.*?\}', '', answer, flags=re.DOTALL)
         
         # Remove any standalone citations in curly braces
@@ -1508,7 +1508,7 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
                 cleaned_lines.append(line)
                 continue
                 
-            if (stripped.startswith('{') and 
+            if ((stripped.startswith('{') or stripped.startswith('[')) and 
                 ('retrieved from' in stripped.lower() or 'sources' in stripped.lower())):
                 continue
                 
@@ -1527,7 +1527,7 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
 
     def _add_automatic_citation(self, answer: str, metadatas: List[Dict]) -> str:
         """Add automatic citation if the model didn't include one
-        Format: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }"""
+        Format: [ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]"""
         if not metadatas:
             return answer
         
@@ -1550,14 +1550,14 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
                 doc_pages[doc_name].append(estimated_page)
         
         # Format citation according to specifications
-        # Format: { Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 }
+        # Format: [ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]
         citation_parts = []
         for doc_name, pages in doc_pages.items():
             pages.sort()  # Sort pages numerically
             pages_str = ','.join(map(str, pages))
             citation_parts.append(f"{doc_name}: pg {pages_str}")
         
-        citation = " { Sources : " + " ; ".join(citation_parts) + " }"
+        citation = "\n\n[ Sources : " + " ; ".join(citation_parts) + " ]"
         
         return answer + citation
     
