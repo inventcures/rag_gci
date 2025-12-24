@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import gradio as gr
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +48,21 @@ except ImportError:
     GEMINI_LIVE_AVAILABLE = False
     GeminiLiveService = None
     SessionManager = None
+
+# Bolna.ai integration imports (for voice AI helpline)
+try:
+    from bolna_integration import (
+        BolnaClient,
+        BolnaWebhookHandler,
+        get_palli_sahayak_agent_config,
+    )
+    BOLNA_AVAILABLE = True
+except ImportError:
+    BOLNA_AVAILABLE = False
+    BolnaClient = None
+    BolnaWebhookHandler = None
+
+import hmac
 
 # Core RAG components
 import chromadb
@@ -2909,7 +2924,209 @@ def main():
             return result
         except Exception as e:
             return {"status": "error", "error": str(e)}
-    
+
+    # ==========================================================================
+    # BOLNA.AI INTEGRATION ENDPOINTS
+    # Palli Sahayak Voice AI Agent Helpline
+    # ==========================================================================
+
+    # Initialize Bolna webhook handler
+    bolna_webhook_handler = BolnaWebhookHandler() if BOLNA_AVAILABLE else None
+
+    # Bolna webhook secret for signature verification
+    BOLNA_WEBHOOK_SECRET = os.getenv("BOLNA_WEBHOOK_SECRET", "")
+
+    def verify_bolna_signature(payload: bytes, signature: str) -> bool:
+        """Verify Bolna webhook signature using HMAC-SHA256."""
+        if not BOLNA_WEBHOOK_SECRET:
+            return True  # Skip verification if no secret configured
+
+        expected = hmac.new(
+            BOLNA_WEBHOOK_SECRET.encode(),
+            payload,
+            hashlib.sha256
+        ).hexdigest()
+
+        return hmac.compare_digest(expected, signature)
+
+    @app.post("/api/bolna/query")
+    async def bolna_query_endpoint(
+        request: Request,
+        x_bolna_signature: Optional[str] = Header(None)
+    ):
+        """
+        RAG query endpoint for Bolna custom function calls.
+
+        This endpoint receives queries from Bolna's LLM during voice calls,
+        queries the palliative care knowledge base, and returns grounded responses.
+
+        Request Body:
+        {
+            "query": "How to manage pain for cancer patients?",
+            "language": "hi",
+            "context": "User asking about pain management",
+            "source": "bolna_call"
+        }
+
+        Response:
+        {
+            "status": "success",
+            "answer": "For cancer pain management...",
+            "sources": ["WHO Pain Guidelines", "AIIMS Palliative Care Manual"],
+            "confidence": 0.92
+        }
+        """
+        try:
+            # Get raw body for signature verification
+            body = await request.body()
+
+            # Verify signature if provided
+            if x_bolna_signature and not verify_bolna_signature(body, x_bolna_signature):
+                logger.warning("Invalid Bolna signature received")
+                raise HTTPException(status_code=401, detail="Invalid signature")
+
+            # Parse request
+            data = json.loads(body)
+            query = data.get("query", "")
+            language = data.get("language", "en")
+            context = data.get("context", "")
+            source = data.get("source", "unknown")
+
+            logger.info(f"Bolna RAG query: '{query[:100]}...' (lang={language}, source={source})")
+
+            if not query:
+                return JSONResponse({
+                    "status": "error",
+                    "answer": "I didn't catch your question. Could you please repeat?",
+                    "sources": [],
+                    "confidence": 0.0
+                })
+
+            # Query RAG pipeline
+            rag_result = await rag_pipeline.query(
+                question=query,
+                user_id=f"bolna_{source}",
+                source_language=language,
+                top_k=3
+            )
+
+            if rag_result.get("status") == "success":
+                answer = rag_result.get("answer", "")
+
+                # Extract source citations
+                sources = []
+                if "sources" in rag_result:
+                    sources = [s.get("title", s.get("filename", "Unknown")) for s in rag_result["sources"][:3]]
+                elif "citations" in rag_result:
+                    sources = [c.get("source", "Knowledge Base") for c in rag_result["citations"][:3]]
+                else:
+                    sources = ["Palliative Care Knowledge Base"]
+
+                # Calculate confidence based on retrieval
+                confidence = min(0.95, rag_result.get("relevance_score", 0.8))
+
+                return JSONResponse({
+                    "status": "success",
+                    "answer": answer,
+                    "sources": sources,
+                    "confidence": confidence,
+                    "language": language
+                })
+
+            else:
+                # RAG query failed - return graceful fallback
+                logger.warning(f"RAG query returned non-success: {rag_result.get('status')}")
+                return JSONResponse({
+                    "status": "partial",
+                    "answer": "I'm having trouble accessing my knowledge base right now. Based on general palliative care principles, I'd recommend consulting with your healthcare provider for specific guidance.",
+                    "sources": [],
+                    "confidence": 0.3
+                })
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in Bolna query: {e}")
+            return JSONResponse({
+                "status": "error",
+                "answer": "I received an invalid request. Please try again.",
+                "sources": [],
+                "confidence": 0.0
+            }, status_code=400)
+
+        except HTTPException:
+            raise
+
+        except Exception as e:
+            logger.error(f"Bolna query endpoint error: {e}", exc_info=True)
+            return JSONResponse({
+                "status": "error",
+                "answer": "I apologize, but I'm experiencing technical difficulties. Please try again or contact the helpline directly.",
+                "sources": [],
+                "confidence": 0.0
+            }, status_code=500)
+
+    @app.post("/api/bolna/webhook")
+    async def bolna_webhook_endpoint(request: Request):
+        """
+        Webhook endpoint for Bolna call events.
+
+        Receives notifications about:
+        - call_started: New call initiated
+        - call_ended: Call completed with summary
+        - extraction_completed: Data extracted from call
+        - transcription: Real-time transcription updates
+        """
+        try:
+            data = await request.json()
+            event_type = data.get("event", data.get("type", "unknown"))
+            call_id = data.get("call_id", data.get("id", "unknown"))
+
+            logger.info(f"Bolna webhook received: {event_type} for call {call_id}")
+
+            # Process with webhook handler if available
+            if bolna_webhook_handler:
+                result = await bolna_webhook_handler.handle_event(data)
+                return JSONResponse(result)
+
+            # Basic handling if handler not available
+            if event_type == "call_ended":
+                summary = data.get("summary", "")
+                duration = data.get("duration_seconds", data.get("duration", 0))
+                logger.info(f"Call {call_id} ended - Duration: {duration}s")
+                if summary:
+                    logger.info(f"Call summary: {summary[:200]}...")
+
+            elif event_type == "extraction_completed":
+                extracted = data.get("extracted_data", data.get("data", {}))
+                logger.info(f"Call {call_id} extraction: {extracted}")
+
+                # Check for high urgency
+                if extracted.get("urgency_level") in ("high", "emergency"):
+                    logger.warning(f"HIGH URGENCY call {call_id}: {extracted.get('user_concern', 'Unknown')}")
+
+            return JSONResponse({"status": "received", "event": event_type})
+
+        except Exception as e:
+            logger.error(f"Bolna webhook error: {e}", exc_info=True)
+            return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+    @app.get("/api/bolna/stats")
+    async def bolna_stats_endpoint():
+        """Get Bolna call statistics."""
+        if bolna_webhook_handler:
+            return JSONResponse(bolna_webhook_handler.get_call_stats())
+        return JSONResponse({"error": "Bolna integration not available"}, status_code=503)
+
+    @app.get("/api/bolna/calls")
+    async def bolna_recent_calls_endpoint(limit: int = 10):
+        """Get recent Bolna calls."""
+        if bolna_webhook_handler:
+            return JSONResponse({"calls": bolna_webhook_handler.get_recent_calls(limit)})
+        return JSONResponse({"error": "Bolna integration not available"}, status_code=503)
+
+    # ==========================================================================
+    # END BOLNA.AI INTEGRATION
+    # ==========================================================================
+
     # Add WhatsApp webhook routes if bot is configured
     if whatsapp_bot:
         from fastapi.responses import Response
