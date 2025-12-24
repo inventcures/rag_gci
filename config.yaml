@@ -143,3 +143,86 @@ gemini_live:
 
   # Transcription capture
   transcription_enabled: true
+
+# Bolna.ai Voice AI Configuration (Primary for Phone Calls)
+bolna:
+  enabled: true  # Set to true when Bolna is configured
+  api_key: ${BOLNA_API_KEY}
+  agent_id: ${BOLNA_AGENT_ID}
+
+  # Agent settings
+  agent_name: "Palli Sahayak"
+  agent_type: "free_flowing"
+
+  # ASR (Speech-to-Text) - Deepgram
+  transcriber:
+    provider: "deepgram"
+    model: "nova-2"
+    stream: true
+
+  # LLM - OpenAI
+  llm:
+    provider: "openai"
+    model: "gpt-4o-mini"
+    temperature: 0.3
+    max_tokens: 500
+
+  # TTS (Text-to-Speech) - ElevenLabs
+  synthesizer:
+    provider: "elevenlabs"
+    model: "eleven_multilingual_v2"
+    voice: "Rachel"
+    stream: true
+
+  # Language support
+  default_language: "hi"
+  supported_languages:
+    hi:
+      name: "Hindi"
+      welcome_message: "नमस्ते! मैं पल्ली सहायक हूं, आपका पैलिएटिव केयर सहायक। आज मैं आपकी कैसे मदद कर सकती हूं?"
+    en:
+      name: "English"
+      welcome_message: "Hello! I am Palli Sahayak, your palliative care assistant. How can I help you today?"
+    mr:
+      name: "Marathi"
+      welcome_message: "नमस्कार! मी पल्ली सहायक आहे, तुमचा पॅलिएटिव केअर सहाय्यक."
+    ta:
+      name: "Tamil"
+      welcome_message: "வணக்கம்! நான் பல்லி சகாயக், உங்கள் நோய்த்தடுப்பு பராமரிப்பு உதவியாளர்."
+
+  # Webhook configuration
+  webhook:
+    enabled: true
+    secret: ${BOLNA_WEBHOOK_SECRET}
+    events:
+      - "call_started"
+      - "call_ended"
+      - "extraction_completed"
+      - "transcription"
+
+  # Custom function for RAG integration
+  rag_function:
+    name: "query_rag_knowledge_base"
+    endpoint: "/api/bolna/query"
+    method: "POST"
+
+  # Telephony settings
+  telephony:
+    provider: "twilio"  # twilio, plivo, or exotel
+    phone_number: ${BOLNA_PHONE_NUMBER}
+
+# Voice Router Configuration
+voice_router:
+  # Provider priority
+  preferred_provider: "bolna"  # bolna, gemini_live, or fallback_pipeline
+
+  # Phone call routing
+  phone_primary: "bolna"
+  phone_fallback: "gemini_live"
+
+  # Web voice routing
+  web_primary: "gemini_live"
+  web_fallback: "bolna"
+
+  # Ultimate fallback (always available)
+  ultimate_fallback: "stt_rag_tts"  # STT → RAG → LLM → TTS pipeline
