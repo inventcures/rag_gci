@@ -1,0 +1,138 @@
+# GraphRAG Configuration for Palli Sahayak
+# Version: 2.7.0
+# Documentation: docs/graphrag_specs.md
+
+# =============================================================================
+# LANGUAGE MODEL CONFIGURATION
+# =============================================================================
+models:
+  default_chat_model:
+    type: chat
+    model_provider: openai  # Options: openai, azure_openai, litellm
+    model: gpt-4o-mini
+    api_key: ${GRAPHRAG_API_KEY}
+    max_tokens: 4096
+    temperature: 0.0
+    request_timeout: 180
+    retry_strategy: exponential_backoff
+    max_retries: 3
+
+  default_embedding_model:
+    type: embedding
+    model_provider: openai
+    model: text-embedding-3-small
+    api_key: ${GRAPHRAG_API_KEY}
+    batch_size: 16
+
+# =============================================================================
+# INPUT CONFIGURATION
+# =============================================================================
+input:
+  type: file
+  file_type: text  # Options: text, csv, json
+  base_dir: ./input
+  file_pattern: "*.{txt,md,pdf}"
+  encoding: utf-8
+
+# =============================================================================
+# OUTPUT CONFIGURATION
+# =============================================================================
+output:
+  type: file
+  base_dir: ./output
+
+# =============================================================================
+# CACHE CONFIGURATION
+# =============================================================================
+cache:
+  type: file
+  base_dir: ./cache
+
+# =============================================================================
+# CHUNKING CONFIGURATION
+# =============================================================================
+chunks:
+  size: 1200
+  overlap: 100
+  group_by_columns: [id]
+  encoding_model: cl100k_base
+
+# =============================================================================
+# ENTITY EXTRACTION CONFIGURATION
+# =============================================================================
+extract_graph:
+  prompt: ./prompts/entity_extraction.txt
+  entity_types:
+    - Symptom
+    - Medication
+    - Condition
+    - Treatment
+    - SideEffect
+    - Dosage
+    - Route
+    - CareGoal
+    - Assessment
+    - Intervention
+  max_gleanings: 1
+  strategy:
+    type: graph_intelligence
+
+# =============================================================================
+# COMMUNITY DETECTION CONFIGURATION
+# =============================================================================
+cluster_graph:
+  max_cluster_size: 10
+  strategy:
+    type: leiden
+    levels: [0, 1, 2]
+
+# =============================================================================
+# COMMUNITY REPORTS CONFIGURATION
+# =============================================================================
+community_reports:
+  prompt: ./prompts/community_report.txt
+  max_length: 2000
+  max_input_length: 8000
+
+# =============================================================================
+# EMBEDDING CONFIGURATION
+# =============================================================================
+embed_text:
+  strategy:
+    type: openai
+    batch_size: 16
+    batch_max_tokens: 8191
+
+# =============================================================================
+# GLOBAL SEARCH CONFIGURATION
+# =============================================================================
+global_search:
+  map_prompt: ./prompts/global_search_map.txt
+  reduce_prompt: ./prompts/global_search_reduce.txt
+  max_tokens: 12000
+  data_max_tokens: 12000
+  concurrency: 32
+
+# =============================================================================
+# LOCAL SEARCH CONFIGURATION
+# =============================================================================
+local_search:
+  prompt: ./prompts/local_search.txt
+  max_tokens: 12000
+  text_unit_prop: 0.5
+  community_prop: 0.1
+  top_k_entities: 10
+  top_k_relationships: 10
+  conversation_history_max_turns: 5
+
+# =============================================================================
+# DRIFT SEARCH CONFIGURATION
+# =============================================================================
+drift_search:
+  primer_folds: 3
+  primer_llm_max_tokens: 4000
+  n_depth: 3
+  local_search_text_unit_prop: 0.5
+  local_search_community_prop: 0.1
+  local_search_top_k_mapped_entities: 10
+  local_search_top_k_relationships: 10
