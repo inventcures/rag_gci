@@ -226,3 +226,45 @@ voice_router:
 
   # Ultimate fallback (always available)
   ultimate_fallback: "stt_rag_tts"  # STT → RAG → LLM → TTS pipeline
+
+# Knowledge Graph Configuration (Neo4j)
+knowledge_graph:
+  enabled: true
+  uri: ${NEO4J_URI}
+  username: ${NEO4J_USER}
+  password: ${NEO4J_PASSWORD}
+  database: "neo4j"
+
+  # Entity extraction
+  entity_extraction:
+    use_llm: true  # Use LLM for better extraction
+    use_patterns: true  # Also use regex patterns
+
+  # Cypher generation
+  cypher_generation:
+    use_llm: true  # Generate Cypher with LLM
+    max_results: 100
+
+  # Node types for palliative care
+  node_types:
+    - Symptom
+    - Medication
+    - Condition
+    - Treatment
+    - SideEffect
+    - BodyPart
+
+  # Relationship types
+  relationship_types:
+    - TREATS
+    - CAUSES
+    - SIDE_EFFECT_OF
+    - MANAGES
+    - ALLEVIATES
+    - AFFECTS
+    - CONTRAINDICATES
+
+  # Visualization
+  visualization:
+    layout: "cose"  # Force-directed layout
+    max_nodes: 100

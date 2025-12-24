@@ -40,6 +40,9 @@ twilio>=8.10.3
 aiohttp>=3.9.0  # For Bolna API client
 websockets>=12.0  # For Gemini Live WebSocket
 
+# Knowledge Graph
+neo4j>=5.14.0  # Neo4j Python driver for knowledge graph
+
 # Utilities
 python-dotenv>=1.0.0
 PyYAML>=6.0.1

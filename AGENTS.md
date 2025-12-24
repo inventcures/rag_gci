@@ -208,3 +208,68 @@ Bolna calls the RAG pipeline via custom function:
 - **Bolna Docs**: https://www.bolna.ai/docs/introduction
 - **Custom Functions**: https://www.bolna.ai/docs/tool-calling/custom-function-calls
 - **Codebase Wiki**: https://deepwiki.com/inventcures/rag_gci
+
+---
+
+## Knowledge Graph Integration (Neo4j)
+
+### Overview
+The RAG system includes a knowledge graph module for enhanced medical entity relationships.
+Inspired by OncoGraph (https://github.com/ib565/OncoGraph).
+
+### Directory Structure
+```
+knowledge_graph/
+├── __init__.py           # Module exports
+├── neo4j_client.py       # Neo4j connection & queries
+├── entity_extractor.py   # LLM + pattern entity extraction
+├── graph_builder.py      # Graph construction
+├── cypher_generator.py   # NL → Cypher translation
+├── visualizer.py         # Cytoscape.js visualization
+└── kg_rag.py            # Main KG-RAG integration
+```
+
+### Node Types (Palliative Care)
+| Node Type | Description |
+|-----------|-------------|
+| Symptom | Pain, nausea, fatigue, etc. |
+| Medication | Morphine, ondansetron, etc. |
+| Condition | Cancer, heart failure, etc. |
+| Treatment | Chemotherapy, palliative care, etc. |
+| SideEffect | Constipation, drowsiness, etc. |
+
+### Relationship Types
+| Relationship | Pattern |
+|--------------|---------|
+| TREATS | (Medication)-[:TREATS]->(Symptom) |
+| CAUSES | (Condition)-[:CAUSES]->(Symptom) |
+| SIDE_EFFECT_OF | (SideEffect)-[:SIDE_EFFECT_OF]->(Medication) |
+| MANAGES | (Treatment)-[:MANAGES]->(Condition) |
+
+### Environment Variables
+```bash
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_password
+```
+
+### Usage
+```python
+from knowledge_graph import KnowledgeGraphRAG
+
+kg = KnowledgeGraphRAG()
+await kg.initialize()
+
+# Query with natural language
+result = await kg.query("What medications treat pain?")
+
+# Get visualization
+viz_html = kg.get_visualization_html(result["visualization"])
+```
+
+### Features
+- **Hybrid Retrieval**: Vector search + graph traversal
+- **Entity Extraction**: LLM + regex pattern matching
+- **Cypher Generation**: Natural language → Cypher queries
+- **Visualization**: Interactive Cytoscape.js graphs
+- **Safety**: Query validation blocks write operations
