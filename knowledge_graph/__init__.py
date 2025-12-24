@@ -37,7 +37,7 @@ Usage:
 from .neo4j_client import Neo4jClient, Neo4jConfig
 from .entity_extractor import EntityExtractor, Entity, Relationship
 from .graph_builder import GraphBuilder
-from .cypher_generator import CypherGenerator, CypherValidator
+from .cypher_generator import CypherGenerator, CypherValidator, CypherQuery
 from .visualizer import GraphVisualizer, VisualizationData
 from .kg_rag import KnowledgeGraphRAG
 
@@ -50,6 +50,7 @@ __all__ = [
     "GraphBuilder",
     "CypherGenerator",
     "CypherValidator",
+    "CypherQuery",
     "GraphVisualizer",
     # Data classes
     "Entity",
