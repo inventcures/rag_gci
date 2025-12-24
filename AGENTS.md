@@ -273,3 +273,25 @@ viz_html = kg.get_visualization_html(result["visualization"])
 - **Cypher Generation**: Natural language → Cypher queries
 - **Visualization**: Interactive Cytoscape.js graphs
 - **Safety**: Query validation blocks write operations
+
+### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/kg/health` | GET | Health status check |
+| `/api/kg/stats` | GET | Graph statistics |
+| `/api/kg/query` | POST | Natural language query |
+| `/api/kg/extract` | POST | Entity extraction from text |
+| `/api/kg/entity/{name}` | GET | Get entity subgraph |
+| `/api/kg/treatments/{symptom}` | GET | Find treatments for symptom |
+| `/api/kg/side-effects/{medication}` | GET | Get medication side effects |
+| `/api/kg/search` | GET | Search entities by name |
+| `/api/kg/visualization/{name}` | GET | HTML visualization |
+| `/api/kg/import-base` | POST | Import base knowledge |
+
+### Admin UI Tab
+The Gradio admin interface includes a **Knowledge Graph** tab with:
+- **Extract Entities**: Extract medical entities from free text
+- **Query Graph**: Natural language queries
+- **Find Treatments**: Lookup treatments for symptoms
+- **Side Effects**: Check medication side effects
+- **Graph Status**: Health and statistics monitoring
