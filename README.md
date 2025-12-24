@@ -1,5 +1,7 @@
 # RAG Server with WhatsApp Bot Integration
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/inventcures/rag_gci)
+
 A comprehensive RAG (Retrieval-Augmented Generation) pipeline built with Kotaemon, featuring:
 - 📄 Document processing and indexing
 - 🖥️ Web-based admin UI for corpus management  
