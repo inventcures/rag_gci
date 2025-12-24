@@ -289,70 +289,231 @@ class GraphBuilder:
 
     async def import_palliative_care_data(self) -> Dict[str, Any]:
         """
-        Import base palliative care knowledge.
+        Import comprehensive palliative care knowledge base.
 
-        This creates common symptom-medication relationships from
-        palliative care guidelines.
+        This creates a rich knowledge graph with:
+        - Symptom-medication relationships (treatments)
+        - Condition-symptom relationships (causes)
+        - Side effect relationships
+        - Care goal and setting relationships
+        - Non-pharmacological intervention relationships
+
+        Based on:
+        - WHO Pain Ladder
+        - Palliative Care Formulary (PCF)
+        - NICE Palliative Care Guidelines
+        - IAHPC Essential Medicines List
 
         Returns:
             Import summary
         """
-        # Common palliative care knowledge
+        results = {
+            "treatments_added": 0,
+            "side_effects_added": 0,
+            "conditions_added": 0,
+            "interventions_added": 0,
+            "errors": 0
+        }
+
+        # =====================================================================
+        # SYMPTOM-MEDICATION RELATIONSHIPS (TREATS/ALLEVIATES)
+        # =====================================================================
         treatments = [
-            # Pain management
-            ("Morphine", "Pain", "first-line", "WHO Pain Ladder"),
-            ("Paracetamol", "Pain", "adjuvant", "WHO Pain Ladder"),
-            ("Ibuprofen", "Pain", "mild pain", "WHO Pain Ladder"),
-            ("Fentanyl", "Pain", "severe pain", "Palliative Care Formulary"),
-            ("Gabapentin", "Neuropathic Pain", "first-line", "NICE Guidelines"),
+            # Pain management - WHO Pain Ladder Step 1 (Non-opioids)
+            ("Paracetamol", "Pain", "first-line, mild pain", "WHO Pain Ladder Step 1"),
+            ("Ibuprofen", "Pain", "mild-moderate pain", "WHO Pain Ladder Step 1"),
+            ("Diclofenac", "Pain", "anti-inflammatory", "WHO Pain Ladder Step 1"),
+            ("Naproxen", "Pain", "anti-inflammatory", "WHO Pain Ladder Step 1"),
 
-            # Nausea/vomiting
-            ("Ondansetron", "Nausea", "first-line", "Palliative Care Formulary"),
-            ("Metoclopramide", "Nausea", "prokinetic", "Palliative Care Formulary"),
-            ("Haloperidol", "Nausea", "chemical causes", "Palliative Care Formulary"),
+            # Pain management - WHO Pain Ladder Step 2 (Weak opioids)
+            ("Codeine", "Pain", "moderate pain", "WHO Pain Ladder Step 2"),
+            ("Tramadol", "Pain", "moderate pain", "WHO Pain Ladder Step 2"),
+            ("Dihydrocodeine", "Pain", "moderate pain", "WHO Pain Ladder Step 2"),
 
-            # Breathlessness
-            ("Morphine", "Breathlessness", "effective", "Cochrane Review"),
-            ("Midazolam", "Breathlessness", "anxiolytic", "Palliative Care Formulary"),
+            # Pain management - WHO Pain Ladder Step 3 (Strong opioids)
+            ("Morphine", "Pain", "first-line strong opioid", "WHO Pain Ladder Step 3"),
+            ("Morphine", "Cancer Pain", "gold standard", "WHO Essential Medicines"),
+            ("Oxycodone", "Pain", "alternative to morphine", "Palliative Care Formulary"),
+            ("Fentanyl", "Pain", "transdermal, breakthrough", "Palliative Care Formulary"),
+            ("Fentanyl", "Breakthrough Pain", "rapid onset", "Palliative Care Formulary"),
+            ("Hydromorphone", "Pain", "renal impairment", "Palliative Care Formulary"),
+            ("Methadone", "Pain", "complex pain, neuropathic", "Palliative Care Formulary"),
+            ("Buprenorphine", "Pain", "transdermal option", "Palliative Care Formulary"),
+            ("Alfentanil", "Pain", "subcutaneous infusion", "Palliative Care Formulary"),
 
-            # Anxiety/depression
-            ("Lorazepam", "Anxiety", "short-term", "Palliative Care Formulary"),
-            ("Midazolam", "Anxiety", "acute", "Palliative Care Formulary"),
+            # Neuropathic pain
+            ("Gabapentin", "Neuropathic Pain", "first-line", "NICE Neuropathic Pain"),
+            ("Pregabalin", "Neuropathic Pain", "first-line", "NICE Neuropathic Pain"),
+            ("Amitriptyline", "Neuropathic Pain", "first-line, low dose", "NICE Neuropathic Pain"),
+            ("Duloxetine", "Neuropathic Pain", "SNRI option", "NICE Neuropathic Pain"),
+            ("Carbamazepine", "Neuropathic Pain", "trigeminal neuralgia", "Palliative Care Formulary"),
+            ("Lidocaine", "Neuropathic Pain", "topical patch", "Palliative Care Formulary"),
+            ("Ketamine", "Neuropathic Pain", "refractory pain", "Palliative Care Formulary"),
 
-            # Constipation (often from opioids)
-            ("Lactulose", "Constipation", "first-line", "Palliative Care Formulary"),
-            ("Senna", "Constipation", "stimulant", "Palliative Care Formulary"),
-            ("Bisacodyl", "Constipation", "stimulant", "Palliative Care Formulary"),
+            # Bone pain
+            ("Paracetamol", "Bone Pain", "baseline analgesia", "Palliative Care Formulary"),
+            ("Ibuprofen", "Bone Pain", "anti-inflammatory", "Palliative Care Formulary"),
+            ("Dexamethasone", "Bone Pain", "adjuvant", "Palliative Care Formulary"),
 
-            # Other symptoms
-            ("Dexamethasone", "Fatigue", "short-term", "Palliative Care Formulary"),
-            ("Hyoscine", "Secretions", "effective", "Palliative Care Formulary"),
+            # Nausea and vomiting
+            ("Ondansetron", "Nausea", "chemotherapy-induced", "Palliative Care Formulary"),
+            ("Metoclopramide", "Nausea", "gastric stasis", "Palliative Care Formulary"),
+            ("Domperidone", "Nausea", "gastric stasis, less CNS effects", "Palliative Care Formulary"),
+            ("Cyclizine", "Nausea", "motion, vestibular", "Palliative Care Formulary"),
+            ("Haloperidol", "Nausea", "chemical/metabolic causes", "Palliative Care Formulary"),
+            ("Levomepromazine", "Nausea", "broad spectrum", "Palliative Care Formulary"),
+            ("Dexamethasone", "Nausea", "raised ICP, adjuvant", "Palliative Care Formulary"),
+            ("Ondansetron", "Vomiting", "5-HT3 antagonist", "Palliative Care Formulary"),
+            ("Metoclopramide", "Vomiting", "prokinetic", "Palliative Care Formulary"),
+
+            # Dyspnea (breathlessness)
+            ("Morphine", "Dyspnea", "reduces perception", "Cochrane Review"),
+            ("Oxycodone", "Dyspnea", "alternative opioid", "Palliative Care Formulary"),
+            ("Midazolam", "Dyspnea", "anxiety component", "Palliative Care Formulary"),
+            ("Lorazepam", "Dyspnea", "anxiety component", "Palliative Care Formulary"),
+            ("Oxygen", "Dyspnea", "if hypoxic", "Palliative Care Formulary"),
+            ("Dexamethasone", "Dyspnea", "airway obstruction", "Palliative Care Formulary"),
+
+            # Death rattle (terminal secretions)
+            ("Hyoscine", "Death Rattle", "first-line", "Palliative Care Formulary"),
+            ("Glycopyrronium", "Death Rattle", "less sedating", "Palliative Care Formulary"),
+            ("Atropine", "Death Rattle", "sublingual", "Palliative Care Formulary"),
+
+            # Constipation
+            ("Lactulose", "Constipation", "osmotic laxative", "Palliative Care Formulary"),
+            ("Senna", "Constipation", "stimulant laxative", "Palliative Care Formulary"),
+            ("Bisacodyl", "Constipation", "stimulant laxative", "Palliative Care Formulary"),
+            ("Docusate", "Constipation", "softener", "Palliative Care Formulary"),
+            ("Polyethylene Glycol", "Constipation", "osmotic, impaction", "Palliative Care Formulary"),
+            ("Methylnaltrexone", "Constipation", "opioid-induced", "Palliative Care Formulary"),
+            ("Naloxegol", "Constipation", "opioid-induced, oral", "Palliative Care Formulary"),
+
+            # Anxiety
+            ("Lorazepam", "Anxiety", "short-acting", "Palliative Care Formulary"),
+            ("Diazepam", "Anxiety", "longer-acting", "Palliative Care Formulary"),
+            ("Midazolam", "Anxiety", "acute, parenteral", "Palliative Care Formulary"),
+            ("Clonazepam", "Anxiety", "longer duration", "Palliative Care Formulary"),
+            ("Sertraline", "Anxiety", "SSRI, if prognosis allows", "Palliative Care Formulary"),
+            ("Mirtazapine", "Anxiety", "also helps sleep, appetite", "Palliative Care Formulary"),
+
+            # Depression
+            ("Sertraline", "Depression", "SSRI, first-line", "Palliative Care Formulary"),
+            ("Citalopram", "Depression", "SSRI option", "Palliative Care Formulary"),
+            ("Mirtazapine", "Depression", "also sedating, appetite", "Palliative Care Formulary"),
+            ("Amitriptyline", "Depression", "also for pain, sleep", "Palliative Care Formulary"),
+
+            # Delirium/Agitation
+            ("Haloperidol", "Delirium", "first-line", "Palliative Care Formulary"),
+            ("Olanzapine", "Delirium", "atypical option", "Palliative Care Formulary"),
+            ("Risperidone", "Delirium", "atypical option", "Palliative Care Formulary"),
+            ("Quetiapine", "Delirium", "atypical, sedating", "Palliative Care Formulary"),
+            ("Midazolam", "Agitation", "acute, parenteral", "Palliative Care Formulary"),
+            ("Lorazepam", "Agitation", "acute", "Palliative Care Formulary"),
+            ("Haloperidol", "Agitation", "antipsychotic", "Palliative Care Formulary"),
+            ("Phenobarbital", "Agitation", "refractory", "Palliative Care Formulary"),
+
+            # Insomnia
+            ("Mirtazapine", "Insomnia", "sedating antidepressant", "Palliative Care Formulary"),
+            ("Lorazepam", "Insomnia", "short-term", "Palliative Care Formulary"),
+            ("Amitriptyline", "Insomnia", "low dose", "Palliative Care Formulary"),
+
+            # Fatigue
+            ("Dexamethasone", "Fatigue", "short-term benefit", "Palliative Care Formulary"),
+            ("Methylprednisolone", "Fatigue", "steroid option", "Palliative Care Formulary"),
+
+            # Anorexia/Cachexia
+            ("Dexamethasone", "Anorexia", "appetite stimulant", "Palliative Care Formulary"),
+            ("Dexamethasone", "Cachexia", "short-term", "Palliative Care Formulary"),
+            ("Mirtazapine", "Anorexia", "appetite side effect", "Palliative Care Formulary"),
+
+            # Seizures
+            ("Midazolam", "Seizures", "acute, buccal/SC", "Palliative Care Formulary"),
+            ("Diazepam", "Seizures", "rectal", "Palliative Care Formulary"),
+            ("Phenobarbital", "Seizures", "maintenance, SC", "Palliative Care Formulary"),
+            ("Levetiracetam", "Seizures", "maintenance", "Palliative Care Formulary"),
+
+            # Bowel obstruction
+            ("Hyoscine", "Bowel Obstruction", "antisecretory", "Palliative Care Formulary"),
+            ("Octreotide", "Bowel Obstruction", "reduces secretions", "Palliative Care Formulary"),
+            ("Dexamethasone", "Bowel Obstruction", "may relieve", "Palliative Care Formulary"),
+            ("Haloperidol", "Bowel Obstruction", "antiemetic", "Palliative Care Formulary"),
+
+            # Hiccups
+            ("Metoclopramide", "Hiccups", "gastric cause", "Palliative Care Formulary"),
+            ("Haloperidol", "Hiccups", "central cause", "Palliative Care Formulary"),
+            ("Baclofen", "Hiccups", "refractory", "Palliative Care Formulary"),
+
+            # Pruritus (itching)
+            ("Ondansetron", "Pruritus", "cholestatic", "Palliative Care Formulary"),
+            ("Hydroxyzine", "Pruritus", "antihistamine", "Palliative Care Formulary"),
+
+            # Fever
+            ("Paracetamol", "Fever", "antipyretic", "Palliative Care Formulary"),
+            ("Ibuprofen", "Fever", "antipyretic", "Palliative Care Formulary"),
         ]
-
-        results = {"added": 0, "errors": 0}
 
         for medication, symptom, effectiveness, evidence in treatments:
             result = await self.add_treatment_relationship(
                 medication, symptom, effectiveness, evidence
             )
-            if "error" in result:
-                results["errors"] += 1
+            if "error" not in result:
+                results["treatments_added"] += 1
             else:
-                results["added"] += 1
+                results["errors"] += 1
 
-        # Add side effects
+        # =====================================================================
+        # SIDE EFFECT RELATIONSHIPS
+        # =====================================================================
         side_effects = [
-            ("Constipation", "Morphine"),
-            ("Drowsiness", "Morphine"),
-            ("Nausea", "Morphine"),
-            ("Constipation", "Fentanyl"),
-            ("Drowsiness", "Lorazepam"),
-            ("Drowsiness", "Midazolam"),
+            # Opioid side effects
+            ("Constipation", "Morphine", "common"),
+            ("Drowsiness", "Morphine", "common, usually transient"),
+            ("Nausea", "Morphine", "common initially"),
+            ("Confusion", "Morphine", "elderly, high doses"),
+            ("Constipation", "Oxycodone", "common"),
+            ("Drowsiness", "Oxycodone", "common"),
+            ("Constipation", "Fentanyl", "less than morphine"),
+            ("Drowsiness", "Fentanyl", "common"),
+            ("Constipation", "Codeine", "common"),
+            ("Nausea", "Codeine", "common"),
+            ("Constipation", "Tramadol", "less than other opioids"),
+            ("Nausea", "Tramadol", "common"),
+            ("Dizziness", "Tramadol", "common"),
+
+            # Benzodiazepine side effects
+            ("Drowsiness", "Lorazepam", "common"),
+            ("Confusion", "Lorazepam", "elderly"),
+            ("Drowsiness", "Midazolam", "expected"),
+            ("Drowsiness", "Diazepam", "common"),
+            ("Confusion", "Diazepam", "elderly"),
+
+            # Antiemetic side effects
+            ("Constipation", "Ondansetron", "common"),
+            ("Headache", "Ondansetron", "occasional"),
+            ("Drowsiness", "Haloperidol", "dose-related"),
+            ("Drowsiness", "Levomepromazine", "marked"),
+
+            # Steroid side effects
+            ("Insomnia", "Dexamethasone", "give in morning"),
+            ("Confusion", "Dexamethasone", "high doses"),
+            ("Agitation", "Dexamethasone", "steroid psychosis"),
+
+            # Antidepressant side effects
+            ("Drowsiness", "Mirtazapine", "beneficial for sleep"),
+            ("Drowsiness", "Amitriptyline", "beneficial for sleep"),
+            ("Xerostomia", "Amitriptyline", "anticholinergic"),
+            ("Constipation", "Amitriptyline", "anticholinergic"),
+
+            # Anticholinergic side effects
+            ("Xerostomia", "Hyoscine", "anticholinergic"),
+            ("Confusion", "Hyoscine", "elderly"),
+            ("Xerostomia", "Glycopyrronium", "anticholinergic"),
         ]
 
-        for side_effect, medication in side_effects:
+        for side_effect, medication, frequency in side_effects:
             await self.client.create_node("SideEffect", {"name": side_effect}, "name")
-            await self.client.create_relationship(
+            await self.client.create_node("Medication", {"name": medication}, "name")
+            result = await self.client.create_relationship(
                 from_label="SideEffect",
                 from_key="name",
                 from_value=side_effect,
@@ -360,10 +521,141 @@ class GraphBuilder:
                 to_key="name",
                 to_value=medication,
                 rel_type="SIDE_EFFECT_OF",
-                properties={"created_at": datetime.now().isoformat()}
+                properties={
+                    "frequency": frequency,
+                    "created_at": datetime.now().isoformat()
+                }
             )
+            if "error" not in result:
+                results["side_effects_added"] += 1
 
-        logger.info(f"Imported palliative care data: {results}")
+        # =====================================================================
+        # CONDITION-SYMPTOM RELATIONSHIPS (CAUSES)
+        # =====================================================================
+        condition_symptoms = [
+            # Cancer symptoms
+            ("Cancer", "Pain", "common"),
+            ("Cancer", "Fatigue", "very common"),
+            ("Cancer", "Anorexia", "common"),
+            ("Cancer", "Cachexia", "advanced disease"),
+            ("Cancer", "Nausea", "common"),
+            ("Metastatic Cancer", "Bone Pain", "bone metastases"),
+            ("Metastatic Cancer", "Dyspnea", "lung involvement"),
+            ("Lung Cancer", "Dyspnea", "primary symptom"),
+            ("Lung Cancer", "Cough", "common"),
+            ("Lung Cancer", "Hemoptysis", "possible"),
+            ("Brain Tumor", "Headache", "raised ICP"),
+            ("Brain Tumor", "Confusion", "common"),
+            ("Brain Tumor", "Seizures", "possible"),
+
+            # Heart failure symptoms
+            ("Heart Failure", "Dyspnea", "cardinal symptom"),
+            ("Heart Failure", "Fatigue", "common"),
+            ("Heart Failure", "Edema", "fluid overload"),
+
+            # COPD symptoms
+            ("COPD", "Dyspnea", "progressive"),
+            ("COPD", "Cough", "chronic"),
+            ("COPD", "Fatigue", "common"),
+
+            # Dementia symptoms
+            ("Dementia", "Confusion", "defining feature"),
+            ("Dementia", "Agitation", "BPSD"),
+            ("Dementia", "Dysphagia", "advanced"),
+
+            # Kidney failure symptoms
+            ("Kidney Failure", "Fatigue", "common"),
+            ("Kidney Failure", "Nausea", "uremia"),
+            ("Kidney Failure", "Pruritus", "uremia"),
+            ("Kidney Failure", "Confusion", "uremia"),
+
+            # Liver failure symptoms
+            ("Liver Failure", "Confusion", "encephalopathy"),
+            ("Liver Failure", "Ascites", "common"),
+            ("Liver Failure", "Jaundice", "common"),
+            ("Liver Failure", "Pruritus", "cholestasis"),
+
+            # Motor neuron disease
+            ("Motor Neuron Disease", "Dysphagia", "bulbar"),
+            ("Motor Neuron Disease", "Dyspnea", "respiratory weakness"),
+            ("Motor Neuron Disease", "Death Rattle", "secretions"),
+        ]
+
+        for condition, symptom, notes in condition_symptoms:
+            await self.client.create_node("Condition", {"name": condition}, "name")
+            await self.client.create_node("Symptom", {"name": symptom}, "name")
+            result = await self.client.create_relationship(
+                from_label="Condition",
+                from_key="name",
+                from_value=condition,
+                to_label="Symptom",
+                to_key="name",
+                to_value=symptom,
+                rel_type="CAUSES",
+                properties={
+                    "notes": notes,
+                    "created_at": datetime.now().isoformat()
+                }
+            )
+            if "error" not in result:
+                results["conditions_added"] += 1
+
+        # =====================================================================
+        # NON-PHARMACOLOGICAL INTERVENTIONS
+        # =====================================================================
+        interventions = [
+            # Pain interventions
+            ("Massage Therapy", "Pain", "complementary"),
+            ("Relaxation Techniques", "Pain", "mind-body"),
+            ("Physiotherapy", "Pain", "mobility, function"),
+            ("Nerve Block", "Pain", "refractory cases"),
+            ("Repositioning", "Pain", "pressure relief"),
+
+            # Dyspnea interventions
+            ("Relaxation Techniques", "Dyspnea", "breathing exercises"),
+            ("Repositioning", "Dyspnea", "upright position"),
+
+            # Anxiety interventions
+            ("Counseling", "Anxiety", "psychological support"),
+            ("Relaxation Techniques", "Anxiety", "mind-body"),
+            ("Music Therapy", "Anxiety", "complementary"),
+            ("Aromatherapy", "Anxiety", "complementary"),
+
+            # Depression interventions
+            ("Counseling", "Depression", "psychological support"),
+
+            # Constipation interventions
+            ("Hydration", "Constipation", "fluid intake"),
+
+            # Pressure ulcer interventions
+            ("Wound Care", "Pressure Ulcer", "essential"),
+            ("Repositioning", "Pressure Ulcer", "prevention"),
+
+            # Oral care
+            ("Mouth Care", "Xerostomia", "comfort measure"),
+        ]
+
+        for intervention, symptom, notes in interventions:
+            await self.client.create_node("Intervention", {"name": intervention}, "name")
+            await self.client.create_node("Symptom", {"name": symptom}, "name")
+            result = await self.client.create_relationship(
+                from_label="Intervention",
+                from_key="name",
+                from_value=intervention,
+                to_label="Symptom",
+                to_key="name",
+                to_value=symptom,
+                rel_type="ALLEVIATES",
+                properties={
+                    "notes": notes,
+                    "type": "non-pharmacological",
+                    "created_at": datetime.now().isoformat()
+                }
+            )
+            if "error" not in result:
+                results["interventions_added"] += 1
+
+        logger.info(f"Imported palliative care knowledge base: {results}")
         return results
 
     async def get_entity_neighbors(
