@@ -295,3 +295,153 @@ The Gradio admin interface includes a **Knowledge Graph** tab with:
 - **Find Treatments**: Lookup treatments for symptoms
 - **Side Effects**: Check medication side effects
 - **Graph Status**: Health and statistics monitoring
+
+---
+
+## Microsoft GraphRAG Integration
+
+### Overview
+The RAG system includes Microsoft GraphRAG for enhanced retrieval using knowledge graph structures.
+See `docs/graphrag_specs.md` for complete implementation specifications.
+
+**Reference Documentation:**
+- GitHub: https://github.com/microsoft/graphrag
+- DeepWiki: https://deepwiki.com/microsoft/graphrag
+
+### Directory Structure
+```
+rag_gci/
+├── graphrag_integration/           # GraphRAG integration module
+│   ├── __init__.py                # Module exports
+│   ├── config.py                  # Configuration wrapper
+│   ├── indexer.py                 # Indexing pipeline
+│   ├── query_engine.py            # Query engine (Global/Local/DRIFT/Basic)
+│   ├── data_loader.py             # Parquet file management
+│   ├── prompts/                   # Custom prompts for palliative care
+│   │   ├── entity_extraction.txt
+│   │   ├── community_report.txt
+│   │   └── local_search.txt
+│   └── utils.py                   # Helper functions
+├── data/
+│   └── graphrag/                  # GraphRAG data directory
+│       ├── input/                 # Source documents (symlink to uploads/)
+│       ├── output/                # Parquet files (entities, relationships, etc.)
+│       ├── cache/                 # LLM response cache
+│       └── settings.yaml          # GraphRAG configuration
+```
+
+### Key Technical Specs
+| Component | Description |
+|-----------|-------------|
+| GraphRAG Version | 2.7.0+ |
+| Python Version | 3.10+ |
+| LLM Provider | OpenAI, Azure OpenAI, or LiteLLM (Groq) |
+| Vector Store | LanceDB (default) |
+| Output Format | Parquet files |
+
+### Search Methods
+| Method | Use Case | Data Sources |
+|--------|----------|--------------|
+| **Global** | Holistic corpus-wide queries | Community reports |
+| **Local** | Entity-focused queries | Entities, relationships, text units |
+| **DRIFT** | Complex multi-hop reasoning | Communities + local context |
+| **Basic** | Simple vector similarity | Text unit embeddings |
+
+### Environment Variables
+```bash
+GRAPHRAG_API_KEY=your-api-key
+GRAPHRAG_LLM_MODEL=gpt-4o-mini
+GRAPHRAG_EMBEDDING_MODEL=text-embedding-3-small
+GRAPHRAG_ROOT=./data/graphrag
+```
+
+### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/graphrag/health` | GET | Health status check |
+| `/api/graphrag/stats` | GET | Index statistics |
+| `/api/graphrag/query` | POST | Execute search (auto/global/local/drift/basic) |
+| `/api/graphrag/index` | POST | Start indexing pipeline |
+| `/api/graphrag/index/status` | GET | Get indexing status |
+| `/api/graphrag/entities` | GET | Search entities |
+| `/api/graphrag/entity/{name}/relationships` | GET | Get entity relationships |
+
+### Usage
+```python
+from graphrag_integration import (
+    GraphRAGConfig,
+    GraphRAGIndexer,
+    GraphRAGQueryEngine,
+)
+
+# Initialize
+config = GraphRAGConfig.from_yaml("./data/graphrag/settings.yaml")
+indexer = GraphRAGIndexer(config)
+query_engine = GraphRAGQueryEngine(config)
+
+# Index documents
+await indexer.index_documents()
+
+# Query with auto-method selection
+result = await query_engine.auto_search("What medications treat severe pain?")
+
+# Or use specific methods
+result = await query_engine.global_search("What are the main themes in palliative care?")
+result = await query_engine.local_search("What are morphine's side effects?")
+result = await query_engine.drift_search("How to manage pain in renal failure patients?")
+```
+
+### Entity Types (Palliative Care)
+| Entity Type | Examples |
+|-------------|----------|
+| Symptom | Pain, nausea, dyspnea, fatigue |
+| Medication | Morphine, ondansetron, haloperidol |
+| Condition | Cancer, COPD, heart failure |
+| Treatment | Chemotherapy, palliative sedation |
+| SideEffect | Constipation, sedation, dry mouth |
+| Dosage | 10mg, 5mg/hr |
+| Route | Oral, SC, IV, transdermal |
+| CareGoal | Comfort care, symptom control |
+
+### Implementation Phases
+1. **Phase 1**: Foundation Setup (directories, dependencies)
+2. **Phase 2**: Configuration Module (settings.yaml, config.py)
+3. **Phase 3**: Indexing Pipeline (indexer.py, custom prompts)
+4. **Phase 4**: Query Engine (all search methods)
+5. **Phase 5**: Server Integration (FastAPI endpoints)
+6. **Phase 6**: Admin UI (Gradio tabs)
+7. **Phase 7**: Testing Suite
+8. **Phase 8**: Performance Optimization
+
+### Testing Commands
+```bash
+# Run all GraphRAG tests
+pytest tests/test_graphrag_*.py -v
+
+# Test specific module
+pytest tests/test_graphrag_query.py -v
+
+# Run with coverage
+pytest tests/test_graphrag_integration.py --cov=graphrag_integration
+```
+
+### Admin UI Tab
+The Gradio admin interface includes a **GraphRAG** tab with:
+- **Query**: Search with method selection (auto/global/local/drift/basic)
+- **Indexing**: Start/monitor indexing pipeline
+- **Entity Explorer**: Browse and search extracted entities
+- **Statistics**: View index statistics
+
+### Hybrid RAG Pipeline
+GraphRAG operates alongside ChromaDB for hybrid retrieval:
+```
+User Query ──┬──► GraphRAG (Global/Local/DRIFT)
+             │
+             └──► ChromaDB (Vector Similarity)
+                           │
+                           ▼
+                  Result Fusion (RRF)
+                           │
+                           ▼
+                     LLM Response
+```
