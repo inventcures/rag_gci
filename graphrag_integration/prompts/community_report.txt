@@ -1,0 +1,103 @@
+-Goal-
+Generate a comprehensive summary report for a community of related entities extracted from palliative care medical guidelines.
+
+-Context-
+You are analyzing a community (cluster) of related medical entities from palliative care documentation. The community contains entities such as symptoms, medications, treatments, conditions, and care goals that are interconnected through clinical relationships.
+
+-Community Data-
+{community_data}
+
+-Instructions-
+Create a structured summary report that:
+
+1. **Title**: Provide a descriptive title that captures the primary clinical theme of this community (e.g., "Opioid Pain Management Protocol", "Nausea and Vomiting Treatment Pathway")
+
+2. **Summary**: Write a 2-3 paragraph executive summary that:
+   - Identifies the core clinical focus of this entity cluster
+   - Highlights the most important medications, symptoms, and treatment relationships
+   - Notes any critical safety considerations (contraindications, side effects)
+
+3. **Key Entities**: List the most significant entities with their clinical relevance:
+   - Primary medications and their indications
+   - Target symptoms being addressed
+   - Important conditions or contraindications
+   - Care goals being supported
+
+4. **Clinical Relationships**: Describe the key relationships:
+   - What treats what (medication → symptom/condition)
+   - What causes what (condition → symptom, medication → side effect)
+   - Administration routes and dosing considerations
+   - Assessment tools used for monitoring
+
+5. **Clinical Recommendations**: Based on the relationships, provide:
+   - First-line treatment recommendations
+   - Alternative options for special populations (renal impairment, elderly, etc.)
+   - Monitoring requirements
+   - Patient education points
+
+6. **Safety Considerations**: Highlight:
+   - Drug interactions within this community
+   - Contraindications to be aware of
+   - Side effects requiring prophylaxis
+   - Dose adjustment needs
+
+-Output Format-
+Return the report in the following structured format:
+
+TITLE: [Descriptive clinical title]
+
+SUMMARY:
+[2-3 paragraph executive summary]
+
+KEY ENTITIES:
+- Medications: [list with brief descriptions]
+- Symptoms: [list with brief descriptions]
+- Conditions: [list with brief descriptions]
+- Care Goals: [list with brief descriptions]
+
+CLINICAL RELATIONSHIPS:
+[Describe the key treatment, causation, and management relationships]
+
+CLINICAL RECOMMENDATIONS:
+[Evidence-based recommendations derived from the community data]
+
+SAFETY CONSIDERATIONS:
+[Important safety information for clinical practice]
+
+RELEVANCE SCORE: [0.0-1.0 indicating how clinically significant this community is]
+
+-Example Output-
+TITLE: Breakthrough Cancer Pain Management
+
+SUMMARY:
+This community centers on the management of breakthrough cancer pain using short-acting opioids. The primary treatment pathway involves immediate-release morphine or oxycodone for pain episodes that occur despite adequate background analgesia.
+
+The cluster includes essential prophylactic treatments for opioid side effects, particularly constipation management with stimulant laxatives. Assessment using the Numerical Rating Scale (NRS) guides dose titration and treatment effectiveness evaluation.
+
+Key safety considerations include the need for dose reduction in renal impairment and careful monitoring for respiratory depression, especially when initiating therapy or increasing doses.
+
+KEY ENTITIES:
+- Medications: morphine IR (first-line breakthrough), oxycodone IR (alternative), senna (laxative prophylaxis)
+- Symptoms: breakthrough pain, constipation (opioid-induced)
+- Conditions: cancer pain, opioid-induced constipation
+- Care Goals: pain control, comfort, quality of life
+
+CLINICAL RELATIONSHIPS:
+Morphine IR and oxycodone IR treat breakthrough pain episodes. Both opioids cause constipation as a predictable side effect, which is managed prophylactically with senna. The NRS assessment tool monitors pain intensity to guide dose adjustments.
+
+CLINICAL RECOMMENDATIONS:
+1. Calculate breakthrough dose as 10-15% of total daily morphine equivalent
+2. Start laxatives prophylactically with opioid initiation
+3. Reassess pain control every 24-48 hours during titration
+4. Consider oxycodone if morphine causes intolerable side effects
+
+SAFETY CONSIDERATIONS:
+- Reduce morphine dose by 50% in moderate renal impairment
+- Avoid morphine in severe renal failure (use oxycodone or fentanyl)
+- Monitor for respiratory depression when combining with benzodiazepines
+- Educate patients on constipation prevention
+
+RELEVANCE SCORE: 0.95
+
+-Real Data to Process-
+{input_text}

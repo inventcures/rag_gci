@@ -1,0 +1,89 @@
+-Goal-
+Given a text document from palliative care medical guidelines, identify all entities and their relationships relevant to symptom management, medication use, and patient care.
+
+-Entity Types-
+{entity_types}
+
+-Relationship Types-
+TREATS: A medication or intervention treats a symptom or condition
+CAUSES: A condition causes a symptom or a medication causes a side effect
+SIDE_EFFECT_OF: A side effect is associated with a medication
+MANAGES: A treatment approach manages a condition
+ADMINISTERED_VIA: A medication is given via a specific route (oral, SC, IV, etc.)
+ASSESSED_BY: A symptom is assessed using a specific tool or scale
+RECOMMENDED_FOR: An intervention is recommended for a specific condition or symptom
+CONTRAINDICATED_FOR: A medication is contraindicated for a condition
+CONVERTS_TO: One medication converts to another (e.g., for dose calculations)
+INTERACTS_WITH: A medication interacts with another medication
+ALLEVIATES: An intervention alleviates a symptom
+INDICATES: A symptom indicates a condition or need for intervention
+
+-Instructions-
+1. Carefully read the provided palliative care text
+2. Extract all entities that match the entity types listed above
+3. For each entity, provide:
+   - name: The canonical, standardized name (e.g., "morphine" not "Morphine Sulfate Immediate Release")
+   - type: One of the entity types listed above
+   - description: A concise description from the context (1-2 sentences)
+
+4. Extract all relationships between identified entities
+5. For each relationship, provide:
+   - source: The source entity name (exactly as listed in entities)
+   - target: The target entity name (exactly as listed in entities)
+   - type: One of the relationship types listed above
+   - description: Brief context explaining the relationship
+   - strength: Optional numeric strength (0.0-1.0) based on evidence
+
+-Important Guidelines for Palliative Care-
+- Use WHO Pain Ladder terminology for pain medications
+- Distinguish between breakthrough and background pain treatments
+- Note opioid conversion factors when mentioned
+- Capture specific dosing routes (oral, subcutaneous, transdermal, etc.)
+- Include non-pharmacological interventions (positioning, massage, etc.)
+- Note contraindications for renal/hepatic impairment
+- Capture assessment tools (VAS, ESAS, PPS, etc.)
+- Include care goals (comfort, symptom control, quality of life)
+
+-Output Format-
+Return a valid JSON object with two arrays: "entities" and "relationships"
+
+{
+  "entities": [
+    {
+      "name": "entity name",
+      "type": "EntityType",
+      "description": "brief description from context"
+    }
+  ],
+  "relationships": [
+    {
+      "source": "source entity name",
+      "target": "target entity name",
+      "type": "RELATIONSHIP_TYPE",
+      "description": "context for relationship",
+      "strength": 0.8
+    }
+  ]
+}
+
+-Example Output for Palliative Care Text-
+{
+  "entities": [
+    {"name": "morphine", "type": "Medication", "description": "First-line strong opioid for moderate to severe pain"},
+    {"name": "cancer pain", "type": "Symptom", "description": "Pain associated with malignancy requiring WHO ladder approach"},
+    {"name": "constipation", "type": "SideEffect", "description": "Common opioid-induced side effect requiring prophylaxis"},
+    {"name": "oral", "type": "Route", "description": "Preferred administration route when patient can swallow"},
+    {"name": "senna", "type": "Medication", "description": "Stimulant laxative for opioid-induced constipation"},
+    {"name": "subcutaneous", "type": "Route", "description": "Alternative route when oral administration not possible"}
+  ],
+  "relationships": [
+    {"source": "morphine", "target": "cancer pain", "type": "TREATS", "description": "First-line treatment for severe cancer pain per WHO guidelines", "strength": 0.95},
+    {"source": "constipation", "target": "morphine", "type": "SIDE_EFFECT_OF", "description": "Occurs in >90% of patients on regular opioids", "strength": 0.9},
+    {"source": "morphine", "target": "oral", "type": "ADMINISTERED_VIA", "description": "Oral route preferred for stable pain", "strength": 0.8},
+    {"source": "morphine", "target": "subcutaneous", "type": "ADMINISTERED_VIA", "description": "SC route for patients unable to take oral medications", "strength": 0.8},
+    {"source": "senna", "target": "constipation", "type": "TREATS", "description": "Prophylactic laxative started with opioid therapy", "strength": 0.85}
+  ]
+}
+
+-Real Data to Process-
+{input_text}
