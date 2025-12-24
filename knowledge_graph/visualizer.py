@@ -64,6 +64,16 @@ class VisualizationData:
             "metadata": self.metadata
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "VisualizationData":
+        """Create VisualizationData from dictionary."""
+        return cls(
+            nodes=data.get("nodes", []),
+            edges=data.get("edges", []),
+            layout=data.get("layout", "cose"),
+            metadata=data.get("metadata", {})
+        )
+
 
 class GraphVisualizer:
     """

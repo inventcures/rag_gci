@@ -64,6 +64,21 @@ except ImportError:
 
 import hmac
 
+# Knowledge Graph integration imports
+try:
+    from knowledge_graph import (
+        KnowledgeGraphRAG,
+        Neo4jClient,
+        EntityExtractor,
+        GraphVisualizer,
+        VisualizationData,
+    )
+    KNOWLEDGE_GRAPH_AVAILABLE = True
+except ImportError:
+    KNOWLEDGE_GRAPH_AVAILABLE = False
+    KnowledgeGraphRAG = None
+    Neo4jClient = None
+
 # Core RAG components
 import chromadb
 from chromadb.utils import embedding_functions
@@ -2123,7 +2138,135 @@ class SimpleAdminUI:
                         inputs=[],
                         outputs=[rebuild_log, health_status]
                     )
-        
+
+                # Knowledge Graph Tab
+                with gr.TabItem("🕸️ Knowledge Graph"):
+                    gr.Markdown("## Knowledge Graph Explorer")
+                    gr.Markdown("*Extract medical entities and explore relationships*")
+
+                    with gr.Tabs():
+                        # Entity Extraction Sub-tab
+                        with gr.TabItem("🔍 Extract Entities"):
+                            gr.Markdown("### Extract medical entities from text")
+
+                            with gr.Row():
+                                with gr.Column():
+                                    kg_text_input = gr.Textbox(
+                                        label="Enter medical text",
+                                        placeholder="The patient has severe pain and nausea. Morphine 10mg was prescribed for pain relief.",
+                                        lines=5
+                                    )
+                                    kg_extract_btn = gr.Button("Extract Entities", variant="primary")
+
+                                with gr.Column():
+                                    kg_entities_output = gr.JSON(label="Extracted Entities")
+                                    kg_relationships_output = gr.JSON(label="Extracted Relationships")
+
+                            kg_extract_btn.click(
+                                fn=self._handle_kg_extract,
+                                inputs=[kg_text_input],
+                                outputs=[kg_entities_output, kg_relationships_output]
+                            )
+
+                        # Graph Query Sub-tab
+                        with gr.TabItem("💬 Query Graph"):
+                            gr.Markdown("### Query the Knowledge Graph")
+
+                            with gr.Row():
+                                with gr.Column():
+                                    kg_query_input = gr.Textbox(
+                                        label="Enter your question",
+                                        placeholder="What medications treat pain?",
+                                        lines=2
+                                    )
+                                    kg_query_btn = gr.Button("Query Graph", variant="primary")
+
+                                with gr.Column():
+                                    kg_query_output = gr.JSON(label="Query Results")
+
+                            kg_query_btn.click(
+                                fn=self._handle_kg_query,
+                                inputs=[kg_query_input],
+                                outputs=[kg_query_output]
+                            )
+
+                        # Treatments Lookup Sub-tab
+                        with gr.TabItem("💊 Find Treatments"):
+                            gr.Markdown("### Find treatments for symptoms")
+
+                            with gr.Row():
+                                with gr.Column():
+                                    symptom_input = gr.Textbox(
+                                        label="Enter symptom",
+                                        placeholder="pain, nausea, fatigue...",
+                                        lines=1
+                                    )
+                                    treatment_btn = gr.Button("Find Treatments", variant="primary")
+
+                                with gr.Column():
+                                    treatments_output = gr.JSON(label="Available Treatments")
+
+                            treatment_btn.click(
+                                fn=self._handle_kg_treatments,
+                                inputs=[symptom_input],
+                                outputs=[treatments_output]
+                            )
+
+                        # Side Effects Sub-tab
+                        with gr.TabItem("⚠️ Side Effects"):
+                            gr.Markdown("### Check medication side effects")
+
+                            with gr.Row():
+                                with gr.Column():
+                                    medication_input = gr.Textbox(
+                                        label="Enter medication name",
+                                        placeholder="morphine, ondansetron...",
+                                        lines=1
+                                    )
+                                    side_effects_btn = gr.Button("Check Side Effects", variant="primary")
+
+                                with gr.Column():
+                                    side_effects_output = gr.JSON(label="Known Side Effects")
+
+                            side_effects_btn.click(
+                                fn=self._handle_kg_side_effects,
+                                inputs=[medication_input],
+                                outputs=[side_effects_output]
+                            )
+
+                        # Graph Health Sub-tab
+                        with gr.TabItem("📊 Graph Status"):
+                            gr.Markdown("### Knowledge Graph Health & Statistics")
+
+                            with gr.Row():
+                                kg_health_btn = gr.Button("Check Health", variant="primary")
+                                kg_stats_btn = gr.Button("Get Statistics", variant="secondary")
+                                kg_import_btn = gr.Button("Import Base Knowledge", variant="secondary")
+
+                            with gr.Row():
+                                with gr.Column():
+                                    kg_health_output = gr.JSON(label="Health Status")
+                                with gr.Column():
+                                    kg_stats_output = gr.JSON(label="Graph Statistics")
+
+                            kg_health_btn.click(
+                                fn=self._handle_kg_health,
+                                inputs=[],
+                                outputs=[kg_health_output]
+                            )
+
+                            kg_stats_btn.click(
+                                fn=self._handle_kg_stats,
+                                inputs=[],
+                                outputs=[kg_stats_output]
+                            )
+
+                            kg_import_btn.click(
+                                fn=self._handle_kg_import,
+                                inputs=[],
+                                outputs=[kg_stats_output]
+                            )
+
             # Refresh documents when the management tab is selected
             tabs.select(
                 fn=self._handle_tab_change,
@@ -2438,6 +2581,201 @@ class SimpleAdminUI:
             }
             return error_log, error_health
 
+    # =========================================================================
+    # Knowledge Graph Handlers
+    # =========================================================================
+
+    def _handle_kg_extract(self, text: str):
+        """Handle entity extraction from text."""
+        if not text or not text.strip():
+            return {"error": "Please enter some text"}, {}
+
+        try:
+            if not KNOWLEDGE_GRAPH_AVAILABLE:
+                return {"error": "Knowledge Graph module not available"}, {}
+
+            # Use pattern-based extraction (works without Neo4j)
+            extractor = EntityExtractor(use_patterns=True)
+            import asyncio
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            entities, relationships = loop.run_until_complete(
+                extractor.extract(text, use_llm=False)
+            )
+
+            entities_data = [e.to_dict() for e in entities]
+            relationships_data = [r.to_dict() for r in relationships]
+
+            return entities_data, relationships_data
+
+        except Exception as e:
+            return {"error": str(e)}, {}
+
+    def _handle_kg_query(self, question: str):
+        """Handle knowledge graph query."""
+        if not question or not question.strip():
+            return {"error": "Please enter a question"}
+
+        try:
+            import aiohttp
+
+            async def query_kg():
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "http://localhost:8000/api/kg/query",
+                        json={"question": question}
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(query_kg())
+            return result
+
+        except Exception as e:
+            return {"error": str(e), "message": "Make sure the server is running"}
+
+    def _handle_kg_treatments(self, symptom: str):
+        """Handle treatment lookup for a symptom."""
+        if not symptom or not symptom.strip():
+            return {"error": "Please enter a symptom"}
+
+        try:
+            import aiohttp
+
+            async def get_treatments():
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"http://localhost:8000/api/kg/treatments/{symptom}"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(get_treatments())
+            return result
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _handle_kg_side_effects(self, medication: str):
+        """Handle side effects lookup for a medication."""
+        if not medication or not medication.strip():
+            return {"error": "Please enter a medication name"}
+
+        try:
+            import aiohttp
+
+            async def get_side_effects():
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"http://localhost:8000/api/kg/side-effects/{medication}"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(get_side_effects())
+            return result
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _handle_kg_health(self):
+        """Handle knowledge graph health check."""
+        try:
+            import aiohttp
+
+            async def check_health():
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "http://localhost:8000/api/kg/health"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(check_health())
+            return result
+
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _handle_kg_stats(self):
+        """Handle knowledge graph statistics."""
+        try:
+            import aiohttp
+
+            async def get_stats():
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "http://localhost:8000/api/kg/stats"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(get_stats())
+            return result
+
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _handle_kg_import(self):
+        """Handle importing base knowledge."""
+        try:
+            import aiohttp
+
+            async def import_base():
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "http://localhost:8000/api/kg/import-base"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(import_base())
+            return result
+
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
 
 class NgrokManager:
     """Manage ngrok tunnel for external access"""
@@ -2561,6 +2899,46 @@ def main():
     gemini_service = None
     gemini_session_manager = None
     gemini_live_enabled = False
+
+    # Knowledge Graph service globals
+    kg_rag = None
+    kg_enabled = False
+
+    @app.on_event("startup")
+    async def startup_knowledge_graph():
+        """Initialize Knowledge Graph service on startup."""
+        nonlocal kg_rag, kg_enabled
+
+        if not KNOWLEDGE_GRAPH_AVAILABLE:
+            logger.info("Knowledge Graph module not available")
+            return
+
+        try:
+            kg_rag = KnowledgeGraphRAG()
+            connected = await kg_rag.initialize()
+
+            if connected:
+                kg_enabled = True
+                logger.info("Knowledge Graph initialized with Neo4j connection")
+            else:
+                kg_enabled = True  # Still enabled for pattern-based extraction
+                logger.info("Knowledge Graph initialized (limited mode - no Neo4j)")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Knowledge Graph: {e}")
+            kg_enabled = False
+
+    @app.on_event("shutdown")
+    async def shutdown_knowledge_graph():
+        """Cleanup Knowledge Graph service on shutdown."""
+        nonlocal kg_rag
+
+        if kg_rag:
+            try:
+                await kg_rag.close()
+                logger.info("Knowledge Graph connections closed")
+            except Exception as e:
+                logger.error(f"Error closing Knowledge Graph: {e}")
 
     @app.on_event("startup")
     async def startup_gemini_live():
@@ -3125,6 +3503,286 @@ def main():
 
     # ==========================================================================
     # END BOLNA.AI INTEGRATION
+    # ==========================================================================
+
+    # ==========================================================================
+    # KNOWLEDGE GRAPH API ENDPOINTS
+    # ==========================================================================
+
+    @app.get("/api/kg/health")
+    async def kg_health_endpoint():
+        """Check Knowledge Graph health status."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "unavailable",
+                "message": "Knowledge Graph not initialized"
+            })
+
+        try:
+            health = await kg_rag.health_check()
+            return JSONResponse({
+                "status": "healthy" if health.get("neo4j_healthy") else "limited",
+                **health
+            })
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/kg/stats")
+    async def kg_stats_endpoint():
+        """Get Knowledge Graph statistics."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "available": False,
+                "message": "Knowledge Graph not initialized"
+            })
+
+        try:
+            stats = await kg_rag.get_statistics()
+            return JSONResponse(stats)
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/kg/query")
+    async def kg_query_endpoint(request: Request):
+        """
+        Query the Knowledge Graph with natural language.
+
+        Request body:
+        {
+            "question": "What medications treat pain?",
+            "include_vector": true,  // Optional: merge with vector results
+            "top_k": 10  // Optional: max results
+        }
+        """
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            question = body.get("question", "")
+
+            if not question:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "Question is required"
+                }, status_code=400)
+
+            # Query the knowledge graph
+            result = await kg_rag.query(
+                question=question,
+                include_vector_results=body.get("include_vector", False),
+                top_k=body.get("top_k", 10)
+            )
+
+            return JSONResponse({
+                "status": "success",
+                **result
+            })
+
+        except Exception as e:
+            logger.error(f"KG query error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/kg/extract")
+    async def kg_extract_endpoint(request: Request):
+        """
+        Extract entities from text.
+
+        Request body:
+        {
+            "text": "The patient has severe pain and is taking morphine."
+        }
+        """
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            text = body.get("text", "")
+
+            if not text:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "Text is required"
+                }, status_code=400)
+
+            # Extract entities
+            entities, relationships = await kg_rag.entity_extractor.extract(text)
+
+            return JSONResponse({
+                "status": "success",
+                "entities": [e.to_dict() for e in entities],
+                "relationships": [r.to_dict() for r in relationships]
+            })
+
+        except Exception as e:
+            logger.error(f"KG extraction error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/kg/entity/{entity_name}")
+    async def kg_entity_graph_endpoint(entity_name: str, depth: int = 1):
+        """Get subgraph centered on an entity."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            result = await kg_rag.get_entity_graph(entity_name, depth=depth)
+            return JSONResponse({
+                "status": "success",
+                **result
+            })
+        except Exception as e:
+            logger.error(f"KG entity graph error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/kg/treatments/{symptom}")
+    async def kg_treatments_endpoint(symptom: str):
+        """Get medications that treat a specific symptom."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            treatments = await kg_rag.get_treatments_for_symptom(symptom)
+            return JSONResponse({
+                "status": "success",
+                "symptom": symptom,
+                "treatments": treatments
+            })
+        except Exception as e:
+            logger.error(f"KG treatments error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/kg/side-effects/{medication}")
+    async def kg_side_effects_endpoint(medication: str):
+        """Get side effects of a medication."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            side_effects = await kg_rag.get_side_effects(medication)
+            return JSONResponse({
+                "status": "success",
+                "medication": medication,
+                "side_effects": side_effects
+            })
+        except Exception as e:
+            logger.error(f"KG side effects error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/kg/search")
+    async def kg_search_endpoint(q: str, entity_type: Optional[str] = None, limit: int = 20):
+        """Search for entities by name."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            results = await kg_rag.search_entities(q, entity_type=entity_type, limit=limit)
+            return JSONResponse({
+                "status": "success",
+                "query": q,
+                "results": results
+            })
+        except Exception as e:
+            logger.error(f"KG search error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/kg/visualization/{entity_name}")
+    async def kg_visualization_endpoint(entity_name: str, depth: int = 1):
+        """Get visualization HTML for an entity's subgraph."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            from fastapi.responses import HTMLResponse
+
+            result = await kg_rag.get_entity_graph(entity_name, depth=depth)
+
+            if "visualization" in result and result["visualization"]:
+                viz_data = VisualizationData.from_dict(result["visualization"])
+                html = kg_rag.get_visualization_html(viz_data)
+                return HTMLResponse(content=html)
+            else:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "No visualization data available"
+                }, status_code=404)
+
+        except Exception as e:
+            logger.error(f"KG visualization error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/kg/import-base")
+    async def kg_import_base_endpoint():
+        """Import base palliative care knowledge into the graph."""
+        if not kg_enabled or not kg_rag:
+            return JSONResponse({
+                "status": "error",
+                "message": "Knowledge Graph not available"
+            }, status_code=503)
+
+        try:
+            result = await kg_rag.import_base_knowledge()
+            return JSONResponse({
+                "status": "success",
+                **result
+            })
+        except Exception as e:
+            logger.error(f"KG import error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    # ==========================================================================
+    # END KNOWLEDGE GRAPH INTEGRATION
     # ==========================================================================
 
     # Add WhatsApp webhook routes if bot is configured
