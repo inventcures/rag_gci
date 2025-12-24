@@ -2,6 +2,18 @@
 
 ---
 
+## IMPORTANT: Architecture Update (December 2024)
+
+> **Palli Sahayak Voice AI Agent Helpline** now uses a hybrid architecture:
+> - **Primary Orchestrator**: [Bolna.ai](https://bolna.ai) - for production telephony (phone calls)
+> - **Fallback**: Gemini Live API - for web-based voice and when Bolna is unavailable
+>
+> **See `bolna_palli-sahayak-helpline_specs.md` for the complete Bolna integration specifications.**
+>
+> This document covers the Gemini Live API implementation, which serves as the web voice interface and fallback system.
+
+---
+
 ## QUICK START: Google Cloud & Vertex AI Setup Guide
 
 This section provides step-by-step instructions to configure Google Cloud Platform (GCP) and Vertex AI for the Gemini Live API integration.
