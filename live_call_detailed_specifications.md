@@ -1,5 +1,358 @@
 # Gemini Live API Voice AI Integration - Detailed Specifications
 
+---
+
+## QUICK START: Google Cloud & Vertex AI Setup Guide
+
+This section provides step-by-step instructions to configure Google Cloud Platform (GCP) and Vertex AI for the Gemini Live API integration.
+
+### Prerequisites
+
+- Google Cloud account with billing enabled
+- `gcloud` CLI installed ([Install Guide](https://cloud.google.com/sdk/docs/install))
+- Python 3.10+ with pip
+- Admin access to create projects and enable APIs
+
+---
+
+### Step 1: Create a Google Cloud Project
+
+```bash
+# Set your project ID (choose a unique name)
+export PROJECT_ID="your-palliative-care-rag"
+
+# Create new project
+gcloud projects create $PROJECT_ID --name="Palliative Care RAG"
+
+# Set as default project
+gcloud config set project $PROJECT_ID
+
+# Link billing account (required for Vertex AI)
+# List available billing accounts
+gcloud billing accounts list
+
+# Link billing (replace BILLING_ACCOUNT_ID with your account ID)
+gcloud billing projects link $PROJECT_ID --billing-account=BILLING_ACCOUNT_ID
+```
+
+---
+
+### Step 2: Enable Required APIs
+
+```bash
+# Enable all required APIs
+gcloud services enable \
+    aiplatform.googleapis.com \
+    storage.googleapis.com \
+    cloudresourcemanager.googleapis.com \
+    iam.googleapis.com \
+    serviceusage.googleapis.com
+
+# Verify APIs are enabled
+gcloud services list --enabled --filter="aiplatform"
+```
+
+**APIs Explained:**
+| API | Purpose |
+|-----|---------|
+| `aiplatform.googleapis.com` | Vertex AI including Gemini Live API |
+| `storage.googleapis.com` | Cloud Storage for audio/data |
+| `cloudresourcemanager.googleapis.com` | Project management |
+| `iam.googleapis.com` | Service account management |
+
+---
+
+### Step 3: Create Service Account & Credentials
+
+```bash
+# Create service account for the application
+gcloud iam service-accounts create gemini-live-sa \
+    --display-name="Gemini Live Service Account" \
+    --description="Service account for Gemini Live API access"
+
+# Grant required roles
+export SA_EMAIL="gemini-live-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# Vertex AI User role (for Gemini Live API)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/aiplatform.user"
+
+# Storage Object Viewer (if using Cloud Storage for audio)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/storage.objectViewer"
+
+# Create and download key file
+gcloud iam service-accounts keys create ./credentials/gcp-key.json \
+    --iam-account=${SA_EMAIL}
+
+# Secure the key file
+chmod 600 ./credentials/gcp-key.json
+```
+
+---
+
+### Step 4: Configure Environment Variables
+
+Create or update your `.env` file with the following:
+
+```bash
+# Google Cloud Configuration
+GOOGLE_CLOUD_PROJECT=your-palliative-care-rag
+GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_APPLICATION_CREDENTIALS=./credentials/gcp-key.json
+
+# Alternative: Use API Key instead of service account
+# GEMINI_API_KEY=your-api-key-here
+
+# Gemini Live Model (check for latest version)
+GEMINI_LIVE_MODEL=gemini-2.0-flash-live-001
+```
+
+**Available Regions for Gemini Live:**
+| Region | Location Code |
+|--------|---------------|
+| US Central | `us-central1` |
+| US East | `us-east4` |
+| Europe West | `europe-west1` |
+| Asia Northeast | `asia-northeast1` |
+
+> **Note:** Check [Vertex AI Regional Availability](https://cloud.google.com/vertex-ai/docs/general/locations) for the latest supported regions.
+
+---
+
+### Step 5: Install Python Dependencies
+
+```bash
+# Activate your virtual environment
+source venv/bin/activate
+
+# Install Google Cloud AI SDK
+pip install google-genai>=1.0.0
+
+# Install additional dependencies
+pip install websockets>=12.0 pyyaml>=6.0.1 numpy>=1.24.0
+
+# Or install all from requirements
+pip install -r requirements_simple.txt
+```
+
+---
+
+### Step 6: Authenticate with Google Cloud
+
+**Option A: Service Account Key (Recommended for Production)**
+```bash
+# Set environment variable to key file path
+export GOOGLE_APPLICATION_CREDENTIALS="./credentials/gcp-key.json"
+
+# Verify authentication
+python3 -c "from google.auth import default; creds, project = default(); print(f'Authenticated to: {project}')"
+```
+
+**Option B: User Account (For Development)**
+```bash
+# Login with your Google account
+gcloud auth application-default login
+
+# This creates credentials at ~/.config/gcloud/application_default_credentials.json
+```
+
+**Option C: API Key (Simplest)**
+```bash
+# Get API key from Google AI Studio: https://aistudio.google.com/apikey
+export GEMINI_API_KEY="your-api-key-here"
+```
+
+---
+
+### Step 7: Verify Gemini Live API Access
+
+Run this test script to verify your setup:
+
+```python
+#!/usr/bin/env python3
+"""Test Gemini Live API connection."""
+import os
+from google import genai
+
+# Initialize client
+client = genai.Client(
+    # Uses GOOGLE_APPLICATION_CREDENTIALS or GEMINI_API_KEY automatically
+)
+
+# Check available models
+print("Available Gemini models:")
+for model in client.models.list():
+    if "live" in model.name.lower() or "flash" in model.name.lower():
+        print(f"  - {model.name}")
+
+# Test basic generation
+response = client.models.generate_content(
+    model="gemini-2.0-flash",
+    contents="Say 'Hello, Gemini Live is working!' in Hindi"
+)
+print(f"\nTest response: {response.text}")
+
+print("\n✅ Gemini API connection successful!")
+```
+
+Save as `test_gemini_connection.py` and run:
+```bash
+python3 test_gemini_connection.py
+```
+
+---
+
+### Step 8: Configure Gemini Live in config.yaml
+
+Update your `config.yaml` to enable Gemini Live:
+
+```yaml
+# Gemini Live API Configuration
+gemini_live:
+  enabled: true  # Set to true to enable
+  project_id: ${GOOGLE_CLOUD_PROJECT}
+  location: "us-central1"
+
+  # Model selection (check for latest versions)
+  model: "gemini-2.0-flash-live-001"
+
+  # Voice settings
+  default_voice: "Aoede"  # Warm, empathetic voice for healthcare
+
+  # Supported languages for Indian users
+  default_language: "en-IN"
+  supported_languages:
+    - code: "en-IN"
+      name: "English (India)"
+    - code: "hi-IN"
+      name: "Hindi"
+    - code: "mr-IN"
+      name: "Marathi"
+    - code: "ta-IN"
+      name: "Tamil"
+
+  # Session settings
+  session_timeout_minutes: 14  # Max 15 for Gemini
+  max_sessions_per_user: 1
+
+  # Audio settings
+  input_sample_rate: 16000   # 16kHz for input
+  output_sample_rate: 24000  # 24kHz for output
+  chunk_size: 4096
+
+  # RAG integration
+  rag_context_enabled: true
+  rag_top_k: 3
+
+  # Fallback to STT+LLM+TTS pipeline on error
+  fallback_enabled: true
+```
+
+---
+
+### Step 9: Test the Full Integration
+
+```bash
+# Start the server
+python3 simple_rag_server.py --port 8000
+
+# Expected output should include:
+# 🎤 Voice UI: http://localhost:8000/voice
+# 🔊 Voice WebSocket: ws://localhost:8000/ws/voice
+# Gemini Live initialized - WebSocket endpoint /ws/voice available
+```
+
+Then:
+1. Open http://localhost:8000/voice in your browser
+2. Allow microphone access when prompted
+3. Click the microphone button and speak
+4. The system should respond with voice
+
+---
+
+### Step 10: Production Deployment Checklist
+
+- [ ] **Security**: Store credentials in Secret Manager, not files
+  ```bash
+  # Create secret
+  gcloud secrets create gemini-live-credentials \
+      --data-file=./credentials/gcp-key.json
+
+  # Grant access to service account
+  gcloud secrets add-iam-policy-binding gemini-live-credentials \
+      --member="serviceAccount:${SA_EMAIL}" \
+      --role="roles/secretmanager.secretAccessor"
+  ```
+
+- [ ] **Monitoring**: Enable Cloud Monitoring
+  ```bash
+  gcloud services enable monitoring.googleapis.com
+  ```
+
+- [ ] **Logging**: Enable Cloud Logging
+  ```bash
+  gcloud services enable logging.googleapis.com
+  ```
+
+- [ ] **Quotas**: Check and request quota increases if needed
+  - Go to: https://console.cloud.google.com/iam-admin/quotas
+  - Filter by "Vertex AI"
+  - Request increases for production workloads
+
+- [ ] **Budget Alerts**: Set up billing alerts
+  ```bash
+  # Create budget alert (example: $100/month)
+  gcloud billing budgets create \
+      --billing-account=BILLING_ACCOUNT_ID \
+      --display-name="Gemini Live Budget" \
+      --budget-amount=100USD \
+      --threshold-rule=percent=50 \
+      --threshold-rule=percent=90
+  ```
+
+- [ ] **HTTPS**: Use HTTPS in production for WebSocket (wss://)
+
+- [ ] **Rate Limiting**: Implement rate limiting for voice endpoints
+
+---
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| `Permission denied` | Check IAM roles: `gcloud projects get-iam-policy $PROJECT_ID` |
+| `API not enabled` | Enable API: `gcloud services enable aiplatform.googleapis.com` |
+| `Quota exceeded` | Request quota increase in Cloud Console |
+| `Invalid credentials` | Regenerate key: `gcloud iam service-accounts keys create...` |
+| `Model not found` | Check model name: `client.models.list()` |
+| `Region not supported` | Try `us-central1` (most features available) |
+| `WebSocket connection failed` | Check firewall rules and CORS settings |
+| `Audio not playing` | Verify sample rates (16kHz in, 24kHz out) |
+
+### Cost Estimation
+
+| Usage | Estimated Cost |
+|-------|----------------|
+| Gemini Live API | ~$0.075 per minute of audio |
+| Light usage (100 min/day) | ~$225/month |
+| Medium usage (500 min/day) | ~$1,125/month |
+| Heavy usage (2000 min/day) | ~$4,500/month |
+
+> **Tip:** Use `fallback_enabled: true` to fall back to cheaper STT+LLM+TTS pipeline during high-load periods.
+
+### Useful Links
+
+- [Gemini Live API Documentation](https://ai.google.dev/gemini-api/docs/live)
+- [Vertex AI Pricing](https://cloud.google.com/vertex-ai/pricing)
+- [Supported Languages](https://cloud.google.com/vertex-ai/generative-ai/docs/live-api/configure-language-voice#languages_supported)
+- [Google Cloud Console](https://console.cloud.google.com/)
+- [API Key Management](https://aistudio.google.com/apikey)
+
+---
+
 ## Document Overview
 This document contains the complete specifications for implementing voice AI capabilities using Google's Gemini Live API for the Palliative Care RAG system.
 
