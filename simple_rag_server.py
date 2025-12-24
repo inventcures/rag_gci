@@ -79,6 +79,24 @@ except ImportError:
     KnowledgeGraphRAG = None
     Neo4jClient = None
 
+# GraphRAG integration imports (Microsoft GraphRAG)
+try:
+    from graphrag_integration import (
+        GraphRAGConfig,
+        GraphRAGIndexer,
+        GraphRAGQueryEngine,
+        GraphRAGDataLoader,
+    )
+    from graphrag_integration.query_engine import SearchMethod, SearchResult
+    from graphrag_integration.indexer import IndexingMethod, IndexingStatus
+    GRAPHRAG_AVAILABLE = True
+except ImportError:
+    GRAPHRAG_AVAILABLE = False
+    GraphRAGConfig = None
+    GraphRAGIndexer = None
+    GraphRAGQueryEngine = None
+    GraphRAGDataLoader = None
+
 # Core RAG components
 import chromadb
 from chromadb.utils import embedding_functions
@@ -2904,6 +2922,41 @@ def main():
     kg_rag = None
     kg_enabled = False
 
+    # GraphRAG service globals
+    graphrag_config = None
+    graphrag_indexer = None
+    graphrag_query_engine = None
+    graphrag_enabled = False
+
+    @app.on_event("startup")
+    async def startup_graphrag():
+        """Initialize GraphRAG service on startup."""
+        nonlocal graphrag_config, graphrag_indexer, graphrag_query_engine, graphrag_enabled
+
+        if not GRAPHRAG_AVAILABLE:
+            logger.info("GraphRAG module not available")
+            return
+
+        try:
+            settings_path = Path("./data/graphrag/settings.yaml")
+            if not settings_path.exists():
+                logger.warning("GraphRAG settings.yaml not found - GraphRAG disabled")
+                return
+
+            graphrag_config = GraphRAGConfig.from_yaml(str(settings_path))
+            graphrag_indexer = GraphRAGIndexer(graphrag_config)
+            graphrag_query_engine = GraphRAGQueryEngine(graphrag_config)
+
+            # Initialize query engine (loads data if available)
+            await graphrag_query_engine.initialize()
+
+            graphrag_enabled = True
+            logger.info("GraphRAG initialized successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize GraphRAG: {e}")
+            graphrag_enabled = False
+
     @app.on_event("startup")
     async def startup_knowledge_graph():
         """Initialize Knowledge Graph service on startup."""
@@ -3783,6 +3836,301 @@ def main():
 
     # ==========================================================================
     # END KNOWLEDGE GRAPH INTEGRATION
+    # ==========================================================================
+
+    # ==========================================================================
+    # GRAPHRAG INTEGRATION ENDPOINTS
+    # ==========================================================================
+
+    @app.get("/api/graphrag/health")
+    async def graphrag_health():
+        """Check GraphRAG health status."""
+        if not GRAPHRAG_AVAILABLE:
+            return JSONResponse({
+                "status": "unavailable",
+                "reason": "GraphRAG module not installed"
+            })
+
+        if not graphrag_enabled or graphrag_query_engine is None:
+            return JSONResponse({
+                "status": "not_initialized",
+                "reason": "GraphRAG not initialized"
+            })
+
+        try:
+            stats = await graphrag_query_engine.data_loader.get_stats()
+            return JSONResponse({
+                "status": "healthy",
+                "initialized": True,
+                "stats": stats
+            })
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/graphrag/stats")
+    async def graphrag_stats():
+        """Get GraphRAG data statistics."""
+        if not graphrag_enabled or graphrag_query_engine is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        try:
+            stats = await graphrag_query_engine.data_loader.get_stats()
+            return JSONResponse({
+                "status": "success",
+                "stats": stats
+            })
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/graphrag/query")
+    async def graphrag_query(request: Request):
+        """
+        Query using GraphRAG.
+
+        Request body:
+        {
+            "query": "Your question here",
+            "method": "auto|global|local|drift|basic",
+            "top_k": 10
+        }
+
+        Methods:
+        - auto: Automatically select best method based on query
+        - global: Holistic corpus-wide search using community reports
+        - local: Entity-focused search
+        - drift: Multi-phase iterative search (DRIFT)
+        - basic: Simple vector similarity search
+        """
+        if not graphrag_enabled or graphrag_query_engine is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            query = body.get("query", "")
+            method = body.get("method", "auto").lower()
+            top_k = body.get("top_k", 10)
+
+            if not query:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "Query is required"
+                }, status_code=400)
+
+            # Execute search based on method
+            if method == "auto":
+                result = await graphrag_query_engine.auto_search(query)
+            elif method == "global":
+                result = await graphrag_query_engine.global_search(query)
+            elif method == "local":
+                result = await graphrag_query_engine.local_search(query, top_k_entities=top_k)
+            elif method == "drift":
+                result = await graphrag_query_engine.drift_search(query)
+            elif method == "basic":
+                result = await graphrag_query_engine.basic_search(query, top_k=top_k)
+            else:
+                return JSONResponse({
+                    "status": "error",
+                    "error": f"Unknown method: {method}. Use: auto, global, local, drift, basic"
+                }, status_code=400)
+
+            return JSONResponse({
+                "status": "success",
+                "result": result.to_dict()
+            })
+
+        except Exception as e:
+            logger.error(f"GraphRAG query error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/graphrag/index")
+    async def graphrag_index(request: Request):
+        """
+        Trigger GraphRAG indexing.
+
+        Request body:
+        {
+            "method": "standard|fast",
+            "update_mode": false
+        }
+
+        Methods:
+        - standard: LLM-based extraction (higher quality, slower)
+        - fast: NLP-based extraction (faster, lower quality)
+        """
+        if not graphrag_enabled or graphrag_indexer is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            method_str = body.get("method", "standard").lower()
+            update_mode = body.get("update_mode", False)
+
+            # Set indexing method
+            if method_str == "fast":
+                graphrag_indexer.method = IndexingMethod.FAST
+            else:
+                graphrag_indexer.method = IndexingMethod.STANDARD
+
+            # Run indexing in background
+            asyncio.create_task(graphrag_indexer.index_documents(
+                update_mode=update_mode
+            ))
+
+            return JSONResponse({
+                "status": "started",
+                "method": method_str,
+                "update_mode": update_mode,
+                "message": "Indexing started in background. Check /api/graphrag/index/status for progress."
+            })
+
+        except Exception as e:
+            logger.error(f"GraphRAG indexing error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/graphrag/index/status")
+    async def graphrag_index_status():
+        """Get GraphRAG indexing status and progress."""
+        if not graphrag_enabled or graphrag_indexer is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        return JSONResponse({
+            "status": graphrag_indexer.status.value,
+            "progress": graphrag_indexer.progress,
+            "method": graphrag_indexer.method.value,
+            "stats": graphrag_indexer.get_stats(),
+            "error": graphrag_indexer.get_error(),
+            "duration": graphrag_indexer.get_duration()
+        })
+
+    @app.get("/api/graphrag/entities")
+    async def graphrag_entities(
+        query: str = "",
+        entity_type: Optional[str] = None,
+        top_k: int = 20
+    ):
+        """Search GraphRAG entities."""
+        if not graphrag_enabled or graphrag_query_engine is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        try:
+            entities = await graphrag_query_engine.data_loader.search_entities(
+                query=query,
+                top_k=top_k,
+                entity_type=entity_type
+            )
+            return JSONResponse({
+                "status": "success",
+                "entities": entities,
+                "count": len(entities)
+            })
+        except Exception as e:
+            logger.error(f"GraphRAG entity search error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/graphrag/entity/{entity_name}/relationships")
+    async def graphrag_entity_relationships(entity_name: str):
+        """Get relationships for a specific entity."""
+        if not graphrag_enabled or graphrag_query_engine is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        try:
+            relationships = await graphrag_query_engine.data_loader.get_entity_relationships(
+                entity_name=entity_name
+            )
+            return JSONResponse({
+                "status": "success",
+                "entity": entity_name,
+                "relationships": relationships,
+                "count": len(relationships)
+            })
+        except Exception as e:
+            logger.error(f"GraphRAG relationship error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/graphrag/communities")
+    async def graphrag_communities(level: int = 0, top_k: int = 10):
+        """Get community reports at a specific hierarchy level."""
+        if not graphrag_enabled or graphrag_query_engine is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        try:
+            reports = await graphrag_query_engine.data_loader.get_community_reports_by_level(level)
+            return JSONResponse({
+                "status": "success",
+                "level": level,
+                "communities": reports[:top_k],
+                "count": len(reports[:top_k])
+            })
+        except Exception as e:
+            logger.error(f"GraphRAG communities error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/graphrag/verify")
+    async def graphrag_verify_index():
+        """Verify GraphRAG index integrity."""
+        if not graphrag_enabled or graphrag_indexer is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "GraphRAG not available"
+            }, status_code=503)
+
+        try:
+            verification = await graphrag_indexer.verify_index()
+            return JSONResponse({
+                "status": "success",
+                "verification": verification
+            })
+        except Exception as e:
+            logger.error(f"GraphRAG verification error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    # ==========================================================================
+    # END GRAPHRAG INTEGRATION
     # ==========================================================================
 
     # Add WhatsApp webhook routes if bot is configured
