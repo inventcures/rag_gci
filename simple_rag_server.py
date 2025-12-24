@@ -20,16 +20,34 @@ import uuid
 import subprocess
 import time
 import signal
+import shutil
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
 load_dotenv()
 
 import gradio as gr
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
+
+# Gemini Live imports (optional, for voice conversations)
+try:
+    from gemini_live import (
+        GeminiLiveService,
+        GeminiLiveSession,
+        GeminiLiveError,
+        SessionManager,
+        AudioHandler,
+        get_config as get_gemini_config,
+    )
+    GEMINI_LIVE_AVAILABLE = True
+except ImportError:
+    GEMINI_LIVE_AVAILABLE = False
+    GeminiLiveService = None
+    SessionManager = None
 
 # Core RAG components
 import chromadb
@@ -503,20 +521,22 @@ class AutoRebuildManager:
         
         for doc_info in documents:
             try:
-                logger.info(f"📄 Processing: {doc_info['metadata']['filename']}")
+                filename = doc_info.get('filename', doc_info.get('metadata', {}).get('filename', 'unknown'))
+                logger.info(f"📄 Processing: {filename}")
                 
                 # Re-process the document
-                result = self.rag_pipeline.add_document(doc_info["file_path"])
+                result = await self.rag_pipeline.add_documents([doc_info["file_path"]])
                 rebuild_results.append(result)
                 
                 if result.get("status") != "success":
-                    logger.warning(f"Failed to rebuild {doc_info['metadata']['filename']}: {result}")
+                    logger.warning(f"Failed to rebuild {filename}: {result}")
                 
             except Exception as e:
-                logger.error(f"Error rebuilding document {doc_info['metadata']['filename']}: {e}")
+                filename = doc_info.get('filename', doc_info.get('metadata', {}).get('filename', 'unknown'))
+                logger.error(f"Error rebuilding document {filename}: {e}")
                 rebuild_results.append({
                     "status": "error",
-                    "filename": doc_info['metadata']['filename'],
+                    "filename": filename,
                     "error": str(e)
                 })
         
@@ -572,6 +592,8 @@ class SimpleRAGPipeline:
         self.metadata_file = self.data_dir / "document_metadata.json"
         self.conversation_file = self.data_dir / "conversations.json"
         self.uploads_dir = "uploads"  # Directory where uploaded files are stored
+        self.documents_dir = self.data_dir / "documents"  # Permanent document storage
+        self.documents_dir.mkdir(exist_ok=True)
         
         # Initialize components
         self.document_processor = SimpleDocumentProcessor()
@@ -595,23 +617,68 @@ class SimpleRAGPipeline:
         
         self._initialize_components()
     
+    def _copy_to_permanent_storage(self, source_path: str) -> str:
+        """Copy uploaded file to permanent storage and return new path"""
+        try:
+            source_path = Path(source_path)
+            if not source_path.exists():
+                raise FileNotFoundError(f"Source file not found: {source_path}")
+            
+            # Generate unique filename to avoid conflicts
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_filename = f"{timestamp}_{source_path.name}"
+            permanent_path = self.documents_dir / unique_filename
+            
+            # Copy file to permanent storage
+            shutil.copy2(source_path, permanent_path)
+            logger.info(f"📁 Copied document to permanent storage: {permanent_path}")
+            
+            return str(permanent_path)
+            
+        except Exception as e:
+            logger.error(f"Failed to copy file to permanent storage: {e}")
+            # Return original path as fallback
+            return str(source_path)
+    
     def _initialize_components(self):
         """Initialize embedding model and vector database"""
         try:
-            # Initialize embedding model
-            logger.info("Loading embedding model...")
-            self.embedding_model = SentenceTransformer('BAAI/bge-small-en-v1.5')
+            # Check for Hugging Face token and choose appropriate model
+            hf_token = os.getenv('HUGGINGFACE_HUB_TOKEN')
+            if hf_token:
+                try:
+                    logger.info("HF token found, attempting to load EmbeddingGemma-300M...")
+                    self.embedding_model = SentenceTransformer('google/embeddinggemma-300m', token=hf_token)
+                    self.embedding_model_name = "google/embeddinggemma-300m"
+                    logger.info("✅ Successfully loaded EmbeddingGemma-300M")
+                except Exception as e:
+                    logger.warning(f"Failed to load EmbeddingGemma with token: {e}")
+                    logger.info("Falling back to all-MiniLM-L6-v2...")
+                    self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                    self.embedding_model_name = "all-MiniLM-L6-v2"
+            else:
+                logger.info("No HF token found, using free model all-MiniLM-L6-v2...")
+                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                self.embedding_model_name = "all-MiniLM-L6-v2"
             
             # Initialize ChromaDB
             logger.info("Initializing vector database...")
             chroma_client = chromadb.PersistentClient(path=str(self.vector_db_path))
             
             # Create or get collection
+            # Create embedding function based on the model we're using
+            if hasattr(self, 'embedding_model_name'):
+                embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name=self.embedding_model_name
+                )
+            else:
+                embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name="all-MiniLM-L6-v2"
+                )
+            
             self.vector_db = chroma_client.get_or_create_collection(
                 name="documents",
-                embedding_function=embedding_functions.SentenceTransformerEmbeddingFunction(
-                    model_name="BAAI/bge-small-en-v1.5"
-                )
+                embedding_function=embedding_func
             )
             
             # Initialize corruption detection and auto-rebuild managers
@@ -747,8 +814,11 @@ class SimpleRAGPipeline:
                     logger.warning(f"File not found: {file_path}")
                     continue
                 
-                # Process document
-                doc_result = self.document_processor.process_file(file_path)
+                # Copy to permanent storage first
+                permanent_path = self._copy_to_permanent_storage(file_path)
+                
+                # Process document from permanent storage
+                doc_result = self.document_processor.process_file(permanent_path)
                 
                 if doc_result["status"] != "success":
                     results.append({
@@ -758,8 +828,8 @@ class SimpleRAGPipeline:
                     })
                     continue
                 
-                # Generate document ID
-                doc_id = hashlib.md5(file_path.encode()).hexdigest()
+                # Generate document ID based on permanent path
+                doc_id = hashlib.md5(permanent_path.encode()).hexdigest()
                 
                 # Check if document already exists and remove it first
                 if doc_id in self.document_metadata:
@@ -774,7 +844,8 @@ class SimpleRAGPipeline:
                 chunk_metadata = []
                 for i, chunk in enumerate(chunks):
                     meta = {
-                        "file_path": file_path,
+                        "file_path": permanent_path,  # Use permanent path
+                        "original_path": file_path,   # Keep original path for reference
                         "filename": Path(file_path).name,
                         "chunk_index": i,
                         "total_chunks": len(chunks),
@@ -804,12 +875,14 @@ class SimpleRAGPipeline:
                 
                 # Store document metadata including page count
                 self.document_metadata[doc_id] = {
-                    "file_path": file_path,
+                    "file_path": permanent_path,  # Store permanent path
+                    "original_path": file_path,   # Keep track of original upload path
                     "filename": Path(file_path).name,
                     "chunk_count": len(chunks),
                     "page_count": doc_result.get("page_count", 1),
                     "metadata": metadata or {},
-                    "indexed_at": datetime.now().isoformat()
+                    "indexed_at": datetime.now().isoformat(),
+                    "stored_permanently": True
                 }
                 
                 # Verify the document was properly indexed
@@ -2468,7 +2541,288 @@ def main():
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
+    # Gemini Live service globals
+    gemini_service = None
+    gemini_session_manager = None
+    gemini_live_enabled = False
+
+    @app.on_event("startup")
+    async def startup_gemini_live():
+        """Initialize Gemini Live service on startup."""
+        nonlocal gemini_service, gemini_session_manager, gemini_live_enabled
+
+        if not GEMINI_LIVE_AVAILABLE:
+            logger.info("Gemini Live module not available - voice WebSocket disabled")
+            return
+
+        try:
+            gemini_config = get_gemini_config()
+
+            if not gemini_config.enabled:
+                logger.info("Gemini Live disabled in config - voice WebSocket disabled")
+                return
+
+            # Initialize Gemini Live service with RAG pipeline
+            gemini_service = GeminiLiveService(rag_pipeline=rag_pipeline)
+
+            if not gemini_service.is_available():
+                logger.warning(
+                    "Gemini Live service not available (check credentials) - "
+                    "voice WebSocket disabled"
+                )
+                return
+
+            # Initialize session manager
+            gemini_session_manager = SessionManager(gemini_service)
+            await gemini_session_manager.start()
+
+            gemini_live_enabled = True
+            logger.info(
+                "Gemini Live initialized - WebSocket endpoint /ws/voice available"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini Live: {e}")
+            gemini_live_enabled = False
+
+    @app.on_event("shutdown")
+    async def shutdown_gemini_live():
+        """Cleanup Gemini Live service on shutdown."""
+        nonlocal gemini_session_manager
+
+        if gemini_session_manager:
+            try:
+                await gemini_session_manager.stop()
+                logger.info("Gemini Live session manager stopped")
+            except Exception as e:
+                logger.error(f"Error stopping Gemini session manager: {e}")
+
+    async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
+        """
+        Stream audio responses from Gemini Live back to the WebSocket client.
+
+        Args:
+            websocket: The WebSocket connection
+            session: The active Gemini Live session
+            user_id: User identifier for logging
+        """
+        try:
+            logger.info(f"Starting response stream for user {user_id}")
+
+            async for response in session.receive_audio():
+                # Check if it's a special marker
+                if isinstance(response, bytes):
+                    if response == b"__TURN_COMPLETE__":
+                        # Turn complete - send transcriptions
+                        await websocket.send_json({"type": "turn_complete"})
+
+                        # Send assistant response transcription
+                        response_text = session.get_response_transcription(clear=True)
+                        if response_text:
+                            await websocket.send_json({
+                                "type": "transcription",
+                                "role": "assistant",
+                                "text": response_text
+                            })
+
+                        # Send user input transcription
+                        user_text = session.get_transcription(clear=True)
+                        if user_text:
+                            await websocket.send_json({
+                                "type": "transcription",
+                                "role": "user",
+                                "text": user_text
+                            })
+
+                    elif response == b"__INTERRUPTED__":
+                        # User interrupted - notify client
+                        await websocket.send_json({"type": "interrupted"})
+
+                    else:
+                        # Regular audio chunk - send as binary
+                        await websocket.send_bytes(response)
+
+                elif isinstance(response, dict):
+                    # Handle dict responses (transcriptions, etc.)
+                    if "text" in response:
+                        await websocket.send_json({
+                            "type": "transcription",
+                            "role": response.get("role", "assistant"),
+                            "text": response["text"]
+                        })
+
+        except WebSocketDisconnect:
+            logger.info(f"WebSocket disconnected during response stream for {user_id}")
+        except Exception as e:
+            logger.error(f"Error in response stream for {user_id}: {e}")
+            try:
+                await websocket.send_json({
+                    "type": "error",
+                    "error": str(e)
+                })
+            except:
+                pass
+
+    @app.websocket("/ws/voice")
+    async def voice_websocket(websocket: WebSocket):
+        """
+        WebSocket endpoint for Gemini Live voice conversations.
+
+        Protocol:
+        - Client sends JSON config message first: {"type": "config", "language": "en-IN"}
+        - Client sends {"type": "start_audio"} to begin recording
+        - Client sends binary audio chunks (Int16 PCM, 16kHz, mono)
+        - Client sends {"type": "stop_audio"} to end recording
+        - Server sends binary audio responses (Int16 PCM, 24kHz, mono)
+        - Server sends JSON transcription/status messages
+        - Client can send {"type": "set_language", "language": "hi-IN"} to switch language
+        """
+        await websocket.accept()
+
+        # Check if Gemini Live is available
+        if not gemini_live_enabled:
+            await websocket.send_json({
+                "type": "error",
+                "error": "Voice conversations not available. Gemini Live is disabled."
+            })
+            await websocket.close(code=1008, reason="Service unavailable")
+            return
+
+        session = None
+        language = "en-IN"
+        user_id = f"web_{datetime.now().timestamp()}_{id(websocket)}"
+        response_task = None
+
+        logger.info(f"Voice WebSocket connected: {user_id}")
+
+        try:
+            while True:
+                data = await websocket.receive()
+
+                # Handle text messages (JSON commands)
+                if "text" in data:
+                    try:
+                        message = json.loads(data["text"])
+                        msg_type = message.get("type", "")
+
+                        if msg_type == "config":
+                            # Initial configuration
+                            language = message.get("language", "en-IN")
+                            user_id = message.get("user_id", user_id)
+                            logger.info(f"Config received: user={user_id}, language={language}")
+
+                            await websocket.send_json({
+                                "type": "config_ack",
+                                "user_id": user_id,
+                                "language": language
+                            })
+
+                        elif msg_type == "start_audio":
+                            # Create or get session for this user
+                            logger.info(f"Starting audio session for {user_id}")
+
+                            try:
+                                session = await gemini_session_manager.get_or_create_session(
+                                    user_id=user_id,
+                                    language=language,
+                                    voice="Aoede"  # Warm, empathetic voice for healthcare
+                                )
+
+                                await websocket.send_json({
+                                    "type": "session_created",
+                                    "session_id": session.session_id if hasattr(session, 'session_id') else user_id
+                                })
+
+                                # Start background task to stream responses
+                                if response_task is None or response_task.done():
+                                    response_task = asyncio.create_task(
+                                        stream_gemini_responses(websocket, session, user_id)
+                                    )
+
+                            except Exception as e:
+                                logger.error(f"Failed to create session for {user_id}: {e}")
+                                await websocket.send_json({
+                                    "type": "error",
+                                    "error": f"Failed to create voice session: {str(e)}"
+                                })
+
+                        elif msg_type == "stop_audio":
+                            # Audio stream ended
+                            logger.info(f"Audio stream stopped for {user_id}")
+                            await websocket.send_json({"type": "audio_stopped"})
+
+                        elif msg_type == "set_language":
+                            # Switch language - requires new session
+                            new_language = message.get("language", language)
+                            if new_language != language:
+                                logger.info(f"Switching language from {language} to {new_language} for {user_id}")
+                                language = new_language
+
+                                # Close existing session
+                                if session:
+                                    await gemini_session_manager.close_session(user_id)
+                                    session = None
+
+                                await websocket.send_json({
+                                    "type": "language_changed",
+                                    "language": language
+                                })
+
+                        elif msg_type == "text":
+                            # Text message (for hybrid mode)
+                            text = message.get("text", "")
+                            if session and text:
+                                await session.send_text(text)
+
+                        elif msg_type == "ping":
+                            # Keep-alive ping
+                            await websocket.send_json({"type": "pong"})
+
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Invalid JSON from {user_id}: {e}")
+                        await websocket.send_json({
+                            "type": "error",
+                            "error": "Invalid JSON message"
+                        })
+
+                # Handle binary messages (audio data)
+                elif "bytes" in data:
+                    if session:
+                        try:
+                            await session.send_audio(data["bytes"])
+                        except Exception as e:
+                            logger.error(f"Error sending audio for {user_id}: {e}")
+
+        except WebSocketDisconnect:
+            logger.info(f"Voice WebSocket disconnected: {user_id}")
+
+        except Exception as e:
+            logger.error(f"Voice WebSocket error for {user_id}: {e}")
+            try:
+                await websocket.send_json({
+                    "type": "error",
+                    "error": str(e)
+                })
+            except:
+                pass
+
+        finally:
+            # Cleanup
+            if response_task and not response_task.done():
+                response_task.cancel()
+                try:
+                    await response_task
+                except asyncio.CancelledError:
+                    pass
+
+            if session and gemini_session_manager:
+                try:
+                    await gemini_session_manager.close_session(user_id)
+                    logger.info(f"Session closed for {user_id}")
+                except Exception as e:
+                    logger.error(f"Error closing session for {user_id}: {e}")
+
     @app.get("/")
     async def root():
         return {"message": "Simple RAG Server - No Database Required!"}
@@ -2476,10 +2830,19 @@ def main():
     @app.get("/health")
     async def health():
         stats = rag_pipeline.get_index_stats()
+
+        # Get Gemini Live status
+        gemini_status = "disabled"
+        if gemini_live_enabled and gemini_session_manager:
+            gemini_status = gemini_session_manager.get_status()
+        elif GEMINI_LIVE_AVAILABLE:
+            gemini_status = "available but not enabled"
+
         return {
             "status": "healthy",
             "database": "file-based (no SQL database)",
             "whatsapp_bot": "configured" if whatsapp_bot else "not configured",
+            "gemini_live": gemini_status,
             "ngrok_url": ngrok_manager.ngrok_url,
             "stats": stats.get("stats", {})
         }
@@ -2619,7 +2982,13 @@ def main():
     
     # Mount Gradio app
     app = gr.mount_gradio_app(app, gradio_app, path="/admin")
-    
+
+    # Mount web client static files for Gemini Live voice interface
+    web_client_path = Path("web_client")
+    if web_client_path.exists():
+        app.mount("/voice", StaticFiles(directory="web_client", html=True), name="voice")
+        logger.info("🎤 Voice interface available at /voice")
+
     # Start ngrok if not disabled and WhatsApp is configured
     ngrok_url = None
     if not args.no_ngrok and whatsapp_bot:
@@ -2644,6 +3013,10 @@ def main():
     print("📊 Admin UI: http://localhost:{}/admin".format(args.port))
     print("🔗 API Docs: http://localhost:{}/docs".format(args.port))
     print("💚 Health Check: http://localhost:{}/health".format(args.port))
+    if web_client_path.exists():
+        print("🎤 Voice UI: http://localhost:{}/voice".format(args.port))
+    if GEMINI_LIVE_AVAILABLE:
+        print("🔊 Voice WebSocket: ws://localhost:{}/ws/voice".format(args.port))
     print("🗄️ Storage: File-based (no database required)")
     
     if whatsapp_bot:

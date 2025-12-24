@@ -16,8 +16,8 @@ llm:
   
 # Embedding Configuration  
 embedding:
-  provider: "fastembed"  # Local embedding model
-  model: "BAAI/bge-small-en-v1.5"
+  provider: "sentence_transformers"  # Local embedding model
+  model: "all-MiniLM-L6-v2"
   batch_size: 32
 
 # Reranking Configuration
@@ -102,3 +102,44 @@ directories:
   uploads: "./uploads"
   logs: "./logs"
   cache: "./cache"
+
+# Gemini Live API Configuration (Real-time Voice Conversations)
+gemini_live:
+  enabled: false  # Set to true when ready to use
+  project_id: ${GOOGLE_CLOUD_PROJECT}
+  location: "us-central1"
+  model: "gemini-live-2.5-flash-preview-native-audio-09-2025"
+
+  # Voice settings
+  default_voice: "Aoede"  # Warm, empathetic voice for healthcare
+
+  # Language support (Indian languages)
+  default_language: "en-IN"
+  supported_languages:
+    - code: "en-IN"
+      name: "English (India)"
+    - code: "hi-IN"
+      name: "Hindi"
+    - code: "mr-IN"
+      name: "Marathi"
+    - code: "ta-IN"
+      name: "Tamil"
+
+  # Session settings
+  session_timeout_minutes: 14  # Max 15 for Gemini
+  max_sessions_per_user: 1
+
+  # Audio settings
+  input_sample_rate: 16000   # 16kHz for input
+  output_sample_rate: 24000  # 24kHz for output
+  chunk_size: 4096
+
+  # RAG integration
+  rag_context_enabled: true
+  rag_top_k: 3
+
+  # Fallback to existing STT+LLM+TTS pipeline on error
+  fallback_enabled: true
+
+  # Transcription capture
+  transcription_enabled: true

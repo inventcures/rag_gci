@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palliative Care Voice Assistant</title>
+    <style>
+        :root {
+            --primary: #4A90A4;
+            --primary-dark: #2C5F72;
+            --primary-light: #6BB3C9;
+            --success: #48BB78;
+            --danger: #F56565;
+            --warning: #ED8936;
+            --bg: #F7FAFC;
+            --bg-dark: #EDF2F7;
+            --text: #2D3748;
+            --text-light: #718096;
+            --white: #FFFFFF;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: var(--text);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--white);
+            padding: 1.5rem 1rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .header p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        /* Main Container */
+        .container {
+            flex: 1;
+            max-width: 640px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-dark);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+
+        .connection-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-light);
+        }
+
+        .connection-status.connected .dot {
+            background: var(--success);
+        }
+
+        .connection-status.error .dot {
+            background: var(--danger);
+        }
+
+        /* Language Selector */
+        .language-selector {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .lang-btn {
+            padding: 0.625rem 1.25rem;
+            border: 2px solid var(--primary);
+            background: var(--white);
+            color: var(--primary);
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .lang-btn:hover {
+            background: var(--primary-light);
+            color: var(--white);
+            border-color: var(--primary-light);
+        }
+
+        .lang-btn.active {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .lang-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(74, 144, 164, 0.3);
+        }
+
+        /* Conversation Area */
+        .conversation {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            min-height: 350px;
+            max-height: 50vh;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.875rem 1rem;
+            border-radius: 16px;
+            max-width: 85%;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--white);
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            background: var(--bg-dark);
+            color: var(--text);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.system {
+            background: #FEF3C7;
+            color: #92400E;
+            text-align: center;
+            max-width: 100%;
+            font-size: 0.875rem;
+        }
+
+        .message .timestamp {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+
+        /* Controls Area */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .record-btn {
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .record-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .record-btn:focus {
+            outline: none;
+            box-shadow: var(--shadow-lg), 0 0 0 4px rgba(74, 144, 164, 0.3);
+        }
+
+        .record-btn:active {
+            transform: scale(0.98);
+        }
+
+        .record-btn.recording {
+            background: linear-gradient(135deg, var(--danger) 0%, #C53030 100%);
+            animation: pulse 1.5s infinite;
+        }
+
+        .record-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: var(--shadow-lg);
+            }
+            50% {
+                transform: scale(1.08);
+                box-shadow: 0 0 0 15px rgba(245, 101, 101, 0.2);
+            }
+        }
+
+        .record-btn svg {
+            width: 36px;
+            height: 36px;
+        }
+
+        .status-text {
+            font-size: 1rem;
+            color: var(--text-light);
+            text-align: center;
+            min-height: 1.5rem;
+        }
+
+        .status-text.active {
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        .status-text.error {
+            color: var(--danger);
+        }
+
+        /* Waveform Visualization */
+        .waveform {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 0.5rem;
+        }
+
+        .waveform .bar {
+            width: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+            transition: height 0.05s ease;
+            height: 8px;
+        }
+
+        .waveform.active .bar {
+            animation: wave 0.5s ease-in-out infinite;
+        }
+
+        .waveform .bar:nth-child(1) { animation-delay: 0s; }
+        .waveform .bar:nth-child(2) { animation-delay: 0.1s; }
+        .waveform .bar:nth-child(3) { animation-delay: 0.2s; }
+        .waveform .bar:nth-child(4) { animation-delay: 0.3s; }
+        .waveform .bar:nth-child(5) { animation-delay: 0.4s; }
+        .waveform .bar:nth-child(6) { animation-delay: 0.3s; }
+        .waveform .bar:nth-child(7) { animation-delay: 0.2s; }
+        .waveform .bar:nth-child(8) { animation-delay: 0.1s; }
+
+        @keyframes wave {
+            0%, 100% { height: 8px; }
+            50% { height: 40px; }
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 1rem;
+            color: var(--text-light);
+            font-size: 0.75rem;
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        /* Accessibility */
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.25rem;
+            }
+
+            .lang-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+
+            .record-btn {
+                width: 76px;
+                height: 76px;
+            }
+
+            .record-btn svg {
+                width: 32px;
+                height: 32px;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #1A202C;
+                --bg-dark: #2D3748;
+                --text: #E2E8F0;
+                --text-light: #A0AEC0;
+                --white: #2D3748;
+            }
+
+            .message.assistant {
+                background: #4A5568;
+            }
+
+            .message.system {
+                background: #744210;
+                color: #FEEBC8;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Palliative Care Voice Assistant</h1>
+        <p>Powered by Gemini Live AI</p>
+    </header>
+
+    <main class="container">
+        <!-- Connection Status -->
+        <div class="connection-status" id="connectionStatus">
+            <span class="dot"></span>
+            <span id="connectionText">Initializing...</span>
+        </div>
+
+        <!-- Language Selector -->
+        <nav class="language-selector" aria-label="Language selection">
+            <button class="lang-btn active" data-lang="en-IN" aria-pressed="true">
+                English
+            </button>
+            <button class="lang-btn" data-lang="hi-IN" aria-pressed="false">
+                हिंदी
+            </button>
+            <button class="lang-btn" data-lang="mr-IN" aria-pressed="false">
+                मराठी
+            </button>
+            <button class="lang-btn" data-lang="ta-IN" aria-pressed="false">
+                தமிழ்
+            </button>
+        </nav>
+
+        <!-- Conversation -->
+        <section class="conversation" id="conversation" aria-live="polite" aria-label="Conversation history">
+            <div class="message assistant">
+                Hello! I'm your palliative care voice assistant. I can help answer questions about pain management, symptom control, comfort care, and emotional support. Tap the microphone to speak with me in your preferred language.
+            </div>
+        </section>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="waveform" id="waveform" aria-hidden="true">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+
+            <button class="record-btn" id="recordBtn" aria-label="Start recording">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93V7h2v1c0 2.76 2.24 5 5 5s5-2.24 5-5V7h2v1c0 4.08-3.06 7.44-7 7.93V19h3v2H9v-2h3v-3.07z"/>
+                </svg>
+                <span class="visually-hidden">Start recording</span>
+            </button>
+
+            <div class="status-text" id="status" aria-live="polite">
+                Tap the microphone to speak
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>For informational purposes only. Always consult healthcare professionals for medical advice.</p>
+        <p>Powered by <a href="https://ai.google.dev/gemini-api/docs/live" target="_blank" rel="noopener">Gemini Live API</a></p>
+    </footer>
+
+    <!-- Load JavaScript modules -->
+    <script src="gemini-client.js"></script>
+    <script>
+        // DOM Elements
+        const conversation = document.getElementById('conversation');
+        const recordBtn = document.getElementById('recordBtn');
+        const status = document.getElementById('status');
+        const waveform = document.getElementById('waveform');
+        const langBtns = document.querySelectorAll('.lang-btn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectionText = document.getElementById('connectionText');
+
+        // State
+        let isRecording = false;
+        let geminiClient = null;
+        let currentLanguage = 'en-IN';
+
+        // Language-specific welcome messages
+        const welcomeMessages = {
+            'en-IN': "Hello! I'm your palliative care voice assistant. How can I help you today?",
+            'hi-IN': "नमस्ते! मैं आपकी पैलिएटिव केयर वॉइस असिस्टेंट हूं। मैं आज आपकी कैसे मदद कर सकती हूं?",
+            'mr-IN': "नमस्कार! मी तुमची पॅलिएटिव्ह केअर व्हॉइस असिस्टंट आहे. मी आज तुम्हाला कशी मदत करू शकते?",
+            'ta-IN': "வணக்கம்! நான் உங்கள் நோய் தீர்க்கும் பராமரிப்பு குரல் உதவியாளர். இன்று நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?"
+        };
+
+        // Initialize Gemini client
+        async function init() {
+            try {
+                updateConnectionStatus('connecting');
+
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                const wsUrl = `${wsProtocol}://${window.location.host}/ws/voice`;
+
+                geminiClient = new GeminiLiveClient({
+                    serverUrl: wsUrl,
+                    language: currentLanguage,
+                    onAudioReceived: handleAudioResponse,
+                    onTranscription: handleTranscription,
+                    onError: handleError,
+                    onStatusChange: updateStatus,
+                    onConnectionChange: updateConnectionStatus
+                });
+
+                await geminiClient.initialize();
+                updateConnectionStatus('connected');
+                updateStatus('Tap the microphone to speak');
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateConnectionStatus('error');
+                updateStatus('Failed to initialize. Please refresh the page.');
+            }
+        }
+
+        // Update connection status indicator
+        function updateConnectionStatus(state) {
+            connectionStatus.className = 'connection-status';
+
+            switch (state) {
+                case 'connected':
+                    connectionStatus.classList.add('connected');
+                    connectionText.textContent = 'Connected';
+                    break;
+                case 'connecting':
+                    connectionText.textContent = 'Connecting...';
+                    break;
+                case 'error':
+                    connectionStatus.classList.add('error');
+                    connectionText.textContent = 'Connection error';
+                    break;
+                default:
+                    connectionText.textContent = 'Disconnected';
+            }
+        }
+
+        // Language selection
+        langBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update UI
+                langBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-pressed', 'false');
+                });
+                btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
+
+                // Update language
+                currentLanguage = btn.dataset.lang;
+
+                if (geminiClient) {
+                    geminiClient.setLanguage(currentLanguage);
+                }
+
+                // Add language change message
+                addMessage(welcomeMessages[currentLanguage] || welcomeMessages['en-IN'], 'assistant');
+            });
+        });
+
+        // Record button handler
+        recordBtn.addEventListener('click', async () => {
+            if (recordBtn.disabled) return;
+
+            try {
+                if (!geminiClient) {
+                    await init();
+                }
+
+                if (!isRecording) {
+                    // Start recording
+                    await geminiClient.startRecording();
+                    isRecording = true;
+                    recordBtn.classList.add('recording');
+                    recordBtn.setAttribute('aria-label', 'Stop recording');
+                    waveform.classList.add('active');
+                    updateStatus('Listening... Speak now');
+                    status.classList.add('active');
+                } else {
+                    // Stop recording
+                    await geminiClient.stopRecording();
+                    isRecording = false;
+                    recordBtn.classList.remove('recording');
+                    recordBtn.setAttribute('aria-label', 'Start recording');
+                    waveform.classList.remove('active');
+                    updateStatus('Processing your message...');
+                    status.classList.remove('active');
+                }
+            } catch (error) {
+                console.error('Recording error:', error);
+                handleError(error);
+            }
+        });
+
+        // Handle audio response from server
+        function handleAudioResponse(audioBlob) {
+            try {
+                // Create and play audio
+                const audio = new Audio(URL.createObjectURL(audioBlob));
+                audio.onended = () => {
+                    updateStatus('Tap the microphone to speak');
+                };
+                audio.onerror = (e) => {
+                    console.error('Audio playback error:', e);
+                    updateStatus('Tap the microphone to speak');
+                };
+                audio.play().catch(e => {
+                    console.error('Failed to play audio:', e);
+                    updateStatus('Tap the microphone to speak');
+                });
+            } catch (error) {
+                console.error('Audio handling error:', error);
+                updateStatus('Tap the microphone to speak');
+            }
+        }
+
+        // Handle transcription messages
+        function handleTranscription(data) {
+            const { type, text } = data;
+
+            if (type === 'user' && text) {
+                addMessage(text, 'user');
+            } else if (type === 'assistant' && text) {
+                addMessage(text, 'assistant');
+            }
+        }
+
+        // Add message to conversation
+        function addMessage(text, role) {
+            const msg = document.createElement('div');
+            msg.className = `message ${role}`;
+            msg.textContent = text;
+
+            // Add timestamp
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            msg.appendChild(timestamp);
+
+            conversation.appendChild(msg);
+            conversation.scrollTop = conversation.scrollHeight;
+        }
+
+        // Handle errors
+        function handleError(error) {
+            console.error('Gemini error:', error);
+
+            isRecording = false;
+            recordBtn.classList.remove('recording');
+            recordBtn.setAttribute('aria-label', 'Start recording');
+            waveform.classList.remove('active');
+
+            status.classList.add('error');
+            updateStatus('An error occurred. Tap to try again.');
+
+            // Add error message to conversation
+            addMessage('Sorry, I encountered an error. Please try again.', 'system');
+
+            // Clear error state after delay
+            setTimeout(() => {
+                status.classList.remove('error');
+            }, 3000);
+        }
+
+        // Update status text
+        function updateStatus(newStatus) {
+            status.textContent = newStatus;
+        }
+
+        // Keyboard accessibility
+        document.addEventListener('keydown', (e) => {
+            // Space or Enter to toggle recording
+            if ((e.code === 'Space' || e.code === 'Enter') &&
+                document.activeElement === recordBtn) {
+                e.preventDefault();
+                recordBtn.click();
+            }
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            init().catch(console.error);
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (geminiClient) {
+                geminiClient.disconnect();
+            }
+        });
+    </script>
+</body>
+</html>
