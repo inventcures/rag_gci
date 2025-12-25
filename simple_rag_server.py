@@ -648,7 +648,7 @@ class SimpleRAGPipeline:
         self.embedding_model = None
         self.vector_db = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.translation_model = "gemma2-9b-it"  # Model for query translation - better Indic language support
+        self.translation_model = "llama-3.1-8b-instant"  # Model for query translation
         
         # Check for MedGemma preference from environment
         use_medgemma = os.getenv("USE_MEDGEMMA", "false").lower() == "true"
@@ -656,8 +656,8 @@ class SimpleRAGPipeline:
             self.response_model = "medgemma"  # Use MedGemma for English response generation
             logger.info("🩺 MedGemma model selected for English response generation")
         else:
-            self.response_model = "gemma2-9b-it"  # Use default Gemma for response generation
-            logger.info("💎 Default Gemma model selected for response generation")
+            self.response_model = "qwen/qwen3-32b"  # Use Qwen3 for high-quality response generation
+            logger.info("🧠 Qwen3-32B reasoning model selected for response generation")
         
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
@@ -1161,6 +1161,42 @@ class SimpleRAGPipeline:
             logger.info(f"  🎯 Using ONLY closest context (distance {min_distance:.4f}) - others too far")
             return [contexts[best_idx]], [metadatas[best_idx]], False
     
+    def _extract_and_log_thinking(self, response: str) -> str:
+        """Extract <think> tags from response, log the reasoning, return clean answer.
+
+        Qwen3 and other reasoning models wrap their chain-of-thought in <think> tags.
+        We want to:
+        1. Log the thinking for debugging/monitoring
+        2. Return only the final answer to the user
+        """
+        import re
+
+        # Pattern to match <think>...</think> blocks (including newlines)
+        think_pattern = r'<think>(.*?)</think>'
+
+        # Find all thinking blocks
+        thinking_matches = re.findall(think_pattern, response, re.DOTALL)
+
+        if thinking_matches:
+            for i, thinking in enumerate(thinking_matches):
+                # Log the reasoning (truncate if very long)
+                thinking_preview = thinking.strip()[:500]
+                if len(thinking.strip()) > 500:
+                    thinking_preview += "... [truncated]"
+                logger.info(f"🧠 Model Reasoning (block {i+1}):\n{thinking_preview}")
+
+            # Remove all <think>...</think> blocks from response
+            clean_response = re.sub(think_pattern, '', response, flags=re.DOTALL)
+
+            # Clean up extra whitespace/newlines left behind
+            clean_response = re.sub(r'\n\s*\n', '\n', clean_response).strip()
+
+            logger.info(f"✅ Extracted {len(thinking_matches)} thinking block(s), returning clean response")
+            return clean_response
+
+        # No thinking tags found, return as-is
+        return response
+
     async def _generate_answer(self, question: str, context: str) -> str:
         """Generate answer using Groq API"""
         try:
@@ -1213,7 +1249,8 @@ ENGLISH ANSWER:"""
             
             if response.status_code == 200:
                 result = response.json()
-                return result["choices"][0]["message"]["content"].strip()
+                raw_answer = result["choices"][0]["message"]["content"].strip()
+                return self._extract_and_log_thinking(raw_answer)
             else:
                 logger.error(f"Groq API error: {response.status_code} - {response.text}")
                 return f"Error generating response: {response.status_code}"
@@ -1328,8 +1365,9 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
                 
                 if response.status_code == 200:
                     result = response.json()
-                    answer = result["choices"][0]["message"]["content"].strip()
-                    model_used = "gemma"
+                    raw_answer = result["choices"][0]["message"]["content"].strip()
+                    answer = self._extract_and_log_thinking(raw_answer)
+                    model_used = "qwen3"
                 else:
                     logger.error(f"Groq API error: {response.status_code} - {response.text}")
                     return f"Error generating response: {response.status_code}"
@@ -1537,7 +1575,7 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             }
             
             payload = {
-                "model": "gemma2-9b-it",
+                "model": self.response_model,  # Use configured response model
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.2,
                 "max_tokens": 512
@@ -1552,9 +1590,10 @@ FOCUSED ANSWER (UNDER 1500 CHARS):"""
             
             if response.status_code == 200:
                 result = response.json()
-                answer = result["choices"][0]["message"]["content"].strip()
+                raw_answer = result["choices"][0]["message"]["content"].strip()
+                answer = self._extract_and_log_thinking(raw_answer)
                 logger.info("✅ Groq fallback successful")
-                return answer, "gemma"
+                return answer, "qwen3"
             else:
                 logger.error(f"Groq fallback error: {response.status_code} - {response.text}")
                 return f"Error generating response: {response.status_code}", "error"

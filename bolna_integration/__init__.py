@@ -17,6 +17,7 @@ Usage:
 from .client import BolnaClient, BolnaCallResult
 from .config import (
     get_palli_sahayak_agent_config,
+    get_agent_config_from_env,
     PALLI_SAHAYAK_SYSTEM_PROMPT,
     RAG_QUERY_FUNCTION,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "BolnaClient",
     "BolnaCallResult",
     "get_palli_sahayak_agent_config",
+    "get_agent_config_from_env",
     "PALLI_SAHAYAK_SYSTEM_PROMPT",
     "RAG_QUERY_FUNCTION",
     "BolnaWebhookHandler",
