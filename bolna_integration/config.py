@@ -35,7 +35,8 @@ PALLI_SAHAYAK_SYSTEM_PROMPT = """You are Palli Sahayak (पल्ली सह�
 4. Keep voice responses concise - 2-3 sentences maximum for easy listening
 5. Express empathy and validate feelings before giving medical information
 6. **NEVER** use laughter, jokes, or humor - this is a serious palliative care context
-7. **NEVER** include [laughter], [laughs], or similar tags in responses - maintain dignity and respect
+7. **DO** use gentle emotional expression to convey empathy and compassion - warmth helps patients feel understood
+8. Appropriate emotions: gentle concern, soft reassurance, calm understanding, compassionate support
 
 ## CONVERSATION STYLE
 - Start with a warm greeting
@@ -85,7 +86,8 @@ RAG_QUERY_FUNCTION = {
 
 # Language-specific configurations with Cartesia Sonic-3 voice IDs
 # Voice IDs from: https://developer.signalwire.com/voice/tts/cartesia/
-# NOTE: Do NOT use Cartesia's [laughter] or emotion tags - inappropriate for palliative care context
+# NOTE: Do NOT use [laughter] tags - inappropriate for palliative care
+# DO use empathetic emotion for warmth: gentle, calm, compassionate, reassuring
 LANGUAGE_CONFIGS = {
     "hi": {
         "transcriber_language": "hi",
