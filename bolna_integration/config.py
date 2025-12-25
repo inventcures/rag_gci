@@ -228,11 +228,19 @@ def get_palli_sahayak_agent_config(
                         "stream": True,
                         "encoding": "linear16",
                         "language": lang_config["transcriber_language"],
-                        "model": "nova-2"
+                        "model": "nova-3",
+                        "endpointing": 2000  # 2 sec silence tolerance for natural speech
                     }
                 },
                 "task_config": {
-                    "hangup_after_silence": 30.0
+                    "hangup_after_silence": 30.0,
+                    # Patient interruption settings for natural speech with fillers (umm, aaa, hmm)
+                    "endpointing": 2000,  # 2 sec silence before considering speech done
+                    "number_of_words_for_interruption": 8,  # Need 8 words to interrupt user
+                    "interruption_backoff_period": 1500,  # 1.5 sec cooldown after speaking
+                    "incremental_delay": 600,  # 600ms pause before responding
+                    "backchanneling": False,  # No "uh huh" sounds
+                    "use_fillers": False  # No filler words from agent
                 }
             }
         ],
