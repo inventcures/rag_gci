@@ -25,12 +25,14 @@ Usage:
 
 import asyncio
 import logging
+import time
 from typing import Dict, Any, Optional, List
 from enum import Enum
 from dataclasses import dataclass, field
 
 from graphrag_integration.config import GraphRAGConfig
 from graphrag_integration.data_loader import GraphRAGDataLoader
+from graphrag_integration.utils import QueryCache
 
 logger = logging.getLogger(__name__)
 
@@ -127,16 +129,39 @@ class GraphRAGQueryEngine:
         result = await engine.auto_search("What is morphine?")
     """
 
-    def __init__(self, config: GraphRAGConfig):
+    def __init__(
+        self,
+        config: GraphRAGConfig,
+        cache: Optional[QueryCache] = None,
+        enable_cache: bool = True,
+        cache_maxsize: int = 100,
+        cache_ttl: int = 3600
+    ):
         """
         Initialize query engine.
 
         Args:
             config: GraphRAG configuration
+            cache: Optional QueryCache instance (creates one if None and enable_cache=True)
+            enable_cache: Whether to enable query caching (default True)
+            cache_maxsize: Maximum cache entries (default 100)
+            cache_ttl: Cache TTL in seconds (default 3600)
         """
         self.config = config
         self.data_loader = GraphRAGDataLoader(config)
         self._initialized = False
+
+        # Cache setup
+        self._cache_enabled = enable_cache
+        if enable_cache:
+            self._cache = cache or QueryCache(maxsize=cache_maxsize, ttl_seconds=cache_ttl)
+        else:
+            self._cache = None
+
+        # Performance tracking
+        self._query_count = 0
+        self._cache_hits = 0
+        self._total_query_time = 0.0
 
     async def initialize(self) -> None:
         """Initialize query engine and load data."""
@@ -146,6 +171,80 @@ class GraphRAGQueryEngine:
         await self.data_loader.load_all()
         self._initialized = True
         logger.info("Query engine initialized")
+
+    def enable_cache(self, maxsize: int = 100, ttl_seconds: int = 3600) -> None:
+        """
+        Enable query caching.
+
+        Args:
+            maxsize: Maximum cache entries
+            ttl_seconds: Cache TTL in seconds
+        """
+        if self._cache is None:
+            self._cache = QueryCache(maxsize=maxsize, ttl_seconds=ttl_seconds)
+        self._cache_enabled = True
+        logger.info(f"Query cache enabled (maxsize={maxsize}, ttl={ttl_seconds}s)")
+
+    def disable_cache(self) -> None:
+        """Disable query caching."""
+        self._cache_enabled = False
+        logger.info("Query cache disabled")
+
+    def clear_cache(self) -> None:
+        """Clear the query cache."""
+        if self._cache:
+            self._cache.clear()
+            logger.info("Query cache cleared")
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """
+        Get cache statistics.
+
+        Returns:
+            Dictionary with cache stats
+        """
+        if self._cache is None:
+            return {"enabled": False}
+
+        stats = self._cache.get_stats()
+        stats["enabled"] = self._cache_enabled
+        return stats
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """
+        Get query performance statistics.
+
+        Returns:
+            Dictionary with performance stats
+        """
+        avg_time = self._total_query_time / self._query_count if self._query_count > 0 else 0.0
+
+        return {
+            "query_count": self._query_count,
+            "cache_hits": self._cache_hits,
+            "cache_hit_rate": self._cache_hits / self._query_count if self._query_count > 0 else 0.0,
+            "total_query_time": round(self._total_query_time, 3),
+            "avg_query_time": round(avg_time, 3),
+        }
+
+    def _check_cache(self, query: str, method: SearchMethod) -> Optional[SearchResult]:
+        """Check cache for query result."""
+        if not self._cache_enabled or self._cache is None:
+            return None
+
+        cached = self._cache.get(query, method.value)
+        if cached is not None:
+            self._cache_hits += 1
+            logger.debug(f"Cache hit for {method.value} query")
+            return cached
+
+        return None
+
+    def _cache_result(self, query: str, method: SearchMethod, result: SearchResult) -> None:
+        """Cache a query result."""
+        if self._cache_enabled and self._cache is not None:
+            self._cache.set(query, method.value, result)
+            logger.debug(f"Cached {method.value} query result")
 
     async def global_search(
         self,
@@ -172,6 +271,13 @@ class GraphRAGQueryEngine:
                 "What are the main themes in palliative care guidelines?"
             )
         """
+        # Check cache first
+        cached = self._check_cache(query, SearchMethod.GLOBAL)
+        if cached is not None:
+            self._query_count += 1
+            return cached
+
+        start_time = time.time()
         await self.initialize()
 
         try:
@@ -184,7 +290,7 @@ class GraphRAGQueryEngine:
                 query=query,
             )
 
-            return SearchResult(
+            search_result = SearchResult(
                 query=query,
                 response=result.response,
                 method=SearchMethod.GLOBAL,
@@ -200,11 +306,18 @@ class GraphRAGQueryEngine:
 
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
-            return await self._fallback_global_search(query, community_level)
+            search_result = await self._fallback_global_search(query, community_level)
 
         except Exception as e:
             logger.error(f"Global search failed: {e}")
             raise
+
+        # Track performance and cache result
+        self._query_count += 1
+        self._total_query_time += time.time() - start_time
+        self._cache_result(query, SearchMethod.GLOBAL, search_result)
+
+        return search_result
 
     async def local_search(
         self,
@@ -231,6 +344,13 @@ class GraphRAGQueryEngine:
                 "What are the side effects of morphine?"
             )
         """
+        # Check cache first
+        cached = self._check_cache(query, SearchMethod.LOCAL)
+        if cached is not None:
+            self._query_count += 1
+            return cached
+
+        start_time = time.time()
         await self.initialize()
 
         try:
@@ -243,7 +363,7 @@ class GraphRAGQueryEngine:
                 query=query,
             )
 
-            return SearchResult(
+            search_result = SearchResult(
                 query=query,
                 response=result.response,
                 method=SearchMethod.LOCAL,
@@ -259,11 +379,18 @@ class GraphRAGQueryEngine:
 
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
-            return await self._fallback_local_search(query, top_k_entities)
+            search_result = await self._fallback_local_search(query, top_k_entities)
 
         except Exception as e:
             logger.error(f"Local search failed: {e}")
             raise
+
+        # Track performance and cache result
+        self._query_count += 1
+        self._total_query_time += time.time() - start_time
+        self._cache_result(query, SearchMethod.LOCAL, search_result)
+
+        return search_result
 
     async def drift_search(
         self,
@@ -290,6 +417,13 @@ class GraphRAGQueryEngine:
                 "How should pain be managed in a patient with renal failure?"
             )
         """
+        # Check cache first
+        cached = self._check_cache(query, SearchMethod.DRIFT)
+        if cached is not None:
+            self._query_count += 1
+            return cached
+
+        start_time = time.time()
         await self.initialize()
 
         try:
@@ -302,7 +436,7 @@ class GraphRAGQueryEngine:
                 query=query,
             )
 
-            return SearchResult(
+            search_result = SearchResult(
                 query=query,
                 response=result.response,
                 method=SearchMethod.DRIFT,
@@ -318,11 +452,18 @@ class GraphRAGQueryEngine:
 
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
-            return await self._fallback_drift_search(query)
+            search_result = await self._fallback_drift_search(query)
 
         except Exception as e:
             logger.error(f"DRIFT search failed: {e}")
             raise
+
+        # Track performance and cache result
+        self._query_count += 1
+        self._total_query_time += time.time() - start_time
+        self._cache_result(query, SearchMethod.DRIFT, search_result)
+
+        return search_result
 
     async def basic_search(
         self,
@@ -345,6 +486,13 @@ class GraphRAGQueryEngine:
         Example:
             result = await engine.basic_search("What is morphine?")
         """
+        # Check cache first
+        cached = self._check_cache(query, SearchMethod.BASIC)
+        if cached is not None:
+            self._query_count += 1
+            return cached
+
+        start_time = time.time()
         await self.initialize()
 
         try:
@@ -357,7 +505,7 @@ class GraphRAGQueryEngine:
                 query=query,
             )
 
-            return SearchResult(
+            search_result = SearchResult(
                 query=query,
                 response=result.response,
                 method=SearchMethod.BASIC,
@@ -370,11 +518,18 @@ class GraphRAGQueryEngine:
 
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
-            return await self._fallback_search(query, SearchMethod.BASIC)
+            search_result = await self._fallback_search(query, SearchMethod.BASIC)
 
         except Exception as e:
             logger.error(f"Basic search failed: {e}")
             raise
+
+        # Track performance and cache result
+        self._query_count += 1
+        self._total_query_time += time.time() - start_time
+        self._cache_result(query, SearchMethod.BASIC, search_result)
+
+        return search_result
 
     async def auto_search(
         self,

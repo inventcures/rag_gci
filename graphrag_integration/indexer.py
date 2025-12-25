@@ -23,12 +23,14 @@ Usage:
 
 import asyncio
 import logging
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from enum import Enum
 from datetime import datetime
 
 from graphrag_integration.config import GraphRAGConfig
+from graphrag_integration.utils import BatchProcessor, AsyncThrottler, MemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +91,10 @@ class GraphRAGIndexer:
     def __init__(
         self,
         config: GraphRAGConfig,
-        method: IndexingMethod = IndexingMethod.STANDARD
+        method: IndexingMethod = IndexingMethod.STANDARD,
+        batch_size: int = 10,
+        max_concurrent: int = 3,
+        memory_threshold_mb: int = 500
     ):
         """
         Initialize indexer.
@@ -97,6 +102,9 @@ class GraphRAGIndexer:
         Args:
             config: GraphRAG configuration
             method: Indexing method to use
+            batch_size: Number of documents per batch (default 10)
+            max_concurrent: Maximum concurrent batch operations (default 3)
+            memory_threshold_mb: Memory threshold for cleanup triggers (default 500MB)
         """
         self.config = config
         self.method = method
@@ -107,6 +115,18 @@ class GraphRAGIndexer:
         self._error: Optional[str] = None
         self._start_time: Optional[datetime] = None
         self._end_time: Optional[datetime] = None
+
+        # Performance optimization components
+        self._batch_processor = BatchProcessor(
+            batch_size=batch_size,
+            max_concurrent=max_concurrent
+        )
+        self._throttler = AsyncThrottler(max_concurrent=max_concurrent)
+        self._memory_manager = MemoryManager(threshold_mb=memory_threshold_mb)
+
+        # Performance tracking
+        self._documents_processed = 0
+        self._processing_time = 0.0
 
     async def index_documents(
         self,
@@ -526,6 +546,103 @@ class GraphRAGIndexer:
         except Exception as e:
             logger.error(f"Failed to clear index: {e}")
             return False
+
+    async def batch_process_documents(
+        self,
+        documents: List[str],
+        processor: Callable[[str], Any],
+        on_progress: Optional[Callable[[int], None]] = None
+    ) -> Dict[str, Any]:
+        """
+        Process documents in batches with memory management.
+
+        Args:
+            documents: List of document paths
+            processor: Async function to process each document
+            on_progress: Optional progress callback (0-100)
+
+        Returns:
+            Dictionary with processing results
+
+        Example:
+            async def process_doc(path):
+                content = Path(path).read_text()
+                return {"path": path, "length": len(content)}
+
+            result = await indexer.batch_process_documents(
+                documents=["doc1.txt", "doc2.txt"],
+                processor=process_doc,
+                on_progress=lambda p: print(f"{p}%")
+            )
+        """
+        start_time = time.time()
+
+        # Check memory before starting
+        if self._memory_manager.should_cleanup():
+            self._memory_manager.cleanup()
+
+        # Process in batches
+        result = await self._batch_processor.process(
+            items=documents,
+            processor=processor,
+            on_progress=on_progress
+        )
+
+        # Cleanup after processing
+        if self._memory_manager.should_cleanup():
+            self._memory_manager.cleanup()
+
+        self._documents_processed += result.success_count
+        self._processing_time += time.time() - start_time
+
+        return {
+            "success_count": result.success_count,
+            "error_count": result.error_count,
+            "total_count": result.total_count,
+            "duration_seconds": result.duration_seconds,
+            "results": result.results,
+            "errors": [(idx, str(e)) for idx, e in result.errors],
+        }
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """
+        Get performance statistics.
+
+        Returns:
+            Dictionary with performance metrics
+        """
+        avg_time = (
+            self._processing_time / self._documents_processed
+            if self._documents_processed > 0 else 0.0
+        )
+
+        return {
+            "documents_processed": self._documents_processed,
+            "total_processing_time": round(self._processing_time, 3),
+            "avg_document_time": round(avg_time, 3),
+            "batch_size": self._batch_processor.batch_size,
+            "memory_report": self._memory_manager.get_memory_report(),
+            "throttler_stats": self._throttler.get_stats(),
+        }
+
+    def set_batch_size(self, batch_size: int) -> None:
+        """
+        Set batch size for document processing.
+
+        Args:
+            batch_size: Number of documents per batch
+        """
+        self._batch_processor.batch_size = batch_size
+        logger.info(f"Batch size set to {batch_size}")
+
+    def trigger_memory_cleanup(self) -> int:
+        """
+        Manually trigger memory cleanup.
+
+        Returns:
+            Number of objects collected
+        """
+        return self._memory_manager.cleanup()
 
     def __repr__(self) -> str:
         return (
