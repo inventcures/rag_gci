@@ -2285,6 +2285,151 @@ class SimpleAdminUI:
                                 outputs=[kg_stats_output]
                             )
 
+                # ==========================================================
+                # GRAPHRAG TAB
+                # ==========================================================
+                with gr.TabItem("🔗 GraphRAG"):
+                    gr.Markdown("## Microsoft GraphRAG Integration")
+                    gr.Markdown("*Advanced graph-based retrieval for palliative care knowledge*")
+
+                    with gr.Tabs():
+                        # Query Tab
+                        with gr.TabItem("🔍 Query"):
+                            gr.Markdown("### Search with GraphRAG")
+                            gr.Markdown("""
+                            **Search Methods:**
+                            - **Auto**: Automatically selects best method
+                            - **Global**: Holistic corpus-wide search using community reports
+                            - **Local**: Entity-focused search for specific topics
+                            - **DRIFT**: Multi-phase iterative search for complex questions
+                            - **Basic**: Simple vector similarity search
+                            """)
+
+                            with gr.Row():
+                                with gr.Column(scale=2):
+                                    graphrag_query_input = gr.Textbox(
+                                        label="Enter your question",
+                                        placeholder="What are the main approaches to pain management in palliative care?",
+                                        lines=3
+                                    )
+                                    graphrag_method = gr.Radio(
+                                        choices=["auto", "global", "local", "drift", "basic"],
+                                        value="auto",
+                                        label="Search Method"
+                                    )
+                                    graphrag_query_btn = gr.Button("🔍 Search", variant="primary")
+
+                                with gr.Column(scale=3):
+                                    graphrag_response = gr.Markdown(label="Response")
+                                    with gr.Accordion("Details", open=False):
+                                        graphrag_entities_output = gr.JSON(label="Entities Found")
+                                        graphrag_metadata = gr.JSON(label="Search Metadata")
+
+                            graphrag_query_btn.click(
+                                fn=self._handle_graphrag_query,
+                                inputs=[graphrag_query_input, graphrag_method],
+                                outputs=[graphrag_response, graphrag_entities_output, graphrag_metadata]
+                            )
+
+                        # Indexing Tab
+                        with gr.TabItem("📥 Indexing"):
+                            gr.Markdown("### Index Documents with GraphRAG")
+                            gr.Markdown("""
+                            Build a knowledge graph from your documents using LLM-based entity extraction.
+
+                            **Methods:**
+                            - **Standard**: LLM-based extraction (higher quality, slower)
+                            - **Fast**: NLP-based extraction (faster, lower quality)
+                            """)
+
+                            with gr.Row():
+                                graphrag_index_method = gr.Radio(
+                                    choices=["standard", "fast"],
+                                    value="standard",
+                                    label="Indexing Method"
+                                )
+                                graphrag_update_mode = gr.Checkbox(
+                                    label="Update Mode (incremental indexing)",
+                                    value=False
+                                )
+
+                            with gr.Row():
+                                graphrag_start_index_btn = gr.Button("▶️ Start Indexing", variant="primary")
+                                graphrag_refresh_status_btn = gr.Button("🔄 Refresh Status", variant="secondary")
+
+                            graphrag_index_status = gr.JSON(label="Indexing Status")
+
+                            graphrag_start_index_btn.click(
+                                fn=self._handle_graphrag_start_indexing,
+                                inputs=[graphrag_index_method, graphrag_update_mode],
+                                outputs=[graphrag_index_status]
+                            )
+
+                            graphrag_refresh_status_btn.click(
+                                fn=self._handle_graphrag_index_status,
+                                inputs=[],
+                                outputs=[graphrag_index_status]
+                            )
+
+                        # Entity Explorer Tab
+                        with gr.TabItem("🏷️ Entities"):
+                            gr.Markdown("### Browse Extracted Entities")
+
+                            with gr.Row():
+                                graphrag_entity_search = gr.Textbox(
+                                    label="Search Entities",
+                                    placeholder="Enter entity name (e.g., morphine, pain, nausea)..."
+                                )
+                                graphrag_entity_type_filter = gr.Dropdown(
+                                    choices=[
+                                        "All", "Symptom", "Medication", "Condition",
+                                        "Treatment", "SideEffect", "Dosage", "Route", "CareGoal"
+                                    ],
+                                    value="All",
+                                    label="Entity Type"
+                                )
+                                graphrag_entity_search_btn = gr.Button("🔍 Search", variant="primary")
+
+                            graphrag_entities_table = gr.Dataframe(
+                                headers=["Name", "Type", "Description", "Score"],
+                                label="Entities",
+                                wrap=True
+                            )
+
+                            graphrag_entity_relationships = gr.JSON(label="Entity Relationships")
+
+                            graphrag_entity_search_btn.click(
+                                fn=self._handle_graphrag_entity_search,
+                                inputs=[graphrag_entity_search, graphrag_entity_type_filter],
+                                outputs=[graphrag_entities_table, graphrag_entity_relationships]
+                            )
+
+                        # Statistics Tab
+                        with gr.TabItem("📊 Statistics"):
+                            gr.Markdown("### GraphRAG Index Statistics")
+
+                            with gr.Row():
+                                graphrag_stats_btn = gr.Button("🔄 Refresh Statistics", variant="primary")
+                                graphrag_verify_btn = gr.Button("✅ Verify Index", variant="secondary")
+
+                            with gr.Row():
+                                with gr.Column():
+                                    graphrag_stats_output = gr.JSON(label="Index Statistics")
+                                with gr.Column():
+                                    graphrag_verify_output = gr.JSON(label="Verification Results")
+
+                            graphrag_stats_btn.click(
+                                fn=self._handle_graphrag_stats,
+                                inputs=[],
+                                outputs=[graphrag_stats_output]
+                            )
+
+                            graphrag_verify_btn.click(
+                                fn=self._handle_graphrag_verify,
+                                inputs=[],
+                                outputs=[graphrag_verify_output]
+                            )
+
             # Refresh documents when the management tab is selected
             tabs.select(
                 fn=self._handle_tab_change,
@@ -2790,6 +2935,203 @@ class SimpleAdminUI:
 
             result = loop.run_until_complete(import_base())
             return result
+
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    # ==========================================================================
+    # GRAPHRAG UI HANDLERS
+    # ==========================================================================
+
+    def _handle_graphrag_query(self, query: str, method: str):
+        """Handle GraphRAG query."""
+        if not query.strip():
+            return "Please enter a query", [], {}
+
+        try:
+            import aiohttp
+
+            async def do_query():
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "http://localhost:8000/api/graphrag/query",
+                        json={"query": query, "method": method}
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(do_query())
+
+            if result.get("status") == "success":
+                search_result = result.get("result", {})
+                response = search_result.get("response", "No response")
+                entities = search_result.get("entities", [])
+                metadata = {
+                    "method": search_result.get("method", method),
+                    "confidence": search_result.get("confidence", 0),
+                    **search_result.get("metadata", {})
+                }
+                return response, entities, metadata
+            else:
+                return f"Error: {result.get('error', 'Unknown error')}", [], {}
+
+        except Exception as e:
+            return f"Error: {str(e)}", [], {}
+
+    def _handle_graphrag_start_indexing(self, method: str, update_mode: bool):
+        """Handle starting GraphRAG indexing."""
+        try:
+            import aiohttp
+
+            async def start_indexing():
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "http://localhost:8000/api/graphrag/index",
+                        json={"method": method, "update_mode": update_mode}
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(start_indexing())
+            return result
+
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _handle_graphrag_index_status(self):
+        """Handle getting GraphRAG indexing status."""
+        try:
+            import aiohttp
+
+            async def get_status():
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "http://localhost:8000/api/graphrag/index/status"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(get_status())
+            return result
+
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _handle_graphrag_entity_search(self, query: str, entity_type: str):
+        """Handle GraphRAG entity search."""
+        try:
+            import aiohttp
+
+            async def search_entities():
+                type_param = "" if entity_type == "All" else f"&entity_type={entity_type}"
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"http://localhost:8000/api/graphrag/entities?query={query}&top_k=20{type_param}"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(search_entities())
+
+            if result.get("status") == "success":
+                entities = result.get("entities", [])
+                # Format for dataframe
+                table_data = []
+                for e in entities:
+                    desc = e.get("description", "")
+                    if len(desc) > 100:
+                        desc = desc[:100] + "..."
+                    table_data.append([
+                        e.get("title", e.get("name", "Unknown")),
+                        e.get("type", ""),
+                        desc,
+                        round(e.get("score", 0), 2)
+                    ])
+                return table_data, entities
+            else:
+                return [], [{"error": result.get("error", "Unknown error")}]
+
+        except Exception as e:
+            return [], [{"error": str(e)}]
+
+    def _handle_graphrag_stats(self):
+        """Handle getting GraphRAG statistics."""
+        try:
+            import aiohttp
+
+            async def get_stats():
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "http://localhost:8000/api/graphrag/stats"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(get_stats())
+
+            if result.get("status") == "success":
+                return result.get("stats", {})
+            else:
+                return {"error": result.get("error", "Unknown error")}
+
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _handle_graphrag_verify(self):
+        """Handle GraphRAG index verification."""
+        try:
+            import aiohttp
+
+            async def verify_index():
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "http://localhost:8000/api/graphrag/verify"
+                    ) as resp:
+                        return await resp.json()
+
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(verify_index())
+
+            if result.get("status") == "success":
+                return result.get("verification", {})
+            else:
+                return {"error": result.get("error", "Unknown error")}
 
         except Exception as e:
             return {"status": "error", "error": str(e)}
