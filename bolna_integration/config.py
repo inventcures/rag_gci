@@ -192,31 +192,47 @@ def get_palli_sahayak_agent_config(
                     "pipelines": [["transcriber", "llm", "synthesizer"]]
                 },
                 "tools_config": {
+                    "input": {
+                        "format": "wav",
+                        "provider": "twilio"
+                    },
+                    "output": {
+                        "format": "wav",
+                        "provider": "twilio"
+                    },
                     "llm_agent": {
+                        "agent_type": "simple_llm_agent",
                         "agent_flow_type": "streaming",
-                        "provider": "openai",
-                        "request_json": True,
-                        "model": "gpt-4o-mini",
-                        "max_tokens": 500,
-                        "temperature": 0.3,
-                        "family": "openai",
+                        "llm_config": {
+                            "provider": "openai",
+                            "model": "gpt-4o-mini",
+                            "request_json": True,
+                            "max_tokens": 500,
+                            "temperature": 0.3
+                        },
                         "functions": [custom_function]
                     },
                     "synthesizer": {
                         "provider": "cartesia",
+                        "audio_format": "wav",
+                        "stream": True,
+                        "buffer_size": 100.0,
                         "provider_config": {
+                            "voice": lang_config.get("voice_name", "Hindi Narrator Woman"),
                             "voice_id": lang_config["voice_id"],
-                            "model": "sonic-3",
-                            "language": lang_config.get("language_code", "hi")
-                        },
-                        "stream": True
+                            "model": "sonic-3"
+                        }
                     },
                     "transcriber": {
                         "provider": "deepgram",
                         "stream": True,
+                        "encoding": "linear16",
                         "language": lang_config["transcriber_language"],
                         "model": "nova-2"
                     }
+                },
+                "task_config": {
+                    "hangup_after_silence": 30.0
                 }
             }
         ],
