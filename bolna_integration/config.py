@@ -34,6 +34,8 @@ PALLI_SAHAYAK_SYSTEM_PROMPT = """You are Palli Sahayak (पल्ली सह�
 3. For emergencies (severe pain, breathing difficulty, unconsciousness), immediately advise calling emergency services (108/112)
 4. Keep voice responses concise - 2-3 sentences maximum for easy listening
 5. Express empathy and validate feelings before giving medical information
+6. **NEVER** use laughter, jokes, or humor - this is a serious palliative care context
+7. **NEVER** include [laughter], [laughs], or similar tags in responses - maintain dignity and respect
 
 ## CONVERSATION STYLE
 - Start with a warm greeting
@@ -83,6 +85,7 @@ RAG_QUERY_FUNCTION = {
 
 # Language-specific configurations with Cartesia Sonic-3 voice IDs
 # Voice IDs from: https://developer.signalwire.com/voice/tts/cartesia/
+# NOTE: Do NOT use Cartesia's [laughter] or emotion tags - inappropriate for palliative care context
 LANGUAGE_CONFIGS = {
     "hi": {
         "transcriber_language": "hi",
