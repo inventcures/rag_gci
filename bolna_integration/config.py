@@ -81,31 +81,48 @@ RAG_QUERY_FUNCTION = {
     }
 }
 
-# Language-specific configurations
+# Language-specific configurations with Cartesia Sonic-3 voice IDs
+# Voice IDs from: https://developer.signalwire.com/voice/tts/cartesia/
 LANGUAGE_CONFIGS = {
     "hi": {
         "transcriber_language": "hi",
         "welcome_message": "नमस्ते! मैं पल्ली सहायक हूं, आपका पैलिएटिव केयर सहायक। आज मैं आपकी कैसे मदद कर सकती हूं?",
-        "voice": "Rachel",
+        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman
+        "voice_name": "Hindi Narrator Woman",
+        "language_code": "hi",
         "name": "Hindi"
     },
     "en": {
         "transcriber_language": "en",
         "welcome_message": "Hello! I am Palli Sahayak, your palliative care assistant. How can I help you today?",
-        "voice": "Rachel",
+        "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",  # Indian Lady
+        "voice_name": "Indian Lady",
+        "language_code": "en",
         "name": "English"
     },
     "mr": {
         "transcriber_language": "mr",
         "welcome_message": "नमस्कार! मी पल्ली सहायक आहे, तुमचा पॅलिएटिव केअर सहाय्यक. आज मी तुम्हाला कशी मदत करू शकते?",
-        "voice": "Rachel",
+        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman (closest)
+        "voice_name": "Hindi Narrator Woman",
+        "language_code": "mr",
         "name": "Marathi"
     },
     "ta": {
         "transcriber_language": "ta",
         "welcome_message": "வணக்கம்! நான் பல்லி சகாயக், உங்கள் நோய்த்தடுப்பு பராமரிப்பு உதவியாளர். இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?",
-        "voice": "Rachel",
+        "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",  # Indian Lady (closest)
+        "voice_name": "Indian Lady",
+        "language_code": "ta",
         "name": "Tamil"
+    },
+    "hinglish": {
+        "transcriber_language": "hi",
+        "welcome_message": "Namaste! Main Palli Sahayak hoon, aapka palliative care assistant. Aaj main aapki kaise help kar sakti hoon?",
+        "voice_id": "95d51f79-c397-46f9-b49a-23763d3eaa2d",  # Hinglish Speaking Lady
+        "voice_name": "Hinglish Speaking Lady",
+        "language_code": "hi",
+        "name": "Hinglish"
     }
 }
 
@@ -181,11 +198,11 @@ def get_palli_sahayak_agent_config(
                         "functions": [custom_function]
                     },
                     "synthesizer": {
-                        "provider": "elevenlabs",
+                        "provider": "cartesia",
                         "provider_config": {
-                            "voice": lang_config["voice"],
-                            "model": "eleven_multilingual_v2",
-                            "voice_id": "21m00Tcm4TlvDq8ikWAM"
+                            "voice_id": lang_config["voice_id"],
+                            "model": "sonic-3",
+                            "language": lang_config.get("language_code", "hi")
                         },
                         "stream": True
                     },
