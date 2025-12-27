@@ -3804,7 +3804,15 @@ def main():
             context = data.get("context", "")
             source = data.get("source", "unknown")
 
-            logger.info(f"Bolna RAG query: '{query[:100]}...' (lang={language}, source={source})")
+            # Enhanced logging for Bolna RAG queries
+            import time as _time
+            _query_start = _time.time()
+            logger.info("=" * 60)
+            logger.info("📞 BOLNA VOICE CALL - RAG QUERY")
+            logger.info("=" * 60)
+            logger.info(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
+            logger.info(f"🌐 Language: {language} | Source: {source}")
+            logger.info("-" * 60)
 
             if not query:
                 return JSONResponse({
@@ -3837,6 +3845,14 @@ def main():
                 # Calculate confidence based on retrieval
                 confidence = min(0.95, rag_result.get("relevance_score", 0.8))
 
+                # Enhanced success logging
+                _query_duration = _time.time() - _query_start
+                logger.info(f"✅ RAG SUCCESS ({_query_duration:.2f}s)")
+                logger.info(f"📚 Sources: {', '.join(sources[:3])}")
+                logger.info(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
+                logger.info(f"🎯 Confidence: {confidence:.0%}")
+                logger.info("=" * 60)
+
                 return JSONResponse({
                     "status": "success",
                     "answer": answer,
@@ -3847,7 +3863,10 @@ def main():
 
             else:
                 # RAG query failed - return graceful fallback
-                logger.warning(f"RAG query returned non-success: {rag_result.get('status')}")
+                _query_duration = _time.time() - _query_start
+                logger.warning(f"⚠️  RAG PARTIAL ({_query_duration:.2f}s) - Status: {rag_result.get('status')}")
+                logger.warning("📝 Using fallback response")
+                logger.info("=" * 60)
                 return JSONResponse({
                     "status": "partial",
                     "answer": "I'm having trouble accessing my knowledge base right now. Based on general palliative care principles, I'd recommend consulting with your healthcare provider for specific guidance.",
@@ -3856,7 +3875,8 @@ def main():
                 })
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in Bolna query: {e}")
+            logger.error(f"❌ BOLNA ERROR: Invalid JSON - {e}")
+            logger.info("=" * 60)
             return JSONResponse({
                 "status": "error",
                 "answer": "I received an invalid request. Please try again.",
@@ -3868,7 +3888,8 @@ def main():
             raise
 
         except Exception as e:
-            logger.error(f"Bolna query endpoint error: {e}", exc_info=True)
+            logger.error(f"❌ BOLNA ERROR: {e}")
+            logger.info("=" * 60)
             return JSONResponse({
                 "status": "error",
                 "answer": "I apologize, but I'm experiencing technical difficulties. Please try again or contact the helpline directly.",
