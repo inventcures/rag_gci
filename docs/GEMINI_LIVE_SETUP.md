@@ -89,7 +89,7 @@ Add to your `.env` file:
 
 ```bash
 # Google Cloud Configuration
-GOOGLE_CLOUD_PROJECT=palli-sahayak-voice
+GOOGLE_CLOUD_PROJECT=palli-sahayak
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/palli-sahayak-credentials.json
 VERTEX_AI_LOCATION=us-central1
 

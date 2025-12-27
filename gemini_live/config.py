@@ -12,9 +12,24 @@ from typing import Dict, List, Optional
 from pathlib import Path
 
 import yaml
+import re
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+
+def _expand_env_vars(value: str) -> str:
+    """Expand ${VAR} patterns in string with environment variable values."""
+    if not isinstance(value, str):
+        return value
+    # Match ${VAR} or $VAR patterns
+    pattern = r'\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)'
+
+    def replace(match):
+        var_name = match.group(1) or match.group(2)
+        return os.getenv(var_name, match.group(0))  # Keep original if not found
+
+    return re.sub(pattern, replace, value)
 
 # Load environment variables
 load_dotenv()
@@ -173,12 +188,17 @@ class GeminiLiveConfig:
                 # Map YAML fields to config attributes
                 if gemini_config:
                     config.enabled = gemini_config.get("enabled", False)
-                    config.project_id = gemini_config.get(
-                        "project_id",
-                        os.getenv("GOOGLE_CLOUD_PROJECT", "")
-                    )
-                    config.location = gemini_config.get("location", "us-central1")
-                    config.model = gemini_config.get("model", config.model)
+                    # Expand env vars in project_id (e.g., ${GOOGLE_CLOUD_PROJECT})
+                    yaml_project = gemini_config.get("project_id", "")
+                    config.project_id = _expand_env_vars(yaml_project) or os.getenv("GOOGLE_CLOUD_PROJECT", "")
+
+                    # Expand env vars in location (e.g., ${VERTEX_AI_LOCATION})
+                    yaml_location = gemini_config.get("location", "us-central1")
+                    config.location = _expand_env_vars(yaml_location)
+
+                    # Expand env vars in model (if any)
+                    yaml_model = gemini_config.get("model", config.model)
+                    config.model = _expand_env_vars(yaml_model)
                     config.default_voice = gemini_config.get(
                         "default_voice", DEFAULT_VOICE
                     )
@@ -212,10 +232,17 @@ class GeminiLiveConfig:
         config.project_id = os.getenv(
             "GOOGLE_CLOUD_PROJECT", config.project_id
         )
+        # Check both VERTEX_AI_LOCATION and GOOGLE_CLOUD_LOCATION
         config.location = os.getenv(
-            "GOOGLE_CLOUD_LOCATION", config.location
+            "VERTEX_AI_LOCATION",
+            os.getenv("GOOGLE_CLOUD_LOCATION", config.location)
         )
         config.api_key = os.getenv("GEMINI_API_KEY")
+
+        # Override model from environment if set
+        env_model = os.getenv("GEMINI_LIVE_MODEL")
+        if env_model:
+            config.model = env_model
 
         # Validate configuration
         config._validate()

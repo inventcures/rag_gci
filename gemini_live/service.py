@@ -49,7 +49,7 @@ class GeminiLiveService:
     def __init__(
         self,
         project_id: Optional[str] = None,
-        location: str = "us-central1",
+        location: Optional[str] = None,
         model: Optional[str] = None,
         rag_pipeline: Optional[Any] = None,
         config: Optional[GeminiLiveConfig] = None
@@ -58,8 +58,8 @@ class GeminiLiveService:
         Initialize Gemini Live Service.
 
         Args:
-            project_id: Google Cloud project ID
-            location: Vertex AI location (default: us-central1)
+            project_id: Google Cloud project ID (default from config)
+            location: Vertex AI location (default from config)
             model: Gemini model ID (default from config)
             rag_pipeline: Reference to RAG pipeline for context injection
             config: Optional pre-loaded configuration
@@ -67,7 +67,7 @@ class GeminiLiveService:
         self.config = config or get_config()
 
         self.project_id = project_id or self.config.project_id
-        self.location = location or self.config.location
+        self.location = location or self.config.location or "us-central1"
         self.model = model or self.config.model
         self.rag_pipeline = rag_pipeline
 

@@ -105,10 +105,10 @@ directories:
 
 # Gemini Live API Configuration (Real-time Voice Conversations)
 gemini_live:
-  enabled: false  # Set to true when ready to use
+  enabled: true  # Enabled for voice AI
   project_id: ${GOOGLE_CLOUD_PROJECT}
-  location: "us-central1"
-  model: "gemini-live-2.5-flash-preview-native-audio-09-2025"
+  location: ${VERTEX_AI_LOCATION}  # Set in .env (asia-south1 for Mumbai)
+  model: "gemini-live-2.5-flash-native-audio"  # Latest: 30 HD voices, Affective Dialog
 
   # Voice settings
   default_voice: "Aoede"  # Warm, empathetic voice for healthcare
