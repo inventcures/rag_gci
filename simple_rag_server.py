@@ -3242,9 +3242,30 @@ def main():
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8001, help="Port to bind to")
     parser.add_argument("--no-ngrok", action="store_true", help="Disable ngrok tunnel")
-    
+    parser.add_argument(
+        "--provider", "-p",
+        choices=["g", "b", "gemini", "bolna"],
+        default="b",
+        help="Voice AI provider: g/gemini=Gemini Live API, b/bolna=Bolna.ai (default: b)"
+    )
+
     args = parser.parse_args()
-    
+
+    # Set voice provider based on argument
+    voice_provider = args.provider.lower()
+    if voice_provider in ["g", "gemini"]:
+        os.environ["VOICE_PROVIDER"] = "gemini"
+        os.environ["GEMINI_LIVE_ENABLED"] = "true"
+        logger.info("=" * 60)
+        logger.info("🎙️  VOICE PROVIDER: Google Gemini Live API (Vertex AI)")
+        logger.info("=" * 60)
+    else:
+        os.environ["VOICE_PROVIDER"] = "bolna"
+        os.environ["GEMINI_LIVE_ENABLED"] = "false"
+        logger.info("=" * 60)
+        logger.info("📞 VOICE PROVIDER: Bolna.ai")
+        logger.info("=" * 60)
+
     # Initialize components
     rag_pipeline = SimpleRAGPipeline()
     admin_ui = SimpleAdminUI(rag_pipeline)
@@ -3386,9 +3407,14 @@ def main():
         try:
             gemini_config = get_gemini_config()
 
-            if not gemini_config.enabled:
+            # Check both config file AND environment variable (--provider flag sets this)
+            env_enabled = os.getenv("GEMINI_LIVE_ENABLED", "").lower() == "true"
+            if not gemini_config.enabled and not env_enabled:
                 logger.info("Gemini Live disabled in config - voice WebSocket disabled")
                 return
+
+            if env_enabled:
+                logger.info("🎙️  Gemini Live enabled via --provider flag")
 
             # Initialize Gemini Live service with RAG pipeline
             gemini_service = GeminiLiveService(rag_pipeline=rag_pipeline)
