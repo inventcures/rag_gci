@@ -2,7 +2,9 @@
 
 ## A Digital Public Good for Global Health Equity
 
-**Version 1.0 | December 2025**
+**Version 2.0 | December 2025**
+
+> **V2 Update**: This document has been updated to reflect newly implemented features including Clinical Validation Pipeline, User Personalization, and Real-time Analytics Dashboard. See [V2 How-To Guide](v2_how-to.md) for implementation details.
 
 ---
 
@@ -30,10 +32,11 @@ By positioning Palli Sahayak as a **Digital Public Good (DPG)**, we aim to addre
 6. [Multilingual Support and Accessibility](#6-multilingual-support-and-accessibility)
 7. [Digital Public Good Positioning](#7-digital-public-good-positioning)
 8. [Ethical Considerations and Safety](#8-ethical-considerations-and-safety)
-9. [Future Work and Roadmap](#9-future-work-and-roadmap)
-10. [Current Limitations](#10-current-limitations)
-11. [Conclusion](#11-conclusion)
-12. [References](#12-references)
+9. [**V2 Implemented Features (NEW)**](#9-v2-implemented-features-new)
+10. [Future Work and Roadmap](#10-future-work-and-roadmap)
+11. [Current Limitations](#11-current-limitations)
+12. [Conclusion](#12-conclusion)
+13. [References](#13-references)
 
 ---
 
@@ -731,30 +734,238 @@ class MedicalSafetyGuard:
 
 ---
 
-## 9. Future Work and Roadmap
+## 9. V2 Implemented Features (New)
 
-### 9.1 Short-Term (Q1-Q2 2026)
+The following advanced features have been implemented as part of the V2 release, significantly enhancing Palli Sahayak's capabilities for clinical safety, personalization, and operational visibility.
+
+### 9.1 Clinical Validation Pipeline (`clinical_validation/`)
+
+A multi-layer validation system ensuring safe, accurate medical information delivery.
+
+#### 9.1.1 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 CLINICAL VALIDATION PIPELINE                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
+│  │   VALIDATOR     │───▶│  EXPERT SAMPLER │───▶│   METRICS   │ │
+│  │                 │    │                 │    │   TRACKER   │ │
+│  │ • Dosage Check  │    │ • 5% Normal     │    │             │ │
+│  │ • Safety Check  │    │ • 50% High      │    │ • Accuracy  │ │
+│  │ • Hallucination │    │ • 100% Critical │    │ • Safety    │ │
+│  │ • Citation      │    │                 │    │ • Trends    │ │
+│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
+│           │                      │                    │         │
+│           └──────────────────────┴────────────────────┘         │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                   FEEDBACK COLLECTOR                         ││
+│  │   • Voice prompts (en/hi/mr/ta)                             ││
+│  │   • Issue reporting                                          ││
+│  │   • Satisfaction ratings                                     ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 9.1.2 Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **ClinicalValidator** | `validator.py` | Medication dosage validation, safety checks, hallucination detection, citation verification |
+| **ExpertSampler** | `expert_sampling.py` | Tiered sampling (5%/50%/100%), priority-based review queue, expert feedback integration |
+| **FeedbackCollector** | `feedback.py` | Multilingual voice prompts, issue reporting, satisfaction tracking |
+| **ValidationMetrics** | `metrics.py` | Confidence tracking, pass rates, hallucination rates, dashboard data |
+
+#### 9.1.3 Medication Validation
+
+```python
+MEDICATION_DOSAGES = {
+    "morphine": {
+        "oral_mg_per_dose": (2.5, 200),
+        "iv_mg_per_dose": (1, 100),
+        "max_daily_mg": 600
+    },
+    "oxycodone": {
+        "oral_mg_per_dose": (2.5, 80),
+        "max_daily_mg": 400
+    },
+    # ... additional medications
+}
+```
+
+### 9.2 User Personalization System (`personalization/`)
+
+Comprehensive user profiling and context memory for personalized care interactions.
+
+#### 9.2.1 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   PERSONALIZATION ENGINE                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────┐                                            │
+│  │  USER PROFILE   │◀──── Phone Number (hashed)                │
+│  │    MANAGER      │                                            │
+│  │                 │                                            │
+│  │ • Role Detection│──▶ patient | caregiver | healthcare_worker│
+│  │ • Preferences   │──▶ language, style, speed                 │
+│  │ • Session Count │                                            │
+│  └────────┬────────┘                                            │
+│           │                                                      │
+│           ▼                                                      │
+│  ┌─────────────────┐                                            │
+│  │ CONTEXT MEMORY  │                                            │
+│  │                 │                                            │
+│  │ • Condition     │──▶ cancer, COPD, heart failure            │
+│  │ • Symptoms      │──▶ pain, nausea, fatigue                  │
+│  │ • Medications   │──▶ morphine 10mg TDS                      │
+│  │ • Allergies     │                                            │
+│  └────────┬────────┘                                            │
+│           │                                                      │
+│           ▼                                                      │
+│  ┌─────────────────┐                                            │
+│  │  INTERACTION    │                                            │
+│  │    HISTORY      │                                            │
+│  │                 │                                            │
+│  │ • Sessions      │──▶ start/end, duration                    │
+│  │ • Turns         │──▶ query, response, RAG sources           │
+│  │ • Follow-up     │──▶ context continuity                     │
+│  │   Detection     │                                            │
+│  └─────────────────┘                                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 9.2.2 Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **UserProfileManager** | `user_profile.py` | Role detection (patient/caregiver/HCW), language preferences, communication style management |
+| **ContextMemory** | `context_memory.py` | Patient conditions, symptoms, medications, allergies, persistent across sessions |
+| **InteractionHistory** | `interaction_history.py` | Session tracking, conversation turns, follow-up detection, context continuity |
+
+#### 9.2.3 Role Detection Keywords
+
+The system automatically detects user role from conversation:
+
+```python
+ROLE_KEYWORDS = {
+    UserRole.PATIENT: ["i have", "my pain", "मुझे", "मेरा दर्द"],
+    UserRole.CAREGIVER: ["my mother", "my father", "caring for", "मेरी माँ"],
+    UserRole.HEALTHCARE_WORKER: ["doctor", "nurse", "asha worker", "my patient"]
+}
+```
+
+### 9.3 Real-time Analytics Dashboard (`analytics/`)
+
+Comprehensive analytics for operational visibility and impact measurement.
+
+#### 9.3.1 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   ANALYTICS DASHBOARD                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                   REALTIME METRICS                          ││
+│  │                                                              ││
+│  │  Latency       │ Throughput    │ Success Rates              ││
+│  │  • Response    │ • QPM         │ • RAG Success              ││
+│  │  • RAG         │ • Sessions    │ • Validation               ││
+│  │  • TTS/STT     │               │ • Error Rate               ││
+│  │                │               │                             ││
+│  │  Rolling Window: 5 min │ Percentiles: P50, P95, P99        ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                              │                                   │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                   USAGE ANALYTICS                            ││
+│  │                                                              ││
+│  │  Daily Stats           │ Trends                              ││
+│  │  • Queries by hour     │ • Growing/Stable/Declining         ││
+│  │  • Queries by language │ • 7-day analysis                   ││
+│  │  • Queries by type     │                                     ││
+│  │  • RAG/Validation      │ Language Distribution              ││
+│  │  • Feedback rates      │ • Hindi: 45%                       ││
+│  │                        │ • Bengali: 18%                      ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                              │                                   │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                   UNIFIED DASHBOARD API                      ││
+│  │                                                              ││
+│  │  GET /dashboard         - Complete dashboard data           ││
+│  │  GET /realtime          - Lightweight realtime snapshot     ││
+│  │  GET /alerts            - Current alerts                     ││
+│  │  GET /trends/{days}     - Trend analysis                    ││
+│  │  GET /export/{days}     - Export analytics data             ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 9.3.2 Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **RealtimeMetrics** | `realtime_metrics.py` | Rolling window aggregation, P50/P95/P99 percentiles, threshold alerts |
+| **UsageAnalytics** | `usage_analytics.py` | Daily stats, trend analysis, language/hourly distribution |
+| **AnalyticsDashboard** | `dashboard.py` | Unified API combining all metrics sources, health status, export |
+
+#### 9.3.3 Health Monitoring
+
+```python
+# Automatic health status determination
+ALERT_THRESHOLDS = {
+    MetricType.RESPONSE_LATENCY_MS: {"p95": 2000, "p99": 5000},
+    MetricType.ERROR_RATE: {"avg": 0.05},  # 5% error rate
+    MetricType.RAG_SUCCESS_RATE: {"avg": 0.90},  # 90% success
+    MetricType.VALIDATION_PASS_RATE: {"avg": 0.95}  # 95% pass
+}
+
+# Status: healthy | degraded | unhealthy
+```
+
+### 9.4 Smart Query Classification (Enhanced)
+
+Previously implemented query classifier with additional capabilities:
+
+- **Filler Word Removal**: Multilingual (en/hi/mr/ta) filler word stripping
+- **Out-of-Scope Detection**: Polite decline for non-palliative queries
+- **Health Topic Classification**: Symptom, medication, care guidance categorization
+
+---
+
+## 10. Future Work and Roadmap
+
+### 10.1 Short-Term (Q1-Q2 2026)
 
 1. **GraphRAG Implementation**: Full Microsoft GraphRAG integration
 2. **Cross-Encoder Reranking**: Improved retrieval precision
 3. **Additional Languages**: Telugu, Kannada, Malayalam
 4. **Clinical Validation**: Accuracy assessment with palliative care experts
 
-### 9.2 Medium-Term (Q3-Q4 2026)
+### 10.2 Medium-Term (Q3-Q4 2026)
 
 1. **Multimodal RAG**: Process medical images (X-rays, medication photos)
 2. **Personalization**: Condition-specific conversation flows
 3. **Telemedicine Integration**: Connect to palliative care specialists
 4. **Offline Mode**: Limited functionality for poor connectivity
 
-### 9.3 Long-Term (2027+)
+### 10.3 Long-Term (2027+)
 
 1. **Speech Biomarkers**: Detect distress from voice patterns
 2. **Proactive Outreach**: Scheduled wellness check-ins
 3. **Global Expansion**: Adaptation for 10+ countries
 4. **Research Platform**: Anonymized data for palliative care research
 
-### 9.4 Technical Improvements
+### 10.4 Technical Improvements
 
 | Improvement | Current | Target |
 |-------------|---------|--------|
@@ -766,30 +977,30 @@ class MedicalSafetyGuard:
 
 ---
 
-## 10. Current Limitations
+## 11. Current Limitations
 
-### 10.1 Technical Limitations
+### 11.1 Technical Limitations
 
 1. **Latency**: Real-time voice has 2-3 second delay in fallback mode
 2. **Offline Access**: Requires internet connectivity
 3. **Audio Quality**: Performance degrades with poor audio input
 4. **Complex Queries**: Multi-hop reasoning not fully implemented
 
-### 10.2 Content Limitations
+### 11.2 Content Limitations
 
 1. **Corpus Scope**: Limited to curated palliative care guidelines
 2. **Regional Variation**: May not cover region-specific practices
 3. **Drug Availability**: Medication recommendations may not reflect local availability
 4. **Language Nuance**: Medical terminology translation may vary
 
-### 10.3 Ethical Limitations
+### 11.3 Ethical Limitations
 
 1. **Not a Replacement**: Cannot replace human healthcare providers
 2. **Emergency Limitations**: Not equipped for emergency response
 3. **Individual Variation**: Cannot account for individual patient factors
 4. **Diagnostic Limitations**: Cannot diagnose conditions
 
-### 10.4 Known Challenges in LMICs
+### 11.4 Known Challenges in LMICs
 
 1. **Digital Divide**: Access barriers for poorest populations
 2. **Infrastructure**: Unreliable electricity and internet
@@ -798,7 +1009,7 @@ class MedicalSafetyGuard:
 
 ---
 
-## 11. Conclusion
+## 12. Conclusion
 
 Palli Sahayak represents a significant advancement in democratizing palliative care knowledge through AI. By combining state-of-the-art RAG techniques, real-time voice AI, and knowledge graph technology with a focus on multilingual accessibility, the system addresses critical barriers to palliative care information access in India and beyond.
 
@@ -816,7 +1027,7 @@ The path forward requires continued collaboration with medical professionals, co
 
 ---
 
-## 12. References
+## 13. References
 
 ### RAG and AI Systems
 
