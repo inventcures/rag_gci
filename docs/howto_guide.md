@@ -1615,6 +1615,30 @@ pkill -f ngrok
 pkill -f simple_rag_server
 ```
 
+#### Viewing RAG Pipeline Logs
+
+Filter server logs to see RAG-specific activity:
+
+```bash
+# RAG queries and voice calls
+python simple_rag_server.py -p r 2>&1 | grep -i "rag\|query\|📞|🗣️"
+
+# Document retrieval activity
+python simple_rag_server.py -p r 2>&1 | grep -i "retriev\|chunk\|document\|source"
+
+# Embedding and vector operations
+python simple_rag_server.py -p r 2>&1 | grep -i "embed\|vector\|chroma"
+
+# All important events (colored)
+python simple_rag_server.py -p r 2>&1 | grep --color=always -E "RAG|Query|Error|WARNING|retriev|📞|🗣️"
+```
+
+**Tail existing log file:**
+```bash
+# Follow log file with RAG filter
+tail -f server.log | grep -i "rag\|query\|retriev"
+```
+
 #### Updating Retell Custom Function URL
 
 When you need to update the ngrok URL in Retell:
