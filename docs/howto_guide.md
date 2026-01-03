@@ -1598,6 +1598,23 @@ This URL will remain constant across ngrok restarts.
 curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import sys,json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])"
 ```
 
+#### Single Command: Start ngrok + Server
+
+Run both ngrok and the RAG server in one command (ngrok runs in background):
+
+```bash
+ngrok http 8000 --domain=untoppable-extraterritorially-nellie.ngrok-free.dev > /dev/null 2>&1 & sleep 2 && cd /Users/tp53/Documents/tp53_AA/llms4palliative_gci/demo_feb2025/rag_gci && source ./venv/bin/activate && export GOOGLE_APPLICATION_CREDENTIALS="/Users/tp53/palli-sahayak-credentials.json" GOOGLE_CLOUD_PROJECT="palli-sahayak" VERTEX_AI_LOCATION="asia-south1" && python simple_rag_server.py -p r
+```
+
+**To stop everything:**
+```bash
+# Kill ngrok
+pkill -f ngrok
+
+# Kill server (Ctrl+C in terminal, or)
+pkill -f simple_rag_server
+```
+
 #### Updating Retell Custom Function URL
 
 When you need to update the ngrok URL in Retell:
