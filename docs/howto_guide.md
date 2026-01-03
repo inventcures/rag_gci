@@ -1560,6 +1560,56 @@ When using Retell.AI with ngrok for local development, configure the Custom Func
 - Increase timeout for complex queries that require RAG processing
 - Set `user_language` to match the caller's preferred language
 
+#### ngrok Static Domain Setup (Recommended)
+
+By default, ngrok generates a new random URL each time you restart it. To avoid updating Retell every time, use a **static domain**.
+
+**Step 1: Get Your Free Static Domain**
+1. Go to https://dashboard.ngrok.com
+2. Log in (or create free account)
+3. Click **"Domains"** in left sidebar (or visit https://dashboard.ngrok.com/domains)
+4. Free accounts get ONE auto-generated "dev domain" like:
+   - `untoppable-extraterritorially-nellie.ngrok-free.dev`
+5. Copy your domain name
+
+**Note:** Free tier domains have auto-generated names. Custom domain names (e.g., `palli-sahayak.ngrok-free.app`) require a paid subscription.
+
+**Step 2: Use Your Static Domain**
+```bash
+# Run ngrok with your static domain
+ngrok http 8000 --domain=YOUR-DOMAIN.ngrok-free.dev
+
+# Example:
+ngrok http 8000 --domain=untoppable-extraterritorially-nellie.ngrok-free.dev
+```
+
+**Step 3: Update Retell Custom Function (One Time)**
+
+Set your Retell Custom Function API Endpoint to:
+```
+https://YOUR-DOMAIN.ngrok-free.dev/api/bolna/query
+```
+
+This URL will remain constant across ngrok restarts.
+
+**Step 4: Verify ngrok is Running**
+```bash
+# Check current ngrok URL
+curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import sys,json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])"
+```
+
+#### Updating Retell Custom Function URL
+
+When you need to update the ngrok URL in Retell:
+
+1. **Log in** to https://dashboard.retellai.com
+2. Click **"Agents"** in left sidebar
+3. Select your **Palli Sahayak agent**
+4. Scroll to **"Custom Functions"** section
+5. Click **Edit** on `query_rag_knowledge_base`
+6. Update **"API Endpoint"** URL field with new ngrok URL
+7. Click **"Save"**
+
 ---
 
 **Document End**
