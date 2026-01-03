@@ -1512,6 +1512,54 @@ A: Use a reverse proxy (nginx) with SSL certificates, or deploy behind a load ba
 4. Enable Gemini API in Cloud Console
 5. Copy key to .env
 
+### Retell.AI Setup
+1. Visit https://dashboard.retellai.com
+2. Create account and obtain API key
+3. Add to .env: `RETELL_API_KEY=your_key`
+4. Create an agent with Custom LLM option
+5. Configure Custom Function for RAG queries (see below)
+
+#### Custom Function Configuration
+
+When using Retell.AI with ngrok for local development, configure the Custom Function with these values:
+
+| Field | Value |
+|-------|-------|
+| **Name** | `query_rag_knowledge_base` |
+| **Description** | Query the Palli Sahayak palliative care knowledge base to get accurate medical information about symptoms, medications, caregiving guidance, and emotional support for patients and families. |
+| **API Endpoint** | `POST` `https://<your-ngrok-subdomain>.ngrok-free.app/api/bolna/query` |
+| **Timeout (ms)** | `120000` |
+| **Headers** | `Content-Type`: `application/json` |
+
+**Parameters JSON Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "user_query": {
+      "type": "string",
+      "description": "The user's question about palliative care, symptoms, medications, or caregiving"
+    },
+    "user_language": {
+      "type": "string",
+      "enum": ["hi", "en", "mr", "ta"],
+      "description": "Language code for the response (hi=Hindi, en=English, mr=Marathi, ta=Tamil)"
+    },
+    "conversation_context": {
+      "type": "string",
+      "description": "Recent conversation history for context-aware responses"
+    }
+  },
+  "required": ["user_query"]
+}
+```
+
+**Notes:**
+- Replace `<your-ngrok-subdomain>` with your actual ngrok subdomain
+- The `/api/bolna/query` endpoint works for all voice providers
+- Increase timeout for complex queries that require RAG processing
+- Set `user_language` to match the caller's preferred language
+
 ---
 
 **Document End**
