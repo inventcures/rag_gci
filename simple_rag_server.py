@@ -3244,9 +3244,9 @@ def main():
     parser.add_argument("--no-ngrok", action="store_true", help="Disable ngrok tunnel")
     parser.add_argument(
         "--provider", "-p",
-        choices=["g", "b", "gemini", "bolna"],
+        choices=["g", "b", "r", "gemini", "bolna", "retell"],
         default="b",
-        help="Voice AI provider: g/gemini=Gemini Live API, b/bolna=Bolna.ai (default: b)"
+        help="Voice AI provider: g/gemini=Gemini Live, b/bolna=Bolna.ai, r/retell=Retell.AI (default: b)"
     )
 
     args = parser.parse_args()
@@ -3258,6 +3258,13 @@ def main():
         os.environ["GEMINI_LIVE_ENABLED"] = "true"
         logger.info("=" * 60)
         logger.info("🎙️  VOICE PROVIDER: Google Gemini Live API (Vertex AI)")
+        logger.info("=" * 60)
+    elif voice_provider in ["r", "retell"]:
+        os.environ["VOICE_PROVIDER"] = "retell"
+        os.environ["GEMINI_LIVE_ENABLED"] = "false"
+        os.environ["RETELL_ENABLED"] = "true"
+        logger.info("=" * 60)
+        logger.info("📞 VOICE PROVIDER: Retell.AI + Vobiz.ai (Indian PSTN)")
         logger.info("=" * 60)
     else:
         os.environ["VOICE_PROVIDER"] = "bolna"
@@ -3329,6 +3336,12 @@ def main():
     graphrag_indexer = None
     graphrag_query_engine = None
     graphrag_enabled = False
+
+    # Retell.AI service globals
+    retell_client = None
+    retell_webhook_handler = None
+    retell_llm_handler = None
+    retell_enabled = False
 
     @app.on_event("startup")
     async def startup_graphrag():
@@ -3450,6 +3463,62 @@ def main():
                 logger.info("Gemini Live session manager stopped")
             except Exception as e:
                 logger.error(f"Error stopping Gemini session manager: {e}")
+
+    @app.on_event("startup")
+    async def startup_retell():
+        """Initialize Retell.AI service on startup."""
+        nonlocal retell_client, retell_webhook_handler, retell_llm_handler, retell_enabled
+
+        # Check if Retell is enabled via environment
+        retell_env_enabled = os.getenv("RETELL_ENABLED", "").lower() == "true"
+        if not retell_env_enabled:
+            logger.info("Retell.AI disabled - use -p r to enable")
+            return
+
+        try:
+            from retell_integration import (
+                RetellClient,
+                RetellWebhookHandler,
+                RetellCustomLLMHandler
+            )
+
+            # Initialize Retell client
+            retell_client = RetellClient()
+            if not retell_client.is_available():
+                logger.warning("Retell API key not configured - Retell disabled")
+                return
+
+            # Initialize webhook handler
+            retell_webhook_handler = RetellWebhookHandler()
+
+            # Initialize Custom LLM handler with RAG pipeline
+            retell_llm_handler = RetellCustomLLMHandler(rag_pipeline=rag_pipeline)
+
+            retell_enabled = True
+            logger.info("📞 Retell.AI initialized - endpoints available:")
+            logger.info("   WebSocket: /ws/retell/llm/{call_id}")
+            logger.info("   Webhook:   /api/retell/webhook")
+            logger.info("   Health:    /api/retell/health")
+            logger.info("   Stats:     /api/retell/stats")
+
+        except ImportError as e:
+            logger.warning(f"Retell integration not available: {e}")
+            retell_enabled = False
+        except Exception as e:
+            logger.error(f"Failed to initialize Retell: {e}")
+            retell_enabled = False
+
+    @app.on_event("shutdown")
+    async def shutdown_retell():
+        """Cleanup Retell service on shutdown."""
+        nonlocal retell_llm_handler
+
+        if retell_llm_handler:
+            try:
+                # Close any active sessions
+                logger.info("Retell Custom LLM handler stopped")
+            except Exception as e:
+                logger.error(f"Error stopping Retell handler: {e}")
 
     async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
         """
@@ -3587,11 +3656,8 @@ def main():
                                     "session_id": session.session_id if hasattr(session, 'session_id') else user_id
                                 })
 
-                                # Start background task to stream responses
-                                if response_task is None or response_task.done():
-                                    response_task = asyncio.create_task(
-                                        stream_gemini_responses(websocket, session, user_id)
-                                    )
+                                # Note: Response task will be started when first audio arrives
+                                # Starting receive() before sending audio causes Gemini to close connection
 
                             except Exception as e:
                                 logger.error(f"Failed to create session for {user_id}: {e}")
@@ -3644,6 +3710,12 @@ def main():
                     if session:
                         try:
                             await session.send_audio(data["bytes"])
+
+                            # Start response stream after first audio is sent
+                            if response_task is None or response_task.done():
+                                response_task = asyncio.create_task(
+                                    stream_gemini_responses(websocket, session, user_id)
+                                )
                         except Exception as e:
                             logger.error(f"Error sending audio for {user_id}: {e}")
 
@@ -3984,6 +4056,140 @@ def main():
 
     # ==========================================================================
     # END BOLNA.AI INTEGRATION
+    # ==========================================================================
+
+    # ==========================================================================
+    # RETELL.AI INTEGRATION - Custom LLM WebSocket + Webhooks
+    # ==========================================================================
+
+    @app.websocket("/ws/retell/llm/{call_id}")
+    async def retell_llm_websocket(websocket: WebSocket, call_id: str):
+        """
+        WebSocket endpoint for Retell Custom LLM.
+
+        This handles the Retell LLM WebSocket protocol:
+        - Receives: ping_pong, call_details, update_only, response_required
+        - Sends: response with content (connected to RAG pipeline)
+
+        Documentation: https://docs.retellai.com/api-references/llm-websocket
+        """
+        await websocket.accept()
+
+        if not retell_enabled or not retell_llm_handler:
+            await websocket.send_json({
+                "response_type": "error",
+                "content": "Retell Custom LLM not available"
+            })
+            await websocket.close(code=1008, reason="Service unavailable")
+            return
+
+        logger.info(f"Retell LLM WebSocket connected: call_id={call_id}")
+
+        try:
+            await retell_llm_handler.handle_websocket(websocket, call_id)
+        except WebSocketDisconnect:
+            logger.info(f"Retell LLM WebSocket disconnected: call_id={call_id}")
+        except Exception as e:
+            logger.error(f"Retell LLM WebSocket error for {call_id}: {e}")
+        finally:
+            # Cleanup session
+            if retell_llm_handler:
+                retell_llm_handler.end_session(call_id)
+
+    @app.post("/api/retell/webhook")
+    async def retell_webhook_endpoint(request: Request):
+        """
+        Webhook endpoint for Retell call events.
+
+        Handles: call_started, call_ended, call_analyzed
+        """
+        if not retell_enabled or not retell_webhook_handler:
+            return JSONResponse(
+                {"error": "Retell integration not available"},
+                status_code=503
+            )
+
+        try:
+            event_data = await request.json()
+            result = await retell_webhook_handler.handle_event(event_data)
+            return JSONResponse(result)
+        except Exception as e:
+            logger.error(f"Retell webhook error: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.get("/api/retell/health")
+    async def retell_health_endpoint():
+        """Check Retell integration health."""
+        if not retell_enabled:
+            return JSONResponse({
+                "status": "unavailable",
+                "message": "Retell not initialized - use -p r to enable"
+            })
+
+        try:
+            client_healthy = retell_client.is_available() if retell_client else False
+            return JSONResponse({
+                "status": "healthy" if client_healthy else "limited",
+                "client_available": client_healthy,
+                "llm_handler_ready": retell_llm_handler is not None,
+                "webhook_handler_ready": retell_webhook_handler is not None
+            })
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            })
+
+    @app.get("/api/retell/stats")
+    async def retell_stats_endpoint():
+        """Get Retell call statistics."""
+        if not retell_enabled or not retell_webhook_handler:
+            return JSONResponse(
+                {"error": "Retell integration not available"},
+                status_code=503
+            )
+
+        try:
+            stats = retell_webhook_handler.get_call_stats()
+            return JSONResponse(stats)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.get("/api/retell/calls")
+    async def retell_calls_endpoint(limit: int = 10):
+        """Get recent Retell calls."""
+        if not retell_enabled or not retell_webhook_handler:
+            return JSONResponse(
+                {"error": "Retell integration not available"},
+                status_code=503
+            )
+
+        try:
+            calls = retell_webhook_handler.get_recent_calls(limit=limit)
+            return JSONResponse({"calls": calls})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.get("/api/retell/vobiz")
+    async def retell_vobiz_config_endpoint():
+        """Get Vobiz.ai telephony configuration status."""
+        if not retell_enabled:
+            return JSONResponse(
+                {"error": "Retell integration not available"},
+                status_code=503
+            )
+
+        try:
+            from retell_integration import get_vobiz_config
+            vobiz = get_vobiz_config()
+            return JSONResponse(vobiz.to_dict())
+        except ImportError:
+            return JSONResponse({"error": "Vobiz config not available"}, status_code=503)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    # ==========================================================================
+    # END RETELL.AI INTEGRATION
     # ==========================================================================
 
     # ==========================================================================

@@ -39,6 +39,7 @@ twilio>=8.10.3
 # Voice AI Integration
 aiohttp>=3.9.0  # For Bolna API client
 websockets>=12.0  # For Gemini Live WebSocket
+retell-sdk>=4.0.0  # For Retell.AI Custom LLM integration
 
 # Knowledge Graph
 neo4j>=5.14.0  # Neo4j Python driver for knowledge graph

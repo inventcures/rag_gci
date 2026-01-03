@@ -2,9 +2,10 @@
 Voice Router for Palli Sahayak Voice AI Agent Helpline
 
 Routes voice requests between providers:
-- Primary: Bolna.ai (for phone calls)
-- Fallback: Gemini Live API (for web voice)
-- Ultimate fallback: STT → RAG → LLM → TTS pipeline
+- Bolna.ai (-p b): Phone calls via Twilio
+- Gemini Live (-p g): Web-based voice with native audio
+- Retell.AI (-p r): Phone calls via Vobiz.ai (Indian PSTN +91)
+- Fallback Pipeline: STT → RAG → LLM → TTS (always available)
 
 This module provides a unified interface for voice handling regardless
 of the underlying provider.
@@ -24,6 +25,7 @@ class VoiceProvider(Enum):
     """Available voice providers."""
     BOLNA = "bolna"
     GEMINI_LIVE = "gemini_live"
+    RETELL = "retell"
     FALLBACK_PIPELINE = "fallback_pipeline"
 
 
@@ -133,12 +135,28 @@ class VoiceRouter:
             except Exception as e:
                 logger.warning(f"Failed to initialize Gemini Live: {e}")
 
+        # Initialize Retell client
+        self.retell_client = None
+        self.retell_available = False
+        try:
+            from retell_integration import RetellClient
+            self.retell_client = RetellClient()
+            self.retell_available = self.retell_client.is_available()
+            if self.retell_available:
+                logger.info("Retell client initialized")
+        except ImportError:
+            logger.warning("Retell integration not available")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Retell client: {e}")
+
         # Log available providers
         providers = []
         if self.bolna_available:
             providers.append("Bolna.ai")
         if self.gemini_available:
             providers.append("Gemini Live")
+        if self.retell_available:
+            providers.append("Retell.AI")
         providers.append("Fallback Pipeline")
 
         logger.info(f"VoiceRouter initialized with providers: {', '.join(providers)}")
@@ -150,6 +168,8 @@ class VoiceRouter:
             providers.append(VoiceProvider.BOLNA)
         if self.gemini_available:
             providers.append(VoiceProvider.GEMINI_LIVE)
+        if self.retell_available:
+            providers.append(VoiceProvider.RETELL)
         providers.append(VoiceProvider.FALLBACK_PIPELINE)
         return providers
 
@@ -174,6 +194,8 @@ class VoiceRouter:
                 return VoiceProvider.BOLNA
             elif force_provider == VoiceProvider.GEMINI_LIVE and self.gemini_available:
                 return VoiceProvider.GEMINI_LIVE
+            elif force_provider == VoiceProvider.RETELL and self.retell_available:
+                return VoiceProvider.RETELL
             elif force_provider == VoiceProvider.FALLBACK_PIPELINE:
                 return VoiceProvider.FALLBACK_PIPELINE
 
@@ -236,6 +258,14 @@ class VoiceRouter:
 
             elif provider == VoiceProvider.GEMINI_LIVE:
                 return await self._handle_gemini_request(
+                    user_id=user_id,
+                    language=language,
+                    **kwargs
+                )
+
+            elif provider == VoiceProvider.RETELL:
+                return await self._handle_retell_request(
+                    phone_number=phone_number,
                     user_id=user_id,
                     language=language,
                     **kwargs
@@ -427,6 +457,72 @@ class VoiceRouter:
             logger.error(f"Gemini session creation failed: {e}")
             raise
 
+    async def _handle_retell_request(
+        self,
+        phone_number: Optional[str] = None,
+        user_id: Optional[str] = None,
+        language: str = "hi",
+        user_data: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> VoiceResponse:
+        """
+        Handle request via Retell.AI.
+
+        Retell uses Custom LLM via WebSocket for full RAG integration,
+        Cartesia Sonic-3 TTS, and Vobiz.ai for Indian PSTN telephony.
+
+        Args:
+            phone_number: Phone number for calls (E.164 format)
+            user_id: User identifier
+            language: Language code (hi, en, mr, ta)
+            user_data: Optional user context data
+
+        Returns:
+            VoiceResponse with session/call details
+        """
+        if not self.retell_available:
+            raise RuntimeError("Retell client not available")
+
+        agent_id = os.getenv("RETELL_AGENT_ID")
+        if not agent_id:
+            raise RuntimeError("RETELL_AGENT_ID not configured")
+
+        # For inbound calls via Vobiz.ai, Retell handles via WebSocket
+        # The Custom LLM server at /ws/retell/llm/{call_id} processes requests
+        session_id = f"retell_{user_id or 'anonymous'}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        # Create session record
+        session = VoiceSession(
+            session_id=session_id,
+            provider=VoiceProvider.RETELL,
+            phone_number=phone_number,
+            user_id=user_id,
+            language=language,
+            metadata={
+                "agent_id": agent_id,
+                "telephony": "vobiz" if phone_number else "web"
+            }
+        )
+        self.active_sessions[session_id] = session
+
+        # Map language to Retell/Cartesia voice
+        from retell_integration.config import CARTESIA_VOICE_IDS
+        voice_config = CARTESIA_VOICE_IDS.get(language, CARTESIA_VOICE_IDS.get("hi"))
+
+        return VoiceResponse(
+            success=True,
+            provider=VoiceProvider.RETELL,
+            session_id=session_id,
+            message="Retell agent ready" + (f" for {phone_number}" if phone_number else ""),
+            metadata={
+                "agent_id": agent_id,
+                "voice": voice_config.get("voice_name") if voice_config else "Hindi Narrator Woman",
+                "websocket_path": "/ws/retell/llm",
+                "webhook_path": "/api/retell/webhook",
+                "language": language
+            }
+        )
+
     async def _handle_fallback_request(
         self,
         user_id: Optional[str] = None,
@@ -544,6 +640,7 @@ class VoiceRouter:
         return {
             "bolna_available": self.bolna_available,
             "gemini_available": self.gemini_available,
+            "retell_available": self.retell_available,
             "fallback_available": True,
             "preferred_provider": self.preferred_provider.value,
             "active_sessions": self.get_active_session_count(),
@@ -557,9 +654,12 @@ def create_voice_router(rag_pipeline=None) -> VoiceRouter:
     Create a VoiceRouter with configuration from environment.
 
     Environment variables:
-    - VOICE_PREFERRED_PROVIDER: "bolna", "gemini_live", or "fallback_pipeline"
+    - VOICE_PREFERRED_PROVIDER: "bolna", "gemini_live", "retell", or "fallback_pipeline"
+      (shortcuts: "b", "g", "r")
     - BOLNA_API_KEY: Required for Bolna
     - GOOGLE_CLOUD_PROJECT: Required for Gemini Live
+    - RETELL_API_KEY: Required for Retell
+    - RETELL_AGENT_ID: Required for Retell
 
     Args:
         rag_pipeline: Optional RAG pipeline for fallback queries
@@ -571,8 +671,12 @@ def create_voice_router(rag_pipeline=None) -> VoiceRouter:
 
     provider_map = {
         "bolna": VoiceProvider.BOLNA,
+        "b": VoiceProvider.BOLNA,
         "gemini_live": VoiceProvider.GEMINI_LIVE,
         "gemini": VoiceProvider.GEMINI_LIVE,
+        "g": VoiceProvider.GEMINI_LIVE,
+        "retell": VoiceProvider.RETELL,
+        "r": VoiceProvider.RETELL,
         "fallback": VoiceProvider.FALLBACK_PIPELINE,
         "fallback_pipeline": VoiceProvider.FALLBACK_PIPELINE
     }
