@@ -104,11 +104,14 @@ directories:
   cache: "./cache"
 
 # Gemini Live API Configuration (Real-time Voice Conversations)
+# IMPORTANT: Gemini Live Native Audio is ONLY available in US/Europe regions!
+# Supported: us-central1, us-east1, us-east4, us-west1, europe-west1, etc.
+# NOT supported: asia-south1, asia-southeast1, or any Asia-Pacific region
 gemini_live:
   enabled: true  # Enabled for voice AI
   project_id: ${GOOGLE_CLOUD_PROJECT}
-  location: ${VERTEX_AI_LOCATION}  # Set in .env (asia-south1 for Mumbai)
-  model: "gemini-live-2.5-flash-native-audio"  # Latest: 30 HD voices, Affective Dialog
+  location: ${VERTEX_AI_LOCATION}  # MUST be us-central1 or other US/EU region!
+  model: "gemini-live-2.5-flash-native-audio"  # GA model (Dec 2024)
 
   # Voice settings
   default_voice: "Aoede"  # Warm, empathetic voice for healthcare

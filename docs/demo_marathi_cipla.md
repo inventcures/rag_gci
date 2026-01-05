@@ -25,7 +25,12 @@ Create/update your `.env` file with these Gemini Live settings:
 ```bash
 # Google Cloud / Vertex AI Configuration
 GOOGLE_CLOUD_PROJECT=palli-sahayak          # Your GCP project ID
-VERTEX_AI_LOCATION=asia-south1              # Mumbai region for lower latency
+
+# CRITICAL: Gemini Live Native Audio is ONLY available in US/Europe!
+# Supported: us-central1, us-east1, us-east4, us-west1, europe-west1
+# NOT supported: asia-south1, asia-southeast1 (NO ASIA REGIONS!)
+VERTEX_AI_LOCATION=us-central1              # MUST be US or Europe region!
+
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-credentials.json
 
 # Optional: Use Gemini API Key instead of service account
@@ -37,7 +42,7 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-credentials.json
 ```bash
 # Set environment variables
 export GOOGLE_CLOUD_PROJECT="palli-sahayak"
-export VERTEX_AI_LOCATION="asia-south1"
+export VERTEX_AI_LOCATION="us-central1"     # MUST be us-central1, NOT asia-south1!
 export GOOGLE_APPLICATION_CREDENTIALS="/Users/tp53/palli-sahayak-credentials.json"
 
 # Verify authentication

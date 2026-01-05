@@ -72,8 +72,8 @@ RAG_QUERY_FUNCTION = {
             },
             "user_language": {
                 "type": "string",
-                "enum": ["en", "hi", "mr", "ta"],
-                "description": "The language code the user is speaking in"
+                "enum": ["en", "hi", "mr", "ta", "pa", "ml"],
+                "description": "The language code the user is speaking in (en=English, hi=Hindi, mr=Marathi, ta=Tamil, pa=Punjabi, ml=Malayalam)"
             },
             "conversation_context": {
                 "type": "string",
@@ -84,7 +84,10 @@ RAG_QUERY_FUNCTION = {
     }
 }
 
-# Language-specific configurations with Cartesia Sonic-3 voice IDs
+# Language-specific configurations
+# TTS Provider: Cartesia Sonic-3 for all languages
+# STT Provider: Deepgram (supports all 7 languages including Punjabi & Malayalam)
+# Note: Punjabi & Malayalam STT works, but TTS responds in Hindi (fallback)
 # Voice IDs from: https://developer.signalwire.com/voice/tts/cartesia/
 # NOTE: Do NOT use [laughter] tags - inappropriate for palliative care
 # DO use empathetic emotion for warmth: gentle, calm, compassionate, reassuring
@@ -95,7 +98,8 @@ LANGUAGE_CONFIGS = {
         "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman
         "voice_name": "Hindi Narrator Woman",
         "language_code": "hi",
-        "name": "Hindi"
+        "name": "Hindi",
+        "tts_provider": "cartesia"
     },
     "en": {
         "transcriber_language": "en",
@@ -103,7 +107,8 @@ LANGUAGE_CONFIGS = {
         "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",  # Indian Lady
         "voice_name": "Indian Lady",
         "language_code": "en",
-        "name": "English"
+        "name": "English",
+        "tts_provider": "cartesia"
     },
     "mr": {
         "transcriber_language": "mr",
@@ -111,7 +116,8 @@ LANGUAGE_CONFIGS = {
         "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman (closest)
         "voice_name": "Hindi Narrator Woman",
         "language_code": "mr",
-        "name": "Marathi"
+        "name": "Marathi",
+        "tts_provider": "cartesia"
     },
     "ta": {
         "transcriber_language": "ta",
@@ -119,7 +125,8 @@ LANGUAGE_CONFIGS = {
         "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",  # Indian Lady (closest)
         "voice_name": "Indian Lady",
         "language_code": "ta",
-        "name": "Tamil"
+        "name": "Tamil",
+        "tts_provider": "cartesia"
     },
     "hinglish": {
         "transcriber_language": "hi",
@@ -127,9 +134,82 @@ LANGUAGE_CONFIGS = {
         "voice_id": "95d51f79-c397-46f9-b49a-23763d3eaa2d",  # Hinglish Speaking Lady
         "voice_name": "Hinglish Speaking Lady",
         "language_code": "hi",
-        "name": "Hinglish"
+        "name": "Hinglish",
+        "tts_provider": "cartesia"
+    },
+    # Punjabi & Malayalam - STT works, TTS uses Hindi voice as fallback
+    # (Most Punjabi/Malayalam speakers understand Hindi)
+    "pa": {
+        "transcriber_language": "pa",  # Deepgram supports Punjabi STT
+        "welcome_message": "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਪੱਲੀ ਸਹਾਇਕ ਹਾਂ। ਮੈਂ ਹਿੰਦੀ ਵਿੱਚ ਜਵਾਬ ਦੇਵਾਂਗੀ।",  # "I'll respond in Hindi"
+        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman
+        "voice_name": "Hindi Narrator Woman",
+        "language_code": "pa",
+        "name": "Punjabi",
+        "tts_provider": "cartesia"
+    },
+    "ml": {
+        "transcriber_language": "ml",  # Deepgram supports Malayalam STT
+        "welcome_message": "നമസ്കാരം! ഞാൻ പല്ലി സഹായക് ആണ്. ഞാൻ ഹിന്ദിയിൽ മറുപടി നൽകും.",  # "I'll respond in Hindi"
+        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman
+        "voice_name": "Hindi Narrator Woman",
+        "language_code": "ml",
+        "name": "Malayalam",
+        "tts_provider": "cartesia"
     }
 }
+
+
+def _get_synthesizer_config(lang_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Get TTS synthesizer config based on language.
+
+    Uses Azure TTS for Punjabi/Malayalam (native support, free tier),
+    Cartesia for other Indian languages.
+    """
+    tts_provider = lang_config.get("tts_provider", "cartesia")
+
+    if tts_provider == "azure":
+        # Azure TTS - supports Punjabi & Malayalam natively
+        # Free tier: 500,000 chars/month
+        return {
+            "provider": "azure",
+            "audio_format": "wav",
+            "stream": True,
+            "buffer_size": 100.0,
+            "provider_config": {
+                "voice": lang_config.get("azure_voice", lang_config["voice_id"]),
+                "language": lang_config.get("language_code", "en-IN"),
+                "rate": "+0%",  # Normal speed
+                "pitch": "+0Hz"  # Normal pitch
+            }
+        }
+    elif tts_provider == "elevenlabs":
+        return {
+            "provider": "elevenlabs",
+            "audio_format": "wav",
+            "stream": True,
+            "buffer_size": 100.0,
+            "provider_config": {
+                "voice_id": lang_config["voice_id"],
+                "model": lang_config.get("elevenlabs_model", "eleven_multilingual_v2"),
+                "stability": 0.5,
+                "similarity_boost": 0.75
+            }
+        }
+    else:
+        # Default to Cartesia
+        return {
+            "provider": "cartesia",
+            "audio_format": "wav",
+            "stream": True,
+            "buffer_size": 100.0,
+            "provider_config": {
+                "voice": lang_config.get("voice_name", "Hindi Narrator Woman"),
+                "voice_id": lang_config["voice_id"],
+                "model": "sonic-3"
+            }
+        }
 
 
 def get_palli_sahayak_agent_config(
@@ -212,17 +292,7 @@ def get_palli_sahayak_agent_config(
                         },
                         "functions": [custom_function]
                     },
-                    "synthesizer": {
-                        "provider": "cartesia",
-                        "audio_format": "wav",
-                        "stream": True,
-                        "buffer_size": 100.0,
-                        "provider_config": {
-                            "voice": lang_config.get("voice_name", "Hindi Narrator Woman"),
-                            "voice_id": lang_config["voice_id"],
-                            "model": "sonic-3"
-                        }
-                    },
+                    "synthesizer": _get_synthesizer_config(lang_config),
                     "transcriber": {
                         "provider": "deepgram",
                         "stream": True,
@@ -307,8 +377,8 @@ EXTRACTION_SCHEMA = {
     },
     "language_used": {
         "type": "string",
-        "enum": ["hi", "en", "mr", "ta"],
-        "description": "Primary language spoken by the user"
+        "enum": ["hi", "en", "mr", "ta", "pa", "ml"],
+        "description": "Primary language spoken by the user (hi=Hindi, en=English, mr=Marathi, ta=Tamil, pa=Punjabi, ml=Malayalam)"
     },
     "emotional_state": {
         "type": "string",
