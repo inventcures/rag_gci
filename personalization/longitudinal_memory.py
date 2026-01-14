@@ -39,6 +39,7 @@ class DataSourceType(Enum):
     CLINICAL_ENTRY = "clinical_entry"  # Future: from EHR/FHIR
     PATIENT_REPORTED = "patient_reported"
     WEB_CHAT = "web_chat"
+    FHIR_IMPORT = "fhir_import"  # V25 Phase 7: FHIR data import
 
 
 class SeverityLevel(Enum):

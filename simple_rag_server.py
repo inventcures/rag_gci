@@ -116,6 +116,7 @@ try:
         CorrelationAnalysis,
     )
     from personalization.alert_manager import AlertManager, AlertNotificationCoordinator
+    from personalization.fhir_adapter import FHIRAdapter, FHIRBundle, export_to_file, import_from_file
     LONGITUDINAL_MEMORY_AVAILABLE = True
 except ImportError as e:
     LONGITUDINAL_MEMORY_AVAILABLE = False
@@ -2853,6 +2854,92 @@ class SimpleAdminUI:
                                 outputs=[notify_result]
                             )
 
+                # V25: FHIR Interoperability Tab (Phase 7)
+                with gr.TabItem("🏥 FHIR"):
+                    gr.Markdown("## FHIR Interoperability")
+                    gr.Markdown("*V25 Phase 7 - EHR/Hospital System Integration*")
+
+                    with gr.Tabs():
+                        # Export to FHIR Sub-tab
+                        with gr.TabItem("📤 Export"):
+                            gr.Markdown("### Export Patient Data to FHIR R4 Bundle")
+
+                            with gr.Row():
+                                fhir_export_patient_id = gr.Textbox(
+                                    label="Patient ID",
+                                    placeholder="Enter patient ID to export"
+                                )
+
+                            with gr.Row():
+                                fhir_include_obs = gr.Checkbox(label="Include Observations", value=True)
+                                fhir_include_meds = gr.Checkbox(label="Include Medications", value=True)
+                                fhir_include_care_team = gr.Checkbox(label="Include Care Team", value=True)
+                                fhir_save_file = gr.Checkbox(label="Save to File", value=False)
+
+                            fhir_export_btn = gr.Button("📤 Export FHIR Bundle", variant="primary")
+
+                            fhir_export_result = gr.JSON(label="Export Result")
+                            fhir_bundle_output = gr.JSON(label="FHIR Bundle (R4)")
+
+                            fhir_export_btn.click(
+                                fn=self._handle_fhir_export,
+                                inputs=[fhir_export_patient_id, fhir_include_obs, fhir_include_meds, fhir_include_care_team, fhir_save_file],
+                                outputs=[fhir_export_result, fhir_bundle_output]
+                            )
+
+                        # Import from FHIR Sub-tab
+                        with gr.TabItem("📥 Import"):
+                            gr.Markdown("### Import FHIR R4 Bundle")
+
+                            fhir_import_json = gr.Textbox(
+                                label="FHIR Bundle JSON",
+                                placeholder='Paste FHIR Bundle JSON here...',
+                                lines=10
+                            )
+
+                            fhir_import_btn = gr.Button("📥 Import FHIR Bundle", variant="primary")
+                            fhir_import_result = gr.JSON(label="Import Result")
+
+                            fhir_import_btn.click(
+                                fn=self._handle_fhir_import,
+                                inputs=[fhir_import_json],
+                                outputs=[fhir_import_result]
+                            )
+
+                        # Validate FHIR Sub-tab
+                        with gr.TabItem("✅ Validate"):
+                            gr.Markdown("### Validate FHIR Resource")
+
+                            fhir_validate_json = gr.Textbox(
+                                label="FHIR Resource/Bundle JSON",
+                                placeholder='Paste FHIR JSON to validate...',
+                                lines=10
+                            )
+
+                            fhir_validate_btn = gr.Button("✅ Validate", variant="primary")
+                            fhir_validate_result = gr.JSON(label="Validation Result")
+
+                            fhir_validate_btn.click(
+                                fn=self._handle_fhir_validate,
+                                inputs=[fhir_validate_json],
+                                outputs=[fhir_validate_result]
+                            )
+
+                        # SNOMED Code Reference Sub-tab
+                        with gr.TabItem("📖 SNOMED Codes"):
+                            gr.Markdown("### SNOMED CT Code Mappings")
+                            gr.Markdown("Reference for symptom and severity codes used in FHIR exports.")
+
+                            fhir_codes_btn = gr.Button("🔄 Load Code Mappings", variant="secondary")
+                            fhir_symptom_codes = gr.JSON(label="Symptom SNOMED Codes")
+                            fhir_severity_codes = gr.JSON(label="Severity SNOMED Codes")
+
+                            fhir_codes_btn.click(
+                                fn=self._handle_fhir_get_codes,
+                                inputs=[],
+                                outputs=[fhir_symptom_codes, fhir_severity_codes]
+                            )
+
             # Refresh documents when the management tab is selected
             tabs.select(
                 fn=self._handle_tab_change,
@@ -3990,6 +4077,156 @@ class SimpleAdminUI:
         except Exception as e:
             logger.error(f"Error notifying care team: {e}")
             return {"error": str(e)}
+
+    # V25: FHIR Interoperability Handlers (Phase 7)
+
+    def _handle_fhir_export(
+        self,
+        patient_id: str,
+        include_obs: bool,
+        include_meds: bool,
+        include_care_team: bool,
+        save_to_file: bool
+    ):
+        """Export patient data to FHIR Bundle."""
+        try:
+            if not patient_id or not patient_id.strip():
+                return {"error": "Please enter a patient ID"}, None
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.longitudinal_manager:
+                return {"error": "System not available"}, None
+
+            import asyncio
+            from personalization.fhir_adapter import FHIRAdapter, export_to_file as fhir_export
+
+            async def export():
+                adapter = FHIRAdapter()
+                bundle = await adapter.export_patient_bundle(
+                    patient_id.strip(),
+                    self.rag_pipeline.longitudinal_manager,
+                    include_observations=include_obs,
+                    include_medications=include_meds,
+                    include_care_team=include_care_team
+                )
+
+                bundle_dict = bundle.to_dict()
+
+                file_path = None
+                if save_to_file:
+                    from pathlib import Path
+                    from datetime import datetime
+                    export_dir = Path("data/fhir_exports")
+                    export_dir.mkdir(parents=True, exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    file_path = str(export_dir / f"patient_{patient_id}_{timestamp}.json")
+                    fhir_export(bundle, file_path)
+
+                return bundle_dict, file_path
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            bundle_dict, file_path = loop.run_until_complete(export())
+
+            result = {
+                "status": "success",
+                "patient_id": patient_id.strip(),
+                "resource_count": len(bundle_dict.get("entry", [])),
+                "file_saved": file_path
+            }
+
+            return result, bundle_dict
+
+        except Exception as e:
+            logger.error(f"Error exporting FHIR: {e}")
+            return {"error": str(e)}, None
+
+    def _handle_fhir_import(self, bundle_json: str):
+        """Import FHIR Bundle into longitudinal memory."""
+        try:
+            if not bundle_json or not bundle_json.strip():
+                return {"error": "Please paste FHIR Bundle JSON"}
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.longitudinal_manager:
+                return {"error": "System not available"}
+
+            import asyncio
+            import json
+            from personalization.fhir_adapter import FHIRAdapter
+
+            try:
+                bundle_data = json.loads(bundle_json)
+            except json.JSONDecodeError as e:
+                return {"error": f"Invalid JSON: {str(e)}"}
+
+            async def do_import():
+                adapter = FHIRAdapter()
+                result = await adapter.import_bundle(bundle_data, self.rag_pipeline.longitudinal_manager)
+                return result
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(do_import())
+
+            return {
+                "status": "success",
+                "patients_imported": result.get("patients_imported", 0),
+                "observations_imported": result.get("observations_imported", 0),
+                "medications_imported": result.get("medications_imported", 0),
+                "errors": result.get("errors", [])
+            }
+
+        except Exception as e:
+            logger.error(f"Error importing FHIR: {e}")
+            return {"error": str(e)}
+
+    def _handle_fhir_validate(self, resource_json: str):
+        """Validate FHIR resource or bundle."""
+        try:
+            if not resource_json or not resource_json.strip():
+                return {"error": "Please paste FHIR JSON to validate"}
+
+            import json
+            from personalization.fhir_adapter import FHIRAdapter
+
+            try:
+                resource_data = json.loads(resource_json)
+            except json.JSONDecodeError as e:
+                return {"error": f"Invalid JSON: {str(e)}"}
+
+            adapter = FHIRAdapter()
+
+            # Check if it's a Bundle or single resource
+            if resource_data.get("resourceType") == "Bundle":
+                result = adapter.validate_bundle(resource_data)
+            else:
+                errors = adapter.validate_resource(resource_data)
+                result = {
+                    "valid": len(errors) == 0,
+                    "errors": errors
+                }
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error validating FHIR: {e}")
+            return {"error": str(e)}
+
+    def _handle_fhir_get_codes(self):
+        """Get SNOMED code mappings."""
+        try:
+            from personalization.fhir_adapter import SYMPTOM_SNOMED_CODES, SEVERITY_FHIR_CODES
+            return SYMPTOM_SNOMED_CODES, SEVERITY_FHIR_CODES
+        except Exception as e:
+            logger.error(f"Error getting SNOMED codes: {e}")
+            return {"error": str(e)}, {}
 
 
 class NgrokManager:
@@ -6160,6 +6397,210 @@ def main():
 
     # ==========================================================================
     # END V25 CARE TEAM COORDINATION API
+    # ==========================================================================
+
+    # ==========================================================================
+    # V25 FHIR INTEROPERABILITY API (Phase 7)
+    # ==========================================================================
+
+    @app.post("/api/fhir/export/{patient_id}")
+    async def fhir_export_patient(patient_id: str, request: Request):
+        """
+        Export patient data as FHIR R4 Bundle.
+
+        Query params:
+        - include_observations: bool = true
+        - include_medications: bool = true
+        - include_care_team: bool = true
+        - save_to_file: bool = false (if true, saves to data/fhir_exports/)
+
+        Returns:
+            FHIR R4 Bundle with Patient, Observation, MedicationStatement, CareTeam resources
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            # Parse query params
+            include_observations = request.query_params.get("include_observations", "true").lower() == "true"
+            include_medications = request.query_params.get("include_medications", "true").lower() == "true"
+            include_care_team = request.query_params.get("include_care_team", "true").lower() == "true"
+            save_to_file = request.query_params.get("save_to_file", "false").lower() == "true"
+
+            # Create adapter and export
+            adapter = FHIRAdapter()
+            bundle = await adapter.export_patient_bundle(
+                patient_id,
+                rag_pipeline.longitudinal_manager,
+                include_observations=include_observations,
+                include_medications=include_medications,
+                include_care_team=include_care_team
+            )
+
+            bundle_dict = bundle.to_dict()
+
+            # Optionally save to file
+            file_path = None
+            if save_to_file:
+                from pathlib import Path
+                from datetime import datetime
+                export_dir = Path("data/fhir_exports")
+                export_dir.mkdir(parents=True, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                file_path = str(export_dir / f"patient_{patient_id}_{timestamp}.json")
+                export_to_file(bundle, file_path)
+
+            return JSONResponse({
+                "status": "success",
+                "patient_id": patient_id,
+                "bundle": bundle_dict,
+                "resource_count": len(bundle_dict.get("entry", [])),
+                "file_path": file_path
+            })
+
+        except Exception as e:
+            logger.error(f"Error exporting FHIR bundle: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/fhir/import")
+    async def fhir_import_bundle(request: Request):
+        """
+        Import FHIR R4 Bundle into the longitudinal memory system.
+
+        Request body:
+        {
+            "bundle": { ... FHIR Bundle JSON ... }
+        }
+
+        or for file import:
+        {
+            "file_path": "path/to/bundle.json"
+        }
+
+        Returns:
+            Import statistics (patients, observations, medications imported)
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+
+            # Get bundle from request or file
+            if "file_path" in body:
+                bundle_data = import_from_file(body["file_path"])
+            elif "bundle" in body:
+                bundle_data = body["bundle"]
+            else:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "Either 'bundle' or 'file_path' is required"
+                }, status_code=400)
+
+            # Import bundle
+            adapter = FHIRAdapter()
+            result = await adapter.import_bundle(bundle_data, rag_pipeline.longitudinal_manager)
+
+            return JSONResponse({
+                "status": "success",
+                "import_result": result
+            })
+
+        except Exception as e:
+            logger.error(f"Error importing FHIR bundle: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/fhir/validate")
+    async def fhir_validate(request: Request):
+        """
+        Validate a FHIR Bundle or resource.
+
+        Request body:
+        {
+            "bundle": { ... FHIR Bundle JSON ... }
+        }
+
+        or:
+        {
+            "resource": { ... FHIR resource JSON ... }
+        }
+
+        Returns:
+            Validation result with any errors
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            adapter = FHIRAdapter()
+
+            if "bundle" in body:
+                result = adapter.validate_bundle(body["bundle"])
+                return JSONResponse({
+                    "status": "success",
+                    "validation": result
+                })
+            elif "resource" in body:
+                errors = adapter.validate_resource(body["resource"])
+                return JSONResponse({
+                    "status": "success",
+                    "validation": {
+                        "valid": len(errors) == 0,
+                        "errors": errors
+                    }
+                })
+            else:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "Either 'bundle' or 'resource' is required"
+                }, status_code=400)
+
+        except Exception as e:
+            logger.error(f"Error validating FHIR: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/fhir/snomed-codes")
+    async def fhir_get_snomed_codes():
+        """
+        Get the SNOMED CT code mappings for symptoms.
+
+        Returns:
+            Dictionary of symptom names to SNOMED codes
+        """
+        try:
+            from personalization.fhir_adapter import SYMPTOM_SNOMED_CODES, SEVERITY_FHIR_CODES
+            return JSONResponse({
+                "status": "success",
+                "symptom_codes": SYMPTOM_SNOMED_CODES,
+                "severity_codes": SEVERITY_FHIR_CODES
+            })
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    # ==========================================================================
+    # END V25 FHIR INTEROPERABILITY API
     # ==========================================================================
 
     # Add WhatsApp webhook routes if bot is configured
