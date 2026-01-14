@@ -97,6 +97,35 @@ except ImportError:
     GraphRAGQueryEngine = None
     GraphRAGDataLoader = None
 
+# V25: Longitudinal Patient Context Memory System
+try:
+    from personalization.longitudinal_memory import (
+        LongitudinalMemoryManager,
+        DataSourceType,
+        SeverityLevel,
+        TemporalTrend,
+    )
+    from personalization.context_injector import ContextInjector, PromptContextBuilder
+    from personalization.cross_modal_aggregator import CrossModalAggregator
+    from personalization.user_profile import UserProfileManager
+    from personalization.context_memory import ContextMemory
+    from personalization.temporal_reasoner import (
+        TemporalReasoner,
+        SymptomProgressionReport,
+        MedicationEffectivenessReport,
+        CorrelationAnalysis,
+    )
+    from personalization.alert_manager import AlertManager, AlertNotificationCoordinator
+    LONGITUDINAL_MEMORY_AVAILABLE = True
+except ImportError as e:
+    LONGITUDINAL_MEMORY_AVAILABLE = False
+    LongitudinalMemoryManager = None
+    ContextInjector = None
+    CrossModalAggregator = None
+    TemporalReasoner = None
+    AlertManager = None
+    logger.warning(f"Longitudinal memory module not available: {e}")
+
 # Core RAG components
 import chromadb
 from chromadb.utils import embedding_functions
@@ -662,8 +691,11 @@ class SimpleRAGPipeline:
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
         self.conversations = self._load_conversations()
-        
+
         self._initialize_components()
+
+        # V25: Initialize Longitudinal Patient Context Memory System
+        self._initialize_longitudinal_memory()
     
     def _copy_to_permanent_storage(self, source_path: str) -> str:
         """Copy uploaded file to permanent storage and return new path"""
@@ -742,7 +774,105 @@ class SimpleRAGPipeline:
         except Exception as e:
             logger.error(f"Failed to initialize RAG pipeline: {e}")
             raise
-    
+
+    def _initialize_longitudinal_memory(self):
+        """
+        V25: Initialize Longitudinal Patient Context Memory System.
+
+        This enables:
+        - Multi-session patient memory spanning months/years
+        - Context injection with patient history for personalized responses
+        - Cross-modal data extraction from voice/WhatsApp/web conversations
+        - Temporal reasoning for trend detection and medication effectiveness
+        - Proactive monitoring with alerts for concerning patterns
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE:
+            logger.info("📊 Longitudinal memory module not available - skipping initialization")
+            self.longitudinal_manager = None
+            self.context_injector = None
+            self.cross_modal_aggregator = None
+            self.prompt_context_builder = None
+            self.temporal_reasoner = None
+            self.alert_manager = None
+            return
+
+        try:
+            # Storage paths for longitudinal data
+            longitudinal_storage = self.data_dir / "longitudinal"
+            user_profiles_storage = self.data_dir / "user_profiles"
+            context_memory_storage = self.data_dir / "context_memory"
+            alerts_storage = self.data_dir / "alerts"
+
+            # Initialize LongitudinalMemoryManager
+            self.longitudinal_manager = LongitudinalMemoryManager(
+                storage_path=str(longitudinal_storage)
+            )
+            logger.info("✅ LongitudinalMemoryManager initialized")
+
+            # Initialize UserProfileManager
+            self.user_profile_manager = UserProfileManager(
+                storage_path=str(user_profiles_storage)
+            )
+            logger.info("✅ UserProfileManager initialized")
+
+            # Initialize ContextMemory
+            self.context_memory = ContextMemory(
+                storage_path=str(context_memory_storage)
+            )
+            logger.info("✅ ContextMemory initialized")
+
+            # Initialize ContextInjector
+            self.context_injector = ContextInjector(
+                longitudinal_manager=self.longitudinal_manager,
+                user_profile_manager=self.user_profile_manager,
+                context_memory=self.context_memory
+            )
+            logger.info("✅ ContextInjector initialized")
+
+            # Initialize PromptContextBuilder
+            self.prompt_context_builder = PromptContextBuilder(
+                context_injector=self.context_injector
+            )
+            logger.info("✅ PromptContextBuilder initialized")
+
+            # Initialize CrossModalAggregator
+            self.cross_modal_aggregator = CrossModalAggregator(
+                longitudinal_manager=self.longitudinal_manager,
+                storage_path=str(self.data_dir / "extractions")
+            )
+            logger.info("✅ CrossModalAggregator initialized")
+
+            # Phase 4: Initialize TemporalReasoner
+            self.temporal_reasoner = TemporalReasoner(
+                longitudinal_manager=self.longitudinal_manager
+            )
+            logger.info("✅ TemporalReasoner initialized")
+
+            # Phase 5: Initialize AlertManager
+            self.alert_manager = AlertManager(
+                longitudinal_manager=self.longitudinal_manager,
+                storage_path=str(alerts_storage)
+            )
+            logger.info("✅ AlertManager initialized")
+
+            # Initialize AlertNotificationCoordinator
+            self.alert_coordinator = AlertNotificationCoordinator(
+                alert_manager=self.alert_manager,
+                longitudinal_manager=self.longitudinal_manager
+            )
+            logger.info("✅ AlertNotificationCoordinator initialized")
+
+            logger.info("🧠 V25 Longitudinal Patient Context Memory System ready")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize longitudinal memory: {e}")
+            self.longitudinal_manager = None
+            self.context_injector = None
+            self.cross_modal_aggregator = None
+            self.prompt_context_builder = None
+            self.temporal_reasoner = None
+            self.alert_manager = None
+
     def _persist_vector_db(self):
         """Force persistence of vector database changes"""
         try:
@@ -1069,7 +1199,26 @@ class SimpleRAGPipeline:
                 f"Source: {meta['filename']} (chunk {meta['chunk_index']+1})\n{doc}"
                 for doc, meta in zip(filtered_contexts, filtered_metadatas)
             ])
-            
+
+            # V25: Inject patient context if available
+            patient_context = ""
+            if user_id and self.context_injector:
+                try:
+                    patient_context = await self.context_injector.inject_context(
+                        user_id=user_id,
+                        question=question,
+                        max_length=500  # Keep context concise
+                    )
+                    if patient_context:
+                        logger.info(f"🧠 Injected patient context for user {user_id} ({len(patient_context)} chars)")
+                        context_text = f"""--- Patient History ---
+{patient_context}
+
+--- Medical Documents ---
+{context_text}"""
+                except Exception as e:
+                    logger.warning(f"Failed to inject patient context: {e}")
+
             # Generate answer using Groq with citation instructions
             answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
             
@@ -1098,7 +1247,7 @@ class SimpleRAGPipeline:
             if conversation_id:
                 if conversation_id not in self.conversations:
                     self.conversations[conversation_id] = []
-                
+
                 self.conversations[conversation_id].append({
                     "timestamp": datetime.now().isoformat(),
                     "user_id": user_id,
@@ -1106,9 +1255,31 @@ class SimpleRAGPipeline:
                     "answer": answer,
                     "sources": sources
                 })
-                
+
                 self._save_conversations()
-            
+
+            # V25: Extract observations from conversation (async, non-blocking)
+            observations_extracted = 0
+            if user_id and self.cross_modal_aggregator:
+                try:
+                    # Combine question and answer for extraction
+                    conversation_text = f"Patient: {question}\nAssistant: {answer}"
+                    observations = await self.cross_modal_aggregator.process_conversation(
+                        patient_id=user_id,
+                        conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        transcript=conversation_text,
+                        source_type=DataSourceType.WEB_CHAT,
+                        metadata={
+                            "language": source_language,
+                            "speaker_role": "patient"
+                        }
+                    )
+                    observations_extracted = len(observations)
+                    if observations:
+                        logger.info(f"🔍 Extracted {len(observations)} observations from conversation for user {user_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to extract observations: {e}")
+
             return {
                 "status": "success",
                 "answer": answer,
@@ -1116,7 +1287,9 @@ class SimpleRAGPipeline:
                 "sources": sources,
                 "context_used": len(relevant_contexts),
                 "conversation_id": conversation_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "patient_context_used": bool(patient_context),
+                "observations_extracted": observations_extracted
             }
             
         except Exception as e:
@@ -2469,6 +2642,125 @@ class SimpleAdminUI:
                                 outputs=[graphrag_verify_output]
                             )
 
+                # V25: Alerts & Monitoring Tab
+                with gr.TabItem("🚨 Alerts & Monitoring"):
+                    gr.Markdown("## Patient Alerts & Temporal Monitoring")
+                    gr.Markdown("*V25 Longitudinal Patient Context Memory System*")
+
+                    with gr.Tabs():
+                        # Active Alerts Sub-tab
+                        with gr.TabItem("📋 Active Alerts"):
+                            gr.Markdown("### Current Active Alerts")
+
+                            with gr.Row():
+                                alerts_refresh_btn = gr.Button("🔄 Refresh Alerts", variant="primary")
+                                alerts_patient_filter = gr.Textbox(
+                                    label="Filter by Patient ID (optional)",
+                                    placeholder="Leave empty for all patients"
+                                )
+
+                            alerts_table = gr.Dataframe(
+                                headers=["Alert ID", "Patient", "Priority", "Category", "Title", "Created", "Status"],
+                                label="Active Alerts",
+                                interactive=False
+                            )
+
+                            with gr.Row():
+                                with gr.Column():
+                                    alert_id_input = gr.Textbox(label="Alert ID to Act On")
+                                with gr.Column():
+                                    alert_user_input = gr.Textbox(label="Your Name/ID", value="admin")
+
+                            with gr.Row():
+                                acknowledge_btn = gr.Button("✅ Acknowledge", variant="secondary")
+                                resolve_btn = gr.Button("🎯 Resolve", variant="primary")
+                                resolution_notes = gr.Textbox(label="Resolution Notes", placeholder="Optional notes...")
+
+                            alert_action_output = gr.Textbox(label="Action Result", interactive=False)
+
+                            alerts_refresh_btn.click(
+                                fn=self._handle_refresh_alerts,
+                                inputs=[alerts_patient_filter],
+                                outputs=[alerts_table]
+                            )
+
+                            acknowledge_btn.click(
+                                fn=self._handle_acknowledge_alert,
+                                inputs=[alert_id_input, alert_user_input],
+                                outputs=[alert_action_output, alerts_table]
+                            )
+
+                            resolve_btn.click(
+                                fn=self._handle_resolve_alert,
+                                inputs=[alert_id_input, alert_user_input, resolution_notes],
+                                outputs=[alert_action_output, alerts_table]
+                            )
+
+                        # Patient Temporal Analysis Sub-tab
+                        with gr.TabItem("📈 Patient Analysis"):
+                            gr.Markdown("### Temporal Analysis for Patient")
+
+                            with gr.Row():
+                                analysis_patient_id = gr.Textbox(
+                                    label="Patient ID",
+                                    placeholder="Enter patient ID"
+                                )
+                                analysis_days = gr.Slider(
+                                    minimum=7, maximum=365, value=30, step=7,
+                                    label="Analysis Period (days)"
+                                )
+                                run_analysis_btn = gr.Button("🔍 Run Analysis", variant="primary")
+
+                            with gr.Row():
+                                with gr.Column():
+                                    gr.Markdown("#### Symptom Progressions")
+                                    symptom_analysis_output = gr.JSON(label="Symptom Trends")
+                                with gr.Column():
+                                    gr.Markdown("#### Medication Effectiveness")
+                                    medication_analysis_output = gr.JSON(label="Medication Reports")
+
+                            with gr.Row():
+                                gr.Markdown("#### Correlations Detected")
+                            correlations_output = gr.JSON(label="Medication-Symptom Correlations")
+
+                            run_analysis_btn.click(
+                                fn=self._handle_patient_analysis,
+                                inputs=[analysis_patient_id, analysis_days],
+                                outputs=[symptom_analysis_output, medication_analysis_output, correlations_output]
+                            )
+
+                        # Generate Alerts Sub-tab
+                        with gr.TabItem("⚡ Generate Alerts"):
+                            gr.Markdown("### Run Proactive Monitoring")
+
+                            with gr.Row():
+                                monitor_patient_id = gr.Textbox(
+                                    label="Patient ID",
+                                    placeholder="Enter patient ID to monitor"
+                                )
+                                run_monitoring_btn = gr.Button("🔔 Run Monitoring", variant="primary")
+
+                            generated_alerts_output = gr.JSON(label="Generated Alerts")
+
+                            run_monitoring_btn.click(
+                                fn=self._handle_generate_alerts,
+                                inputs=[monitor_patient_id],
+                                outputs=[generated_alerts_output]
+                            )
+
+                        # Alert Summary Sub-tab
+                        with gr.TabItem("📊 Summary"):
+                            gr.Markdown("### Alert Statistics")
+
+                            summary_refresh_btn = gr.Button("🔄 Refresh Summary", variant="primary")
+                            alert_summary_output = gr.JSON(label="Alert Summary")
+
+                            summary_refresh_btn.click(
+                                fn=self._handle_alert_summary,
+                                inputs=[],
+                                outputs=[alert_summary_output]
+                            )
+
             # Refresh documents when the management tab is selected
             tabs.select(
                 fn=self._handle_tab_change,
@@ -3174,6 +3466,276 @@ class SimpleAdminUI:
 
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    # =========================================================================
+    # V25: Alert & Monitoring Handlers
+    # =========================================================================
+
+    def _handle_refresh_alerts(self, patient_filter: str = ""):
+        """Refresh the alerts table."""
+        try:
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.alert_manager:
+                return [["N/A", "N/A", "N/A", "N/A", "Alert system not available", "N/A", "N/A"]]
+
+            import asyncio
+
+            async def get_alerts():
+                if patient_filter and patient_filter.strip():
+                    alerts = await self.rag_pipeline.alert_manager.get_active_alerts(patient_filter.strip())
+                else:
+                    # Get summary to find all patients with alerts
+                    summary = await self.rag_pipeline.alert_manager.get_alert_summary()
+                    alerts = summary.get("recent_alerts", [])
+                return alerts
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            alerts = loop.run_until_complete(get_alerts())
+
+            if not alerts:
+                return [["--", "--", "--", "--", "No active alerts", "--", "--"]]
+
+            # Convert alerts to table rows
+            rows = []
+            for alert in alerts:
+                if hasattr(alert, 'alert_id'):
+                    # MonitoringAlert object
+                    rows.append([
+                        alert.alert_id[:8] + "...",
+                        alert.patient_id,
+                        alert.priority.value if hasattr(alert.priority, 'value') else str(alert.priority),
+                        alert.category,
+                        alert.title[:40] + "..." if len(alert.title) > 40 else alert.title,
+                        alert.created_at.strftime("%Y-%m-%d %H:%M") if hasattr(alert.created_at, 'strftime') else str(alert.created_at),
+                        "Acknowledged" if alert.acknowledged else ("Resolved" if alert.resolved else "Active")
+                    ])
+                elif isinstance(alert, dict):
+                    # Dict format from summary
+                    rows.append([
+                        str(alert.get('alert_id', ''))[:8] + "...",
+                        alert.get('patient_id', 'N/A'),
+                        alert.get('priority', 'N/A'),
+                        alert.get('category', 'N/A'),
+                        str(alert.get('title', ''))[:40],
+                        str(alert.get('created_at', ''))[:16],
+                        alert.get('status', 'Active')
+                    ])
+
+            return rows if rows else [["--", "--", "--", "--", "No alerts found", "--", "--"]]
+
+        except Exception as e:
+            logger.error(f"Error refreshing alerts: {e}")
+            return [["Error", "--", "--", "--", str(e), "--", "--"]]
+
+    def _handle_acknowledge_alert(self, alert_id: str, user: str):
+        """Acknowledge an alert."""
+        try:
+            if not alert_id or not alert_id.strip():
+                return "Please enter an alert ID", self._handle_refresh_alerts("")
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.alert_manager:
+                return "Alert system not available", self._handle_refresh_alerts("")
+
+            import asyncio
+
+            async def acknowledge():
+                return await self.rag_pipeline.alert_manager.acknowledge_alert(
+                    alert_id.strip(),
+                    user.strip() or "admin"
+                )
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(acknowledge())
+
+            if result:
+                return f"Alert {alert_id[:8]}... acknowledged by {user}", self._handle_refresh_alerts("")
+            else:
+                return f"Alert {alert_id[:8]}... not found or already acknowledged", self._handle_refresh_alerts("")
+
+        except Exception as e:
+            logger.error(f"Error acknowledging alert: {e}")
+            return f"Error: {str(e)}", self._handle_refresh_alerts("")
+
+    def _handle_resolve_alert(self, alert_id: str, user: str, notes: str):
+        """Resolve an alert."""
+        try:
+            if not alert_id or not alert_id.strip():
+                return "Please enter an alert ID", self._handle_refresh_alerts("")
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.alert_manager:
+                return "Alert system not available", self._handle_refresh_alerts("")
+
+            import asyncio
+
+            async def resolve():
+                return await self.rag_pipeline.alert_manager.resolve_alert(
+                    alert_id.strip(),
+                    user.strip() or "admin",
+                    notes.strip() if notes else None
+                )
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = loop.run_until_complete(resolve())
+
+            if result:
+                return f"Alert {alert_id[:8]}... resolved by {user}", self._handle_refresh_alerts("")
+            else:
+                return f"Alert {alert_id[:8]}... not found or already resolved", self._handle_refresh_alerts("")
+
+        except Exception as e:
+            logger.error(f"Error resolving alert: {e}")
+            return f"Error: {str(e)}", self._handle_refresh_alerts("")
+
+    def _handle_patient_analysis(self, patient_id: str, days: int):
+        """Run temporal analysis for a patient."""
+        try:
+            if not patient_id or not patient_id.strip():
+                return {"error": "Please enter a patient ID"}, {}, {}
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.temporal_reasoner:
+                return {"error": "Temporal reasoning not available"}, {}, {}
+
+            import asyncio
+
+            async def analyze():
+                symptom_reports = []
+                medication_reports = []
+                correlations = []
+
+                # Get patient record to find symptoms and medications
+                if self.rag_pipeline.longitudinal_manager:
+                    record = await self.rag_pipeline.longitudinal_manager.get_or_create_record(patient_id.strip())
+
+                    symptoms = set()
+                    medications = set()
+                    for obs in record.observations:
+                        if obs.category == "symptom":
+                            symptoms.add(obs.entity_name)
+                        elif obs.category == "medication":
+                            medications.add(obs.entity_name)
+
+                    # Analyze symptoms
+                    for symptom in list(symptoms)[:5]:
+                        report = await self.rag_pipeline.temporal_reasoner.analyze_symptom_progression(
+                            patient_id.strip(), symptom, int(days)
+                        )
+                        if report:
+                            symptom_reports.append(report.to_dict())
+
+                    # Analyze medications
+                    for med in list(medications)[:5]:
+                        report = await self.rag_pipeline.temporal_reasoner.analyze_medication_effectiveness(
+                            patient_id.strip(), med, int(days)
+                        )
+                        if report:
+                            medication_reports.append(report.to_dict())
+
+                    # Get correlations
+                    corr_list = await self.rag_pipeline.temporal_reasoner.find_correlations(
+                        patient_id.strip(), int(days)
+                    )
+                    correlations = [c.to_dict() for c in corr_list[:5]]
+
+                return symptom_reports, medication_reports, correlations
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            symptom_reports, medication_reports, correlations = loop.run_until_complete(analyze())
+
+            return (
+                {"patient_id": patient_id, "symptom_count": len(symptom_reports), "reports": symptom_reports},
+                {"patient_id": patient_id, "medication_count": len(medication_reports), "reports": medication_reports},
+                {"patient_id": patient_id, "correlation_count": len(correlations), "correlations": correlations}
+            )
+
+        except Exception as e:
+            logger.error(f"Error running patient analysis: {e}")
+            return {"error": str(e)}, {}, {}
+
+    def _handle_generate_alerts(self, patient_id: str):
+        """Generate alerts for a patient based on temporal analysis."""
+        try:
+            if not patient_id or not patient_id.strip():
+                return {"error": "Please enter a patient ID"}
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.alert_manager:
+                return {"error": "Alert system not available"}
+
+            import asyncio
+
+            async def generate():
+                alerts = await self.rag_pipeline.alert_manager.generate_alerts_for_patient(patient_id.strip())
+                return [
+                    {
+                        "alert_id": a.alert_id,
+                        "priority": a.priority.value if hasattr(a.priority, 'value') else str(a.priority),
+                        "category": a.category,
+                        "title": a.title,
+                        "description": a.description,
+                        "suggested_actions": a.suggested_actions
+                    }
+                    for a in alerts
+                ]
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            alerts = loop.run_until_complete(generate())
+
+            return {
+                "patient_id": patient_id,
+                "alerts_generated": len(alerts),
+                "alerts": alerts
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating alerts: {e}")
+            return {"error": str(e)}
+
+    def _handle_alert_summary(self):
+        """Get overall alert summary."""
+        try:
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.alert_manager:
+                return {"error": "Alert system not available"}
+
+            import asyncio
+
+            async def get_summary():
+                return await self.rag_pipeline.alert_manager.get_alert_summary()
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            summary = loop.run_until_complete(get_summary())
+            return summary
+
+        except Exception as e:
+            logger.error(f"Error getting alert summary: {e}")
+            return {"error": str(e)}
 
 
 class NgrokManager:
@@ -4765,6 +5327,298 @@ def main():
 
     # ==========================================================================
     # END GRAPHRAG INTEGRATION
+    # ==========================================================================
+
+    # ==========================================================================
+    # V25 TEMPORAL REASONING API ENDPOINTS
+    # ==========================================================================
+
+    @app.get("/api/temporal/health")
+    async def temporal_health():
+        """Check temporal reasoning system health."""
+        if not LONGITUDINAL_MEMORY_AVAILABLE:
+            return JSONResponse({
+                "status": "unavailable",
+                "message": "Longitudinal memory system not installed"
+            }, status_code=503)
+
+        temporal_available = rag_pipeline.temporal_reasoner is not None
+        alert_available = rag_pipeline.alert_manager is not None
+
+        return JSONResponse({
+            "status": "healthy" if temporal_available else "degraded",
+            "components": {
+                "temporal_reasoner": temporal_available,
+                "alert_manager": alert_available,
+                "longitudinal_memory": rag_pipeline.longitudinal_manager is not None,
+                "context_injector": rag_pipeline.context_injector is not None
+            }
+        })
+
+    @app.post("/api/temporal/symptom-progression")
+    async def analyze_symptom_progression(request: Request):
+        """
+        Analyze symptom progression over time.
+
+        Request body:
+        {
+            "patient_id": "patient-123",
+            "symptom_name": "pain",
+            "days": 90  // optional, default 90
+        }
+
+        Returns detailed symptom progression report including:
+        - Trend (worsening, improving, stable)
+        - Severity changes over time
+        - Diurnal and weekly patterns
+        - Medication correlations
+        - Clinical concerns and recommendations
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE or rag_pipeline.temporal_reasoner is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "Temporal reasoning not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            patient_id = body.get("patient_id")
+            symptom_name = body.get("symptom_name")
+            days = body.get("days", 90)
+
+            if not patient_id or not symptom_name:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "patient_id and symptom_name are required"
+                }, status_code=400)
+
+            report = await rag_pipeline.temporal_reasoner.analyze_symptom_progression(
+                patient_id=patient_id,
+                symptom_name=symptom_name,
+                time_window_days=days
+            )
+
+            if report is None:
+                return JSONResponse({
+                    "status": "success",
+                    "result": None,
+                    "message": f"Insufficient data for symptom '{symptom_name}'. Need at least 3 observations."
+                })
+
+            return JSONResponse({
+                "status": "success",
+                "result": report.to_dict()
+            })
+
+        except Exception as e:
+            logger.error(f"Symptom progression analysis error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/temporal/medication-effectiveness")
+    async def analyze_medication_effectiveness(request: Request):
+        """
+        Analyze medication effectiveness.
+
+        Request body:
+        {
+            "patient_id": "patient-123",
+            "medication_name": "morphine",
+            "days": 90  // optional, default 90
+        }
+
+        Returns medication effectiveness report including:
+        - Adherence rate
+        - Symptom response (improvement %)
+        - Target symptoms affected
+        - Missed doses analysis
+        - Rotation recommendations
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE or rag_pipeline.temporal_reasoner is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "Temporal reasoning not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            patient_id = body.get("patient_id")
+            medication_name = body.get("medication_name")
+            days = body.get("days", 90)
+
+            if not patient_id or not medication_name:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "patient_id and medication_name are required"
+                }, status_code=400)
+
+            report = await rag_pipeline.temporal_reasoner.analyze_medication_effectiveness(
+                patient_id=patient_id,
+                medication_name=medication_name,
+                time_window_days=days
+            )
+
+            if report is None:
+                return JSONResponse({
+                    "status": "success",
+                    "result": None,
+                    "message": f"Insufficient data for medication '{medication_name}'."
+                })
+
+            return JSONResponse({
+                "status": "success",
+                "result": report.to_dict()
+            })
+
+        except Exception as e:
+            logger.error(f"Medication effectiveness analysis error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/temporal/correlations")
+    async def find_correlations(request: Request):
+        """
+        Find correlations between medications and symptoms.
+
+        Request body:
+        {
+            "patient_id": "patient-123",
+            "days": 90  // optional, default 90
+        }
+
+        Returns list of detected correlations between
+        medication usage and symptom changes.
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE or rag_pipeline.temporal_reasoner is None:
+            return JSONResponse({
+                "status": "error",
+                "error": "Temporal reasoning not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            patient_id = body.get("patient_id")
+            days = body.get("days", 90)
+
+            if not patient_id:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "patient_id is required"
+                }, status_code=400)
+
+            correlations = await rag_pipeline.temporal_reasoner.find_correlations(
+                patient_id=patient_id,
+                time_window_days=days
+            )
+
+            return JSONResponse({
+                "status": "success",
+                "result": [c.to_dict() for c in correlations],
+                "count": len(correlations)
+            })
+
+        except Exception as e:
+            logger.error(f"Correlation analysis error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/temporal/patient/{patient_id}/summary")
+    async def get_patient_temporal_summary(patient_id: str, days: int = 30):
+        """
+        Get a comprehensive temporal summary for a patient.
+
+        Returns aggregated analysis including:
+        - All symptom trends
+        - Medication effectiveness overview
+        - Key correlations
+        - Active alerts
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            summary = {
+                "patient_id": patient_id,
+                "analysis_period_days": days,
+                "symptom_progressions": [],
+                "medication_reports": [],
+                "correlations": [],
+                "active_alerts": []
+            }
+
+            # Get patient record to find tracked symptoms and medications
+            if rag_pipeline.longitudinal_manager:
+                record = await rag_pipeline.longitudinal_manager.get_or_create_record(patient_id)
+
+                # Find unique symptoms
+                symptoms = set()
+                medications = set()
+                for obs in record.observations:
+                    if obs.category == "symptom":
+                        symptoms.add(obs.entity_name)
+                    elif obs.category == "medication":
+                        medications.add(obs.entity_name)
+
+                # Analyze each symptom
+                if rag_pipeline.temporal_reasoner:
+                    for symptom in list(symptoms)[:5]:  # Limit to top 5
+                        report = await rag_pipeline.temporal_reasoner.analyze_symptom_progression(
+                            patient_id, symptom, days
+                        )
+                        if report:
+                            summary["symptom_progressions"].append(report.to_dict())
+
+                    # Analyze each medication
+                    for med in list(medications)[:5]:  # Limit to top 5
+                        report = await rag_pipeline.temporal_reasoner.analyze_medication_effectiveness(
+                            patient_id, med, days
+                        )
+                        if report:
+                            summary["medication_reports"].append(report.to_dict())
+
+                    # Get correlations
+                    correlations = await rag_pipeline.temporal_reasoner.find_correlations(
+                        patient_id, days
+                    )
+                    summary["correlations"] = [c.to_dict() for c in correlations[:5]]
+
+            # Get active alerts
+            if rag_pipeline.alert_manager:
+                alerts = await rag_pipeline.alert_manager.get_active_alerts(patient_id)
+                summary["active_alerts"] = [
+                    {
+                        "alert_id": a.alert_id,
+                        "alert_type": a.alert_type.value if hasattr(a.alert_type, 'value') else str(a.alert_type),
+                        "severity": a.severity.value if hasattr(a.severity, 'value') else str(a.severity),
+                        "message": a.message,
+                        "created_at": a.created_at.isoformat() if hasattr(a, 'created_at') else None
+                    }
+                    for a in alerts[:10]
+                ]
+
+            return JSONResponse({
+                "status": "success",
+                "result": summary
+            })
+
+        except Exception as e:
+            logger.error(f"Patient temporal summary error: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    # ==========================================================================
+    # END V25 TEMPORAL REASONING API
     # ==========================================================================
 
     # Add WhatsApp webhook routes if bot is configured
