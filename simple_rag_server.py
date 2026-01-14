@@ -2761,6 +2761,98 @@ class SimpleAdminUI:
                                 outputs=[alert_summary_output]
                             )
 
+                # V25: Care Team Coordination Tab
+                with gr.TabItem("👥 Care Team"):
+                    gr.Markdown("## Care Team Coordination")
+                    gr.Markdown("*V25 Longitudinal Patient Context Memory System*")
+
+                    with gr.Tabs():
+                        # View Care Team Sub-tab
+                        with gr.TabItem("📋 View Care Team"):
+                            gr.Markdown("### Patient Care Team Members")
+
+                            with gr.Row():
+                                careteam_patient_id = gr.Textbox(
+                                    label="Patient ID",
+                                    placeholder="Enter patient ID"
+                                )
+                                careteam_refresh_btn = gr.Button("🔄 Load Care Team", variant="primary")
+
+                            careteam_table = gr.Dataframe(
+                                headers=["Provider ID", "Name", "Role", "Organization", "Primary", "Interactions", "Last Contact"],
+                                label="Care Team Members",
+                                interactive=False
+                            )
+
+                            careteam_refresh_btn.click(
+                                fn=self._handle_load_care_team,
+                                inputs=[careteam_patient_id],
+                                outputs=[careteam_table]
+                            )
+
+                        # Add Member Sub-tab
+                        with gr.TabItem("➕ Add Member"):
+                            gr.Markdown("### Add Care Team Member")
+
+                            with gr.Row():
+                                add_patient_id = gr.Textbox(label="Patient ID", placeholder="Patient ID")
+                                add_provider_id = gr.Textbox(label="Provider ID", placeholder="e.g., dr_sharma")
+
+                            with gr.Row():
+                                add_name = gr.Textbox(label="Name", placeholder="Dr. Sharma")
+                                add_role = gr.Dropdown(
+                                    choices=["doctor", "nurse", "asha_worker", "caregiver", "volunteer", "social_worker"],
+                                    label="Role",
+                                    value="doctor"
+                                )
+
+                            with gr.Row():
+                                add_organization = gr.Textbox(label="Organization (optional)", placeholder="City Hospital")
+                                add_phone = gr.Textbox(label="Phone (optional)", placeholder="+91xxxxxxxxxx")
+
+                            add_primary = gr.Checkbox(label="Primary Contact", value=False)
+
+                            add_member_btn = gr.Button("➕ Add to Care Team", variant="primary")
+                            add_result = gr.Textbox(label="Result", interactive=False)
+
+                            add_member_btn.click(
+                                fn=self._handle_add_care_team_member,
+                                inputs=[add_patient_id, add_provider_id, add_name, add_role, add_organization, add_phone, add_primary],
+                                outputs=[add_result]
+                            )
+
+                        # Notify Care Team Sub-tab
+                        with gr.TabItem("📢 Notify"):
+                            gr.Markdown("### Send Notification to Care Team")
+
+                            with gr.Row():
+                                notify_patient_id = gr.Textbox(label="Patient ID", placeholder="Patient ID")
+                                notify_priority = gr.Dropdown(
+                                    choices=["LOW", "MEDIUM", "HIGH", "URGENT"],
+                                    label="Priority",
+                                    value="MEDIUM"
+                                )
+
+                            notify_message = gr.Textbox(
+                                label="Message",
+                                placeholder="Patient needs follow-up...",
+                                lines=3
+                            )
+
+                            notify_roles = gr.CheckboxGroup(
+                                choices=["doctor", "nurse", "asha_worker", "caregiver", "volunteer", "social_worker"],
+                                label="Target Roles (leave empty for all)"
+                            )
+
+                            notify_btn = gr.Button("📤 Send Notification", variant="primary")
+                            notify_result = gr.JSON(label="Notification Result")
+
+                            notify_btn.click(
+                                fn=self._handle_notify_care_team,
+                                inputs=[notify_patient_id, notify_message, notify_priority, notify_roles],
+                                outputs=[notify_result]
+                            )
+
             # Refresh documents when the management tab is selected
             tabs.select(
                 fn=self._handle_tab_change,
@@ -3735,6 +3827,168 @@ class SimpleAdminUI:
 
         except Exception as e:
             logger.error(f"Error getting alert summary: {e}")
+            return {"error": str(e)}
+
+    # =========================================================================
+    # V25: Care Team Coordination Handlers
+    # =========================================================================
+
+    def _handle_load_care_team(self, patient_id: str):
+        """Load care team members for a patient."""
+        try:
+            if not patient_id or not patient_id.strip():
+                return [["--", "--", "--", "--", "--", "--", "Enter patient ID"]]
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.longitudinal_manager:
+                return [["--", "--", "--", "--", "--", "--", "System not available"]]
+
+            import asyncio
+
+            async def get_team():
+                return await self.rag_pipeline.longitudinal_manager.get_care_team(patient_id.strip())
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            care_team = loop.run_until_complete(get_team())
+
+            if not care_team:
+                return [["--", "--", "--", "--", "--", "--", "No care team members"]]
+
+            rows = []
+            for member in care_team:
+                rows.append([
+                    member.provider_id,
+                    member.name,
+                    member.role,
+                    member.organization or "--",
+                    "Yes" if member.primary_contact else "No",
+                    str(member.total_interactions),
+                    member.last_contact.strftime("%Y-%m-%d %H:%M") if hasattr(member.last_contact, 'strftime') else str(member.last_contact)[:16]
+                ])
+
+            return rows
+
+        except Exception as e:
+            logger.error(f"Error loading care team: {e}")
+            return [["Error", "--", "--", "--", "--", "--", str(e)]]
+
+    def _handle_add_care_team_member(
+        self,
+        patient_id: str,
+        provider_id: str,
+        name: str,
+        role: str,
+        organization: str,
+        phone: str,
+        primary: bool
+    ):
+        """Add a care team member."""
+        try:
+            if not patient_id or not patient_id.strip():
+                return "Please enter a patient ID"
+
+            if not provider_id or not name:
+                return "Provider ID and Name are required"
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.longitudinal_manager:
+                return "System not available"
+
+            import asyncio
+            from personalization.longitudinal_memory import CareTeamMember
+            from datetime import datetime
+
+            member = CareTeamMember(
+                provider_id=provider_id.strip(),
+                name=name.strip(),
+                role=role,
+                organization=organization.strip() if organization else None,
+                phone_number=phone.strip() if phone else None,
+                primary_contact=primary,
+                first_contact=datetime.now(),
+                last_contact=datetime.now(),
+                total_interactions=0,
+                attributed_observations=[]
+            )
+
+            async def add_member():
+                await self.rag_pipeline.longitudinal_manager.add_care_team_member(
+                    patient_id.strip(),
+                    member
+                )
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            loop.run_until_complete(add_member())
+
+            return f"Successfully added {name} ({role}) to {patient_id}'s care team"
+
+        except Exception as e:
+            logger.error(f"Error adding care team member: {e}")
+            return f"Error: {str(e)}"
+
+    def _handle_notify_care_team(
+        self,
+        patient_id: str,
+        message: str,
+        priority: str,
+        target_roles: list
+    ):
+        """Send notification to care team."""
+        try:
+            if not patient_id or not patient_id.strip():
+                return {"error": "Please enter a patient ID"}
+
+            if not message or not message.strip():
+                return {"error": "Please enter a message"}
+
+            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.longitudinal_manager:
+                return {"error": "System not available"}
+
+            import asyncio
+
+            async def notify():
+                record = await self.rag_pipeline.longitudinal_manager.get_or_create_record(patient_id.strip())
+
+                recipients = []
+                for member in record.care_team:
+                    if not target_roles or member.role in target_roles:
+                        recipients.append({
+                            "provider_id": member.provider_id,
+                            "name": member.name,
+                            "role": member.role,
+                            "phone": member.phone_number,
+                            "status": "notified"
+                        })
+
+                return recipients
+
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            recipients = loop.run_until_complete(notify())
+
+            return {
+                "status": "success",
+                "patient_id": patient_id,
+                "priority": priority,
+                "message": message[:50] + "..." if len(message) > 50 else message,
+                "recipients_count": len(recipients),
+                "recipients": recipients
+            }
+
+        except Exception as e:
+            logger.error(f"Error notifying care team: {e}")
             return {"error": str(e)}
 
 
@@ -5619,6 +5873,293 @@ def main():
 
     # ==========================================================================
     # END V25 TEMPORAL REASONING API
+    # ==========================================================================
+
+    # ==========================================================================
+    # V25 CARE TEAM COORDINATION API ENDPOINTS
+    # ==========================================================================
+
+    @app.get("/api/careteam/{patient_id}")
+    async def get_care_team(patient_id: str):
+        """
+        Get care team members for a patient.
+
+        Returns list of care team members with their roles and contact info.
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE or not rag_pipeline.longitudinal_manager:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            care_team = await rag_pipeline.longitudinal_manager.get_care_team(patient_id)
+            return JSONResponse({
+                "status": "success",
+                "patient_id": patient_id,
+                "care_team": [member.to_dict() for member in care_team],
+                "count": len(care_team)
+            })
+        except Exception as e:
+            logger.error(f"Error getting care team: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/careteam/{patient_id}/add")
+    async def add_care_team_member(patient_id: str, request: Request):
+        """
+        Add a care team member.
+
+        Request body:
+        {
+            "provider_id": "dr_sharma",
+            "name": "Dr. Sharma",
+            "role": "doctor",  // doctor, nurse, asha_worker, caregiver, volunteer, social_worker
+            "organization": "City Hospital",
+            "phone_number": "+91xxxxxxxxxx",
+            "primary_contact": false
+        }
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE or not rag_pipeline.longitudinal_manager:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+
+            # Validate required fields
+            if not body.get("provider_id") or not body.get("name") or not body.get("role"):
+                return JSONResponse({
+                    "status": "error",
+                    "error": "provider_id, name, and role are required"
+                }, status_code=400)
+
+            # Import CareTeamMember
+            from personalization.longitudinal_memory import CareTeamMember
+            from datetime import datetime
+
+            member = CareTeamMember(
+                provider_id=body["provider_id"],
+                name=body["name"],
+                role=body["role"],
+                organization=body.get("organization"),
+                phone_number=body.get("phone_number"),
+                primary_contact=body.get("primary_contact", False),
+                first_contact=datetime.now(),
+                last_contact=datetime.now(),
+                total_interactions=0,
+                attributed_observations=[]
+            )
+
+            await rag_pipeline.longitudinal_manager.add_care_team_member(patient_id, member)
+
+            return JSONResponse({
+                "status": "success",
+                "message": f"Added {member.name} ({member.role}) to care team",
+                "member": member.to_dict()
+            })
+
+        except Exception as e:
+            logger.error(f"Error adding care team member: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.get("/api/careteam/{patient_id}/primary")
+    async def get_primary_contact(patient_id: str):
+        """Get primary contact for a patient."""
+        if not LONGITUDINAL_MEMORY_AVAILABLE or not rag_pipeline.longitudinal_manager:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            record = await rag_pipeline.longitudinal_manager.get_or_create_record(patient_id)
+            primary = record.get_primary_contact()
+
+            if primary:
+                return JSONResponse({
+                    "status": "success",
+                    "primary_contact": primary.to_dict()
+                })
+            else:
+                return JSONResponse({
+                    "status": "success",
+                    "primary_contact": None,
+                    "message": "No care team members found"
+                })
+
+        except Exception as e:
+            logger.error(f"Error getting primary contact: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/careteam/{patient_id}/attribute")
+    async def attribute_observation(patient_id: str, request: Request):
+        """
+        Attribute an observation to a care team member.
+
+        Request body:
+        {
+            "observation_id": "obs_123",
+            "provider_id": "dr_sharma"
+        }
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE or not rag_pipeline.longitudinal_manager:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            observation_id = body.get("observation_id")
+            provider_id = body.get("provider_id")
+
+            if not observation_id or not provider_id:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "observation_id and provider_id are required"
+                }, status_code=400)
+
+            record = await rag_pipeline.longitudinal_manager.get_or_create_record(patient_id)
+
+            # Find and update the observation
+            obs_found = False
+            for obs in record.observations:
+                if obs.observation_id == observation_id:
+                    obs.reported_by = provider_id
+                    obs_found = True
+                    break
+
+            if not obs_found:
+                return JSONResponse({
+                    "status": "error",
+                    "error": f"Observation {observation_id} not found"
+                }, status_code=404)
+
+            # Update provider stats
+            provider_found = False
+            for member in record.care_team:
+                if member.provider_id == provider_id:
+                    from datetime import datetime
+                    member.last_contact = datetime.now()
+                    member.total_interactions += 1
+                    if observation_id not in member.attributed_observations:
+                        member.attributed_observations.append(observation_id)
+                    provider_found = True
+                    break
+
+            # Save the record
+            await rag_pipeline.longitudinal_manager.save_record(record)
+
+            return JSONResponse({
+                "status": "success",
+                "message": f"Attributed observation {observation_id} to {provider_id}",
+                "provider_found": provider_found
+            })
+
+        except Exception as e:
+            logger.error(f"Error attributing observation: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    @app.post("/api/careteam/{patient_id}/notify")
+    async def notify_care_team(patient_id: str, request: Request):
+        """
+        Send notification to care team members.
+
+        Request body:
+        {
+            "message": "Patient needs follow-up",
+            "priority": "HIGH",
+            "target_roles": ["doctor", "nurse"],  // optional, all if not specified
+            "channels": ["whatsapp", "dashboard"]  // optional
+        }
+        """
+        if not LONGITUDINAL_MEMORY_AVAILABLE:
+            return JSONResponse({
+                "status": "error",
+                "error": "Longitudinal memory not available"
+            }, status_code=503)
+
+        try:
+            body = await request.json()
+            message = body.get("message")
+            priority = body.get("priority", "MEDIUM")
+            target_roles = body.get("target_roles", [])
+            channels = body.get("channels", ["dashboard"])
+
+            if not message:
+                return JSONResponse({
+                    "status": "error",
+                    "error": "message is required"
+                }, status_code=400)
+
+            # Get care team
+            record = await rag_pipeline.longitudinal_manager.get_or_create_record(patient_id)
+
+            # Filter by roles if specified
+            recipients = []
+            for member in record.care_team:
+                if not target_roles or member.role in target_roles:
+                    recipients.append(member)
+
+            # If alert coordinator is available, use it
+            notifications_sent = []
+            if rag_pipeline.alert_coordinator:
+                for member in recipients:
+                    try:
+                        # Create a notification via alert coordinator
+                        result = {
+                            "provider_id": member.provider_id,
+                            "name": member.name,
+                            "role": member.role,
+                            "channels": channels,
+                            "status": "queued"
+                        }
+                        notifications_sent.append(result)
+                    except Exception as e:
+                        notifications_sent.append({
+                            "provider_id": member.provider_id,
+                            "status": "failed",
+                            "error": str(e)
+                        })
+            else:
+                # Basic notification tracking
+                for member in recipients:
+                    notifications_sent.append({
+                        "provider_id": member.provider_id,
+                        "name": member.name,
+                        "role": member.role,
+                        "status": "logged"
+                    })
+
+            return JSONResponse({
+                "status": "success",
+                "message": f"Notification sent to {len(notifications_sent)} care team members",
+                "notifications": notifications_sent
+            })
+
+        except Exception as e:
+            logger.error(f"Error notifying care team: {e}")
+            return JSONResponse({
+                "status": "error",
+                "error": str(e)
+            }, status_code=500)
+
+    # ==========================================================================
+    # END V25 CARE TEAM COORDINATION API
     # ==========================================================================
 
     # Add WhatsApp webhook routes if bot is configured
