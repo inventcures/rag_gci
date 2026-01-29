@@ -1,26 +1,72 @@
 {
-  "684e67af457cd9d3d482f4451acb42ae": {
-    "file_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/722d17d956fc7757fde5f31011343fbf99db671694fd9b356d7442234dafd89d/pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
-    "filename": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
-    "chunk_count": 35,
-    "page_count": 13,
+  "cb70c2c8d41c6eff955b2394f276cac2": {
+    "file_path": "data/documents/20250919_120119_tmpan6jo9na.md",
+    "original_path": "/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/tmpan6jo9na.md",
+    "filename": "tmpan6jo9na.md",
+    "chunk_count": 1,
+    "page_count": 1,
     "metadata": {},
-    "indexed_at": "2025-05-26T13:27:47.369818"
+    "indexed_at": "2025-09-19T12:01:19.639354",
+    "stored_permanently": true
   },
-  "789793faf0aa1538144e84c541e5f02d": {
-    "file_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/22aa8e8e7838ec41dd766629d15f3fe0e97d5d3945b207afa927a04432f5f3dd/NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
-    "filename": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
-    "chunk_count": 106,
-    "page_count": 48,
+  "3829b28a0374bcc62c51e14ea847743f": {
+    "file_path": "data/documents/20250919_120153_20250919_120119_tmpan6jo9na.md",
+    "original_path": "data/documents/20250919_120119_tmpan6jo9na.md",
+    "filename": "20250919_120119_tmpan6jo9na.md",
+    "chunk_count": 1,
+    "page_count": 1,
     "metadata": {},
-    "indexed_at": "2025-05-26T13:27:49.776204"
+    "indexed_at": "2025-09-19T12:01:53.479874",
+    "stored_permanently": true
   },
-  "529c537fc9e16a831b2d9f246ecb7e36": {
-    "file_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/dcec4429a9822b89ac178c0571eded455473a56fdc8c7521fd26ac8fa5f5d256/Neurosurgery-AGuidebook18-5-2018.pdf",
+  "d7d6edd6b5d39e5c60db2d88771eedef": {
+    "file_path": "data/documents/20250919_121331_Neurosurgery-AGuidebook18-5-2018.pdf",
+    "original_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/dcec4429a9822b89ac178c0571eded455473a56fdc8c7521fd26ac8fa5f5d256/Neurosurgery-AGuidebook18-5-2018.pdf",
     "filename": "Neurosurgery-AGuidebook18-5-2018.pdf",
     "chunk_count": 122,
     "page_count": 82,
     "metadata": {},
-    "indexed_at": "2025-05-26T14:10:25.513862"
+    "indexed_at": "2025-09-19T12:13:33.858878",
+    "stored_permanently": true
+  },
+  "9e949e0cba0ad7aa601fa27d52c1b625": {
+    "file_path": "data/documents/20250919_121333_NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+    "original_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/22aa8e8e7838ec41dd766629d15f3fe0e97d5d3945b207afa927a04432f5f3dd/NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+    "filename": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+    "chunk_count": 106,
+    "page_count": 48,
+    "metadata": {},
+    "indexed_at": "2025-09-19T12:13:35.313876",
+    "stored_permanently": true
+  },
+  "26743b42f2219bb0f0739f6945c01ad4": {
+    "file_path": "data/documents/20250919_121412_pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+    "original_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/722d17d956fc7757fde5f31011343fbf99db671694fd9b356d7442234dafd89d/pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+    "filename": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+    "chunk_count": 35,
+    "page_count": 13,
+    "metadata": {},
+    "indexed_at": "2025-09-19T12:14:12.918144",
+    "stored_permanently": true
+  },
+  "b3a7a99b6e66cdeedce964a8eb27a0b8": {
+    "file_path": "data/documents/20250919_121433_complete-textbook__Textbook_IndianPrimer.pdf",
+    "original_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/68a915ed54d96aadcf8bd4fe502ecc91fa64f7f74d8a78040c1160e7fa7b46ef/complete-textbook__Textbook_IndianPrimer.pdf",
+    "filename": "complete-textbook__Textbook_IndianPrimer.pdf",
+    "chunk_count": 342,
+    "page_count": 158,
+    "metadata": {},
+    "indexed_at": "2025-09-19T12:14:37.488806",
+    "stored_permanently": true
+  },
+  "57e38c4b8825dfdbf89b71e66f97b7bb": {
+    "file_path": "data/documents/20250919_121502_Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+    "original_path": "/private/var/folders/9f/bs44502j2kj345d1c2rq1_nr0000gn/T/gradio/a6c3b209b06aee75bf974c2993a7e367c5a2d0e1a8ef39ec57f7e27a275896a9/Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+    "filename": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+    "chunk_count": 419,
+    "page_count": 123,
+    "metadata": {},
+    "indexed_at": "2025-09-19T12:15:06.948147",
+    "stored_permanently": true
   }
 }

@@ -288,6 +288,47 @@ class RetellCustomLLMHandler:
                 content_complete=True
             )
             return
+        
+        # =================================================================
+        # VOICE SAFETY CHECK - Emergency & Handoff Detection
+        # =================================================================
+        try:
+            from voice_safety_wrapper import get_voice_safety_wrapper
+            safety_wrapper = get_voice_safety_wrapper()
+            
+            safety_result = await safety_wrapper.check_voice_query(
+                user_id=session.from_number or session.call_id,
+                transcript=user_query,
+                language=session.language,
+                call_id=session.call_id,
+                conversation_history=transcript
+            )
+            
+            if safety_result.should_escalate:
+                logger.warning(f"🚨 Voice safety escalation in Retell: {safety_result.event_type}")
+                
+                # Send safety response
+                await self._send_response(
+                    session.websocket,
+                    response_id,
+                    safety_result.safety_message,
+                    content_complete=True
+                )
+                
+                # Handle escalation actions
+                await safety_wrapper.handle_voice_escalation(
+                    safety_result, provider="retell"
+                )
+                
+                logger.info("=" * 60)
+                return
+            
+            # Update query if modified
+            if safety_result.modified_transcript:
+                user_query = safety_result.modified_transcript
+                
+        except Exception as e:
+            logger.error(f"Voice safety check error in Retell (proceeding): {e}")
 
         # Check for out-of-scope queries
         if self.query_classifier:
@@ -330,10 +371,34 @@ class RetellCustomLLMHandler:
                 if result.get("status") == "success":
                     answer = result.get("answer", "")
                     sources = result.get("sources", [])
-
-                    # Truncate for voice (keep it concise)
-                    if len(answer) > 500:
-                        answer = answer[:500] + "..."
+                    
+                    # =================================================================
+                    # VOICE OPTIMIZATION & SAFETY
+                    # =================================================================
+                    try:
+                        from voice_safety_wrapper import get_voice_safety_wrapper
+                        safety_wrapper = get_voice_safety_wrapper()
+                        
+                        # Optimize for voice output
+                        answer = safety_wrapper.optimize_for_voice(
+                            answer,
+                            user_id=session.from_number or session.call_id,
+                            language=session.language,
+                            max_duration_seconds=30
+                        )
+                        
+                        # Add evidence warning if needed
+                        evidence_badge = result.get("safety_enhancements", {}).get("evidence_badge")
+                        if evidence_badge:
+                            answer = safety_wrapper.add_evidence_to_voice(
+                                answer, evidence_badge, session.language
+                            )
+                            
+                    except Exception as e:
+                        logger.warning(f"Voice optimization error (proceeding): {e}")
+                        # Fallback: simple truncation
+                        if len(answer) > 500:
+                            answer = answer[:500] + "..."
 
                     # Log success
                     source_names = ", ".join([

@@ -28,6 +28,29 @@ import edge_tts
 # Import the smart clarification system
 from smart_clarification_system import SmartClarificationSystem, ClarityLevel
 
+# Import Safety Enhancements
+try:
+    from safety_enhancements import (
+        SafetyEnhancementsManager,
+        get_safety_manager,
+        MedicationReminderScheduler,
+        HandoffReason,
+    )
+    SAFETY_ENHANCEMENTS_AVAILABLE = True
+except ImportError:
+    SAFETY_ENHANCEMENTS_AVAILABLE = False
+    HandoffReason = None
+
+# Import Medication Voice Reminders
+try:
+    from medication_voice_reminders import (
+        MedicationVoiceReminderSystem,
+        get_medication_voice_reminder_system,
+    )
+    MEDICATION_VOICE_AVAILABLE = True
+except ImportError:
+    MEDICATION_VOICE_AVAILABLE = False
+
 # Import Gemini Live API integration
 try:
     from gemini_live import (
@@ -504,6 +527,29 @@ class EnhancedWhatsAppBot:
 
         # Simple conversation history (last 5 messages per user)
         self.conversation_history = {}
+        
+        # Initialize Safety Enhancements
+        self.safety_manager = None
+        self.reminder_scheduler = None
+        if SAFETY_ENHANCEMENTS_AVAILABLE:
+            try:
+                self.safety_manager = get_safety_manager()
+                self.reminder_scheduler = MedicationReminderScheduler()
+                logger.info("✅ Safety enhancements initialized in WhatsApp bot")
+            except Exception as e:
+                logger.warning(f"Failed to initialize safety enhancements: {e}")
+        
+        # Initialize Medication Voice Reminders
+        self.voice_reminder_system = None
+        if MEDICATION_VOICE_AVAILABLE:
+            try:
+                self.voice_reminder_system = get_medication_voice_reminder_system()
+                # Set up callbacks
+                self.voice_reminder_system.on_patient_confirmed = self._on_medication_confirmed
+                self.voice_reminder_system.on_call_failed = self._on_medication_call_failed
+                logger.info("✅ Medication voice reminder system initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize voice reminders: {e}")
 
         # Initialize Gemini Live service (if available and enabled)
         self.gemini_live_enabled = False
@@ -723,17 +769,39 @@ class EnhancedWhatsAppBot:
             await self._send_error_message(from_number)
     
     async def _handle_twilio_text_message(self, from_number: str, text: str):
-        """Handle text message from Twilio with smart clarification"""
+        """Handle text message from Twilio with smart clarification and safety enhancements"""
         try:
             if not text:
                 return
 
             # Check for special commands
-            if text.lower().startswith("/lang"):
+            text_lower = text.lower().strip()
+            
+            if text_lower.startswith("/lang"):
                 await self._handle_language_command(text, from_number)
                 return
-            elif text.lower() in ["/skip", "/clear", "/cancel"]:
+            elif text_lower in ["/skip", "/clear", "/cancel"]:
                 await self._handle_clarification_command(text, from_number)
+                return
+            
+            # MEDICATION REMINDER COMMANDS
+            elif text_lower.startswith("/remind") or text_lower.startswith("/setreminder"):
+                await self._handle_medication_reminder_command(text, from_number)
+                return
+            elif text_lower == "/myreminders":
+                await self._handle_list_reminders_command(from_number)
+                return
+            elif text_lower.startswith("/deletereminder"):
+                await self._handle_delete_reminder_command(text, from_number)
+                return
+            elif text_lower == "/help":
+                await self._send_help_message(from_number)
+                return
+            elif text_lower == "/human" or text_lower == "/talktohuman":
+                await self._handle_human_handoff_request(from_number, text)
+                return
+            elif text_lower == "taken":
+                await self._handle_medication_taken(from_number)
                 return
             
             # Update conversation history
@@ -1583,3 +1651,331 @@ Example: /lang hi"""
         """Send generic error message"""
         msg = "Sorry, I'm experiencing technical difficulties. Please try again later."
         await self.twilio_api.send_text_message(from_number, msg)
+
+    # =========================================================================
+    # SAFETY ENHANCEMENTS - Command Handlers
+    # =========================================================================
+    
+    async def _handle_medication_reminder_command(self, from_number: str, text: str):
+        """Handle /remind command to set up medication reminders"""
+        if not self.reminder_scheduler:
+            await self.twilio_api.send_text_message(
+                from_number,
+                "Medication reminder feature is not available right now. Please try again later."
+            )
+            return
+        
+        try:
+            # Parse command: /remind <medication> <time> <dosage>
+            # Example: /remind Paracetamol 08:00,20:00 500mg after food
+            parts = text.split(maxsplit=3)
+            if len(parts) < 3:
+                help_msg = """💊 Medication Reminder Setup
+
+Usage: /remind <medication_name> <times> <dosage> [instructions]
+
+Examples:
+• /remind Paracetamol 08:00,20:00 500mg after food
+• /remind Morphine 08:00,14:00,20:00 10mg with water
+• /remind Ondansetron 06:00,18:00 4mg before meals
+
+Times should be in 24-hour format (HH:MM) separated by commas."""
+                await self.twilio_api.send_text_message(from_number, help_msg)
+                return
+            
+            _, medication, times_str, *rest = parts
+            dosage_and_instructions = rest[0] if rest else ""
+            
+            # Parse times
+            times = [t.strip() for t in times_str.split(",")]
+            
+            # Get user language
+            user_lang = self.user_preferences.get(from_number, {}).get("language", "en")
+            
+            # Create reminder
+            reminder = self.reminder_scheduler.create_reminder(
+                user_id=from_number,
+                medication_name=medication,
+                dosage=dosage_and_instructions,
+                frequency="daily" if len(times) >= 1 else "custom",
+                times=times,
+                instructions="",
+                language=user_lang
+            )
+            
+            # Also set up voice call reminders if available
+            voice_reminders_set = []
+            if self.voice_reminder_system and from_number.startswith("+"):
+                try:
+                    for time_str in times:
+                        # Parse time and create voice reminder
+                        hour, minute = map(int, time_str.split(':'))
+                        reminder_time = datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
+                        if reminder_time < datetime.now():
+                            reminder_time += timedelta(days=1)  # Schedule for tomorrow
+                        
+                        voice_reminder = self.voice_reminder_system.create_voice_reminder(
+                            user_id=from_number,
+                            phone_number=from_number,
+                            medication_name=medication,
+                            dosage=dosage_and_instructions,
+                            reminder_time=reminder_time,
+                            language=user_lang,
+                            preferred_provider="bolna"
+                        )
+                        voice_reminders_set.append(time_str)
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to create voice reminder: {e}")
+            
+            # Send confirmation
+            times_formatted = ", ".join(times)
+            confirm_msg = f"""✅ Medication Reminder Set!
+
+💊 {medication}
+🕐 Times: {times_formatted}
+📋 Dosage: {dosage_and_instructions}
+
+I'll remind you when it's time to take your medication.
+Reply 'TAKEN' after taking it."""
+            
+            # Add voice call info if set up
+            if voice_reminders_set:
+                confirm_msg += f"\n\n📞 Voice call reminders also set up for: {', '.join(voice_reminders_set)}"
+            
+            confirm_msg += f"""\n\nTo view all reminders: /myreminders
+To delete: /deletereminder {reminder.reminder_id}"""
+            
+            await self.twilio_api.send_text_message(from_number, confirm_msg)
+            logger.info(f"Created medication reminder {reminder.reminder_id} for {from_number}")
+            
+        except Exception as e:
+            logger.error(f"Error creating medication reminder: {e}")
+            await self.twilio_api.send_text_message(
+                from_number,
+                "Sorry, I couldn't set up that reminder. Please check the format and try again."
+            )
+    
+    async def _handle_list_reminders_command(self, from_number: str):
+        """Handle /myreminders command to list all reminders"""
+        if not self.reminder_scheduler:
+            await self.twilio_api.send_text_message(
+                from_number,
+                "Medication reminder feature is not available right now."
+            )
+            return
+        
+        try:
+            reminders = self.reminder_scheduler.get_user_reminders(from_number)
+            
+            if not reminders:
+                await self.twilio_api.send_text_message(
+                    from_number,
+                    "💊 You don't have any medication reminders set up.\n\nTo create one:\n/remind <medication> <times> <dosage>"
+                )
+                return
+            
+            lines = ["💊 Your Medication Reminders\n"]
+            for i, r in enumerate(reminders, 1):
+                times = ", ".join(r.scheduled_times)
+                status = "✅ Active" if r.active else "⏸️ Paused"
+                lines.append(f"{i}. {r.medication_name}")
+                lines.append(f"   🕐 {times}")
+                lines.append(f"   📋 {r.dosage}")
+                lines.append(f"   {status} (ID: {r.reminder_id[:8]}...)")
+                lines.append("")
+            
+            lines.append("To delete a reminder:\n/deletereminder <ID>")
+            
+            message = "\n".join(lines)
+            message = self._ensure_whatsapp_length_limit(message)
+            await self.twilio_api.send_text_message(from_number, message)
+            
+        except Exception as e:
+            logger.error(f"Error listing reminders: {e}")
+            await self.twilio_api.send_text_message(from_number, "Sorry, I couldn't retrieve your reminders.")
+    
+    async def _handle_delete_reminder_command(self, from_number: str, text: str):
+        """Handle /deletereminder command"""
+        if not self.reminder_scheduler:
+            await self.twilio_api.send_text_message(
+                from_number,
+                "Medication reminder feature is not available right now."
+            )
+            return
+        
+        try:
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2:
+                await self.twilio_api.send_text_message(
+                    from_number,
+                    "Usage: /deletereminder <reminder_id>\n\nUse /myreminders to see your reminder IDs."
+                )
+                return
+            
+            reminder_id = parts[1].strip()
+            
+            # Try to delete
+            success = self.reminder_scheduler.delete_reminder(reminder_id)
+            
+            if success:
+                await self.twilio_api.send_text_message(
+                    from_number,
+                    "✅ Medication reminder deleted successfully."
+                )
+            else:
+                await self.twilio_api.send_text_message(
+                    from_number,
+                    "❌ Could not find that reminder. Please check the ID using /myreminders"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error deleting reminder: {e}")
+            await self.twilio_api.send_text_message(from_number, "Sorry, I couldn't delete that reminder.")
+    
+    async def _handle_medication_taken(self, from_number: str):
+        """Handle 'TAKEN' response after reminder"""
+        if not self.reminder_scheduler:
+            return
+        
+        try:
+            # Find the most recent reminder for this user
+            reminders = self.reminder_scheduler.get_user_reminders(from_number)
+            
+            if not reminders:
+                await self.twilio_api.send_text_message(
+                    from_number,
+                    "I don't see any active reminders for you. Use /myreminders to check."
+                )
+                return
+            
+            # Find the reminder that was most recently triggered
+            recent_reminder = None
+            for r in reminders:
+                if r.last_reminded:
+                    if not recent_reminder or r.last_reminded > recent_reminder.last_reminded:
+                        recent_reminder = r
+            
+            if recent_reminder:
+                self.reminder_scheduler.mark_taken(recent_reminder.reminder_id)
+                
+                # Calculate adherence
+                total_scheduled = len(recent_reminder.taken_history) + 1
+                taken_count = len(recent_reminder.taken_history)
+                
+                msg = f"✅ Great! I've recorded that you took your {recent_reminder.medication_name}."
+                if total_scheduled > 1:
+                    adherence = (taken_count / total_scheduled) * 100
+                    msg += f"\n📊 Your adherence: {adherence:.0f}%"
+                
+                await self.twilio_api.send_text_message(from_number, msg)
+            else:
+                await self.twilio_api.send_text_message(from_number, "✅ Recorded!")
+                
+        except Exception as e:
+            logger.error(f"Error marking medication taken: {e}")
+    
+    async def _handle_human_handoff_request(self, from_number: str, text: str):
+        """Handle request to talk to a human"""
+        if not self.safety_manager:
+            await self.twilio_api.send_text_message(
+                from_number,
+                "I'm connecting you to a human caregiver. Someone will contact you shortly."
+            )
+            return
+        
+        try:
+            # Get conversation history
+            history = []
+            if from_number in self.conversation_history:
+                history = [{"message": m} for m in self.conversation_history[from_number][-10:]]
+            
+            # Create handoff request
+            handoff = self.safety_manager.handoff_system.create_handoff_request(
+                user_id=from_number,
+                reason=HandoffReason.USER_REQUEST,
+                context="User requested to speak with a human",
+                conversation_history=history,
+                priority="medium"
+            )
+            
+            # Send confirmation
+            message = self.safety_manager.handoff_system.get_handoff_message(handoff, "en")
+            await self.twilio_api.send_text_message(from_number, message)
+            
+            logger.info(f"Human handoff requested by {from_number}, request ID: {handoff.request_id}")
+            
+        except Exception as e:
+            logger.error(f"Error creating handoff request: {e}")
+            await self.twilio_api.send_text_message(
+                from_number,
+                "I'm having trouble connecting you right now. Please call your care team directly."
+            )
+    
+    async def _send_help_message(self, from_number: str):
+        """Send help message with available commands"""
+        help_text = """🙏 Welcome to Palli Sahayak!
+
+I can help you with palliative care information and reminders.
+
+📱 Commands:
+• Ask any question - I'll search medical documents
+• /lang <code> - Set language (hi, en, bn, ta, gu)
+• /remind <med> <times> <dose> - Set medication reminder
+• /myreminders - View your reminders
+• /deletereminder <id> - Delete a reminder
+• /human - Talk to a human caregiver
+• /help - Show this message
+
+📞 Voice Call Reminders:
+When you set a medication reminder, I'll also call you at the scheduled time to remind you to take your medicine. You can confirm by pressing 1 or saying "yes".
+
+🎙️ You can also send voice messages!
+
+For emergencies, call 108 or 102 immediately."""
+        
+        await self.twilio_api.send_text_message(from_number, help_text)
+
+
+# =========================================================================
+# MEDICATION VOICE REMINDER CALLBACKS
+# =========================================================================
+
+async def _on_medication_confirmed(self, reminder):
+    """Callback when patient confirms taking medication via voice call"""
+    try:
+        message = f"""✅ Voice Confirmation Received
+
+Thank you for confirming that you took your {reminder.medication_name}.
+
+Keep up the good work with your medication schedule! 💊"""
+        
+        await self.twilio_api.send_text_message(reminder.user_id, message)
+        logger.info(f"Voice confirmation received for {reminder.medication_name} from {reminder.user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error sending confirmation message: {e}")
+
+
+async def _on_medication_call_failed(self, reminder):
+    """Callback when voice call fails"""
+    try:
+        message = f"""⚠️ Medication Reminder Call
+
+We tried calling you to remind you about your {reminder.medication_name}, but couldn't reach you.
+
+Please take your medication if you haven't already:
+📋 {reminder.dosage}
+
+Reply 'TAKEN' after taking it."""
+        
+        await self.twilio_api.send_text_message(reminder.user_id, message)
+        logger.warning(f"Voice call failed for {reminder.medication_name} to {reminder.user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error sending failed call message: {e}")
+
+
+# Add callbacks to class
+EnhancedWhatsAppBot._on_medication_confirmed = _on_medication_confirmed
+EnhancedWhatsAppBot._on_medication_call_failed = _on_medication_call_failed

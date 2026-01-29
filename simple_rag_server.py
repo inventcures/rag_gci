@@ -140,6 +140,26 @@ import docx
 from pathlib import Path
 import tempfile
 
+# Safety Enhancements Module
+try:
+    from safety_enhancements import (
+        SafetyEnhancementsManager,
+        get_safety_manager,
+        EvidenceBadge,
+        EvidenceLevel,
+        EmergencyAlert,
+        EmergencyLevel,
+        HandoffRequest,
+        HandoffReason,
+        MedicationReminder,
+        ResponseLengthOptimizer,
+    )
+    SAFETY_ENHANCEMENTS_AVAILABLE = True
+except ImportError as e:
+    SAFETY_ENHANCEMENTS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Safety enhancements module not available: {e}")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1103,8 +1123,42 @@ class SimpleRAGPipeline:
     
     async def query(self, question: str, conversation_id: Optional[str] = None, 
                    user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en") -> Dict[str, Any]:
-        """Query the RAG pipeline"""
+        """Query the RAG pipeline with safety enhancements"""
         try:
+            # =================================================================
+            # SAFETY ENHANCEMENTS: Pre-processing checks
+            # =================================================================
+            safety_result = None
+            if SAFETY_ENHANCEMENTS_AVAILABLE and user_id:
+                safety_manager = get_safety_manager()
+                conversation_history = self.conversations.get(conversation_id, []) if conversation_id else []
+                safety_result = await safety_manager.process_query(
+                    user_id=user_id,
+                    query=question,
+                    language=source_language,
+                    conversation_history=conversation_history
+                )
+                
+                # Handle emergency or handoff
+                if not safety_result["should_respond"]:
+                    response_parts = []
+                    if "emergency" in safety_result["response_additions"]:
+                        response_parts.append(safety_result["response_additions"]["emergency"])
+                    if "emergency_actions" in safety_result["response_additions"]:
+                        response_parts.append(f"\nActions:\n{safety_result['response_additions']['emergency_actions']}")
+                    if "handoff" in safety_result["response_additions"]:
+                        response_parts.append(safety_result["response_additions"]["handoff"])
+                    
+                    return {
+                        "status": "safety_escalation",
+                        "answer": "\n\n".join(response_parts),
+                        "emergency_alert": safety_result.get("emergency_alert"),
+                        "handoff_request": safety_result.get("handoff_request"),
+                        "sources": [],
+                        "conversation_id": conversation_id,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+            
             # Check if we have any documents indexed
             total_docs = len(self.document_metadata)
             logger.info(f"Query: '{question}' - Total documents in metadata: {total_docs}")
@@ -1281,6 +1335,26 @@ class SimpleRAGPipeline:
                 except Exception as e:
                     logger.warning(f"Failed to extract observations: {e}")
 
+            # =================================================================
+            # SAFETY ENHANCEMENTS: Post-processing
+            # =================================================================
+            
+            # 1. Add evidence badge
+            if SAFETY_ENHANCEMENTS_AVAILABLE:
+                safety_manager = get_safety_manager()
+                answer = safety_manager.add_evidence_badge(
+                    query=question,
+                    sources=sources,
+                    distances=distances,
+                    answer=answer,
+                    language=source_language
+                )
+            
+            # 2. Optimize response length for user comprehension
+            if SAFETY_ENHANCEMENTS_AVAILABLE and user_id:
+                safety_manager = get_safety_manager()
+                answer = safety_manager.optimize_response(answer, user_id)
+            
             return {
                 "status": "success",
                 "answer": answer,
@@ -1290,7 +1364,11 @@ class SimpleRAGPipeline:
                 "conversation_id": conversation_id,
                 "timestamp": datetime.now().isoformat(),
                 "patient_context_used": bool(patient_context),
-                "observations_extracted": observations_extracted
+                "observations_extracted": observations_extracted,
+                "safety_enhancements": {
+                    "evidence_badge": SAFETY_ENHANCEMENTS_AVAILABLE,
+                    "response_optimized": SAFETY_ENHANCEMENTS_AVAILABLE and user_id is not None,
+                } if SAFETY_ENHANCEMENTS_AVAILABLE else None
             }
             
         except Exception as e:
@@ -4972,6 +5050,44 @@ def main():
                     "sources": [],
                     "confidence": 0.0
                 })
+            
+            # =================================================================
+            # VOICE SAFETY CHECK - For Bolna Voice Calls
+            # =================================================================
+            try:
+                from voice_safety_wrapper import get_voice_safety_wrapper
+                safety_wrapper = get_voice_safety_wrapper()
+                
+                safety_result = await safety_wrapper.check_voice_query(
+                    user_id=f"bolna_{source}",
+                    transcript=query,
+                    language=language,
+                    call_id=source
+                )
+                
+                if safety_result.should_escalate:
+                    logger.warning(f"🚨 Bolna voice safety escalation: {safety_result.event_type}")
+                    
+                    # Handle escalation
+                    await safety_wrapper.handle_voice_escalation(
+                        safety_result, provider="bolna"
+                    )
+                    
+                    # Return safety message as response
+                    return JSONResponse({
+                        "status": "safety_escalation",
+                        "answer": safety_result.safety_message,
+                        "sources": [],
+                        "confidence": 1.0,
+                        "event_type": safety_result.event_type.value if safety_result.event_type else None
+                    })
+                
+                # Use modified query if available
+                if safety_result.modified_transcript:
+                    query = safety_result.modified_transcript
+                    
+            except Exception as e:
+                logger.error(f"Bolna voice safety check error (proceeding): {e}")
 
             # Query RAG pipeline
             rag_result = await rag_pipeline.query(
@@ -4983,6 +5099,31 @@ def main():
 
             if rag_result.get("status") == "success":
                 answer = rag_result.get("answer", "")
+                
+                # =================================================================
+                # VOICE OPTIMIZATION for Bolna Response
+                # =================================================================
+                try:
+                    from voice_safety_wrapper import get_voice_safety_wrapper
+                    safety_wrapper = get_voice_safety_wrapper()
+                    
+                    # Optimize for voice output
+                    answer = safety_wrapper.optimize_for_voice(
+                        answer,
+                        user_id=f"bolna_{source}",
+                        language=language,
+                        max_duration_seconds=30
+                    )
+                    
+                    # Add evidence warning if needed
+                    evidence_badge = rag_result.get("safety_enhancements", {}).get("evidence_badge")
+                    if evidence_badge:
+                        answer = safety_wrapper.add_evidence_to_voice(
+                            answer, evidence_badge, language
+                        )
+                        
+                except Exception as e:
+                    logger.warning(f"Bolna voice optimization error (proceeding): {e}")
 
                 # Extract source citations
                 sources = []
@@ -5106,6 +5247,131 @@ def main():
         if bolna_webhook_handler:
             return JSONResponse({"calls": bolna_webhook_handler.get_recent_calls(limit)})
         return JSONResponse({"error": "Bolna integration not available"}, status_code=503)
+
+    # ==========================================================================
+    # MEDICATION VOICE REMINDER ENDPOINTS
+    # ==========================================================================
+    
+    try:
+        from medication_voice_reminders import get_medication_voice_reminder_system
+        voice_reminder_system = get_medication_voice_reminder_system()
+        MEDICATION_VOICE_AVAILABLE = True
+    except ImportError:
+        voice_reminder_system = None
+        MEDICATION_VOICE_AVAILABLE = False
+    
+    @app.post("/api/medication/voice-reminder")
+    async def create_voice_reminder_endpoint(request: Request):
+        """
+        Create a new medication voice reminder.
+        
+        Request Body:
+        {
+            "user_id": "phone_number",
+            "phone_number": "+919876543210",
+            "medication_name": "Paracetamol",
+            "dosage": "500mg after food",
+            "reminder_time": "2025-01-28T08:00:00",
+            "language": "en"
+        }
+        """
+        if not MEDICATION_VOICE_AVAILABLE:
+            return JSONResponse({"error": "Voice reminder system not available"}, status_code=503)
+        
+        try:
+            data = await request.json()
+            
+            reminder = voice_reminder_system.create_voice_reminder(
+                user_id=data.get("user_id"),
+                phone_number=data.get("phone_number"),
+                medication_name=data.get("medication_name"),
+                dosage=data.get("dosage"),
+                reminder_time=datetime.fromisoformat(data.get("reminder_time")),
+                language=data.get("language", "en"),
+                preferred_provider=data.get("provider", "bolna")
+            )
+            
+            return JSONResponse({
+                "status": "success",
+                "reminder_id": reminder.reminder_id,
+                "scheduled_time": reminder.scheduled_time.isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Error creating voice reminder: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
+    
+    @app.get("/api/medication/voice-reminders/{user_id}")
+    async def get_user_voice_reminders_endpoint(user_id: str):
+        """Get all voice reminders for a user."""
+        if not MEDICATION_VOICE_AVAILABLE:
+            return JSONResponse({"error": "Voice reminder system not available"}, status_code=503)
+        
+        try:
+            reminders = voice_reminder_system.get_user_reminders(user_id)
+            return JSONResponse({"reminders": reminders})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+    
+    @app.post("/api/medication/voice-reminder/callback")
+    async def voice_reminder_callback_endpoint(request: Request):
+        """
+        Callback endpoint for voice reminder call completion.
+        
+        Called by Bolna/Retell when medication reminder call ends.
+        
+        Request Body:
+        {
+            "call_id": "call_123",
+            "reminder_id": "rem_456",
+            "status": "completed",
+            "duration": 45,
+            "patient_confirmed": true,
+            "confirmation_method": "dtmf_1"
+        }
+        """
+        if not MEDICATION_VOICE_AVAILABLE:
+            return JSONResponse({"status": "ignored"})
+        
+        try:
+            data = await request.json()
+            
+            await voice_reminder_system.handle_call_completed(
+                call_id=data.get("call_id"),
+                status=data.get("status"),
+                duration=data.get("duration", 0),
+                patient_response=data.get("patient_response")
+            )
+            
+            return JSONResponse({"status": "received"})
+            
+        except Exception as e:
+            logger.error(f"Voice reminder callback error: {e}")
+            return JSONResponse({"status": "error"}, status_code=500)
+    
+    @app.get("/api/medication/adherence/{user_id}")
+    async def get_adherence_stats_endpoint(user_id: str, days: int = 7):
+        """Get medication adherence statistics for a user."""
+        if not MEDICATION_VOICE_AVAILABLE:
+            return JSONResponse({"error": "Voice reminder system not available"}, status_code=503)
+        
+        try:
+            stats = voice_reminder_system.get_adherence_stats(user_id, days)
+            return JSONResponse(stats)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+    
+    @app.get("/api/medication/pending-calls")
+    async def get_pending_calls_endpoint():
+        """Get all pending medication reminder calls (for dashboard)."""
+        if not MEDICATION_VOICE_AVAILABLE:
+            return JSONResponse({"error": "Voice reminder system not available"}, status_code=503)
+        
+        try:
+            pending = voice_reminder_system.get_pending_calls()
+            return JSONResponse({"calls": pending})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
 
     # ==========================================================================
     # END BOLNA.AI INTEGRATION

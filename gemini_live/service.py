@@ -31,6 +31,13 @@ from .config import (
     INPUT_SAMPLE_RATE,
 )
 
+# Voice safety wrapper
+try:
+    from voice_safety_wrapper import get_voice_safety_wrapper
+    VOICE_SAFETY_AVAILABLE = True
+except ImportError:
+    VOICE_SAFETY_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -1081,6 +1088,56 @@ class GeminiLiveSession:
             if query_text == self._last_rag_query:
                 logger.debug("Skipping duplicate RAG query")
                 return
+            
+            # =================================================================
+            # VOICE SAFETY CHECK - Emergency & Handoff Detection
+            # =================================================================
+            try:
+                from voice_safety_wrapper import get_voice_safety_wrapper
+                safety_wrapper = get_voice_safety_wrapper()
+                
+                safety_result = await safety_wrapper.check_voice_query(
+                    user_id=self.session_id,
+                    transcript=query_text,
+                    language=self.language,
+                    call_id=self.session_id,
+                    conversation_history=[{"role": "user", "content": msg} for msg in self.transcription_buffer]
+                )
+                
+                if safety_result.should_escalate:
+                    logger.warning(f"🚨 Voice safety escalation triggered: {safety_result.event_type}")
+                    
+                    # Inject safety message to Gemini
+                    if self._session and self._running:
+                        safety_message = f"""[SAFETY ALERT - IMMEDIATE RESPONSE REQUIRED]
+{safety_result.safety_message}
+
+The user may need immediate medical attention or human assistance. 
+Please prioritize their safety and provide clear, calm guidance.
+[END SAFETY ALERT]"""
+                        
+                        await self._session.send_client_content(
+                            turns=[types.Content(
+                                role="user",
+                                parts=[types.Part(text=safety_message)]
+                            )],
+                            turn_complete=False
+                        )
+                        
+                        # Handle escalation actions
+                        await safety_wrapper.handle_voice_escalation(
+                            safety_result, provider="gemini_live"
+                        )
+                    
+                    self._last_rag_query = query_text
+                    return
+                
+                # Update query text if modified by safety check
+                if safety_result.modified_transcript:
+                    query_text = safety_result.modified_transcript
+                    
+            except Exception as e:
+                logger.error(f"Voice safety check error (proceeding without): {e}")
 
             # Check for out-of-scope queries first
             is_out_of_scope, matched_keyword = self.service.query_classifier.is_out_of_scope(query_text)

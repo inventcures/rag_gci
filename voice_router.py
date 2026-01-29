@@ -160,6 +160,15 @@ class VoiceRouter:
         providers.append("Fallback Pipeline")
 
         logger.info(f"VoiceRouter initialized with providers: {', '.join(providers)}")
+        
+        # Initialize voice safety wrapper
+        self.voice_safety = None
+        try:
+            from voice_safety_wrapper import get_voice_safety_wrapper
+            self.voice_safety = get_voice_safety_wrapper()
+            logger.info("✅ Voice safety wrapper initialized in VoiceRouter")
+        except Exception as e:
+            logger.warning(f"Voice safety wrapper not available: {e}")
 
     def get_available_providers(self) -> list:
         """Get list of available voice providers."""
@@ -618,6 +627,85 @@ class VoiceRouter:
                 provider=VoiceProvider.FALLBACK_PIPELINE,
                 error=str(e)
             )
+
+    async def check_voice_safety(
+        self,
+        transcript: str,
+        user_id: str,
+        language: str = "en",
+        call_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Check voice transcript for safety concerns before processing.
+        
+        This is a centralized safety check that can be called from any
+        voice provider integration.
+        
+        Args:
+            transcript: Voice transcript text
+            user_id: User identifier
+            language: Language code
+            call_id: Optional call/session ID
+            
+        Returns:
+            Safety check result dict
+        """
+        if not self.voice_safety:
+            return {"safe": True, "should_escalate": False}
+        
+        try:
+            safety_result = await self.voice_safety.check_voice_query(
+                user_id=user_id,
+                transcript=transcript,
+                language=language,
+                call_id=call_id
+            )
+            
+            return {
+                "safe": not safety_result.should_escalate,
+                "should_escalate": safety_result.should_escalate,
+                "should_proceed": safety_result.should_proceed,
+                "event_type": safety_result.event_type.value if safety_result.event_type else None,
+                "emergency_alert": safety_result.emergency_alert,
+                "handoff_reason": safety_result.handoff_reason,
+                "safety_message": safety_result.safety_message,
+                "modified_transcript": safety_result.modified_transcript
+            }
+            
+        except Exception as e:
+            logger.error(f"Voice safety check failed: {e}")
+            return {"safe": True, "should_escalate": False, "error": str(e)}
+    
+    async def handle_voice_escalation(
+        self,
+        safety_result: Dict[str, Any],
+        provider: str
+    ) -> Dict[str, Any]:
+        """Handle voice escalation across all providers."""
+        if not self.voice_safety:
+            return {"escalated": False}
+        
+        try:
+            from voice_safety_wrapper import VoiceSafetyResult, VoiceSafetyEvent
+            
+            # Reconstruct the result object
+            result_obj = VoiceSafetyResult(
+                should_proceed=safety_result.get("should_proceed", False),
+                should_escalate=safety_result.get("should_escalate", True),
+                event_type=VoiceSafetyEvent(safety_result["event_type"]) if safety_result.get("event_type") else None,
+                emergency_alert=safety_result.get("emergency_alert"),
+                handoff_reason=safety_result.get("handoff_reason"),
+                modified_transcript=safety_result.get("modified_transcript"),
+                evidence_badge=None,
+                safety_message=safety_result.get("safety_message"),
+                metadata={}
+            )
+            
+            return await self.voice_safety.handle_voice_escalation(result_obj, provider)
+            
+        except Exception as e:
+            logger.error(f"Voice escalation handling failed: {e}")
+            return {"escalated": False, "error": str(e)}
 
     def get_session(self, session_id: str) -> Optional[VoiceSession]:
         """Get an active session by ID."""
