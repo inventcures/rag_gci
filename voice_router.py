@@ -26,6 +26,7 @@ class VoiceProvider(Enum):
     BOLNA = "bolna"
     GEMINI_LIVE = "gemini_live"
     RETELL = "retell"
+    SARVAM = "sarvam"
     FALLBACK_PIPELINE = "fallback_pipeline"
 
 
@@ -149,6 +150,20 @@ class VoiceRouter:
         except Exception as e:
             logger.warning(f"Failed to initialize Retell client: {e}")
 
+        # Initialize Sarvam AI client
+        self.sarvam_client = None
+        self.sarvam_available = False
+        try:
+            from sarvam_integration import SarvamClient
+            self.sarvam_client = SarvamClient()
+            self.sarvam_available = self.sarvam_client.is_available()
+            if self.sarvam_available:
+                logger.info("Sarvam AI client initialized")
+        except ImportError:
+            logger.warning("Sarvam integration not available")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Sarvam client: {e}")
+
         # Log available providers
         providers = []
         if self.bolna_available:
@@ -157,6 +172,8 @@ class VoiceRouter:
             providers.append("Gemini Live")
         if self.retell_available:
             providers.append("Retell.AI")
+        if self.sarvam_available:
+            providers.append("Sarvam AI")
         providers.append("Fallback Pipeline")
 
         logger.info(f"VoiceRouter initialized with providers: {', '.join(providers)}")
@@ -179,6 +196,8 @@ class VoiceRouter:
             providers.append(VoiceProvider.GEMINI_LIVE)
         if self.retell_available:
             providers.append(VoiceProvider.RETELL)
+        if self.sarvam_available:
+            providers.append(VoiceProvider.SARVAM)
         providers.append(VoiceProvider.FALLBACK_PIPELINE)
         return providers
 
@@ -205,22 +224,30 @@ class VoiceRouter:
                 return VoiceProvider.GEMINI_LIVE
             elif force_provider == VoiceProvider.RETELL and self.retell_available:
                 return VoiceProvider.RETELL
+            elif force_provider == VoiceProvider.SARVAM and self.sarvam_available:
+                return VoiceProvider.SARVAM
             elif force_provider == VoiceProvider.FALLBACK_PIPELINE:
                 return VoiceProvider.FALLBACK_PIPELINE
 
-        # Phone calls: prefer Bolna
+        # Phone calls: prefer Bolna -> Retell -> Sarvam -> Fallback
         if request_type == "phone":
             if self.bolna_available:
                 return VoiceProvider.BOLNA
+            elif self.retell_available:
+                return VoiceProvider.RETELL
+            elif self.sarvam_available:
+                return VoiceProvider.SARVAM
             elif self.gemini_available:
                 return VoiceProvider.GEMINI_LIVE
             else:
                 return VoiceProvider.FALLBACK_PIPELINE
 
-        # Web voice: prefer Gemini Live
+        # Web voice: prefer Gemini Live -> Sarvam -> Bolna -> Fallback
         if request_type == "web":
             if self.gemini_available:
                 return VoiceProvider.GEMINI_LIVE
+            elif self.sarvam_available:
+                return VoiceProvider.SARVAM
             elif self.bolna_available:
                 return VoiceProvider.BOLNA
             else:
@@ -275,6 +302,13 @@ class VoiceRouter:
             elif provider == VoiceProvider.RETELL:
                 return await self._handle_retell_request(
                     phone_number=phone_number,
+                    user_id=user_id,
+                    language=language,
+                    **kwargs
+                )
+
+            elif provider == VoiceProvider.SARVAM:
+                return await self._handle_sarvam_request(
                     user_id=user_id,
                     language=language,
                     **kwargs
@@ -532,6 +566,48 @@ class VoiceRouter:
             }
         )
 
+    async def _handle_sarvam_request(
+        self,
+        user_id: Optional[str] = None,
+        language: str = "hi",
+        **kwargs
+    ) -> VoiceResponse:
+        """
+        Handle request via Sarvam AI (STT → RAG → LLM → TTS pipeline).
+
+        Uses Sarvam Saaras v3 for STT (22 Indian languages) and
+        Bulbul v3 for TTS (11 Indian languages, 30+ voices).
+        """
+        from sarvam_integration.config import sarvam_language_code, get_default_voice
+
+        session_id = f"sarvam_{user_id or 'anonymous'}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        sarvam_lang = sarvam_language_code(language)
+        voice = get_default_voice(language)
+
+        session = VoiceSession(
+            session_id=session_id,
+            provider=VoiceProvider.SARVAM,
+            user_id=user_id,
+            language=language,
+            metadata={"sarvam_language": sarvam_lang, "sarvam_voice": voice}
+        )
+        self.active_sessions[session_id] = session
+
+        return VoiceResponse(
+            success=True,
+            provider=VoiceProvider.SARVAM,
+            session_id=session_id,
+            message="Sarvam AI voice session ready",
+            metadata={
+                "pipeline": "Sarvam STT → RAG → LLM → Sarvam TTS",
+                "stt_provider": "sarvam_saaras_v3",
+                "tts_provider": "sarvam_bulbul_v3",
+                "stt_language": sarvam_lang,
+                "tts_voice": voice,
+                "language": language,
+            }
+        )
+
     async def _handle_fallback_request(
         self,
         user_id: Optional[str] = None,
@@ -729,6 +805,7 @@ class VoiceRouter:
             "bolna_available": self.bolna_available,
             "gemini_available": self.gemini_available,
             "retell_available": self.retell_available,
+            "sarvam_available": self.sarvam_available,
             "fallback_available": True,
             "preferred_provider": self.preferred_provider.value,
             "active_sessions": self.get_active_session_count(),
@@ -742,8 +819,8 @@ def create_voice_router(rag_pipeline=None) -> VoiceRouter:
     Create a VoiceRouter with configuration from environment.
 
     Environment variables:
-    - VOICE_PREFERRED_PROVIDER: "bolna", "gemini_live", "retell", or "fallback_pipeline"
-      (shortcuts: "b", "g", "r")
+    - VOICE_PREFERRED_PROVIDER: "bolna", "gemini_live", "retell", "sarvam", or "fallback_pipeline"
+      (shortcuts: "b", "g", "r", "s")
     - BOLNA_API_KEY: Required for Bolna
     - GOOGLE_CLOUD_PROJECT: Required for Gemini Live
     - RETELL_API_KEY: Required for Retell
@@ -765,6 +842,8 @@ def create_voice_router(rag_pipeline=None) -> VoiceRouter:
         "g": VoiceProvider.GEMINI_LIVE,
         "retell": VoiceProvider.RETELL,
         "r": VoiceProvider.RETELL,
+        "sarvam": VoiceProvider.SARVAM,
+        "s": VoiceProvider.SARVAM,
         "fallback": VoiceProvider.FALLBACK_PIPELINE,
         "fallback_pipeline": VoiceProvider.FALLBACK_PIPELINE
     }

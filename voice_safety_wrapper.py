@@ -602,11 +602,11 @@ class RetellSafetyIntegration:
 
 class BolnaSafetyIntegration:
     """Safety integration for Bolna.ai"""
-    
+
     def __init__(self, bolna_webhook_handler):
         self.webhook_handler = bolna_webhook_handler
         self.safety_wrapper = get_voice_safety_wrapper()
-    
+
     async def on_transcript(self, call_id: str, transcript: str, phone_number: str, language: str = "hi"):
         """Called when Bolna receives a transcript"""
         safety_result = await self.safety_wrapper.check_voice_query(
@@ -615,12 +615,38 @@ class BolnaSafetyIntegration:
             language=language,
             call_id=call_id
         )
-        
+
         if safety_result.should_escalate:
             return {
                 "override": True,
                 "response": safety_result.safety_message,
                 "escalate": True
             }
-        
+
+        return {"override": False, "transcript": safety_result.modified_transcript}
+
+
+class SarvamSafetyIntegration:
+    """Safety integration for Sarvam AI voice provider."""
+
+    def __init__(self, sarvam_webhook_handler):
+        self.webhook_handler = sarvam_webhook_handler
+        self.safety_wrapper = get_voice_safety_wrapper()
+
+    async def on_transcript(self, session_id: str, transcript: str, language: str = "hi"):
+        """Called when Sarvam STT produces a transcript."""
+        safety_result = await self.safety_wrapper.check_voice_query(
+            user_id=session_id,
+            transcript=transcript,
+            language=language,
+            call_id=session_id
+        )
+
+        if safety_result.should_escalate:
+            return {
+                "override": True,
+                "response": safety_result.safety_message,
+                "escalate": True
+            }
+
         return {"override": False, "transcript": safety_result.modified_transcript}

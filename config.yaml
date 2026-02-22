@@ -214,18 +214,61 @@ bolna:
     provider: "twilio"  # twilio, plivo, or exotel
     phone_number: ${BOLNA_PHONE_NUMBER}
 
+# Sarvam AI Voice Configuration (Indian Language STT/TTS)
+# Sign up: https://dashboard.sarvam.ai/
+# Docs: https://docs.sarvam.ai/api-reference-docs/introduction
+sarvam:
+  enabled: true
+  api_key: ${SARVAM_API_KEY}
+  base_url: "https://api.sarvam.ai"
+
+  # STT (Saaras v3) - 22 Indian languages
+  stt:
+    model: "saaras:v3"  # or "saaras:flash" for lower latency
+    mode: "formal"  # formal, code-mixed, spoken-form
+    with_timestamps: true
+
+  # TTS (Bulbul v3) - 11 Indian languages, 30+ voices
+  tts:
+    model: "bulbul:v3"
+    default_voice: "meera"  # Hindi female (warm, empathetic)
+    voice_gender: "female"
+    sample_rate: 22050
+    pace: 1.0  # 0.5-2.0 (slower for elderly patients)
+    pitch: 0
+    loudness: 1.5
+    enable_preprocessing: true
+
+  # Language settings
+  default_language: "hi-IN"
+  supported_languages:
+    - "hi-IN"
+    - "en-IN"
+    - "bn-IN"
+    - "kn-IN"
+    - "ml-IN"
+    - "mr-IN"
+    - "od-IN"
+    - "pa-IN"
+    - "ta-IN"
+    - "te-IN"
+    - "gu-IN"
+
 # Voice Router Configuration
 voice_router:
   # Provider priority
-  preferred_provider: "bolna"  # bolna, gemini_live, or fallback_pipeline
+  preferred_provider: "bolna"  # bolna, gemini_live, retell, sarvam, or fallback_pipeline
 
   # Phone call routing
   phone_primary: "bolna"
-  phone_fallback: "gemini_live"
+  phone_fallback: "retell"
 
   # Web voice routing
   web_primary: "gemini_live"
-  web_fallback: "bolna"
+  web_fallback: "sarvam"
+
+  # Sarvam as STT/TTS provider for fallback pipeline
+  stt_tts_provider: "sarvam"
 
   # Ultimate fallback (always available)
   ultimate_fallback: "stt_rag_tts"  # STT → RAG → LLM → TTS pipeline

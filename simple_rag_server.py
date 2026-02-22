@@ -62,6 +62,24 @@ except ImportError:
     BolnaClient = None
     BolnaWebhookHandler = None
 
+# Sarvam AI integration imports
+try:
+    from sarvam_integration import (
+        SarvamClient,
+        SarvamWebhookHandler,
+        SarvamSTTResult,
+        SarvamTTSResult,
+        SarvamTranslateResult,
+        SARVAM_LANGUAGE_CONFIGS,
+        SARVAM_STT_LANGUAGES,
+        SARVAM_TTS_LANGUAGES,
+    )
+    SARVAM_AVAILABLE = True
+except ImportError:
+    SARVAM_AVAILABLE = False
+    SarvamClient = None
+    SarvamWebhookHandler = None
+
 import hmac
 
 # Knowledge Graph integration imports
@@ -5509,6 +5527,264 @@ def main():
 
     # ==========================================================================
     # END RETELL.AI INTEGRATION
+    # ==========================================================================
+
+    # ==========================================================================
+    # SARVAM AI INTEGRATION ENDPOINTS
+    # Indian Language STT (Saaras v3, 22 languages) + TTS (Bulbul v3, 11 languages)
+    # ==========================================================================
+
+    sarvam_enabled = False
+    sarvam_client = None
+    sarvam_webhook_handler = None
+
+    if SARVAM_AVAILABLE:
+        try:
+            sarvam_client = SarvamClient()
+            if sarvam_client.is_available():
+                sarvam_enabled = True
+                sarvam_webhook_handler = SarvamWebhookHandler()
+                logger.info("🇮🇳 Sarvam AI initialized - endpoints available:")
+                logger.info("   STT:       POST /api/sarvam/stt")
+                logger.info("   TTS:       POST /api/sarvam/tts")
+                logger.info("   Translate:  POST /api/sarvam/translate")
+                logger.info("   Health:    GET  /api/sarvam/health")
+                logger.info("   Languages: GET  /api/sarvam/languages")
+            else:
+                logger.info("Sarvam AI not configured (no API key) - set SARVAM_API_KEY")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Sarvam AI: {e}")
+
+    @app.get("/api/sarvam/health")
+    async def sarvam_health_endpoint():
+        """Check Sarvam AI health status."""
+        if not sarvam_enabled or not sarvam_client:
+            return JSONResponse({
+                "status": "unavailable",
+                "message": "Sarvam AI not initialized - set SARVAM_API_KEY"
+            })
+
+        try:
+            healthy = await sarvam_client.health_check()
+            return JSONResponse({
+                "status": "healthy" if healthy else "degraded",
+                "provider": "sarvam_ai",
+                "stt_model": "saaras:v3",
+                "tts_model": "bulbul:v3",
+                "stt_languages": len(SARVAM_STT_LANGUAGES),
+                "tts_languages": len(SARVAM_TTS_LANGUAGES),
+            })
+        except Exception as e:
+            return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
+
+    @app.get("/api/sarvam/languages")
+    async def sarvam_languages_endpoint():
+        """List supported Sarvam languages."""
+        return JSONResponse({
+            "stt_languages": SARVAM_STT_LANGUAGES if SARVAM_AVAILABLE else [],
+            "tts_languages": SARVAM_TTS_LANGUAGES if SARVAM_AVAILABLE else [],
+            "language_configs": {
+                code: {"name": cfg["name"], "stt": cfg["stt_supported"], "tts": cfg["tts_supported"]}
+                for code, cfg in (SARVAM_LANGUAGE_CONFIGS or {}).items()
+            } if SARVAM_AVAILABLE else {},
+        })
+
+    @app.post("/api/sarvam/stt")
+    async def sarvam_stt_endpoint(request: Request):
+        """
+        Speech-to-text using Sarvam Saaras v3.
+
+        Accepts multipart/form-data with:
+        - file: Audio file (WAV, MP3, FLAC, OGG, WebM)
+        - language: BCP-47 language code (e.g. "hi-IN"), default "hi-IN"
+        - model: "saaras:v3" or "saaras:flash", default "saaras:v3"
+        - mode: "formal", "code-mixed", or "spoken-form", default "formal"
+        """
+        if not sarvam_enabled or not sarvam_client:
+            return JSONResponse(
+                {"error": "Sarvam AI not available"},
+                status_code=503
+            )
+
+        try:
+            form = await request.form()
+            audio_file = form.get("file")
+            if not audio_file:
+                return JSONResponse({"error": "No audio file provided"}, status_code=400)
+
+            audio_data = await audio_file.read()
+            language = form.get("language", "hi-IN")
+            model = form.get("model", "saaras:v3")
+            mode = form.get("mode", "formal")
+
+            result = await sarvam_client.speech_to_text(
+                audio_data=audio_data,
+                language=language,
+                model=model,
+                mode=mode,
+            )
+
+            if result.success:
+                return JSONResponse({
+                    "status": "success",
+                    "transcript": result.transcript,
+                    "language_code": result.language_code,
+                    "timestamps": result.timestamps,
+                })
+            else:
+                return JSONResponse(
+                    {"status": "error", "error": result.error},
+                    status_code=400
+                )
+
+        except Exception as e:
+            logger.error(f"Sarvam STT endpoint error: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.post("/api/sarvam/tts")
+    async def sarvam_tts_endpoint(request: Request):
+        """
+        Text-to-speech using Sarvam Bulbul v3.
+
+        Request body:
+        {
+            "text": "Text to speak",
+            "language": "hi-IN",
+            "voice": "meera",
+            "pace": 1.0,
+            "sample_rate": 22050
+        }
+
+        Returns base64-encoded WAV audio.
+        """
+        if not sarvam_enabled or not sarvam_client:
+            return JSONResponse(
+                {"error": "Sarvam AI not available"},
+                status_code=503
+            )
+
+        try:
+            data = await request.json()
+            text = data.get("text", "")
+            if not text:
+                return JSONResponse({"error": "No text provided"}, status_code=400)
+
+            language = data.get("language", "hi-IN")
+            voice = data.get("voice", "meera")
+            pace = data.get("pace", 1.0)
+            sample_rate = data.get("sample_rate", 22050)
+
+            result = await sarvam_client.text_to_speech(
+                text=text,
+                language=language,
+                voice=voice,
+                pace=pace,
+                sample_rate=sample_rate,
+            )
+
+            if result.success:
+                return JSONResponse({
+                    "status": "success",
+                    "audio_base64": result.audio_base64,
+                    "sample_rate": result.sample_rate,
+                })
+            else:
+                return JSONResponse(
+                    {"status": "error", "error": result.error},
+                    status_code=400
+                )
+
+        except Exception as e:
+            logger.error(f"Sarvam TTS endpoint error: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.post("/api/sarvam/translate")
+    async def sarvam_translate_endpoint(request: Request):
+        """
+        Translate text between Indian languages.
+
+        Request body:
+        {
+            "text": "How are you feeling today?",
+            "source_language": "en-IN",
+            "target_language": "hi-IN",
+            "mode": "formal"
+        }
+        """
+        if not sarvam_enabled or not sarvam_client:
+            return JSONResponse(
+                {"error": "Sarvam AI not available"},
+                status_code=503
+            )
+
+        try:
+            data = await request.json()
+            text = data.get("text", "")
+            if not text:
+                return JSONResponse({"error": "No text provided"}, status_code=400)
+
+            source_lang = data.get("source_language", "en-IN")
+            target_lang = data.get("target_language", "hi-IN")
+            mode = data.get("mode", "formal")
+
+            result = await sarvam_client.translate(
+                text=text,
+                source_language=source_lang,
+                target_language=target_lang,
+                mode=mode,
+            )
+
+            if result.success:
+                return JSONResponse({
+                    "status": "success",
+                    "translated_text": result.translated_text,
+                    "source_language": result.source_language,
+                    "target_language": result.target_language,
+                })
+            else:
+                return JSONResponse(
+                    {"status": "error", "error": result.error},
+                    status_code=400
+                )
+
+        except Exception as e:
+            logger.error(f"Sarvam translate endpoint error: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.post("/api/sarvam/webhook")
+    async def sarvam_webhook_endpoint(request: Request):
+        """Handle Sarvam webhook events."""
+        if not sarvam_webhook_handler:
+            return JSONResponse(
+                {"error": "Sarvam webhooks not available"},
+                status_code=503
+            )
+
+        try:
+            data = await request.json()
+            result = await sarvam_webhook_handler.handle_event(data)
+            return JSONResponse(result)
+        except Exception as e:
+            logger.error(f"Sarvam webhook error: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.get("/api/sarvam/stats")
+    async def sarvam_stats_endpoint():
+        """Get Sarvam session statistics."""
+        if not sarvam_webhook_handler:
+            return JSONResponse({
+                "status": "unavailable",
+                "message": "Sarvam not initialized"
+            })
+
+        try:
+            stats = sarvam_webhook_handler.get_session_stats()
+            return JSONResponse({"status": "success", **stats})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    # ==========================================================================
+    # END SARVAM AI INTEGRATION
     # ==========================================================================
 
     # ==========================================================================
