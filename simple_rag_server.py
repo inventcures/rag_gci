@@ -115,6 +115,23 @@ except ImportError:
     GraphRAGQueryEngine = None
     GraphRAGDataLoader = None
 
+# PageIndex integration imports (vectorless reasoning-based RAG)
+try:
+    from pageindex_integration import (
+        PageIndexConfig,
+        PageIndexTreeBuilder,
+        PageIndexQueryEngine,
+        PageIndexStorage,
+    )
+    from pageindex_integration.tree_builder import IndexingStatus as PIIndexingStatus
+    PAGEINDEX_AVAILABLE = True
+except ImportError:
+    PAGEINDEX_AVAILABLE = False
+    PageIndexConfig = None
+    PageIndexTreeBuilder = None
+    PageIndexQueryEngine = None
+    PageIndexStorage = None
+
 # V25: Longitudinal Patient Context Memory System
 try:
     from personalization.longitudinal_memory import (
@@ -1111,6 +1128,20 @@ class SimpleRAGPipeline:
                         "chunks": len(chunks)
                     })
                     logger.info(f"Successfully indexed and verified: {file_path} ({len(chunks)} chunks)")
+
+                    # Trigger PageIndex tree building if enabled (non-blocking)
+                    if _pageindex_enabled and _pageindex_builder:
+                        asyncio.create_task(
+                            _pageindex_builder.build_tree(
+                                permanent_path,
+                                doc_id,
+                                metadata={
+                                    "filename": Path(file_path).name,
+                                    "page_count": doc_result.get("page_count", 1),
+                                },
+                            )
+                        )
+                        logger.info(f"Queued PageIndex tree build for {doc_id}")
                 else:
                     # Remove from metadata if verification failed
                     del self.document_metadata[doc_id]
@@ -1203,75 +1234,164 @@ class SimpleRAGPipeline:
                 else:
                     logger.warning(f"Query translation failed, using original: {translation_result.get('error', 'Unknown error')}")
             
-            # Retrieve relevant documents using translated query
-            search_results = self.vector_db.query(
-                query_texts=[query_for_search],
-                n_results=top_k
-            )
-            
-            logger.info(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
-            if search_results.get('documents'):
-                logger.info(f"First result set has {len(search_results['documents'][0])} documents")
-                # Debug: Print some metadata from search results
-                if search_results.get('metadatas') and search_results['metadatas'][0]:
-                    first_meta = search_results['metadatas'][0][0] if search_results['metadatas'][0] else {}
-                    logger.info(f"First result metadata sample: {first_meta}")
-                if search_results.get('distances'):
-                    distances = search_results['distances'][0]
-                    logger.info(f"Search distances: {distances[:3]}...")  # First 3 distances
-            
-            if not search_results['documents'] or not search_results['documents'][0]:
-                logger.warning("No search results found in vector database")
-                return {
-                    "status": "success",
-                    "answer": "We are afraid, we could not find the answer to your query in our medical corpus. Please consult a qualified medical doctor or visit your nearest hospital, with your query.",
-                    "sources": [],
-                    "conversation_id": conversation_id
-                }
-            
-            # Format context with enhanced metadata
-            contexts = search_results['documents'][0]
-            metadatas = search_results['metadatas'][0]
-            distances = search_results['distances'][0] if 'distances' in search_results else [0] * len(contexts)
-            
-            # Check relevance threshold (you can adjust this value)
-            relevance_threshold = 1.5  # Lower is more similar
-            relevant_contexts = []
+            # =================================================================
+            # RETRIEVAL: Route based on --rag-method (vector/pageindex/hybrid)
+            # =================================================================
+            filtered_metadatas = []
+            should_fuse = False
+            distances = []
             relevant_metadatas = []
-            
-            for i, (context, meta, distance) in enumerate(zip(contexts, metadatas, distances)):
-                logger.info(f"Context {i}: distance={distance:.4f}, threshold={relevance_threshold}")
-                if distance <= relevance_threshold:
-                    relevant_contexts.append(context)
-                    relevant_metadatas.append(meta)
-                    logger.info(f"  ✅ Context {i} ACCEPTED (distance {distance:.4f} <= {relevance_threshold})")
-                else:
-                    logger.info(f"  ❌ Context {i} REJECTED (distance {distance:.4f} > {relevance_threshold})")
-            
-            logger.info(f"Total relevant contexts found: {len(relevant_contexts)}/{len(contexts)}")
-            
-            # If no relevant contexts found
-            if not relevant_contexts:
-                return {
-                    "status": "success",
-                    "answer": "I could not find any supporting documents in my corpus. Please consult a qualified medical doctor or visit the nearest hospital.",
-                    "model_used": "system",
-                    "sources": [],
-                    "context_used": 0,
-                    "conversation_id": conversation_id,
-                    "timestamp": datetime.now().isoformat()
-                }
-            
-            # Intelligent context fusion based on distance similarity
-            relevant_distances = [distances[i] for i, (_, _, distance) in enumerate(zip(contexts, metadatas, distances)) if distance <= relevance_threshold]
-            filtered_contexts, filtered_metadatas, should_fuse = self._intelligent_context_fusion(
-                relevant_contexts, relevant_metadatas, relevant_distances
-            )
-            
-            context_text = "\n\n".join([
-                f"Source: {meta['filename']} (chunk {meta['chunk_index']+1})\n{doc}"
-                for doc, meta in zip(filtered_contexts, filtered_metadatas)
-            ])
+
+            if _rag_method == "pageindex" and _pageindex_enabled and _pageindex_engine:
+                # PageIndex tree-based retrieval
+                logger.info(f"Using PageIndex tree-based retrieval for: {query_for_search[:80]}")
+                pi_result = await _pageindex_engine.search(query_for_search)
+                context_text = pi_result.context
+
+                if not context_text:
+                    return {
+                        "status": "success",
+                        "answer": "No relevant sections found in the document tree indexes. Please try a different query or ensure documents are indexed with PageIndex.",
+                        "sources": [],
+                        "conversation_id": conversation_id,
+                    }
+
+                filtered_metadatas = []
+                for node in pi_result.selected_nodes:
+                    filtered_metadatas.append({
+                        "filename": node.get("filename", ""),
+                        "chunk_index": 0,
+                        "total_chunks": 1,
+                        "page_range": f"{node.get('start_page', 0)}-{node.get('end_page', 0)}",
+                    })
+                relevant_metadatas = filtered_metadatas
+                should_fuse = len(pi_result.selected_nodes) > 1
+                distances = [0.5] * len(filtered_metadatas)
+                logger.info(f"PageIndex returned {len(pi_result.selected_nodes)} nodes, {len(context_text)} chars context")
+
+            elif _rag_method == "hybrid" and _pageindex_enabled and _pageindex_engine:
+                # Hybrid: parallel vector + tree search
+                logger.info(f"Using hybrid (vector + PageIndex) retrieval for: {query_for_search[:80]}")
+
+                async def _do_vector_search():
+                    return self.vector_db.query(query_texts=[query_for_search], n_results=top_k)
+
+                async def _do_tree_search():
+                    return await _pageindex_engine.search(query_for_search)
+
+                vector_results, pi_result = await asyncio.gather(
+                    _do_vector_search(), _do_tree_search()
+                )
+
+                # Vector context
+                vector_context_parts = []
+                vector_metas = []
+                if vector_results.get('documents') and vector_results['documents'][0]:
+                    v_distances = vector_results.get('distances', [[]])[0]
+                    for idx, (doc, meta) in enumerate(zip(vector_results['documents'][0], vector_results['metadatas'][0])):
+                        dist = v_distances[idx] if idx < len(v_distances) else 1.0
+                        if dist <= 1.5:
+                            vector_context_parts.append(f"Source: {meta['filename']} (chunk {meta['chunk_index']+1})\n{doc}")
+                            vector_metas.append(meta)
+
+                # Tree context
+                tree_context = pi_result.context if pi_result.context else ""
+                tree_metas = []
+                for node in pi_result.selected_nodes:
+                    tree_metas.append({
+                        "filename": node.get("filename", ""),
+                        "chunk_index": 0,
+                        "total_chunks": 1,
+                        "page_range": f"{node.get('start_page', 0)}-{node.get('end_page', 0)}",
+                    })
+
+                # Merge contexts
+                context_parts = []
+                if vector_context_parts:
+                    context_parts.append("--- Vector Search Results ---\n" + "\n\n".join(vector_context_parts))
+                if tree_context:
+                    context_parts.append("--- Tree Search Results ---\n" + tree_context)
+
+                if not context_parts:
+                    return {
+                        "status": "success",
+                        "answer": "No relevant information found. Please consult a qualified medical doctor.",
+                        "sources": [],
+                        "conversation_id": conversation_id,
+                    }
+
+                context_text = "\n\n".join(context_parts)
+                filtered_metadatas = vector_metas + tree_metas
+                relevant_metadatas = filtered_metadatas
+                should_fuse = True
+                distances = [0.5] * len(filtered_metadatas)
+                logger.info(f"Hybrid: {len(vector_context_parts)} vector chunks + {len(pi_result.selected_nodes)} tree nodes")
+
+            else:
+                # Default: existing vector search (unchanged)
+                search_results = self.vector_db.query(
+                    query_texts=[query_for_search],
+                    n_results=top_k
+                )
+
+                logger.info(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
+                if search_results.get('documents'):
+                    logger.info(f"First result set has {len(search_results['documents'][0])} documents")
+                    if search_results.get('metadatas') and search_results['metadatas'][0]:
+                        first_meta = search_results['metadatas'][0][0] if search_results['metadatas'][0] else {}
+                        logger.info(f"First result metadata sample: {first_meta}")
+                    if search_results.get('distances'):
+                        distances = search_results['distances'][0]
+                        logger.info(f"Search distances: {distances[:3]}...")
+
+                if not search_results['documents'] or not search_results['documents'][0]:
+                    logger.warning("No search results found in vector database")
+                    return {
+                        "status": "success",
+                        "answer": "We are afraid, we could not find the answer to your query in our medical corpus. Please consult a qualified medical doctor or visit your nearest hospital, with your query.",
+                        "sources": [],
+                        "conversation_id": conversation_id
+                    }
+
+                contexts = search_results['documents'][0]
+                metadatas = search_results['metadatas'][0]
+                distances = search_results['distances'][0] if 'distances' in search_results else [0] * len(contexts)
+
+                relevance_threshold = 1.5
+                relevant_contexts = []
+                relevant_metadatas = []
+
+                for i, (context, meta, distance) in enumerate(zip(contexts, metadatas, distances)):
+                    logger.info(f"Context {i}: distance={distance:.4f}, threshold={relevance_threshold}")
+                    if distance <= relevance_threshold:
+                        relevant_contexts.append(context)
+                        relevant_metadatas.append(meta)
+                        logger.info(f"  ✅ Context {i} ACCEPTED (distance {distance:.4f} <= {relevance_threshold})")
+                    else:
+                        logger.info(f"  ❌ Context {i} REJECTED (distance {distance:.4f} > {relevance_threshold})")
+
+                logger.info(f"Total relevant contexts found: {len(relevant_contexts)}/{len(contexts)}")
+
+                if not relevant_contexts:
+                    return {
+                        "status": "success",
+                        "answer": "I could not find any supporting documents in my corpus. Please consult a qualified medical doctor or visit the nearest hospital.",
+                        "model_used": "system",
+                        "sources": [],
+                        "context_used": 0,
+                        "conversation_id": conversation_id,
+                        "timestamp": datetime.now().isoformat()
+                    }
+
+                relevant_distances = [distances[i] for i, (_, _, distance) in enumerate(zip(contexts, metadatas, distances)) if distance <= relevance_threshold]
+                filtered_contexts, filtered_metadatas, should_fuse = self._intelligent_context_fusion(
+                    relevant_contexts, relevant_metadatas, relevant_distances
+                )
+
+                context_text = "\n\n".join([
+                    f"Source: {meta['filename']} (chunk {meta['chunk_index']+1})\n{doc}"
+                    for doc, meta in zip(filtered_contexts, filtered_metadatas)
+                ])
 
             # V25: Inject patient context if available
             patient_context = ""
@@ -2739,6 +2859,58 @@ class SimpleAdminUI:
                                 outputs=[graphrag_verify_output]
                             )
 
+                # PAGEINDEX RAG Tab
+                with gr.TabItem("📄 PageIndex RAG"):
+                    gr.Markdown("## PageIndex - Reasoning-Based RAG")
+                    gr.Markdown("*Tree-based document retrieval using LLM reasoning over document structure*")
+
+                    with gr.Tabs():
+                        with gr.TabItem("🔍 Query"):
+                            with gr.Row():
+                                with gr.Column():
+                                    pi_query_input = gr.Textbox(
+                                        label="Query",
+                                        placeholder="e.g., What are opioid dosing guidelines for cancer pain?",
+                                        lines=2,
+                                    )
+                                    pi_query_btn = gr.Button("🔍 Search via PageIndex", variant="primary")
+                                with gr.Column():
+                                    pi_response = gr.Markdown(label="Retrieved Context")
+                                    with gr.Accordion("Reasoning Trace", open=False):
+                                        pi_reasoning = gr.Markdown(label="Tree Navigation Reasoning")
+                                    pi_sources = gr.JSON(label="Source Documents")
+
+                            pi_query_btn.click(
+                                fn=self._handle_pageindex_query,
+                                inputs=[pi_query_input],
+                                outputs=[pi_response, pi_reasoning, pi_sources],
+                            )
+
+                        with gr.TabItem("📥 Indexing"):
+                            gr.Markdown("### Build Tree Indexes for Documents")
+                            with gr.Row():
+                                pi_index_all_btn = gr.Button("🌳 Index All Documents", variant="primary")
+                                pi_index_refresh_btn = gr.Button("🔄 Refresh Status", variant="secondary")
+                            pi_index_status = gr.JSON(label="Indexing Status")
+
+                            pi_index_all_btn.click(
+                                fn=self._handle_pageindex_index_all,
+                                outputs=[pi_index_status],
+                            )
+                            pi_index_refresh_btn.click(
+                                fn=self._handle_pageindex_status,
+                                outputs=[pi_index_status],
+                            )
+
+                        with gr.TabItem("📊 Statistics"):
+                            pi_stats_btn = gr.Button("🔄 Refresh Statistics", variant="primary")
+                            pi_stats_output = gr.JSON(label="PageIndex Statistics")
+
+                            pi_stats_btn.click(
+                                fn=self._handle_pageindex_stats,
+                                outputs=[pi_stats_output],
+                            )
+
                 # V25: Alerts & Monitoring Tab
                 with gr.TabItem("🚨 Alerts & Monitoring"):
                     gr.Markdown("## Patient Alerts & Temporal Monitoring")
@@ -3743,6 +3915,58 @@ class SimpleAdminUI:
             return {"status": "error", "error": str(e)}
 
     # =========================================================================
+    # PageIndex RAG Handlers
+    # =========================================================================
+
+    async def _handle_pageindex_query(self, query: str):
+        """Handle PageIndex tree search query from admin UI."""
+        if not _pageindex_enabled or not _pageindex_engine:
+            return "PageIndex not enabled. Start server with --rag-method pageindex", "", {}
+        try:
+            result = await _pageindex_engine.search(query)
+            context_preview = result.context[:3000] if result.context else "No results found."
+            return context_preview, result.reasoning, result.doc_sources
+        except Exception as e:
+            return f"Error: {e}", "", {}
+
+    async def _handle_pageindex_index_all(self):
+        """Handle batch indexing all documents for PageIndex."""
+        if not _pageindex_enabled or not _pageindex_builder:
+            return {"error": "PageIndex not enabled"}
+        try:
+            documents = []
+            for doc_id, meta in self.rag_pipeline.document_metadata.items():
+                if not _pageindex_storage.has_tree(doc_id):
+                    documents.append({
+                        "doc_id": doc_id,
+                        "file_path": meta["file_path"],
+                        "metadata": {"filename": meta["filename"], "page_count": meta.get("page_count", 0)},
+                    })
+            if not documents:
+                return {"message": "All documents already indexed", "total": 0}
+            return await _pageindex_builder.batch_index(documents)
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _handle_pageindex_status(self):
+        """Handle refreshing PageIndex indexing status."""
+        if not _pageindex_enabled or not _pageindex_storage:
+            return {"error": "PageIndex not enabled"}
+        return {
+            "trees": [e.to_dict() for e in _pageindex_storage.list_trees()],
+            "stats": _pageindex_storage.get_stats(),
+        }
+
+    def _handle_pageindex_stats(self):
+        """Handle refreshing PageIndex statistics."""
+        if not _pageindex_enabled or not _pageindex_storage:
+            return {"error": "PageIndex not enabled"}
+        stats = _pageindex_storage.get_stats()
+        if _pageindex_engine:
+            stats["query_cache"] = _pageindex_engine.get_stats().get("cache")
+        return stats
+
+    # =========================================================================
     # V25: Alert & Monitoring Handlers
     # =========================================================================
 
@@ -4397,6 +4621,12 @@ def main():
         default="b",
         help="Voice AI provider: g/gemini=Gemini Live, b/bolna=Bolna.ai, r/retell=Retell.AI (default: b)"
     )
+    parser.add_argument(
+        "--rag-method",
+        choices=["vector", "pageindex", "hybrid"],
+        default="vector",
+        help="RAG method: vector=ChromaDB (default), pageindex=tree-based, hybrid=both"
+    )
 
     args = parser.parse_args()
 
@@ -4425,7 +4655,35 @@ def main():
     # Initialize components
     rag_pipeline = SimpleRAGPipeline()
     admin_ui = SimpleAdminUI(rag_pipeline)
-    
+
+    # PageIndex service globals
+    _pageindex_config = None
+    _pageindex_storage = None
+    _pageindex_builder = None
+    _pageindex_engine = None
+    _pageindex_enabled = False
+    _rag_method = getattr(args, 'rag_method', 'vector')
+
+    if PAGEINDEX_AVAILABLE and _rag_method in ("pageindex", "hybrid"):
+        try:
+            _pageindex_config = PageIndexConfig()
+            _pageindex_storage = PageIndexStorage(_pageindex_config)
+            _pageindex_builder = PageIndexTreeBuilder(_pageindex_config, _pageindex_storage)
+            _pageindex_engine = PageIndexQueryEngine(_pageindex_config, _pageindex_storage)
+            _pageindex_enabled = True
+            stats = _pageindex_storage.get_stats()
+            logger.info(f"PageIndex initialized: {stats['total_trees']} trees, {stats['total_nodes']} nodes")
+            logger.info(f"RAG method: {_rag_method}")
+        except Exception as e:
+            logger.error(f"Failed to initialize PageIndex: {e}")
+            _pageindex_enabled = False
+            if _rag_method == "pageindex":
+                logger.warning("Falling back to vector search")
+                _rag_method = "vector"
+    elif _rag_method in ("pageindex", "hybrid") and not PAGEINDEX_AVAILABLE:
+        logger.warning("PageIndex requested but module not available, falling back to vector")
+        _rag_method = "vector"
+
     # Initialize ngrok manager
     ngrok_manager = NgrokManager()
     
@@ -4983,6 +5241,96 @@ def main():
             return result
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    # ==========================================================================
+    # PAGEINDEX RAG ENDPOINTS
+    # Vectorless, reasoning-based retrieval using document tree indexes
+    # ==========================================================================
+
+    @app.get("/api/pageindex/health")
+    async def pageindex_health():
+        """PageIndex health check and status."""
+        return {
+            "available": PAGEINDEX_AVAILABLE,
+            "enabled": _pageindex_enabled,
+            "rag_method": _rag_method,
+            "provider": _pageindex_config.llm.provider if _pageindex_config else None,
+        }
+
+    @app.get("/api/pageindex/stats")
+    async def pageindex_stats():
+        """Get PageIndex tree index statistics."""
+        if not _pageindex_enabled or not _pageindex_storage:
+            return {"error": "PageIndex not enabled. Start server with --rag-method pageindex or --rag-method hybrid"}
+        return _pageindex_storage.get_stats()
+
+    @app.post("/api/pageindex/query")
+    async def pageindex_query(query: str = Form(...), doc_ids: str = Form("")):
+        """Query via PageIndex tree search."""
+        if not _pageindex_enabled or not _pageindex_engine:
+            return {"error": "PageIndex not enabled"}
+        doc_id_list = [d.strip() for d in doc_ids.split(",") if d.strip()] or None
+        result = await _pageindex_engine.search(query, doc_ids=doc_id_list)
+        return result.to_dict()
+
+    @app.post("/api/pageindex/index")
+    async def pageindex_index_doc(doc_id: str = Form(...)):
+        """Index a single document as a tree."""
+        if not _pageindex_enabled or not _pageindex_builder:
+            return {"error": "PageIndex not enabled"}
+        meta = rag_pipeline.document_metadata.get(doc_id)
+        if not meta:
+            return {"error": f"Document {doc_id} not found in metadata"}
+        result = await _pageindex_builder.build_tree(
+            meta["file_path"], doc_id,
+            metadata={"filename": meta["filename"], "page_count": meta.get("page_count", 0)},
+        )
+        return result
+
+    @app.post("/api/pageindex/index/batch")
+    async def pageindex_index_batch():
+        """Batch index all documents that don't have tree indexes yet."""
+        if not _pageindex_enabled or not _pageindex_builder:
+            return {"error": "PageIndex not enabled"}
+        documents = []
+        for doc_id, meta in rag_pipeline.document_metadata.items():
+            if not _pageindex_storage.has_tree(doc_id):
+                documents.append({
+                    "doc_id": doc_id,
+                    "file_path": meta["file_path"],
+                    "metadata": {"filename": meta["filename"], "page_count": meta.get("page_count", 0)},
+                })
+        if not documents:
+            return {"message": "All documents already indexed", "total": 0}
+        result = await _pageindex_builder.batch_index(documents)
+        return result
+
+    @app.get("/api/pageindex/index/status")
+    async def pageindex_index_status():
+        """Get indexing status for all documents."""
+        if not _pageindex_enabled or not _pageindex_storage:
+            return {"error": "PageIndex not enabled"}
+        return {
+            "trees": [e.to_dict() for e in _pageindex_storage.list_trees()],
+            "stats": _pageindex_storage.get_stats(),
+        }
+
+    @app.get("/api/pageindex/trees")
+    async def pageindex_list_trees():
+        """List all tree indexes."""
+        if not _pageindex_enabled or not _pageindex_storage:
+            return {"error": "PageIndex not enabled"}
+        return [e.to_dict() for e in _pageindex_storage.list_trees()]
+
+    @app.get("/api/pageindex/tree/{doc_id}")
+    async def pageindex_get_tree(doc_id: str):
+        """Get tree structure for a specific document."""
+        if not _pageindex_enabled or not _pageindex_storage:
+            return {"error": "PageIndex not enabled"}
+        tree = _pageindex_storage.load_tree(doc_id)
+        if not tree:
+            return {"error": f"Tree not found for document {doc_id}"}
+        return tree
 
     # ==========================================================================
     # BOLNA.AI INTEGRATION ENDPOINTS
