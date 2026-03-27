@@ -162,8 +162,9 @@ class PatientDetailResponse(BaseModel):
 class AddCareTeamMemberRequest(BaseModel):
     name: str
     role: str
-    phone: Optional[str] = None
-    relationship: Optional[str] = None
+    organization: Optional[str] = None
+    phone_number: Optional[str] = None
+    primary_contact: bool = False
 
 
 class FhirImportRequest(BaseModel):

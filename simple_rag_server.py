@@ -4952,11 +4952,17 @@ def main():
             _jwt_secret = os.environ.get("MOBILE_JWT_SECRET", _mobile_config.get("jwt_secret", ""))
             if _jwt_secret:
                 init_auth(jwt_secret=_jwt_secret, jwt_expiry_hours=_mobile_config.get("jwt_expiry_hours", 72))
+                _med_manager = None
+                try:
+                    from medication_voice_reminders import get_medication_voice_reminder_system
+                    _med_manager = get_medication_voice_reminder_system()
+                except ImportError:
+                    logger.warning("Medication voice reminder system not available for mobile API")
                 init_mobile_deps(
                     rag_pipeline=rag_pipeline,
                     safety_manager=get_safety_manager() if SAFETY_ENHANCEMENTS_AVAILABLE else None,
                     memory_manager=LongitudinalMemoryManager() if LONGITUDINAL_MEMORY_AVAILABLE else None,
-                    medication_manager=None,
+                    medication_manager=_med_manager,
                 )
                 app.include_router(mobile_router)
                 logger.info("Mobile API v1 enabled at /api/mobile/v1/")

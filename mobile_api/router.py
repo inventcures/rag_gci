@@ -177,7 +177,7 @@ async def voice_query(
         from sarvam_integration import SarvamClient
         sarvam = SarvamClient()
         stt_result = await sarvam.speech_to_text(audio_bytes, language)
-        transcript = stt_result.text
+        transcript = stt_result.transcript
     except Exception as e:
         logger.error(f"STT failed: {e}")
         raise HTTPException(status_code=500, detail="Speech-to-text processing failed")
@@ -372,7 +372,7 @@ async def create_reminder(
         reminder_time=scheduled_dt,
         language=request.language,
     )
-    reminder_id = result.get("reminder_id", str(uuid.uuid4()))
+    reminder_id = result.reminder_id if hasattr(result, "reminder_id") else str(uuid.uuid4())
     return ReminderResponse(reminder_id=reminder_id, status="created")
 
 
@@ -530,8 +530,16 @@ async def export_fhir(
     try:
         from personalization.fhir_adapter import FHIRAdapter
         adapter = FHIRAdapter()
-        bundle = await adapter.export_patient(patient_id)
-        return {"patient_id": patient_id, "fhir_bundle": bundle}
+        memory_manager = get_memory_manager()
+        if memory_manager is None:
+            raise HTTPException(status_code=503, detail="Memory manager not available for FHIR export")
+        bundle = await adapter.export_patient_bundle(
+            patient_id=patient_id,
+            longitudinal_manager=memory_manager,
+        )
+        return {"patient_id": patient_id, "fhir_bundle": bundle.to_dict() if hasattr(bundle, "to_dict") else bundle}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"FHIR export failed: {e}")
         raise HTTPException(status_code=500, detail="FHIR export failed")
@@ -545,8 +553,16 @@ async def import_fhir(
     try:
         from personalization.fhir_adapter import FHIRAdapter
         adapter = FHIRAdapter()
-        result = await adapter.import_bundle(request.bundle)
+        memory_manager = get_memory_manager()
+        if memory_manager is None:
+            raise HTTPException(status_code=503, detail="Memory manager not available for FHIR import")
+        result = await adapter.import_bundle(
+            bundle_json=request.bundle,
+            longitudinal_manager=memory_manager,
+        )
         return {"status": "imported", "result": result}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"FHIR import failed: {e}")
         raise HTTPException(status_code=500, detail="FHIR import failed")
