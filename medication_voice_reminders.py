@@ -646,6 +646,56 @@ class MedicationVoiceReminderSystem:
             "adherence_rate": round(adherence_rate, 1),
         }
 
+    def get_reminders_modified_since(self, user_id: str, since: float) -> List[Dict[str, Any]]:
+        """Return reminders modified after the given Unix timestamp (for mobile sync)."""
+        since_dt = datetime.fromtimestamp(since)
+        results = []
+        for reminder in self.reminders.values():
+            if reminder.scheduled_time >= since_dt:
+                results.append(reminder.to_dict())
+        return results
+
+    def upsert_reminder_from_sync(self, reminder_data: Dict[str, Any]) -> None:
+        """Upsert a reminder from mobile sync."""
+        reminder_id = reminder_data.get("reminder_id")
+        if not reminder_id:
+            return
+
+        if reminder_id in self.reminders:
+            existing = self.reminders[reminder_id]
+            if "call_status" in reminder_data:
+                try:
+                    existing.call_status = CallStatus(reminder_data["call_status"])
+                except ValueError:
+                    pass
+            if reminder_data.get("patient_confirmed"):
+                existing.patient_confirmed = True
+        else:
+            try:
+                scheduled = reminder_data.get("scheduled_time")
+                if isinstance(scheduled, (int, float)):
+                    scheduled_dt = datetime.fromtimestamp(scheduled)
+                else:
+                    scheduled_dt = datetime.now()
+
+                reminder = MedicationVoiceReminder(
+                    reminder_id=reminder_id,
+                    user_id=reminder_data.get("user_id", ""),
+                    phone_number=reminder_data.get("phone_number", ""),
+                    medication_name=reminder_data.get("medication_name", ""),
+                    dosage=reminder_data.get("dosage", ""),
+                    scheduled_time=scheduled_dt,
+                    language=reminder_data.get("language", "en"),
+                )
+                self.reminders[reminder_id] = reminder
+                user_id = reminder_data.get("user_id", "")
+                if user_id:
+                    if user_id not in self.user_reminders:
+                        self.user_reminders[user_id] = []
+                    self.user_reminders[user_id].append(reminder_id)
+            except Exception as e:
+                logger.error(f"Error upserting reminder from sync: {e}")
+
 
 # Singleton instance
 _voice_reminder_system: Optional[MedicationVoiceReminderSystem] = None

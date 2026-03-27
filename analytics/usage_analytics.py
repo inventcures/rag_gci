@@ -486,6 +486,35 @@ class UsageAnalytics:
             "trends": await self.get_trend_analysis(7)
         }
 
+    async def get_top_queries(
+        self, n: int = 20, language: Optional[str] = None
+    ) -> Optional[List[str]]:
+        """
+        Return the top N most frequent query types from recent analytics.
+        Falls back to None if insufficient data (caller uses defaults).
+        """
+        try:
+            stats_list = await self.get_date_range_stats(30)
+            if not stats_list:
+                return None
+
+            from collections import Counter
+            type_counts: Counter = Counter()
+            for stats in stats_list:
+                for query_type, count in stats.queries_by_type.items():
+                    if language:
+                        type_counts[query_type] += count
+                    else:
+                        type_counts[query_type] += count
+
+            if not type_counts:
+                return None
+
+            return [qt for qt, _ in type_counts.most_common(n)]
+        except Exception as e:
+            logger.error(f"Error getting top queries: {e}")
+            return None
+
     async def cleanup_old_data(self) -> int:
         """
         Clean up old analytics data.

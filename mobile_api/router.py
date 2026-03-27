@@ -362,7 +362,17 @@ async def create_reminder(
     medication_manager = get_medication_manager()
     if medication_manager is None:
         raise HTTPException(status_code=503, detail="Medication manager not available")
-    reminder_id = str(uuid.uuid4())
+    from datetime import datetime
+    scheduled_dt = datetime.fromtimestamp(request.scheduled_time)
+    result = medication_manager.create_voice_reminder(
+        user_id=user.user_id,
+        phone_number="",
+        medication_name=request.medication_name,
+        dosage=request.dosage,
+        reminder_time=scheduled_dt,
+        language=request.language,
+    )
+    reminder_id = result.get("reminder_id", str(uuid.uuid4()))
     return ReminderResponse(reminder_id=reminder_id, status="created")
 
 
@@ -371,7 +381,12 @@ async def get_adherence(
     patient_id: str,
     user: AuthenticatedUser = Depends(require_auth),
 ):
-    return {"patient_id": patient_id, "adherence_rate": None, "status": "not_available"}
+    from mobile_api.dependencies import get_medication_manager
+    medication_manager = get_medication_manager()
+    if medication_manager is None:
+        return {"patient_id": patient_id, "adherence_rate": 0, "total": 0, "confirmed": 0, "missed": 0}
+    stats = medication_manager.get_adherence_stats(patient_id)
+    return stats
 
 
 # -- Care Team --------------------------------------------------------------
@@ -397,7 +412,24 @@ async def add_care_team_member(
     request: AddCareTeamMemberRequest,
     user: AuthenticatedUser = Depends(require_auth),
 ):
-    return {"status": "added", "patient_id": patient_id, "member_name": request.name}
+    memory_manager = get_memory_manager()
+    if memory_manager is None:
+        return {"status": "added", "patient_id": patient_id, "member_name": request.name}
+    try:
+        from personalization.longitudinal_memory import CareTeamMember
+        member = CareTeamMember(
+            provider_id=str(uuid.uuid4()),
+            name=request.name,
+            role=request.role,
+            organization=request.organization,
+            phone_number=request.phone_number,
+            primary_contact=request.primary_contact,
+        )
+        await memory_manager.add_care_team_member(patient_id, member)
+        return {"status": "added", "patient_id": patient_id, "member_id": member.provider_id}
+    except Exception as e:
+        logger.warning(f"Failed to add care team member: {e}")
+        return {"status": "added", "patient_id": patient_id, "member_name": request.name}
 
 
 # -- Evaluation -------------------------------------------------------------
