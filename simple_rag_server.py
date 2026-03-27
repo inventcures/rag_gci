@@ -132,6 +132,16 @@ except ImportError:
     PageIndexQueryEngine = None
     PageIndexStorage = None
 
+# Mobile API imports (for Android app)
+try:
+    from mobile_api.router import mobile_router
+    from mobile_api.dependencies import init_dependencies as init_mobile_deps
+    from auth.middleware import init_auth
+    MOBILE_API_AVAILABLE = True
+except ImportError:
+    MOBILE_API_AVAILABLE = False
+    mobile_router = None
+
 # V25: Longitudinal Patient Context Memory System
 try:
     from personalization.longitudinal_memory import (
@@ -4926,6 +4936,32 @@ def main():
                 logger.info("Retell Custom LLM handler stopped")
             except Exception as e:
                 logger.error(f"Error stopping Retell handler: {e}")
+
+    # Mobile API initialization (conditional on config)
+    if MOBILE_API_AVAILABLE:
+        import yaml as _yaml
+        _mobile_config = {}
+        try:
+            with open("config.yaml") as _cf:
+                _full_config = _yaml.safe_load(_cf) or {}
+            _mobile_config = _full_config.get("mobile", {})
+        except Exception:
+            pass
+
+        if _mobile_config.get("enabled", False):
+            _jwt_secret = os.environ.get("MOBILE_JWT_SECRET", _mobile_config.get("jwt_secret", ""))
+            if _jwt_secret:
+                init_auth(jwt_secret=_jwt_secret, jwt_expiry_hours=_mobile_config.get("jwt_expiry_hours", 72))
+                init_mobile_deps(
+                    rag_pipeline=rag_pipeline,
+                    safety_manager=get_safety_manager() if SAFETY_ENHANCEMENTS_AVAILABLE else None,
+                    memory_manager=LongitudinalMemoryManager() if LONGITUDINAL_MEMORY_AVAILABLE else None,
+                    medication_manager=None,
+                )
+                app.include_router(mobile_router)
+                logger.info("Mobile API v1 enabled at /api/mobile/v1/")
+            else:
+                logger.warning("Mobile API disabled: MOBILE_JWT_SECRET not set")
 
     async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
         """

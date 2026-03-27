@@ -44,6 +44,9 @@ retell-sdk>=4.0.0  # For Retell.AI Custom LLM integration
 # Knowledge Graph
 neo4j>=5.14.0  # Neo4j Python driver for knowledge graph
 
+# Mobile API Authentication
+PyJWT>=2.8.0
+
 # Utilities
 python-dotenv>=1.0.0
 PyYAML>=6.0.1

@@ -314,3 +314,24 @@ knowledge_graph:
   visualization:
     layout: "cose"  # Force-directed layout
     max_nodes: 100
+
+# Mobile API Configuration (Android App)
+mobile:
+  enabled: true
+  jwt_expiry_hours: 72
+  pin_min_length: 4
+  cache_bundle_refresh_hours: 24
+  sync_batch_max_size: 50
+  max_offline_days: 30
+  cors_origins:
+    - "*"
+
+# EVAH Evaluation Configuration
+evaluation:
+  enabled: true
+  sus_collection_months: [4, 8]
+  vignette_count: 20
+  vignettes_with_tool: 10
+  vignettes_without_tool: 10
+  interaction_log_retention_days: 365
+  export_formats: ["csv", "json"]
