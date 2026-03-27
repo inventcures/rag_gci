@@ -326,6 +326,28 @@ mobile:
   cors_origins:
     - "*"
 
+# Context-1 Agentic Multi-Hop Retrieval
+context1:
+  enabled: true
+  max_hops: 4
+  token_budget: 32768
+  soft_threshold: 24576
+  hard_cutoff: 28672
+  max_search_calls: 8
+  top_k_results: 50
+
+# Always-On Memory Agents
+memory_agents:
+  enabled: true
+  consolidation_interval_minutes: 30
+  db_path: data/memory_agents/patient_memory.db
+
+# HyperAgent Meta-Agent
+meta_agent:
+  enabled: true
+  improvement_threshold: 0.05
+  sandbox_test_count: 10
+
 # EVAH Evaluation Configuration
 evaluation:
   enabled: true

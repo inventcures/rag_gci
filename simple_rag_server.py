@@ -4966,6 +4966,49 @@ def main():
                 )
                 app.include_router(mobile_router)
                 logger.info("Mobile API v1 enabled at /api/mobile/v1/")
+
+                # Context-1, Memory Agents, and Meta Agent initialization
+                try:
+                    from context1_integration import Context1Config, Context1RetrievalAgent, QueryComplexityClassifier
+                    _c1_config = Context1Config.from_dict(_full_config.get("context1", {}))
+                    _complexity_classifier = QueryComplexityClassifier()
+                    _context1_agent = Context1RetrievalAgent(config=_c1_config)
+                    if rag_pipeline and hasattr(rag_pipeline, 'vector_db') and rag_pipeline.vector_db:
+                        _context1_agent.set_collection(rag_pipeline.vector_db)
+                    logger.info("Context-1 integration initialized")
+                except Exception as _c1_err:
+                    logger.warning(f"Context-1 integration not available: {_c1_err}")
+
+                try:
+                    from memory_agents import MemoryStore, PatientIngestAgent, PatientQueryAgent, ConsolidationScheduler
+                    from mobile_api.dependencies import init_memory_agents
+                    _ma_config = _full_config.get("memory_agents", {})
+                    _ma_db = _ma_config.get("db_path", "data/memory_agents/patient_memory.db")
+                    _ma_store = MemoryStore(db_path=_ma_db)
+                    _ma_ingest = PatientIngestAgent(_ma_store)
+                    _ma_query = PatientQueryAgent(_ma_store)
+                    _ma_scheduler = ConsolidationScheduler(
+                        memory_store=_ma_store,
+                        interval_minutes=_ma_config.get("consolidation_interval_minutes", 30),
+                    )
+                    init_memory_agents(_ma_store, _ma_query)
+                    logger.info("Memory agents initialized")
+                except Exception as _ma_err:
+                    logger.warning(f"Memory agents not available: {_ma_err}")
+
+                try:
+                    from meta_agent import ClinicalMetaAgent, ResponseEvaluator
+                    from mobile_api.dependencies import init_meta_evaluator
+                    _meta_evaluator = ResponseEvaluator()
+                    _meta_agent = ClinicalMetaAgent(
+                        evaluator=_meta_evaluator,
+                        improvement_threshold=_full_config.get("meta_agent", {}).get("improvement_threshold", 0.05),
+                    )
+                    init_meta_evaluator(_meta_evaluator)
+                    logger.info("Meta agent initialized")
+                except Exception as _meta_err:
+                    logger.warning(f"Meta agent not available: {_meta_err}")
+
             else:
                 logger.warning("Mobile API disabled: MOBILE_JWT_SECRET not set")
 

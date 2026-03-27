@@ -23,6 +23,9 @@ from mobile_api.schemas import (
     PatientDetailResponse,
     AddCareTeamMemberRequest,
     FhirImportRequest,
+    PatientInsightsResponse,
+    PatientMemoryQueryRequest, PatientMemoryQueryResponse,
+    FeedbackRequest, FeedbackResponse,
 )
 from mobile_api.dependencies import get_rag_pipeline, get_safety_manager, get_memory_manager
 
@@ -566,3 +569,72 @@ async def import_fhir(
     except Exception as e:
         logger.error(f"FHIR import failed: {e}")
         raise HTTPException(status_code=500, detail="FHIR import failed")
+
+
+# -- Memory Agents (Always-On Memory) --------------------------------------
+
+@mobile_router.get("/patient/{patient_id}/insights", response_model=PatientInsightsResponse)
+async def get_patient_insights(
+    patient_id: str,
+    user: AuthenticatedUser = Depends(require_auth),
+):
+    try:
+        from mobile_api.dependencies import get_memory_agents_query
+        query_agent = get_memory_agents_query()
+        if query_agent is None:
+            return PatientInsightsResponse(patient_id=patient_id, insights=[], total=0)
+        from mobile_api.dependencies import get_memory_agents_store
+        store = get_memory_agents_store()
+        insights = await store.get_patient_insights(patient_id)
+        return PatientInsightsResponse(
+            patient_id=patient_id,
+            insights=[i.to_dict() for i in insights],
+            total=len(insights),
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch patient insights: {e}")
+        return PatientInsightsResponse(patient_id=patient_id, insights=[], total=0)
+
+
+@mobile_router.post("/patient/{patient_id}/query-memory", response_model=PatientMemoryQueryResponse)
+async def query_patient_memory(
+    patient_id: str,
+    request: PatientMemoryQueryRequest,
+    user: AuthenticatedUser = Depends(require_auth),
+):
+    try:
+        from mobile_api.dependencies import get_memory_agents_query
+        query_agent = get_memory_agents_query()
+        if query_agent is None:
+            raise HTTPException(status_code=503, detail="Memory agent not available")
+        result = await query_agent.query(patient_id, request.question)
+        return PatientMemoryQueryResponse(**result.to_dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Memory query failed: {e}")
+        raise HTTPException(status_code=500, detail="Memory query failed")
+
+
+@mobile_router.post("/feedback", response_model=FeedbackResponse)
+async def submit_feedback(
+    request: FeedbackRequest,
+    user: AuthenticatedUser = Depends(require_auth),
+):
+    try:
+        from mobile_api.dependencies import get_meta_evaluator
+        evaluator = get_meta_evaluator()
+        if evaluator is None:
+            return FeedbackResponse(status="accepted_no_evaluator")
+        feedback_str = "positive" if request.positive else "negative"
+        if request.comment:
+            feedback_str += f": {request.comment}"
+        result = await evaluator.evaluate_response(
+            query=request.query_id,
+            response="",
+            user_feedback=feedback_str,
+        )
+        return FeedbackResponse(status="accepted", evaluation_id=result.id)
+    except Exception as e:
+        logger.error(f"Feedback submission failed: {e}")
+        return FeedbackResponse(status="accepted_with_error")

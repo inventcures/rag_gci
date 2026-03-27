@@ -169,3 +169,32 @@ class AddCareTeamMemberRequest(BaseModel):
 
 class FhirImportRequest(BaseModel):
     bundle: dict
+
+
+class PatientInsightsResponse(BaseModel):
+    patient_id: str
+    insights: List[dict]
+    total: int
+
+
+class PatientMemoryQueryRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=2000)
+
+
+class PatientMemoryQueryResponse(BaseModel):
+    answer: str
+    cited_memory_ids: List[str]
+    cited_insight_ids: List[str]
+    raw_memories_used: int
+    insights_used: int
+
+
+class FeedbackRequest(BaseModel):
+    query_id: str
+    positive: bool
+    comment: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    status: str
+    evaluation_id: Optional[str] = None
