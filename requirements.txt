@@ -29,7 +29,7 @@ pypandoc>=1.12
 
 # Audio Processing (STT/TTS)
 requests>=2.31.0
-edge-tts>=6.1.9
+edge-tts>=7.2.8  # 7.1.0+ fixes Microsoft Bing endpoint 403 (DRM token signing)
 whisper-openai>=20231117
 pydub>=0.25.1
 

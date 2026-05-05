@@ -217,11 +217,16 @@ class EnhancedTTSService:
             audio_file = self.output_dir / f"tts_{language}_{timestamp}.mp3"
             logger.info(f"  📄 Target file: {audio_file}")
             
-            # Generate speech
+            # Generate speech (Edge TTS primary, Sarvam fallback)
             logger.info("  🎵 Generating speech with Edge TTS...")
-            communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(str(audio_file))
-            logger.info("  ✅ Edge TTS synthesis completed")
+            try:
+                communicate = edge_tts.Communicate(text, voice)
+                await communicate.save(str(audio_file))
+                logger.info("  ✅ Edge TTS synthesis completed")
+            except Exception as edge_err:
+                logger.warning(f"  ⚠️ Edge TTS failed ({edge_err}); trying Sarvam fallback...")
+                if not await self._sarvam_fallback(text, language, audio_file):
+                    raise edge_err
             
             # Verify file was created
             if audio_file.exists():
@@ -253,6 +258,29 @@ class EnhancedTTSService:
                 "audio_available": False,
                 "error": f"TTS failed: {str(e)}"
             }
+
+    async def _sarvam_fallback(self, text: str, language: str, audio_file: Path) -> bool:
+        """Fallback to Sarvam AI TTS when Edge TTS fails. Returns True on success."""
+        try:
+            from sarvam_integration import SarvamClient
+            sarvam = SarvamClient()
+            # Map short code to BCP-47 (Sarvam expects e.g., hi-IN, ta-IN)
+            bcp47 = {
+                "hi": "hi-IN", "bn": "bn-IN", "ta": "ta-IN",
+                "gu": "gu-IN", "en": "en-IN",
+            }.get(language, "hi-IN")
+            result = await sarvam.text_to_speech(text, bcp47)
+            if result and result.audio_base64:
+                import base64
+                audio_bytes = base64.b64decode(result.audio_base64)
+                audio_file.write_bytes(audio_bytes)
+                logger.info(f"  ✅ Sarvam fallback synthesis completed ({len(audio_bytes)} bytes)")
+                return True
+            logger.warning("  ⚠️ Sarvam returned no audio")
+            return False
+        except Exception as sarvam_err:
+            logger.warning(f"  ⚠️ Sarvam fallback also failed: {sarvam_err}")
+            return False
 
 
 class TwilioWhatsAppAPI:
