@@ -105,15 +105,30 @@
         }
 
         .lang-btn {
-            padding: 0.625rem 1.25rem;
+            padding: 0.5rem 1rem;
             border: 2px solid var(--primary);
             background: var(--white);
             color: var(--primary);
-            border-radius: 25px;
+            border-radius: 18px;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-weight: 500;
             transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.125rem;
+            line-height: 1.2;
+        }
+
+        .lang-btn .lang-native {
+            font-size: 1rem;
+        }
+
+        .lang-btn .lang-english {
+            font-size: 0.7rem;
+            opacity: 0.75;
+            font-weight: 400;
         }
 
         .lang-btn:hover {
@@ -395,35 +410,45 @@
 
         <!-- Language Selector -->
         <nav class="language-selector" aria-label="Language selection">
-            <button class="lang-btn active" data-lang="en-IN" aria-pressed="true">
-                English
+            <button class="lang-btn active" data-lang="en-IN" aria-pressed="true" aria-label="English">
+                <span class="lang-native">English</span>
+                <span class="lang-english">English</span>
             </button>
-            <button class="lang-btn" data-lang="hi-IN" aria-pressed="false">
-                हिंदी
+            <button class="lang-btn" data-lang="hi-IN" aria-pressed="false" aria-label="Hindi">
+                <span class="lang-native">हिंदी</span>
+                <span class="lang-english">Hindi</span>
             </button>
-            <button class="lang-btn" data-lang="mr-IN" aria-pressed="false">
-                मराठी
+            <button class="lang-btn" data-lang="mr-IN" aria-pressed="false" aria-label="Marathi">
+                <span class="lang-native">मराठी</span>
+                <span class="lang-english">Marathi</span>
             </button>
-            <button class="lang-btn" data-lang="ta-IN" aria-pressed="false">
-                தமிழ்
+            <button class="lang-btn" data-lang="ta-IN" aria-pressed="false" aria-label="Tamil">
+                <span class="lang-native">தமிழ்</span>
+                <span class="lang-english">Tamil</span>
             </button>
-            <button class="lang-btn" data-lang="bn-IN" aria-pressed="false">
-                বাংলা
+            <button class="lang-btn" data-lang="bn-IN" aria-pressed="false" aria-label="Bengali">
+                <span class="lang-native">বাংলা</span>
+                <span class="lang-english">Bengali</span>
             </button>
-            <button class="lang-btn" data-lang="te-IN" aria-pressed="false">
-                తెలుగు
+            <button class="lang-btn" data-lang="te-IN" aria-pressed="false" aria-label="Telugu">
+                <span class="lang-native">తెలుగు</span>
+                <span class="lang-english">Telugu</span>
             </button>
-            <button class="lang-btn" data-lang="kn-IN" aria-pressed="false">
-                ಕನ್ನಡ
+            <button class="lang-btn" data-lang="kn-IN" aria-pressed="false" aria-label="Kannada">
+                <span class="lang-native">ಕನ್ನಡ</span>
+                <span class="lang-english">Kannada</span>
             </button>
-            <button class="lang-btn" data-lang="ml-IN" aria-pressed="false">
-                മലയാളം
+            <button class="lang-btn" data-lang="ml-IN" aria-pressed="false" aria-label="Malayalam">
+                <span class="lang-native">മലയാളം</span>
+                <span class="lang-english">Malayalam</span>
             </button>
-            <button class="lang-btn" data-lang="gu-IN" aria-pressed="false">
-                ગુજરાતી
+            <button class="lang-btn" data-lang="gu-IN" aria-pressed="false" aria-label="Gujarati">
+                <span class="lang-native">ગુજરાતી</span>
+                <span class="lang-english">Gujarati</span>
             </button>
-            <button class="lang-btn" data-lang="as-IN" aria-pressed="false">
-                অসমীয়া
+            <button class="lang-btn" data-lang="as-IN" aria-pressed="false" aria-label="Assamese">
+                <span class="lang-native">অসমীয়া</span>
+                <span class="lang-english">Assamese</span>
             </button>
         </nav>
 
