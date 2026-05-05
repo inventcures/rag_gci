@@ -150,7 +150,7 @@ class SarvamClient:
         self,
         text: str,
         language: str = "hi-IN",
-        voice: str = "meera",
+        voice: str = "priya",
         model: str = "bulbul:v3",
         pace: float = 1.0,
         pitch: int = 0,
@@ -182,11 +182,14 @@ class SarvamClient:
                 "speaker": voice,
                 "model": model,
                 "pace": pace,
-                "pitch": pitch,
-                "loudness": loudness,
                 "sample_rate": sample_rate,
                 "enable_preprocessing": enable_preprocessing,
             }
+            # Bulbul v3 dropped support for pitch/loudness; only include
+            # them for older models (v1/v2) when explicitly non-default.
+            if "v3" not in model:
+                payload["pitch"] = pitch
+                payload["loudness"] = loudness
 
             headers = {**self.headers, "Content-Type": "application/json"}
 
