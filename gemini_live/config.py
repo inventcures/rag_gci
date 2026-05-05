@@ -71,6 +71,42 @@ SUPPORTED_LANGUAGES: Dict[str, Dict[str, str]] = {
         "flag": "🇮🇳",
         "tts_fallback": "ta-IN-PallaviNeural",
     },
+    "bn-IN": {
+        "name": "Bengali",
+        "native_name": "বাংলা",
+        "flag": "🇮🇳",
+        "tts_fallback": "bn-IN-TanishaaNeural",
+    },
+    "te-IN": {
+        "name": "Telugu",
+        "native_name": "తెలుగు",
+        "flag": "🇮🇳",
+        "tts_fallback": "te-IN-ShrutiNeural",
+    },
+    "kn-IN": {
+        "name": "Kannada",
+        "native_name": "ಕನ್ನಡ",
+        "flag": "🇮🇳",
+        "tts_fallback": "kn-IN-SapnaNeural",
+    },
+    "ml-IN": {
+        "name": "Malayalam",
+        "native_name": "മലയാളം",
+        "flag": "🇮🇳",
+        "tts_fallback": "ml-IN-SobhanaNeural",
+    },
+    "gu-IN": {
+        "name": "Gujarati",
+        "native_name": "ગુજરાતી",
+        "flag": "🇮🇳",
+        "tts_fallback": "gu-IN-DhwaniNeural",
+    },
+    "as-IN": {
+        "name": "Assamese",
+        "native_name": "অসমীয়া",
+        "flag": "🇮🇳",
+        "tts_fallback": "hi-IN-SwaraNeural",  # Falls back to Hindi (no Assamese TTS yet)
+    },
 }
 
 # Map short codes to full language codes
@@ -79,6 +115,12 @@ LANGUAGE_CODE_MAP: Dict[str, str] = {
     "hi": "hi-IN",
     "mr": "mr-IN",
     "ta": "ta-IN",
+    "bn": "bn-IN",
+    "te": "te-IN",
+    "kn": "kn-IN",
+    "ml": "ml-IN",
+    "gu": "gu-IN",
+    "as": "as-IN",
 }
 
 # Available Voice Options (Gemini Live prebuilt voices)
