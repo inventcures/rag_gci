@@ -1094,6 +1094,12 @@ class EnhancedWhatsAppBot:
                         public_url
                     )
             else:
+                rag_error = result.get("error", "Unknown error")
+                rag_traceback = result.get("traceback", "")
+                logger.error(f"❌ RAG pipeline returned status={result.get('status')}: {rag_error}")
+                if rag_traceback:
+                    logger.error(f"❌ RAG traceback:\n{rag_traceback}")
+
                 error_msg = "Sorry, I encountered an error processing your question."
                 await self.twilio_api.send_text_message(from_number, error_msg)
 
@@ -1346,13 +1352,18 @@ class EnhancedWhatsAppBot:
                     except:
                         pass
             else:
+                rag_error = result.get("error", "Unknown error")
+                rag_traceback = result.get("traceback", "")
+                logger.error(f"❌ RAG pipeline returned status={result.get('status')}: {rag_error}")
+                if rag_traceback:
+                    logger.error(f"❌ RAG traceback:\n{rag_traceback}")
                 await self.whatsapp_api.send_text_message(
                     from_number,
                     "Sorry, I encountered an error processing your question. Please try again."
                 )
-                
+
         except Exception as e:
-            logger.error(f"Error handling text message: {e}")
+            logger.error(f"Error handling text message: {e}", exc_info=True)
             await self._send_error_message(from_number)
     
     async def _handle_audio_message(self, message: dict, from_number: str):
@@ -1437,9 +1448,16 @@ class EnhancedWhatsAppBot:
                     except:
                         pass
             else:
+                # Log the actual underlying error from the RAG pipeline
+                rag_error = result.get("error", "Unknown error")
+                rag_traceback = result.get("traceback", "")
+                logger.error(f"❌ RAG pipeline returned status={result.get('status')}: {rag_error}")
+                if rag_traceback:
+                    logger.error(f"❌ RAG traceback:\n{rag_traceback}")
+
                 error_msg = "Sorry, I encountered an error processing your question."
                 await self.whatsapp_api.send_text_message(from_number, error_msg)
-                
+
                 # Send error in detected language
                 if detected_language != "en":
                     tts_result = await self.tts_service.synthesize_speech(
@@ -1454,11 +1472,11 @@ class EnhancedWhatsAppBot:
                             os.remove(tts_result["audio_file"])
                         except:
                             pass
-                
+
         except Exception as e:
-            logger.error(f"Error handling audio message: {e}")
+            logger.error(f"Error handling audio message: {e}", exc_info=True)
             await self._send_error_message(from_number)
-    
+
     async def _handle_voice_message(self, message: dict, from_number: str):
         """Handle voice message (same as audio)"""
         # Voice messages are handled the same way as audio messages
