@@ -132,6 +132,17 @@ except ImportError:
     PageIndexQueryEngine = None
     PageIndexStorage = None
 
+# Module-level globals for PageIndex / RAG method routing.
+# These are set in main() based on CLI args; defaults below ensure
+# SimpleRAGPipeline.query() can run before main() executes (e.g., during
+# import-time tests, or if query() is called before initialization).
+_rag_method: str = "vector"
+_pageindex_config = None
+_pageindex_storage = None
+_pageindex_builder = None
+_pageindex_engine = None
+_pageindex_enabled: bool = False
+
 # Mobile API imports (for Android app)
 try:
     from mobile_api.router import mobile_router
@@ -4666,7 +4677,10 @@ def main():
     rag_pipeline = SimpleRAGPipeline()
     admin_ui = SimpleAdminUI(rag_pipeline)
 
-    # PageIndex service globals
+    # PageIndex service globals — declare as global so main() updates the
+    # module-level variables that SimpleRAGPipeline.query() references.
+    global _pageindex_config, _pageindex_storage, _pageindex_builder
+    global _pageindex_engine, _pageindex_enabled, _rag_method
     _pageindex_config = None
     _pageindex_storage = None
     _pageindex_builder = None
