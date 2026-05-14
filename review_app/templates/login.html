@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Login — Review Console{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title mb-3">Reviewer Login</h3>
+        <p class="text-muted small">Six-reviewer panel for the Palli Sahayak RAG output grading study.</p>
+        {% if error %}
+          <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/login">
+          <div class="mb-3">
+            <label class="form-label" for="user_id">Reviewer</label>
+            <select class="form-select" id="user_id" name="user_id" required>
+              <option value="">— select reviewer —</option>
+              {% for u in users %}
+                <option value="{{ u.user_id }}">{{ u.name }} ({{ u.site }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="pin">PIN</label>
+            <input type="password" class="form-control" id="pin" name="pin" autocomplete="current-password" required />
+          </div>
+          <button class="btn btn-primary w-100" type="submit">Sign in</button>
+        </form>
+      </div>
+    </div>
+    <p class="text-muted small mt-3 text-center">Default PIN for first launch: <code>1234</code> (see README).</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Review Console{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Vignettes</h3>
+    <small class="text-muted">{{ vignettes|length }} shown · {{ total }} total · {{ n_mine }} reviewed by you</small>
+  </div>
+  <div class="btn-group" role="group">
+    <a href="/dashboard?filter=all" class="btn btn-sm btn-outline-secondary {% if filter == 'all' %}active{% endif %}">All</a>
+    <a href="/dashboard?filter=pending" class="btn btn-sm btn-outline-secondary {% if filter == 'pending' %}active{% endif %}">Pending</a>
+    <a href="/dashboard?filter=mine" class="btn btn-sm btn-outline-secondary {% if filter == 'mine' %}active{% endif %}">My Reviews</a>
+  </div>
+</div>
+
+{% if not vignettes %}
+  <div class="alert alert-warning">No vignettes match this filter. Vignette files are expected in <code>data/evaluation/vignettes/*.json</code>.</div>
+{% else %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Domain</th>
+          <th>Sub-area</th>
+          <th>Difficulty</th>
+          <th>Lang</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vignettes %}
+        <tr>
+          <td><code class="small">{{ v.vignette_id }}</code></td>
+          <td>{{ v.title }}</td>
+          <td><span class="badge bg-secondary">{{ v.domain }}</span></td>
+          <td>{{ v.sub_area }}</td>
+          <td>
+            {% if v.difficulty == 'easy' %}<span class="badge bg-success">easy</span>
+            {% elif v.difficulty == 'moderate' %}<span class="badge bg-warning text-dark">moderate</span>
+            {% elif v.difficulty == 'difficult' %}<span class="badge bg-danger">difficult</span>
+            {% else %}{{ v.difficulty }}{% endif %}
+          </td>
+          <td>{{ v.language }}</td>
+          <td>
+            {% if v.status == 'reviewed_by_you' %}
+              <span class="text-success">{{ v.status_label }}</span>
+            {% elif v.status == 'reviewed_by_others' %}
+              <span class="text-muted">{{ v.status_label }}</span>
+            {% else %}
+              <span class="text-warning">Pending</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if v.status == 'reviewed_by_you' %}
+              <a class="btn btn-sm btn-outline-primary" href="/review/{{ v.vignette_id }}">Edit</a>
+            {% else %}
+              <a class="btn btn-sm btn-primary" href="/review/{{ v.vignette_id }}">Review</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

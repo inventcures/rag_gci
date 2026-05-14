@@ -1,0 +1,16 @@
+[
+  {
+    "user_id": "doc_01",
+    "name": "Dr. Naveen Salins",
+    "site": "KMC Manipal",
+    "pin_salt": "804978e082bb47a56b2602da72d2a7bb",
+    "pin_hash": "deeaaec588559697414044f07c0affedf4a8f8169548238afb63e4398b66b8a6"
+  },
+  {
+    "user_id": "doc_02",
+    "name": "Dr. Jenifer Jeba",
+    "site": "CMC Vellore",
+    "pin_salt": "76062667371318689996adfc28280a37",
+    "pin_hash": "8d9d3d71d34dfb775255539885bfb99e980676962ed51d97cbd2a687ff050116"
+  }
+]

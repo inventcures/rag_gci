@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Progress — Review Console{% endblock %}
+{% block content %}
+<h3>Progress matrix</h3>
+<p class="text-muted small">Each cell shows the overall 0-10 score submitted by that reviewer for that vignette. Empty = not yet reviewed.</p>
+<div class="table-responsive">
+  <table class="table table-sm table-bordered align-middle progress-table">
+    <thead class="table-light">
+      <tr>
+        <th>Vignette</th>
+        {% for r in reviewers %}
+          <th class="text-center small">{{ r.name.split(' ')[-1] }}</th>
+        {% endfor %}
+        <th class="text-center">N</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vignettes %}
+      <tr>
+        <td><code class="small">{{ v.vignette_id }}</code></td>
+        {% for r in reviewers %}
+          {% set cell = matrix[r.user_id][v.vignette_id] %}
+          <td class="text-center {% if cell %}bg-success-subtle{% endif %}">
+            {% if cell %}{{ cell.overall_score }}{% else %}·{% endif %}
+          </td>
+        {% endfor %}
+        <td class="text-center"><strong>{{ per_vignette_totals[v.vignette_id] }}</strong></td>
+      </tr>
+      {% endfor %}
+      <tr class="table-light">
+        <td><strong>Total per reviewer</strong></td>
+        {% for r in reviewers %}
+          <td class="text-center"><strong>{{ per_reviewer_totals[r.user_id] }}</strong></td>
+        {% endfor %}
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
