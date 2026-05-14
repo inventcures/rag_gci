@@ -33,6 +33,7 @@ Usage:
 import asyncio
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -195,14 +196,36 @@ async def main() -> int:
         return 1
     logger.info("Loaded %d vignettes", len(vignettes))
 
+    # Groq free tier: 6000 TPM. Each query uses ~2-3k tokens (context +
+    # response), so space queries to stay under the limit. Also retry on
+    # empty answer (which indicates the LLM call rate-limited inside the
+    # pipeline and we only got an empty string back).
+    INTER_REQUEST_DELAY_S = float(os.environ.get("RAG_RUNNER_DELAY_S", "30"))
+    MAX_RETRIES = 2
+
     results = []
     for i, (vid, v) in enumerate(sorted(vignettes.items()), 1):
-        logger.info("[%d/%d] %s", i, len(vignettes), vid)
-        result = await run_one(v, rag_pipeline)
+        for attempt in range(1, MAX_RETRIES + 2):
+            logger.info("[%d/%d] %s (attempt %d)", i, len(vignettes), vid, attempt)
+            result = await run_one(v, rag_pipeline)
+            answer = result.get("answer", "") or ""
+            if answer.strip() and not result.get("error"):
+                break
+            if attempt <= MAX_RETRIES:
+                wait = 30 * attempt
+                logger.warning(
+                    "[%s] Empty/errored response (likely rate-limited); "
+                    "sleeping %ds before retry", vid, wait,
+                )
+                await asyncio.sleep(wait)
+
         out_path = OUTPUTS_DIR / f"{vid}.json"
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         results.append((vid, result.get("error"), result.get("elapsed_ms")))
+
+        if i < len(vignettes) and INTER_REQUEST_DELAY_S > 0:
+            await asyncio.sleep(INTER_REQUEST_DELAY_S)
 
     # Summary
     failures = [r for r in results if r[1]]
