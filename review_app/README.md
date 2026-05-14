@@ -14,31 +14,43 @@ uvicorn main:app --host 0.0.0.0 --port 8005
 
 Then visit <http://localhost:8005>.
 
-## Deploy to Render
+## Deploy to Railway
 
-The repo root contains `render.yaml`, a Render Blueprint spec.
+The repo root contains `railway.toml` (service config) and `nixpacks.toml`
+(build plan). Railway autodetects both.
 
 1. Push the repo to GitHub (already at `inventcures/rag_gci`).
-2. Render dashboard → **New +** → **Blueprint** → connect the repo.
-3. Render reads `render.yaml`, creates the web service, mounts a 1 GB
-   persistent disk at `/var/data`, generates `SECRET_KEY`, and deploys.
-4. After ~3 min, your service is at `https://<name>.onrender.com`.
-5. Distribute URL + PINs to the 6 reviewers.
+2. Railway dashboard → **New Project** → **Deploy from GitHub repo** →
+   select `inventcures/rag_gci`.
+3. Railway reads `railway.toml` + `nixpacks.toml`, installs
+   `review_app/requirements.txt`, and starts uvicorn.
+4. **Set environment variables** in the service's **Variables** tab:
+   ```
+   SECRET_KEY=<run: openssl rand -hex 32>
+   REVIEW_DATA_DIR=/data
+   ```
+5. **Attach a Volume** (Service → Settings → Volumes → + New Volume):
+   ```
+   Mount path: /data
+   Size:       1 GB
+   ```
+   This persists reviews + session secret across deploys.
+6. **Generate a public domain**: Service → Settings → Domains →
+   **Generate Domain** (free `*.up.railway.app`) or add a custom domain.
+7. After ~3 min the app is live. Distribute URL + PINs to the 6 reviewers.
 
-### Environment variables (set by `render.yaml`)
+### Environment variables
 
 | Variable | Set by | Purpose |
 |----------|--------|---------|
-| `SECRET_KEY` | Render auto-generates | HMAC key for session cookies |
-| `REVIEW_DATA_DIR` | `render.yaml` → `/var/data` | Persistent disk mount; reviews + session secret stored here |
-| `PORT` | Render auto-injects | Web port (passed to uvicorn) |
+| `SECRET_KEY` | You (Variables tab) | HMAC key for session cookies — required |
+| `REVIEW_DATA_DIR` | You → `/data` | Persistent volume mount; reviews + session secret |
+| `PORT` | Railway auto-injects | Web port (passed to uvicorn) |
 
-### Free-plan alternative
+### Without a Volume (cheaper, but ephemeral)
 
-If you want $0/month and accept that reviews are lost on every restart:
-in `render.yaml`, change `plan: starter` → `plan: free`, delete the
-`disk:` block, and delete the `REVIEW_DATA_DIR` env var. Reviewers can
-still submit; download `/export.csv` frequently before any restart.
+If you skip the Volume attachment, reviews are lost on every restart.
+Download `/export.csv` frequently to capture reviews before any redeploy.
 
 ## Default PINs
 

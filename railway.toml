@@ -1,0 +1,31 @@
+# Railway deployment config for the Palli Sahayak expert review console.
+# https://docs.railway.com/reference/config-as-code
+#
+# Deploy:
+#   1. Push this repo to GitHub (already done).
+#   2. In Railway dashboard: New Project -> Deploy from GitHub repo
+#      -> select inventcures/rag_gci.
+#   3. Railway reads this file. Set env vars in the dashboard:
+#        SECRET_KEY  -> random 32+ char string (generate with: openssl rand -hex 32)
+#        REVIEW_DATA_DIR -> /data  (if you attach a volume — see below)
+#   4. After ~3 min, get the public URL from the "Settings -> Domains" tab
+#      (or click "Generate Domain" for a free .up.railway.app subdomain).
+#
+# Persistence note:
+#   Railway containers have ephemeral disks by default. To persist reviews
+#   across deploys/restarts, attach a Volume in the dashboard:
+#     Service -> Settings -> Volumes -> + New Volume
+#     Mount path: /data
+#     Size: 1 GB (free tier allows up to 5 GB)
+#   Then set REVIEW_DATA_DIR=/data in env vars.
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "pip install -r review_app/requirements.txt"
+
+[deploy]
+startCommand = "cd review_app && uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

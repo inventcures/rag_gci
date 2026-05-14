@@ -1,0 +1,15 @@
+# Nixpacks build plan for Railway (and any Nixpacks-compatible host).
+# Only the review_app is deployed — the large root-level RAG dependencies
+# (chromadb, neo4j, sarvam, etc.) are NOT needed for the review console.
+
+[phases.setup]
+nixPkgs = ["python313", "gcc"]
+
+[phases.install]
+cmds = ["pip install --no-cache-dir -r review_app/requirements.txt"]
+
+[start]
+cmd = "cd review_app && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8005}"
+
+[variables]
+PYTHON_VERSION = "3.13"
