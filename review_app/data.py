@@ -14,12 +14,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+import os
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVAL_DIR = REPO_ROOT / "data" / "evaluation"
+
+# Read-only assets stay in the repo (vignettes, RAG outputs, rubric).
+# Reviews are written, so on hosts with a persistent disk mount, override
+# their location via REVIEW_DATA_DIR (Render disk path, etc.).
 VIGNETTES_DIR = EVAL_DIR / "vignettes"
 RAG_OUTPUTS_DIR = EVAL_DIR / "rag_outputs"
-REVIEWS_DIR = EVAL_DIR / "expert_reviews"
 RUBRIC_FILE = EVAL_DIR / "rubric.json"
+_PERSIST_DIR = Path(os.environ.get("REVIEW_DATA_DIR", str(EVAL_DIR)))
+REVIEWS_DIR = _PERSIST_DIR / "expert_reviews"
 
 
 def ensure_dirs() -> None:

@@ -1,0 +1,8 @@
+# Minimal deps for the review console.
+# (The main repo's requirements.txt is much larger and includes the RAG
+# pipeline, voice services, etc. — those are NOT needed by the review app,
+# which only reads pre-generated JSON files.)
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+jinja2==3.1.4
+python-multipart==0.0.18

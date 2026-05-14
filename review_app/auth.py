@@ -11,6 +11,7 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import time
 from pathlib import Path
@@ -18,7 +19,14 @@ from typing import Optional
 
 APP_DIR = Path(__file__).parent
 USERS_FILE = APP_DIR / "users.json"
-SECRET_FILE = APP_DIR / ".session_secret"
+
+# On Render or any host with a persistent disk, set REVIEW_DATA_DIR to the
+# mount path; the session secret will be stored there. Otherwise it falls
+# back to review_app/.session_secret (lost on restart — users re-login).
+_PERSIST_DIR = Path(os.environ.get("REVIEW_DATA_DIR", str(APP_DIR)))
+_PERSIST_DIR.mkdir(parents=True, exist_ok=True)
+SECRET_FILE = _PERSIST_DIR / ".session_secret"
+
 SESSION_COOKIE = "review_session"
 SESSION_TTL_SECONDS = 60 * 60 * 8
 
@@ -88,6 +96,11 @@ def verify_pin(user_id: str, pin: str) -> bool:
 
 
 def _secret() -> bytes:
+    # Prefer SECRET_KEY env var (Render/Heroku style) for stable sessions
+    # across restarts when no persistent disk is mounted.
+    env_secret = os.environ.get("SECRET_KEY")
+    if env_secret:
+        return env_secret.encode("utf-8")
     if not SECRET_FILE.exists():
         SECRET_FILE.write_bytes(secrets.token_bytes(32))
         try:

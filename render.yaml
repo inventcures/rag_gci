@@ -1,0 +1,42 @@
+# Render Blueprint for the Palli Sahayak expert review console.
+# https://render.com/docs/blueprint-spec
+#
+# Deploy:
+#   1. Push this repo to GitHub (already done).
+#   2. In the Render dashboard, click "New" -> "Blueprint" -> connect this repo.
+#   3. Render reads this file and creates the service automatically.
+#   4. After first deploy, visit https://<service>.onrender.com and log in
+#      as doc_01 (Dr. Naveen Salins) with PIN 1234 to verify.
+#
+# Notes on persistence:
+#   - The "disk" block below mounts a 1 GB persistent volume at /var/data.
+#     Reviews and the session secret are stored there so they survive
+#     restarts and re-deploys.
+#   - Disks are only available on Starter ($7/mo) or higher. To stay on the
+#     free plan, remove the "disk:" block and the REVIEW_DATA_DIR env var.
+#     Reviews will then be ephemeral (lost on restart) -- download them via
+#     /export.csv frequently in that mode.
+
+services:
+  - type: web
+    name: palli-sahayak-review
+    runtime: python
+    plan: starter            # change to "free" if you skip the disk
+    region: singapore        # closest to India for the 6 reviewers
+    branch: main
+    rootDir: .
+    buildCommand: pip install -r review_app/requirements.txt
+    startCommand: cd review_app && uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: review-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true       # Render generates a random 64-char string
+      - key: REVIEW_DATA_DIR
+        value: /var/data
+      - key: PYTHON_VERSION
+        value: "3.13.0"

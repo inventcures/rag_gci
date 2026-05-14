@@ -4,16 +4,41 @@ A small FastAPI + Jinja2 web app for the Palli Sahayak Phase 2 clinical validati
 study. Six palliative care doctors log in with a PIN and grade RAG-generated
 answers against 40 difficult-scenario vignettes using the v53 rubric.
 
-## Run
-
-From the repository root:
+## Run locally
 
 ```bash
 cd review_app
+pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8005
 ```
 
 Then visit <http://localhost:8005>.
+
+## Deploy to Render
+
+The repo root contains `render.yaml`, a Render Blueprint spec.
+
+1. Push the repo to GitHub (already at `inventcures/rag_gci`).
+2. Render dashboard → **New +** → **Blueprint** → connect the repo.
+3. Render reads `render.yaml`, creates the web service, mounts a 1 GB
+   persistent disk at `/var/data`, generates `SECRET_KEY`, and deploys.
+4. After ~3 min, your service is at `https://<name>.onrender.com`.
+5. Distribute URL + PINs to the 6 reviewers.
+
+### Environment variables (set by `render.yaml`)
+
+| Variable | Set by | Purpose |
+|----------|--------|---------|
+| `SECRET_KEY` | Render auto-generates | HMAC key for session cookies |
+| `REVIEW_DATA_DIR` | `render.yaml` → `/var/data` | Persistent disk mount; reviews + session secret stored here |
+| `PORT` | Render auto-injects | Web port (passed to uvicorn) |
+
+### Free-plan alternative
+
+If you want $0/month and accept that reviews are lost on every restart:
+in `render.yaml`, change `plan: starter` → `plan: free`, delete the
+`disk:` block, and delete the `REVIEW_DATA_DIR` env var. Reviewers can
+still submit; download `/export.csv` frequently before any restart.
 
 ## Default PINs
 
