@@ -23,12 +23,12 @@ import data
 APP_DIR = Path(__file__).parent
 
 SEED_USERS = [
-    {"user_id": "doc_01", "name": "Dr. Naveen Salins", "site": "KMC Manipal", "pin": "1234"},
-    {"user_id": "doc_02", "name": "Dr. Jenifer Jeba", "site": "CMC Vellore", "pin": "1234"},
-    {"user_id": "doc_03", "name": "Dr. Arun Ghoshal", "site": "KMC Manipal", "pin": "1234"},
-    {"user_id": "doc_04", "name": "Dr. Sreedevi Warrier", "site": "CCF Coimbatore", "pin": "1234"},
-    {"user_id": "doc_05", "name": "Dr. Ravi Kannan", "site": "CCHRC Silchar", "pin": "1234"},
-    {"user_id": "doc_06", "name": "Dr. Parth Sharma", "site": "CCHRC Silchar", "pin": "1234"},
+    {"user_id": "doc1", "name": "doc1", "site": "KMC Manipal", "pin": "1234"},
+    {"user_id": "doc2", "name": "doc2", "site": "CMC Vellore", "pin": "1234"},
+    {"user_id": "doc3", "name": "doc3", "site": "KMC Manipal", "pin": "1234"},
+    {"user_id": "doc4", "name": "doc4", "site": "CCF Coimbatore", "pin": "1234"},
+    {"user_id": "doc5", "name": "doc5", "site": "CCHRC Silchar", "pin": "1234"},
+    {"user_id": "doc6", "name": "doc6", "site": "CCHRC Silchar", "pin": "1234"},
 ]
 
 auth.ensure_users_seeded(SEED_USERS)
