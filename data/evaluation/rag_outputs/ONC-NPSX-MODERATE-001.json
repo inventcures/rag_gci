@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-NPSX-MODERATE-001",
+  "language": "en-IN",
+  "asker_query": "Didi, my husband has not had a bowel motion for 5 days, the abdomen is bloated, mild nausea. We are giving lactulose every night but there is no relief. What should we do?",
+  "answer": "The patient’s opioid-induced constipation requires a multi-faceted approach. **Switch lactulose (osmotic laxative) to a stimulant laxative** (e.g., bis\n\n[ Sources : textbook_twycross_2008_introducing_palliative_care: pg 86 ; complete_textbook__textbook_indianprimer: pg 83,84,109,155 ]\n\n────────────────────────────────────────\n🟠 Confidence: 64%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:11:44.803157Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1421,
+  "error": null
+}

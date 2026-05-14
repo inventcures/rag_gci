@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-EOL-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Mr. Reddy is on NIV for AE-IPF, deteriorating, distressed by mask, lucidly asking us to stop, family in agreement. Need a structured NIV-withdrawal plan — pre-medication doses, sequence of removal, who is present, how to manage acute dyspnea/distress at moment of removal, possibility of discharge home for terminal care, ethical/legal framing, family debrief plan, and any documentation requirements.",
+  "answer": "For Mr. Reddy’s NIV withdrawal plan: Pre\n\n[ Sources : neurosurgery_aguidebook18_5_2018: pg 75,76 ; complete_textbook__textbook_indianprimer: pg 125,126,127 ]\n\n────────────────────────────────────────\n🟠 Confidence: 63%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:20:37.707547Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1524,
+  "error": null
+}

@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-004",
+  "language": "en-IN",
+  "asker_query": "Madam, mother has terrible itching all over her body, no sleep at night, she has scratched until the skin has broken, jaundice is severe. What medicine can we give? Should we attempt PTBD again?",
+  "answer": "<think>\nOkay, let's tackle this query. The patient is a 55-year-old woman with stage IVB gallbladder adenocarcinoma and severe obstructive jaundice. She's experiencing intractable cholestatic pruritus leading to skin excoriation and insomnia. The question is about what medication to use and whether to attempt PTBD again.\nFirst, I need to recall the management of cholestatic pruritus. From the provided sources, there's mention of cholestyramine for cholestasis and radiation-induced diarrhea. Cholestyramine is a bile acid sequestrant, which is a standard treatment for cholestatic pruritus. That's in chunk 233 of the Indian Primer. Also, in the Twycross textbook, there's a mention of UVB therapy for uraemic pruritus, but that's not directly applicable here. However, the Indian Primer also mentions metronidazole for pseudomembranous colitis, but that's not relevant here.\nThe patient's current medications include ursodeoxycholic acid, which is a bile acid that can help with cholestasis. But if pruritus is severe, adding cholestyramine might be necessary. The Indian Primer (chunk 233) specifically lists cholestyramine for cholestasis. Also, in the Twycross text (chunk 353), there's a reference to H2 antagonists for itch, but that's in the context of Hodgkin's lymphoma. However, the Indian Primer (chunk 190) mentions amitriptyline for neuropathic pain, which might help with insomnia but isn't directly for pruritus.\nRegarding PTBD (percutaneous transhepatic biliary drainage), the question is whether to attempt it again. The patient has hepatic and porta hepatis metastases, which might make PTBD technically challenging or risky. The sources don't directly address PTBD, but in palliative care, the decision to proceed with invasive procedures depends on the patient's overall condition and prognosis. Since the cancer is advanced, PTBD might not be beneficial and could pose risks. The focus should be on symptom management rather than curative interventions.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:08:08.956834Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1464,
+  "error": null
+}

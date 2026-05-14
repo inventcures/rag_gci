@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-EOL-DIFFICULT-002",
+  "language": "en-IN",
+  "asker_query": "Didi, grandmother is in a very bad state, she has severe difficulty breathing, there is nothing at home — no oxygen, no morphine, nothing. What can we do? How can we reduce her suffering?",
+  "answer": "For terminal dyspnea in end-stage COPD, prioritize morphine (5 mg Q6H) for breathlessness relief, as it\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 42,100,125,127 ; nppc____handbook_for_community_health_workers_____5127_1558685700905: pg 14 ]\n\n────────────────────────────────────────\n🟠 Confidence: 63%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:21:09.124725Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1412,
+  "error": null
+}

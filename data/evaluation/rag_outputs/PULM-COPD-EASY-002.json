@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-COPD-EASY-002",
+  "language": "en-IN",
+  "asker_query": "Didi, my husband has had more cough for 4 days, sputum has increased slightly but is white, there is no fever, slight breathlessness. What should we do, should I give an antibiotic? Or take him to the doctor?",
+  "answer": "For mild AECOPD with white sputum and no fever, antibiotics are not indicated. Focus on optimizing bronchodilators (tiotropium + salbutamol), monitor for worsening signs (purulent sputum, fever, SpO2 <90%), and consider short-term oral corticosteroids if symptoms persist. Avoid routine antibiotics; reassess if clinical features change. Non-pharmacological measures (e.g., positioning, oxygen if SpO2 <93%) and patient education on symptom management are critical. {retrieved from\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 31,41,100,125 ; textbook_twycross_2008_introducing_palliative_care: pg 91 ]\n\n────────────────────────────────────────\n🟠 Confidence: 60%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:19:03.121557Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1734,
+  "error": null
+}

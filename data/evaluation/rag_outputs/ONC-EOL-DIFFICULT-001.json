@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Didi, Mashima is shouting, pulling at her clothes, worse at night, no bowel motion for 3 days, urine is reduced — what should I do? The family does not want to go to hospital, they want to stay at home.",
+  "answer": "For acute hyperactive delirium in a terminal patient, prioritize non-pharmacological measures: calm environment, validate patient’s perceptions, and educate family about delirium as a dying process symptom {}. Pharmacologically, escalate haloperidol (as in Sukumaran\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 43,96,115,120 ; textbook_twycross_2008_introducing_palliative_care: pg 120 ]\n\n────────────────────────────────────────\n🟠 Confidence: 63%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:06:36.080216Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1554,
+  "error": null
+}

@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-OCC-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Madam, Basavaraj sir has difficulty breathing, he is bed-bound, he said 'why should I live', the family is in difficulty, the compensation pension has still not come. What should we do — medication, mental support, compensation help — please tell everything.",
+  "answer": "Comprehensive care for Basavaraj requires:\n1. **Symptom management**: Optimize dyspnea with morphine (5mg Q6H), dexamethasone (8mg IV OD), and nebulized salbutamol-ipratropium. Discontinue non-essential meds per anticipatory prescription guidelines.\n2. **Mental health**:\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 42,122,125,127 ]\n\n────────────────────────────────────────\n🟠 Confidence: 62%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:25:51.022724Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1515,
+  "error": null
+}

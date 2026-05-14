@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Mrs. Mathew has rapid reaccumulation of MPE — 3 taps in 6 weeks. Recently started on Morphine SR 10mg BD. Looking for guidance on next step — talc slurry pleurodesis vs IPC vs continued thoracentesis, prognosis considerations, lung re-expansion concerns, patient preference framing.",
+  "answer": "<think>\nOkay, let's tackle this question. The patient is a 68-year-old woman with Stage IV NSCLC squamous cell, recurrent malignant pleural effusion (MPE), and she's on second-line chemotherapy with disease progression. She's having frequent thoracentesis (3 taps in 6 weeks) and is considering options between talc slurry pleurodesis, indwelling pleural catheter (IPC), or continued thoracentesis. The user wants guidance on the next step, considering prognosis, lung re-expansion concerns, and patient preference.\nFirst, I need to recall the management options for recurrent MPE. From the provided sources, Textbook_Twycross mentions drainage and pleurodesis for pleural effusion. Talc slurry is a common agent for pleurodesis. IPC is another option, allowing home drainage. The sources also mention that pleurodesis is effective but may not be suitable if there's lung re-expansion possible. However, in NSCLC, lung re-expansion is often limited due to tumor involvement.\nPrognosis is important here. Since she's on second-line chemotherapy and has disease progression, her life expectancy might be limited. For patients with a poor prognosis, IPC might be preferable as it allows for ongoing drainage without repeated hospital visits. However, if she's a candidate for pleurodesis, that could offer a more definitive solution. But if there's concern about lung re-expansion (like if the lung isn't fully collapsed), talc might not work well, and IPC would be better.\nPatient preference is crucial. The sources mention discussing concerns and explaining the cause of breathlessness. So, involving the patient in the decision-making process is key. She might prefer the option that offers the least disruption to her daily life. IPC requires management at home but avoids frequent hospital trips. Pleurodesis is a one-time procedure but may not be successful in all cases.\nLooking at the sources,  discusses drainage and pleurodesis for pleural effusion.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:24:47.992210Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1475,
+  "error": null
+}

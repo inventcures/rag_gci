@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-FIB-MODERATE-001",
+  "language": "en-IN",
+  "asker_query": "Didi, mother's breathlessness has been increasing for 3 months, she is on full-dose pirfenidone and there is no improvement, should we start oxygen? Is pirfenidone working? Can we do something else?",
+  "answer": "<think>\nOkay, let's tackle this question. The patient is a 68-year-old woman with Idiopathic Pulmonary Fibrosis (IPF) confirmed by HRCT showing UIP pattern. She's on pirfenidone at the maximum dose, but her condition is progressing with a 10% drop in FVC and exercise-induced desaturation to 88%. The main questions are whether to start oxygen, if pirfenidone is effective, and what other options exist.\nFirst, regarding oxygen therapy. The medical context provided mentions that oxygen is beneficial for patients with breathlessness, especially if they're hypoxic. The source states that oxygen therapy increases alveolar oxygen tension and reduces work of breathing. It also specifies that in conditions like pulmonary fibrosis (which is similar to IPF), oxygen can be given. The example given is 28% for hypercapnic failure, but IPF patients usually don't have hypercapnia. The source recommends nasal prongs at 4L/min. Since the patient has exercise-induced desaturation to 88%, starting oxygen therapy during exertion would be appropriate to alleviate dyspnea and prevent further desaturation.\nNext, is pirfenidone working? The patient is on the maximum dose (2400mg/day), but her FVC has dropped by 10% over three months. Pirfenidone is an antifibrotic agent, and while it can slow disease progression, a 10% decline in FVC suggests that the disease is still progressing. The source doesn't mention pirfenidone specifically, but in general, if the maximum dose isn't preventing decline, it might not be effective enough. However, the decision to continue or switch should consider other factors like side effects and patient tolerance. The patient is tolerating it well (no mention of side effects), so maybe it's still providing some benefit but not enough.\nOther options: The source mentions that in long-term situations, SSRIs might be helpful, but that's for anxiety. For IPF, other antifibrotics like nintedanib are available, but the source doesn't discuss them.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:24:16.513201Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1410,
+  "error": null
+}

@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-FIB-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Madam, Praveen-sir is suffering — breath very short even with oxygen, anxiety at night, wife is exhausted, family is asking how much longer and what more can we do. He doesn't want hospital. Morphine is helping a little. What more can we do at home?",
+  "answer": "Optimize morphine (increase SR dose if needed) for dyspnea; add dexamethasone (8mg OD) to reduce airway edema. Use nebulized salbutamol-ipratropium for bronchodilation. Continue home O2 at 2L/min if beneficial; avoid high concentrations. For anxiety, consider lorazepam 1mg sublingual PRN . Teach non-pharmacologic strategies: pursed-lip breathing, fan use, and positioning.\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 101,125,127 ; nppc____handbook_for_community_health_workers_____5127_1558685700905: pg 14 ; textbook_twycross_2008_introducing_palliative_care: pg 89 ]\n\n────────────────────────────────────────\n🟠 Confidence: 64%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:22:10.589233Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1453,
+  "error": null
+}

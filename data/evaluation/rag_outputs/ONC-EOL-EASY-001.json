@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-EOL-EASY-001",
+  "language": "en-IN",
+  "asker_query": "Madam, dadi-ji is in last days, she is sleeping mostly, sometimes she moans softly when we turn her. Family is worried — is she in pain? Should we give more morphine? What else to do?",
+  "answer": "<think>\nOkay, let's tackle this query. The patient is a 75-year-old woman with Stage IVB cervical cancer, on morphine for pain, and has mild CKD. She's mostly drowsy, moaning occasionally when turned. The family is worried about her pain and whether to increase morphine.\nFirst, I need to recall the guidelines from the provided textbook chunks. From chunk 91 (pg42), there's emphasis on discussing distress and ensuring confidentiality. The physician should explore reasons for distress, like fear of death or burdening family. That's important here because the patient's moaning might not just be pain but other anxieties.\nChunk 190 (pg87) mentions managing neuropathic pain and adjusting opioids if needed. Since she's on Morphine SR and IR, maybe the current regimen isn't fully controlling her pain. But she's in the last days, so the approach might shift to comfort measures. Also, hydration and mouth care are important for comfort.\nChunk 337 (pg155) talks about reducing morphine in renal failure. The patient has mild CKD, so adjusting the dose is necessary. However, since she's in the terminal phase, the priority is symptom control over renal function. The question is whether to increase morphine. The test questions here mention that morphine can be used for dyspnea and pain, but in renal failure, dose reduction is needed. But in end-of-life care, the focus is on comfort, so maybe increasing morphine is acceptable if she's in pain.\nChunk 180 (pg83) emphasizes communication and addressing patient fears. The family needs reassurance that the patient is comfortable. Also, reviewing the treatment plan for changes in condition is crucial. The patient's moaning could be due to uncontrolled pain or other issues like constipation (she's on lactulose and senna), but since she's in the last days, maybe the focus is on adjusting analgesia.\nChunk 208 (pg96) discusses symptom assessment and management.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:08:40.474737Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1514,
+  "error": null
+}

@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-NPSX-EASY-001",
+  "language": "en-IN",
+  "asker_query": "Madam, aunty had chemotherapy yesterday — cisplatin. Today she feels slight nausea, no vomiting, she ate a little. Should she take the ondansetron tablet now? For how many days? Anything else to give?",
+  "answer": "Yes, she should take ondansetron 8mg PO as prescribed (twice daily) for 5 days post-chemotherapy, as cisplatin-induced nausea often peaks days 2-\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 109 ]\n\n────────────────────────────────────────\n🟠 Confidence: 63%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:11:13.378981Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1306,
+  "error": null
+}

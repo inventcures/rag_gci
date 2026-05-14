@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-003",
+  "language": "en-IN",
+  "asker_query": "Didi, my mother's mouth does not open even 10 millimetres, she cannot swallow tablets, she has refused NG tube, the pain is severe, she cries all night. How can we reduce her pain? Which medicine and how should it be given?",
+  "answer": "<think>\nOkay, let's tackle this query. The patient is a 60-year-old woman with recurrent oral cavity squamous cell carcinoma (T4N2M0), related to gutka/tobacco use. She has severe trismus (mouth opening <10mm), cachexia, and is experiencing severe neuropathic pain rated 8/10. She can't swallow oral analgesics and refuses an NG tube. The main issue is managing her pain effectively given these challenges.\nFirst, I need to recall the different types of pain mentioned in the provided contexts. From chunk 139, there's a discussion about nociceptive and neuropathic pain components. The patient's pain has neuropathic features, so the treatment should address both. The textbook mentions that breakthrough pain (provoked by chewing/swallowing) needs consideration. Since she can't take oral medications, alternative routes are necessary.\nThe question is about which medications and how to administer them. The patient refuses an NG tube, so oral is out. Parenteral options are needed. The Indian Primer (chunk 126) emphasizes that pain is what the patient says it is, so assessment is key. Also, in chunk 330, there's a multiple-choice question about breakthrough pain, which is pain that occurs despite regular medication. So, she might need a combination of baseline and breakthrough medications.\nFor neuropathic pain, adjuvants like gabapentin or pregabalin are often used. However, since she can't take oral meds, these might not be feasible. The textbook (chunk 139) mentions that all components (nociceptive, neuropathic, breakthrough) need consideration. Parenteral opioids could be the mainstay. Morphine is a common choice, but since she can't take oral, IV or subcutaneous routes are options. The Indian Primer (chunk 330) has a question about immediate management for breathlessness with lung cancer, suggesting low-dose oral morphine. But in this case, parenteral is better.\nTransdermal patches might be an option, but severe pain might require more immediate relief.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:07:37.487697Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1376,
+  "error": null
+}

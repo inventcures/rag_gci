@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-COPD-EASY-001",
+  "language": "en-IN",
+  "asker_query": "I have COPD for about a year now. I am on tiotropium and use salbutamol when needed. I want to know if my treatment is right, what exercises I should do, and what else I can do to keep my breathing good. Should I take any vaccines?",
+  "answer": "Your treatment with tiotropium (LAMA\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 100 ]\n\n────────────────────────────────────────\n🟠 Confidence: 62%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:18:31.384469Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1278,
+  "error": null
+}

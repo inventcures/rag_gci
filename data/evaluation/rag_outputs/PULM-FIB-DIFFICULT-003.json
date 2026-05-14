@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-FIB-DIFFICULT-003",
+  "language": "en-IN",
+  "asker_query": "Doctor, papa's HRCT shows acute exacerbation of IPF, breathing is very bad — 9 out of 10, oxygen needs gone up to 5L, he is open to hospital but no ICU. What is the best management — should we admit, can we manage at home, what medicines now, what is the chance he gets better?",
+  "answer": "<think>\nOkay, let's tackle this. The patient has AE-IPF with secondary pulmonary hypertension and is experiencing severe dyspnea. He's on several medications already. The question is about management options given he refuses ICU but is open to hospital admission.\nFirst, I need to recall the guidelines for managing AE-IPF. From the provided sources, there's info on pharmacological and non-pharmacological approaches. The Indian Primer mentions optimizing bronchodilators and oxygen, but in IPF, bronchodilators might not be as effective. Corticosteroids are used for airway edema, but in IPF, their role is limited. The Twycross textbook talks about oxygen therapy, emphasizing appropriate concentrations to avoid complications, especially in hypercapnic patients. However, IPF patients might not have hypercapnia, so higher oxygen could be safe here.\nThe patient is already on home O2 at 5L, which is high. The sources mention that oxygen should be given via nasal prongs and adjusted based on response. Since he's in acute exacerbation, hospital admission is likely necessary for close monitoring, even if not in ICU. The sources also discuss non-pharmacological measures like breathing techniques and activity pacing, which could be part of home management if the patient prefers, but given the severity (dyspnea 9/10), hospital might be safer.\nPharmacologically, he's on morphine SR and IR for dyspnea. The Indian Primer suggests morphine as an antitussive and for dyspnea. The Twycross text mentions using benzodiazepines for panic, but the patient's main issue is IPF exacerbation, not panic. Corticosteroids like dexamethasone are mentioned in the Indian Primer for airway edema, but in IPF, their use is controversial. However, some studies suggest short-term use in AE-IPF. The patient is already on dexamethasone in the example from chunk 272, so maybe that's part of the regimen.\nThe patient's comorbidities include pulmonary hypertension, so sildenafil is appropriate.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:23:13.630723Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1505,
+  "error": null
+}

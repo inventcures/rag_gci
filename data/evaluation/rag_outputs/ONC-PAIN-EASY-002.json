@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-PAIN-EASY-002",
+  "language": "en-IN",
+  "asker_query": "Didi, mother has severe pain in her back and hip, we are giving tramadol four times a day but there is no relief, she cries all night. What should I do now? When should I take her to the doctor?",
+  "answer": "<think>\nOkay, let's tackle this query. The patient is a 55-year-old woman with Stage IV breast cancer and bone metastases in the spine and pelvis. She's on Tramadol 100mg four times a day and Paracetamol 1g four times a day, plus Calcium and Vitamin D. She's experiencing severe back and hip pain rated 7/10 for five days despite the current medications. The question is what to do next and when to see a doctor.\nFirst, I need to recall the WHO Pain Ladder from the provided sources. The WHO guidelines suggest moving up the ladder when pain isn't controlled. Tramadol is a Step II (weak opioid), so if it's not working, the next step is Step III (strong opioids) like Morphine. The Handbook for Community Health Workers (chunk 27 and 28) mentions that for severe pain, strong opioids are needed. Also, the Indian Primer (chunk 170) talks about starting Morphine at 5-10mg every 4 hours, with rescue doses for breakthrough pain.\nThe patient's current regimen isn't effective, so escalating to Morphine makes sense. The Primer also notes that Tramadol can be less effective compared to Morphine in some cases. The Pallium India document (chunk 11) emphasizes evaluating if the pain is opioid-sensitive and considering other factors like psychological contributors, but in this case, the main issue is the need for a stronger opioid.\nThe Handbook also mentions that the dose should be reviewed regularly and adjusted as needed. The patient's pain isn't controlled, so increasing the dose or switching to a stronger opioid is necessary. The Indian Primer (chunk 190) suggests that if Tramadol isn't effective, Morphine should be considered.\nAdditionally, the Handbook (chunk 27) states that oral, round-the-clock medication is essential, not just as needed. The patient is on QDS, which is four times a day, but maybe the dose is insufficient. The Primer (chunk 170) recommends starting Morphine at 5-10mg every 4 hours, so adjusting to that schedule might help.",
+  "sources": [
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:13:49.254785Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1452,
+  "error": null
+}

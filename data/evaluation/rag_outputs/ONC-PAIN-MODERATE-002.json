@@ -1,0 +1,46 @@
+{
+  "vignette_id": "ONC-PAIN-MODERATE-002",
+  "language": "en-IN",
+  "asker_query": "Mr. Mehta has a fresh L1 VCF on background of progressive myeloma. He's on morphine SR 60 BD plus IR 10 q4h PRN using ~30mg/day breakthroughs. eGFR 55. Pain still 8/10 on movement. Looking for the best next step — dexamethasone dosing for bone pain, radiotherapy referral threshold, role of vertebroplasty/kyphoplasty, and whether to switch opioid given eGFR. Already on zoledronic acid 3 weeks ago.",
+  "answer": "<think>\nOkay, let's tackle this. The patient has multiple myeloma with an L1 vertebral compression fracture and severe back pain. The question is about the next steps: dexamethasone dosing, radiotherapy referral, vertebroplasty/kyphoplasty, and opioid switch due to eGFR 55.\nFirst, the medical context provided is from Twycross 2008. It mentions spinal cord compression management, using dexamethasone 16-32mg PO daily for a week, then tapering. But the patient here has a vertebral compression fracture, not spinal cord compression. However, the context might still be relevant for dexamethasone use in bone pain. Wait, the context says dexamethasone may be unnecessary if the patient is still ambulant. The patient here is experiencing severe pain but not mentioned as non-ambulant. So maybe dexamethasone isn't needed here? Or is it for bone pain in general?\nThe context also says MRI is the investigation of choice for spinal issues. But the patient already has a confirmed VCF. The management for spinal cord compression is emergency treatment with dexamethasone and radiotherapy. However, the patient's issue is more about pain management from the fracture. The context doesn't directly address vertebroplasty/kyphoplasty, but those are standard for pain relief in VCFs. Radiotherapy is mentioned for spinal cord compression, but maybe also for pain in bone metastases. The patient is on morphine, which is appropriate, but with eGFR 55, maybe consider renal function when choosing opioids. Morphine has active metabolites that can accumulate in renal impairment. So switching to an opioid with less renal toxicity, like fentanyl, might be better.\nSo, the answer should include: dexamethasone dosing (but note that the context says it may be unnecessary if ambulant; the patient is ambulant? The question doesn't say, but since he's on morphine for pain, maybe he's still mobile. So maybe dexamethasone isn't needed here.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:14:50.701693Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1437,
+  "error": null
+}

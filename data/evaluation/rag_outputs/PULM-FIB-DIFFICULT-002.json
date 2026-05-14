@@ -1,0 +1,46 @@
+{
+  "vignette_id": "PULM-FIB-DIFFICULT-002",
+  "language": "en-IN",
+  "asker_query": "Palaniammal has post-TB fibrosis with severe PH (PASP 80) and cor pulmonale. SpO2 88% air, no home O2 yet. On sildenafil + diuretics with modest benefit. Looking for: home O2 prescription criteria, role of PH-specific therapy in Group 3, cautious opioid initiation for dyspnea, prognostication, advance care planning given travel distance to specialist centre.",
+  "answer": "Home oxygen therapy is indicated for SpO2 <88% at rest or exertion; prescribe 4L/min nasal prongs (Twycross 2\n\n[ Sources : textbook_twycross_2008_introducing_palliative_care: pg 88,89 ; complete_textbook__textbook_indianprimer: pg 70,101 ]\n\n────────────────────────────────────────\n🟠 Confidence: 62%\n📚 Source Quality: Moderate - Limited studies available\n────────────────────────────────────────",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-14T08:22:42.121058Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1526,
+  "error": null
+}
