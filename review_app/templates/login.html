@@ -16,7 +16,7 @@
             <select class="form-select" id="user_id" name="user_id" required>
               <option value="">— select reviewer —</option>
               {% for u in users %}
-                <option value="{{ u.user_id }}">{{ u.name }} ({{ u.site }})</option>
+                <option value="{{ u.user_id }}">{{ u.name }}{% if u.site %} ({{ u.site }}){% endif %}</option>
               {% endfor %}
             </select>
           </div>

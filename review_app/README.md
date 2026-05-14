@@ -59,14 +59,14 @@ reviewer accounts below. All start with PIN `1234`. PINs are stored as
 PBKDF2-SHA256 hashes (100k iterations) using the same pattern as
 `auth/pin_auth.py`.
 
-| user_id  | Name                 | Site             | Default PIN |
-|----------|----------------------|------------------|:-----------:|
-| doc_01   | Dr. Naveen Salins    | KMC Manipal      | 1234        |
-| doc_02   | Dr. Jenifer Jeba     | CMC Vellore      | 1234        |
-| doc_03   | Dr. Arun Ghoshal     | KMC Manipal      | 1234        |
-| doc_04   | Dr. Sreedevi Warrier | CCF Coimbatore   | 1234        |
-| doc_05   | Dr. Ravi Kannan      | CCHRC Silchar    | 1234        |
-| doc_06   | Dr. Parth Sharma     | CCHRC Silchar    | 1234        |
+| user_id  | Display name | Default PIN |
+|----------|--------------|:-----------:|
+| doc1     | doc1         | 1234        |
+| doc2     | doc2         | 1234        |
+| doc3     | doc3         | 1234        |
+| doc4     | doc4         | 1234        |
+| doc5     | doc5         | 1234        |
+| doc6     | doc6         | 1234        |
 
 Communicate each reviewer's PIN separately. To rotate a PIN, delete
 `review_app/users.json` and edit the `SEED_USERS` list in `main.py`.

@@ -15,7 +15,7 @@
         {% if user %}
           <span class="me-3">
             <strong>{{ user.name }}</strong>
-            <small class="text-muted">({{ user.site }})</small>
+            {% if user.site %}<small class="text-muted">({{ user.site }})</small>{% endif %}
           </span>
           <a href="/dashboard" class="btn btn-sm btn-outline-light me-2">Dashboard</a>
           <a href="/progress" class="btn btn-sm btn-outline-light me-2">Progress</a>
