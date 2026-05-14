@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "non_pain_symptoms",
   "difficulty": "moderate",
-  "language": "hi-IN",
-  "scenario_text": "श्री रमेश पटेल, 70 वर्षीय किसान, अहमदाबाद के निकट एक गाँव में रहते हैं। उन्हें Stage IV प्रोस्टेट कैंसर है (हड्डियों में फैल चुका है, 1 साल पहले निदान)। वे पिछले 6 हफ्ते से Morphine SR 30mg दिन में दो बार और Paracetamol 1g दिन में चार बार ले रहे हैं — दर्द नियंत्रण अच्छा है (2-3/10)। पिछले 5 दिनों से उन्हें मल नहीं हुआ है — मल कठोर है, पेट फूला हुआ है, हल्की मतली है। उन्हें Lactulose 15mL रात को दिया जा रहा है लेकिन अब असरदार नहीं। कोई पेट दर्द नहीं, कोई उल्टी नहीं, गुदा से रक्तस्राव नहीं, पेशाब सामान्य। eGFR 60, ECOG 3. पत्नी (65 वर्ष, साक्षर) मुख्य देखभालकर्ता हैं। निकटतम पैलिएटिव सेवा 25 किमी दूर है। पत्नी ने ASHA दीदी के माध्यम से हेल्पलाइन को कॉल किया — 5 दिन से मल नहीं हुआ, lactulose बढ़ाएँ या क्या करें?",
+  "language": "en-IN",
+  "scenario_text": "Mr. Ramesh Patel, a 70-year-old farmer, lives in a village near Ahmedabad. He has Stage IV prostate cancer (with bone metastases, diagnosed 1 year ago). For the past 6 weeks he has been taking Morphine SR 30mg twice daily and Paracetamol 1g four times daily — pain control is good (2-3/10). For the past 5 days he has had no bowel motion — stool is hard, abdomen is distended, mild nausea. He is receiving Lactulose 15mL at night but it is no longer effective. No abdominal pain, no vomiting, no rectal bleeding, urination normal. eGFR 60, ECOG 3. His wife (65 years, literate) is the primary caregiver. The nearest palliative service is 25 km away. The wife calls the helpline via the ASHA-didi — no bowel motion for 5 days, should we increase lactulose or what should we do?",
   "patient_demographics": {
     "age": 70,
     "sex": "M",
@@ -18,8 +18,18 @@
   "clinical_context": {
     "primary_diagnosis": "Stage IV prostate cancer with bone metastases (castration-resistant)",
     "diagnosis_date": "2025-05-10",
-    "comorbidities": ["BPH on tamsulosin", "Type 2 diabetes (well-controlled on metformin)"],
-    "current_medications": ["Morphine SR 30mg BD", "Paracetamol 1g QDS", "Lactulose 15mL HS", "Tamsulosin 0.4mg OD", "Metformin 500mg BD", "Abiraterone 1000mg OD + Prednisolone 5mg BD"],
+    "comorbidities": [
+      "BPH on tamsulosin",
+      "Type 2 diabetes (well-controlled on metformin)"
+    ],
+    "current_medications": [
+      "Morphine SR 30mg BD",
+      "Paracetamol 1g QDS",
+      "Lactulose 15mL HS",
+      "Tamsulosin 0.4mg OD",
+      "Metformin 500mg BD",
+      "Abiraterone 1000mg OD + Prednisolone 5mg BD"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3",
     "care_setting": "home",
@@ -28,7 +38,7 @@
   },
   "presenting_complaint": "Constipation x 5 days with hard stools and abdominal bloating on lactulose-only opioid prophylaxis.",
   "asker_role": "family_caregiver",
-  "asker_query": "दीदी, मेरे पति को 5 दिन से शौच नहीं हुआ है, पेट फूला हुआ है, थोड़ी जी मिचला रही है। लैक्टुलोज़ रोज़ रात को दे रहे हैं फिर भी आराम नहीं। क्या करना है?",
+  "asker_query": "Didi, my husband has not had a bowel motion for 5 days, the abdomen is bloated, mild nausea. We are giving lactulose every night but there is no relief. What should we do?",
   "ideal_response_components": [
     "Confirm this is opioid-induced constipation (OIC) inadequately controlled on osmotic-only laxative — needs a stimulant laxative added (osmotic alone often insufficient with opioids).",
     "Add a stimulant: senna 2 tablets HS (titrate to 2 tabs BD if needed) OR bisacodyl 10mg HS PO. This is the standard OIC step 2 per IAPC and Pallium India.",

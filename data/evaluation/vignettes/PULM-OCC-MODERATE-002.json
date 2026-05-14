@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "lung_ca_occupational",
   "difficulty": "moderate",
-  "language": "bn-IN",
-  "scenario_text": "শ্রী সঞ্জয় ঘোষ, ৫৫ বছর বয়সী প্রাক্তন টেক্সটাইল মিল শ্রমিক, ৩০ বছর ধরে মুম্বাইয়ের গিরগাঁওয়ের একটি তুলো মিলে কাজ করতেন (কাঁচা তুলো প্রক্রিয়াকরণ — carding ও spinning sections); ২০২২ সালে মিল বন্ধ হওয়ার পর তিনি কলকাতায় চাচাত ভাইয়ের সাথে চলে এসেছিলেন। ২০২৪ সালে byssinosis (Schilling grade III) ধরা পড়েছিল — সোমবার-জ্বর ধরন, FEV1 ৪৫% predicted, ১৫% ব্রঙ্কোডাইলেটর reversibility। ধূমপান বন্ধ ৭ বছর। কাজ ছাড়ার পরেও symptoms চলছে। বর্তমানে mMRC 4, কাশি বেশিরভাগ সময়, কপাল ধূসর, hemoptysis নেই, ECOG 3. Tiotropium-Olodaterol + Budesonide-Formoterol + Salbutamol PRN. SpO2 ৮৯% গাঁৎ্রে। হ্যান্ড-হেল্ড পালস অক্সিমিটার আছে। ১৫ মাস occupational compensation claim pending, কোনো income নেই, চাচাত ভাইয়ের পরিবার সহায়তা করছে। স্ত্রী এবং একটি কিশোরী মেয়ে আছে (school class 11)। CCHRC outreach team নেই, স্থানীয় NRS Medical College ৬ কিমি। ASHA-দিদি হেল্পলাইন ফোন করেছেন — উনার শ্বাসকষ্ট বাড়ছে, কী করব?",
+  "language": "en-IN",
+  "scenario_text": "Mr. Sanjay Ghosh, a 55-year-old former textile mill worker, worked for 30 years in a cotton mill in Girgaon, Mumbai (raw cotton processing — carding and spinning sections); after the mill closed in 2022 he moved to Kolkata to live with his cousin. In 2024 he was diagnosed with byssinosis (Schilling grade III) — Monday-fever pattern, FEV1 45% predicted, 15% bronchodilator reversibility. Stopped smoking 7 years ago. Symptoms have continued even after leaving work. He is currently mMRC 4, cough most of the time, sputum greyish, no haemoptysis, ECOG 3. Tiotropium-Olodaterol + Budesonide-Formoterol + Salbutamol PRN. SpO2 89% on air. He has a hand-held pulse oximeter at home. Occupational compensation claim has been pending for 15 months, no income, his cousin's family is supporting them. He has a wife and a teenage daughter (school class 11). There is no CCHRC outreach team; the local NRS Medical College is 6 km away. The ASHA-didi calls the helpline — his breathlessness is increasing, what should we do?",
   "patient_demographics": {
     "age": 55,
     "sex": "M",
@@ -18,8 +18,17 @@
   "clinical_context": {
     "primary_diagnosis": "Byssinosis Schilling grade III (chronic) with chronic airflow obstruction; former textile mill worker, 30-year cotton dust exposure",
     "diagnosis_date": "2024-04-08",
-    "comorbidities": ["Anaemia (Hb 10.5)", "Anxiety", "Chronic financial stress"],
-    "current_medications": ["Tiotropium-Olodaterol DPI OD", "Budesonide-Formoterol DPI BD", "Salbutamol MDI PRN", "Multivitamin"],
+    "comorbidities": [
+      "Anaemia (Hb 10.5)",
+      "Anxiety",
+      "Chronic financial stress"
+    ],
+    "current_medications": [
+      "Tiotropium-Olodaterol DPI OD",
+      "Budesonide-Formoterol DPI BD",
+      "Salbutamol MDI PRN",
+      "Multivitamin"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3",
     "care_setting": "home",
@@ -28,7 +37,7 @@
   },
   "presenting_complaint": "Progressive dyspnea (mMRC 4) and chronic cough in late-stage byssinosis after 30-year occupational cotton dust exposure; SpO2 89%; financial and social precarity.",
   "asker_role": "family_caregiver",
-  "asker_query": "দিদি, আমার স্বামীর শ্বাসকষ্ট দিন দিন বাড়ছে, ৩০ বছর তুলো মিলে কাজ করেছিল, এখন কাজ নেই, compensation case pending। inhalers নিচ্ছেন। SpO2 ৮৯%। বাড়িতে কী আরও করতে পারি?",
+  "asker_query": "Didi, my husband's breathlessness is getting worse day by day, he worked for 30 years in a cotton mill, now there is no work, the compensation case is pending. He is taking inhalers. SpO2 89%. What more can I do at home?",
   "ideal_response_components": [
     "Acknowledge the dual burden — chronic disabling lung disease layered on financial and social precarity; this is the classic profile of post-industrial occupational disease in India.",
     "Optimise inhaled therapy: confirm triple therapy (LAMA-LABA + ICS) — appropriate for severe byssinosis with airflow obstruction and reversibility; check technique meticulously (DPI requires forceful inspiration; consider spacer + MDI alternative or nebuliser if technique poor); ensure adherence.",

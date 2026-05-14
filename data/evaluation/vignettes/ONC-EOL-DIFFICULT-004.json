@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "eol_india_cancers",
   "difficulty": "difficult",
-  "language": "kn-IN",
-  "scenario_text": "ಶ್ರೀಮತಿ ಮಂಜುಳಾ, 55 ವರ್ಷದ ಗೃಹಿಣಿ, ಬೆಳಗಾವಿಯ ಒಂದು ಸಣ್ಣ ಪಟ್ಟಣದಲ್ಲಿ ಗಂಡ ಮತ್ತು ಮಗನೊಂದಿಗೆ ವಾಸಿಸುತ್ತಾರೆ. 10 ತಿಂಗಳ ಹಿಂದೆ Stage IVB gallbladder adenocarcinoma (ಭಾರತೀಯ ಮಹಿಳೆಯರಲ್ಲಿ — ವಿಶೇಷವಾಗಿ ಗಂಗಾ ಬೆಲ್ಟ್ ಮತ್ತು ಉತ್ತರ ಕರ್ನಾಟಕದಲ್ಲಿ — ಸಾಮಾನ್ಯ) ಪತ್ತೆಯಾಗಿತ್ತು. ಯಕೃತ್ ಮತ್ತು porta hepatis ಮೆಟಾಸ್ಟಸಿಸ್; gemcitabine-cisplatin 6 ಚಕ್ರಗಳ ನಂತರ ರೋಗ ಪ್ರಗತಿ; ಈಗ best supportive care. ಕಳೆದ 3 ವಾರಗಳಿಂದ ತೀವ್ರ obstructive jaundice (bilirubin 22 mg/dL, ALP 850, AST/ALT moderate), ಕಂದು-ಬಣ್ಣದ ಮೂತ್ರ, ತೆಳುವಾದ ಮಲ. ಕಳೆದ 10 ದಿನಗಳಿಂದ ಭಯಂಕರ ಚರ್ಮ ತುರಿಕೆ — ಇಡೀ ಶರೀರ, ರಾತ್ರಿ ತೀವ್ರ, ಗೀರಿ-ಗೀರಿ ಚರ್ಮ ಒಡೆದಿದೆ, ನಿದ್ರೆ ಇಲ್ಲ, ಆತ್ಮ-ಹತ್ಯಾ ಭಾವನೆಗಳಿಲ್ಲ ಆದರೆ ಹತಾಶೆ. ECOG 3. eGFR 60. ಬಲ ಮೇಲಿನ ಕ್ವಾಡ್ರಂಟ್ ನೋವು ಸಹಿಸಬಲ್ಲಷ್ಟು Morphine SR 15mg BD ಮೇಲೆ. ಪಿತ್ತ ನಾಳಗಳಲ್ಲಿ stent (PTBD) ತಪ್ಪಿ ಹೋಗಿತ್ತು 6 ತಿಂಗಳ ಹಿಂದೆ — ಈಗ ಪರಿಸ್ಥಿತಿಯಲ್ಲಿ ಮರು-ಪ್ರಯತ್ನ ಯೋಗ್ಯವೇ? ಮಗ (engineer, 30 ವರ್ಷ) ASHA ದೀದಿ ಜೊತೆ helpline ಗೆ ಕರೆ ಮಾಡುತ್ತಾನೆ — ಅಮ್ಮನವರ ತುರಿಕೆ ಹಾಗೂ ಕಾಮಲೆ ಸಹಿಸಲಾಗದು, ಏನು ಮಾಡಬೇಕು?",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Manjula, a 55-year-old homemaker, lives in a small town in Belagavi with her husband and son. Ten months ago she was diagnosed with Stage IVB gallbladder adenocarcinoma (common in Indian women — especially in the Gangetic belt and North Karnataka). There are hepatic and porta hepatis metastases; after 6 cycles of gemcitabine-cisplatin the disease progressed; she is now on best supportive care. For the past 3 weeks she has had severe obstructive jaundice (bilirubin 22 mg/dL, ALP 850, AST/ALT moderately raised), dark urine, pale stools. For the past 10 days she has had terrible skin itching — all over her body, severe at night; she has scratched until the skin has broken; she cannot sleep; no suicidal thoughts but she is in despair. ECOG 3. eGFR 60. Right upper quadrant pain is tolerable on Morphine SR 15mg BD. A biliary stent (PTBD) attempt failed 6 months ago — in the current situation, is a retry worthwhile? Her son (engineer, 30 years old) calls the helpline along with the ASHA-didi — Mother's itching and jaundice are intolerable, what should we do?",
   "patient_demographics": {
     "age": 55,
     "sex": "F",
@@ -18,8 +18,17 @@
   "clinical_context": {
     "primary_diagnosis": "Stage IVB gallbladder adenocarcinoma with hepatic and porta hepatis metastases; severe obstructive jaundice",
     "diagnosis_date": "2025-07-10",
-    "comorbidities": ["Obstructive jaundice (bilirubin 22)", "Cholestatic pruritus"],
-    "current_medications": ["Morphine SR 15mg BD", "Paracetamol 500mg TDS (hepatic-adjusted)", "Ursodeoxycholic acid 300mg BD", "Multivitamin", "Lactulose 15mL HS"],
+    "comorbidities": [
+      "Obstructive jaundice (bilirubin 22)",
+      "Cholestatic pruritus"
+    ],
+    "current_medications": [
+      "Morphine SR 15mg BD",
+      "Paracetamol 500mg TDS (hepatic-adjusted)",
+      "Ursodeoxycholic acid 300mg BD",
+      "Multivitamin",
+      "Lactulose 15mL HS"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3 (PPS 40%)",
     "care_setting": "home",
@@ -28,7 +37,7 @@
   },
   "presenting_complaint": "Intractable cholestatic pruritus with skin excoriation and insomnia in advanced gallbladder cancer with obstructive jaundice.",
   "asker_role": "asha_worker",
-  "asker_query": "ಮೇಡಂ, ಅಮ್ಮನಿಗೆ ಇಡೀ ಶರೀರದಲ್ಲಿ ಭಯಂಕರ ತುರಿಕೆ, ರಾತ್ರಿ ನಿದ್ರೆ ಇಲ್ಲ, ಗೀರಿ-ಗೀರಿ ಚರ್ಮ ಒಡೆದಿದೆ, ಕಾಮಲೆ ಬಹಳ. ಏನು ಔಷಧ ಕೊಡಬಹುದು? PTBD ಮತ್ತೆ ಮಾಡಿಸಬೇಕೆ?",
+  "asker_query": "Madam, mother has terrible itching all over her body, no sleep at night, she has scratched until the skin has broken, jaundice is severe. What medicine can we give? Should we attempt PTBD again?",
   "ideal_response_components": [
     "Recognise this is cholestatic pruritus from biliary obstruction in advanced gallbladder cancer — severely distressing and a leading cause of suffering and even suicidal ideation in advanced cholestasis; needs aggressive multimodal management.",
     "FIRST address whether biliary decompression is appropriate: in a patient with reasonable PPS (40%) and life expectancy of weeks-to-months, percutaneous transhepatic biliary drainage (PTBD) or endoscopic stenting can dramatically improve pruritus, jaundice, and QoL — discuss goals with family and patient; if feasible at a regional centre (Belgaum/Hubli/KMC Manipal), refer urgently; this is the single most effective intervention.",

@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "end_stage_copd",
   "difficulty": "difficult",
-  "language": "hi-IN",
-  "scenario_text": "श्री रमेश पटेल, 70 वर्षीय किसान, बिहार के एक छोटे शहर के बाहरी क्षेत्र में अपने बेटे (38, स्कूल शिक्षक), बहू (एक primary school teacher), और तीन पोते-पोतियों के साथ रहते हैं। उन्हें 8 साल से GOLD IV COPD है (FEV1 24% predicted, 45 साल बीड़ी पीते थे, 6 साल पहले छोड़ा)। पिछले 14 महीने से वे home oxygen 24 घंटे (2L/min) पर हैं, weight loss हो गया है, mMRC 4, ECOG 3. वे Tiotropium-Olodaterol + Budesonide-Formoterol नेबुलाइज़र के माध्यम से ले रहे हैं, पल्मोनरी रिहैब किया जा चुका है। पिछले 4 हफ्तों से उनकी resting dyspnea बढ़ गई है — साँस लेने में बहुत तकलीफ, घबराहट, रात को सो नहीं पाते, अधिकांश समय बिस्तर पर। Hospital admission से वे इनकार कर रहे हैं, घर पर रहना चाहते हैं। Home palliative team ने Morphine SR 10mg BD शुरू करने की सिफारिश की है — लेकिन बेटा सख्त इनकार कर रहा है: 'मॉर्फिन तो नशा है, पापा को addiction हो जाएगी, हम लोग respect-able परिवार हैं, हम ये नहीं देंगे। कुछ और दीजिए।' पत्नी quietly weeping है, मरीज खुद कमजोर सी आवाज में 'मुझे जो ठीक हो वो दे दो बेटा' कहते हैं। बेटा ASHA दीदी के माध्यम से helpline को call करता है — 'मेरे पापा को morphine के अलावा क्या दे सकते हैं?'",
+  "language": "en-IN",
+  "scenario_text": "Mr. Ramesh Patel, a 70-year-old farmer, lives in the outskirts of a small town in Bihar with his son (38, schoolteacher), daughter-in-law (a primary school teacher), and three grandchildren. He has had GOLD IV COPD for 8 years (FEV1 24% predicted, smoked beedis for 45 years, stopped 6 years ago). For the past 14 months he has been on home oxygen 24 hours (2 L/min), has had weight loss, mMRC 4, ECOG 3. He uses Tiotropium-Olodaterol and Budesonide-Formoterol nebuliser, has completed pulmonary rehab. Over the past 4 weeks his resting dyspnea has worsened — severe difficulty breathing, anxiety, cannot sleep at night, mostly bed-bound. He refuses hospital admission, wants to stay at home. The home palliative team has recommended starting Morphine SR 10mg BD — but the son flatly refuses: 'Morphine is an addictive drug, father will get addicted, we are a respectable family, we will not give this. Give something else.' His wife is quietly weeping, the patient himself in a weak voice says 'give me whatever is right, son.' The son calls the helpline through the ASHA-didi — 'What else can we give my father apart from morphine?'",
   "patient_demographics": {
     "age": 70,
     "sex": "M",
@@ -18,8 +18,18 @@
   "clinical_context": {
     "primary_diagnosis": "GOLD IV end-stage COPD with chronic hypoxic respiratory failure on long-term home O2",
     "diagnosis_date": "2018-02-10",
-    "comorbidities": ["Chronic hypoxic respiratory failure", "Cachexia (BMI 17)", "Anxiety"],
-    "current_medications": ["Tiotropium-Olodaterol DPI OD", "Budesonide-Formoterol nebulised BD", "Salbutamol nebulised PRN", "Home O2 2 L/min 24h/day", "Multivitamin"],
+    "comorbidities": [
+      "Chronic hypoxic respiratory failure",
+      "Cachexia (BMI 17)",
+      "Anxiety"
+    ],
+    "current_medications": [
+      "Tiotropium-Olodaterol DPI OD",
+      "Budesonide-Formoterol nebulised BD",
+      "Salbutamol nebulised PRN",
+      "Home O2 2 L/min 24h/day",
+      "Multivitamin"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3 (PPS 40%)",
     "care_setting": "home",
@@ -28,7 +38,7 @@
   },
   "presenting_complaint": "Refractory dyspnea in end-stage COPD; family refuses recommended morphine citing addiction stigma.",
   "asker_role": "family_caregiver",
-  "asker_query": "दीदी, हम respect-able परिवार हैं, papa को morphine नहीं देंगे, ये तो नशे की दवा है, addiction हो जाएगी। मेरे पापा को morphine के अलावा क्या दे सकते हैं? कुछ और तरीका बताएँ।",
+  "asker_query": "Didi, we are a respectable family, we will not give papa morphine, it is an addictive drug, he will get addicted. What else can we give my father apart from morphine? Tell us some other way.",
   "ideal_response_components": [
     "Validate the son's concern without dismissing — addiction stigma around opioids is real, legally reinforced (NDPS Act framing), and culturally entrenched in India; the son's worry is an act of love and respect for his father.",
     "Reframe respectfully — distinguish two very different uses: (a) recreational opioid use for pleasure (which is addiction); (b) medical use of low-dose morphine for symptom relief in advanced disease — these are pharmacologically, ethically, and legally different. The dose recommended (10mg twice a day) is a tiny fraction of doses associated with addiction; in advanced lung disease, multiple international randomised trials (Abernethy 2003, BMJ; Currow 2018; ATS/EAPC guidance) show no addiction in this population.",

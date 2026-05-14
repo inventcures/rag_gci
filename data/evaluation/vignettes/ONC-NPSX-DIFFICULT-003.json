@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "non_pain_symptoms",
   "difficulty": "difficult",
-  "language": "kn-IN",
-  "scenario_text": "ಶ್ರೀಮತಿ ಸುಶೀಲಮ್ಮ, 68 ವರ್ಷದ ಮಹಿಳೆ, ಮಂಗಳೂರಿನ ಹೊರವಲಯದಲ್ಲಿ ಮಗ ಮತ್ತು ಸೊಸೆಯೊಂದಿಗೆ ವಾಸಿಸುತ್ತಾರೆ. 18 ತಿಂಗಳ ಹಿಂದೆ Stage IV ಸ್ತನ ಕ್ಯಾನ್ಸರ್ ಪತ್ತೆಯಾಗಿತ್ತು (ಶ್ವಾಸಕೋಶದ ದ್ವಿಪಕ್ಷೀಯ ಮೆಟಾಸ್ಟಸಿಸ್, ಲಿಂಫಾಂಗಿಟಿಕ್ ಕಾರ್ಸಿನೋಮಾಟೋಸಿಸ್). 4 ಹಂತದ ವ್ಯವಸ್ಥಿತ ಚಿಕಿತ್ಸೆಗಳ ನಂತರ ಈಗ ಬೆಂಬಲ ಆರೈಕೆಯಲ್ಲಿ. ಕಳೆದ 3 ವಾರಗಳಿಂದ ವಿಶ್ರಾಂತಿಯಲ್ಲೂ ತೀವ್ರ ಉಸಿರಾಟದ ತೊಂದರೆ (mMRC 4), ಮನೆಯಲ್ಲಿ 2L/min ಆಮ್ಲಜನಕ 24 ಗಂಟೆ; SpO2 92% (ಆಮ್ಲಜನಕದೊಂದಿಗೆ), 86% (ಗಾಳಿಯಲ್ಲಿ). ತೀವ್ರ ಆತಂಕ, ರಾತ್ರಿ ಕಳಪೆ ನಿದ್ರೆ. Morphine SR 15mg ದಿನಕ್ಕೆ ಎರಡು ಬಾರಿ ಪ್ರಾರಂಭಿಸಲಾಗಿದೆ — ಕೆಲವು ಲಾಭವಿದೆ ಆದರೆ ಸಾಕಾಗುತ್ತಿಲ್ಲ. ECOG 4, eGFR 70. ಯಾವುದೇ ಸಕ್ರಿಯ ಸೋಂಕು ಇಲ್ಲ, ಸ್ಪಷ್ಟ ಪಲ್ಮನರಿ ಎಂಬಾಲಿಸಮ್ ಚಿಹ್ನೆಗಳಿಲ್ಲ. ಆಸ್ಪತ್ರೆಗೆ ಮತ್ತೆ ಹೋಗಲು ಇಚ್ಛಿಸುವುದಿಲ್ಲ. ಸೊಸೆ (ನರ್ಸಿಂಗ್ ಸಹಾಯಕಿ) ಸಹಾಯವಾಣಿಗೆ ಕರೆ ಮಾಡುತ್ತಾಳೆ — ಅಮ್ಮನವರಿಗೆ ಉಸಿರಾಡಲು ತುಂಬಾ ಕಷ್ಟ, ಭಯ, ಮಾರ್ಫೈನ್ ಸಾಕಾಗುತ್ತಿಲ್ಲ, ಏನು ಮಾಡಬೇಕು?",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Susheelamma, a 68-year-old woman, lives in the outskirts of Mangaluru with her son and daughter-in-law. Eighteen months ago she was diagnosed with Stage IV breast cancer (bilateral pulmonary metastases, lymphangitic carcinomatosis). After 4 lines of systemic therapy she is now on supportive care. For the past 3 weeks she has had severe breathlessness even at rest (mMRC 4), on home oxygen 2L/min for 24 hours; SpO2 92% (with oxygen), 86% (on air). Severe anxiety, poor sleep at night. Morphine SR 15mg twice daily has been started — some benefit but inadequate. ECOG 4, eGFR 70. No active infection, no clear signs of pulmonary embolism. She does not wish to go to hospital again. The daughter-in-law (a nursing assistant) calls the helpline — Mother has severe difficulty breathing, anxiety, morphine is not enough, what should we do?",
   "patient_demographics": {
     "age": 68,
     "sex": "F",
@@ -18,8 +18,18 @@
   "clinical_context": {
     "primary_diagnosis": "Stage IV breast cancer with bilateral pulmonary metastases and lymphangitic carcinomatosis",
     "diagnosis_date": "2024-11-05",
-    "comorbidities": ["Anxiety", "Mild hypertension"],
-    "current_medications": ["Morphine SR 15mg BD", "Morphine IR 2.5mg q4h PRN", "Home O2 2 L/min via nasal cannula", "Senna 2 tabs HS", "Amlodipine 5mg OD", "Pantoprazole 40mg OD"],
+    "comorbidities": [
+      "Anxiety",
+      "Mild hypertension"
+    ],
+    "current_medications": [
+      "Morphine SR 15mg BD",
+      "Morphine IR 2.5mg q4h PRN",
+      "Home O2 2 L/min via nasal cannula",
+      "Senna 2 tabs HS",
+      "Amlodipine 5mg OD",
+      "Pantoprazole 40mg OD"
+    ],
     "allergies": [],
     "performance_status": "ECOG 4 (PPS 30%)",
     "care_setting": "home",
@@ -28,7 +38,7 @@
   },
   "presenting_complaint": "Refractory dyspnea at rest (mMRC 4) with severe anxiety despite home O2 and low-dose morphine; SpO2 92% on O2.",
   "asker_role": "family_caregiver",
-  "asker_query": "ಮೇಡಂ, ಅಮ್ಮನವರಿಗೆ ಉಸಿರಾಡಲು ತುಂಬಾ ಕಷ್ಟ, ಆಮ್ಲಜನಕ ಕೊಡುತ್ತಿದ್ದೇವೆ, morphine ಕೊಡುತ್ತಿದ್ದೇವೆ ಆದರೂ ಸಾಲುತ್ತಿಲ್ಲ, ತುಂಬಾ ಭಯ. ಏನು ಮಾಡಬೇಕು, dose ಜಾಸ್ತಿ ಮಾಡಬೇಕಾ?",
+  "asker_query": "Madam, mother is having severe difficulty breathing, we are giving oxygen, we are giving morphine, but it is still not enough, she is very anxious. What should we do, should we increase the dose?",
   "ideal_response_components": [
     "Recognise refractory cancer-related dyspnea with prominent anxiety component — morphine is appropriate first-line, dose currently sub-therapeutic for symptom intensity.",
     "Titrate oral morphine: increase Morphine SR to 20mg BD (or 30mg BD) with IR 2.5-5mg q1-2h PRN for breakthrough breathlessness; track number of PRN doses to guide next titration. Evidence supports low-dose opioids (5-30mg/day oral morphine equivalent) for refractory dyspnea per ATS/EAPC.",

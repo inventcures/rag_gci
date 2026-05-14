@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "pain",
   "difficulty": "moderate",
-  "language": "ta-IN",
-  "scenario_text": "திருமதி கனகவல்லி, 70 வயது, விழுப்புரம் மாவட்டத்தின் ஒரு கிராமத்தில் வசிக்கிறார். அவருக்கு கடந்த 8 மாதங்களாக மேம்பட்ட கணைய புற்றுநோய் (Stage IV pancreatic adenocarcinoma) கண்டறியப்பட்டுள்ளது. அவர் தற்போது Morphine SR 30mg இரண்டு வேளை மற்றும் Paracetamol 1g நான்கு வேளை எடுத்துக்கொண்டுள்ளார். கடந்த 2 வாரங்களில் T10 dermatome-ஐ ஒட்டிய பகுதியில் எரிச்சல், சில்லுச்செலுத்தும் வலி (lancinating pain), மற்றும் சாதாரண உடை தொடும்போதும் வலி (allodynia) புகார் செய்கிறார். வலி அளவு 6/10. சிறுநீரக செயல்பாடு இயல்பானது (eGFR 75). வேறு மருந்துகள் இல்லை, ஒவ்வாமை இல்லை. ECOG 3. ஊராட்சி மருத்துவ உதவியாளர் (ASHA) வீட்டு வருகை தந்து உதவி எண்ணை அழைக்கிறார் — மார்பினுக்கு பதில் இல்லை, என்ன செய்வது?",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Kanakavalli, 70 years old, lives in a village in Viluppuram district. She was diagnosed with advanced pancreatic cancer (Stage IV pancreatic adenocarcinoma) 8 months ago. She is currently taking Morphine SR 30mg twice daily and Paracetamol 1g four times daily. Over the past 2 weeks she reports burning, lancinating pain along the T10 dermatome region, with pain on even normal clothes touching the skin (allodynia). Pain intensity 6/10. Renal function is normal (eGFR 75). No other medications, no allergies. ECOG 3. The village ASHA worker visits the home and calls the helpline — morphine is not responding, what should we do?",
   "patient_demographics": {
     "age": 70,
     "sex": "F",
@@ -19,7 +19,11 @@
     "primary_diagnosis": "Stage IV pancreatic adenocarcinoma with retroperitoneal nodal disease and presumed coeliac plexus involvement",
     "diagnosis_date": "2025-09-05",
     "comorbidities": [],
-    "current_medications": ["Morphine SR 30mg BD", "Paracetamol 1g QDS", "Lactulose 15mL HS"],
+    "current_medications": [
+      "Morphine SR 30mg BD",
+      "Paracetamol 1g QDS",
+      "Lactulose 15mL HS"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3",
     "care_setting": "home",
@@ -28,7 +32,7 @@
   },
   "presenting_complaint": "Two-week history of burning, lancinating pain with allodynia in T10 dermatome, 6/10, not responding to background morphine.",
   "asker_role": "asha_worker",
-  "asker_query": "மேடம், பாட்டிக்கு மார்பின் கொடுத்தும் வலி குறையவில்லை. தோல் தொட்டாலே வலி வருது, எரிச்சல் மாதிரி. என்ன பண்ணணும்?",
+  "asker_query": "Madam, even after giving morphine to grandma, the pain has not reduced. Even touching her skin causes pain, like a burning sensation. What should we do?",
   "ideal_response_components": [
     "Recognise this is neuropathic cancer pain (burning, lancinating, allodynia) likely from coeliac/retroperitoneal plexus involvement — partially opioid-responsive; needs an adjuvant.",
     "Add gabapentin 100mg HS, titrate by 100mg every 3 days as tolerated to 300mg TDS (max 1800mg/day in elderly); OR pregabalin 25-50mg HS titrating to 75mg BD.",

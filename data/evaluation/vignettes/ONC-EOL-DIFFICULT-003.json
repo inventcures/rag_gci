@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "eol_india_cancers",
   "difficulty": "difficult",
-  "language": "hi-IN",
-  "scenario_text": "श्रीमती शांता बाई, 60 वर्षीय महिला, मध्य प्रदेश के एक छोटे शहर में अपने बेटे और बहू के साथ रहती हैं। 15 साल तक तंबाकू और पान-मसाला का उपयोग किया था। पिछले 20 महीने से उन्हें वाय कैंसर (oral cavity squamous cell carcinoma, T4N2M0) है — surgery + RT + chemo हो चुकी, अब locally recurrent disease. पिछले 3 हफ्ते से गंभीर trismus (mouth opening <10mm) के कारण वे tablets निगल नहीं पा रही हैं, NG-tube उन्होंने मना कर दी। दर्द बहुत तेज़ है (8/10), जलन और चुभन वाला (neuropathic component भी), nighttime worse, उनकी नींद नहीं आती, वे रो रही हैं। अभी तक केवल Paracetamol PR 1g QDS मिल रहा है — पर्याप्त नहीं। eGFR 65, koi major comorbidity नहीं। ECOG 3, PPS 40%. बेटा (graduate, IT job) और बहू देखभाल कर रहे हैं। नज़दीकी palliative unit 18 किमी पर है। बेटा ASHA दीदी के माध्यम से helpline को call करता है — माँ टैबलेट निगल नहीं पा रहीं, उन्हें कैसे दर्द कम करें?",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Shanta Bai, a 60-year-old woman, lives in a small town in Madhya Pradesh with her son and daughter-in-law. She used tobacco and pan-masala for 15 years. For the past 20 months she has had oral cancer (oral cavity squamous cell carcinoma, T4N2M0) — she has completed surgery + RT + chemo, and now has locally recurrent disease. For the past 3 weeks, due to severe trismus (mouth opening <10mm), she has been unable to swallow tablets; she has refused NG tube. Pain is very severe (8/10), burning and stabbing in character (with a neuropathic component), worse at night, she cannot sleep and is crying. So far she is only receiving Paracetamol PR 1g QDS — inadequate. eGFR 65, no major comorbidities. ECOG 3, PPS 40%. Her son (graduate, IT job) and daughter-in-law are caring for her. The nearest palliative unit is 18 km away. The son calls the helpline through the ASHA-didi — 'My mother cannot swallow tablets, how can we reduce her pain?'",
   "patient_demographics": {
     "age": 60,
     "sex": "F",
@@ -18,8 +18,14 @@
   "clinical_context": {
     "primary_diagnosis": "Recurrent oral cavity squamous cell carcinoma (T4N2M0; gutka/tobacco-related), with severe trismus",
     "diagnosis_date": "2024-09-15",
-    "comorbidities": ["Severe trismus (mouth opening <10mm)", "Cachexia"],
-    "current_medications": ["Paracetamol 1g PR QDS", "Multivitamin"],
+    "comorbidities": [
+      "Severe trismus (mouth opening <10mm)",
+      "Cachexia"
+    ],
+    "current_medications": [
+      "Paracetamol 1g PR QDS",
+      "Multivitamin"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3 (PPS 40%)",
     "care_setting": "home",
@@ -28,7 +34,7 @@
   },
   "presenting_complaint": "Severe pain 8/10 with neuropathic features in advanced oral cancer; cannot swallow oral analgesia due to severe trismus; refuses NG tube.",
   "asker_role": "family_caregiver",
-  "asker_query": "दीदी, माँ का मुँह 10 मिलीमीटर भी नहीं खुलता, टैबलेट निगल नहीं पातीं, NG लगाने से मना कर दिया है, दर्द बहुत है, रात भर रोती हैं। उन्हें कैसे दर्द कम कर सकते हैं? कौनसी दवा कैसे दें?",
+  "asker_query": "Didi, my mother's mouth does not open even 10 millimetres, she cannot swallow tablets, she has refused NG tube, the pain is severe, she cries all night. How can we reduce her pain? Which medicine and how should it be given?",
   "ideal_response_components": [
     "Acknowledge the severe pain crisis and impossibility of oral route — alternative routes are urgently needed; the patient's autonomy in refusing NG must be respected and worked around.",
     "FIRST-LINE (transdermal): Initiate Fentanyl transdermal patch — starting dose 25 mcg/72h (≈60mg oral morphine equivalent/24h) given pain severity and opioid-naive status with caution; patch onset takes 12-18 hours, so a rapid-onset bridge is essential.",

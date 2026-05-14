@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "eol_india_cancers",
   "difficulty": "difficult",
-  "language": "bn-IN",
-  "scenario_text": "শ্রীমতী সুমিত্রা দাস ('মাশিমা'), ৬৫ বছর বয়সী বিধবা, কাছাড় জেলার একটি গ্রামে নাতি-নাতনি ও ছেলের বউয়ের সাথে থাকেন। প্রায় ১৮ মাস আগে স্টেজ IVB cervical cancer ধরা পড়েছিল, ছাড়া হয়নি কোনো screening; এখন বিস্তৃত pelvic disease + bone mets, last days of life বলে মনে হচ্ছে। গত ২৪ ঘন্টায় তিনি ক্রমাগত এলোমেলো, কাপড় ছেঁড়ার মতো হাত নাড়াচ্ছেন (carphologia), দু-একটা অসংলগ্ন কথা বলছেন, রাতে বেশি খারাপ, পরিবার ভয় পেয়েছে — 'মাশিমা চিৎকার করছেন, কাপড় টানছেন, কী হল?'। তিনি Morphine SR 30mg দিনে দু'বার ৪ সপ্তাহ ধরে নিচ্ছেন (pain controlled হয়েছিল)। গত ৩ দিনে urine output কমে গেছে, ছোট bladder ভর্তি palpable, কিন্তু কোনো catheter নেই। বমি নেই, জ্বর নেই, কিন্তু constipation 5 days। শ্বাসকষ্ট মাঝারি (mMRC 3 আগে; এখন প্রায়ই দ্রুত শ্বাস)। CCHRC home-team আসতে ৩৫ কিমি; ASHA-দিদি এখন বাড়িতে — পরিবারের পক্ষে হাসপাতাল ভর্তির ইচ্ছা নেই, বাড়িতেই মৃত্যু চান। ASHA-দিদি হেল্পলাইন ফোন করেছেন।",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Sumitra Das ('Mashima'), a 65-year-old widow, lives in a village in Cachar district with her grandchildren and daughter-in-law. She was diagnosed with Stage IVB cervical cancer about 18 months ago, having had no screening; she now has extensive pelvic disease plus bone metastases and appears to be in the last days of life. Over the past 24 hours she has been continuously restless, making picking movements at her clothes (carphologia), saying a few incoherent words, worse at night, and the family is frightened — 'Mashima is shouting, pulling at her clothes, what is happening?'. She has been on Morphine SR 30mg twice daily for 4 weeks (pain was controlled). Over the past 3 days her urine output has decreased, a small bladder is palpable but there is no catheter. No vomiting, no fever, but constipation for 5 days. Breathlessness is moderate (mMRC 3 previously; now often rapid breathing). The CCHRC home-team is 35 km away; the ASHA-didi is at the home now — the family does not wish for hospital admission and wants death at home. The ASHA-didi has called the helpline.",
   "patient_demographics": {
     "age": 65,
     "sex": "F",
@@ -18,8 +18,17 @@
   "clinical_context": {
     "primary_diagnosis": "Stage IVB cervical cancer with pelvic and bone metastases, end-of-life phase",
     "diagnosis_date": "2024-10-22",
-    "comorbidities": ["Obstructive uropathy (likely)", "Chronic anaemia"],
-    "current_medications": ["Morphine SR 30mg BD", "Morphine IR 5mg q4h PRN (rarely used)", "Paracetamol 1g QDS (now intermittent)", "Lactulose 15mL HS", "Senna 2 tabs HS"],
+    "comorbidities": [
+      "Obstructive uropathy (likely)",
+      "Chronic anaemia"
+    ],
+    "current_medications": [
+      "Morphine SR 30mg BD",
+      "Morphine IR 5mg q4h PRN (rarely used)",
+      "Paracetamol 1g QDS (now intermittent)",
+      "Lactulose 15mL HS",
+      "Senna 2 tabs HS"
+    ],
     "allergies": [],
     "performance_status": "PPS 20%",
     "care_setting": "home",
@@ -28,7 +37,7 @@
   },
   "presenting_complaint": "Acute hyperactive delirium with carphologia and agitation in a dying patient with cervical cancer at home; family distressed.",
   "asker_role": "asha_worker",
-  "asker_query": "দিদি, মাশিমা চিৎকার করছেন, কাপড় টানছেন, রাতে বেশি, ৩ দিন পায়খানা হয়নি, প্রস্রাব কম, কী করব? পরিবার হাসপাতালে যেতে চায় না, বাড়িতেই থাকতে চান।",
+  "asker_query": "Didi, Mashima is shouting, pulling at her clothes, worse at night, no bowel motion for 3 days, urine is reduced — what should I do? The family does not want to go to hospital, they want to stay at home.",
   "ideal_response_components": [
     "Recognise this as hyperactive terminal delirium (terminal restlessness) — common in last days; carphologia (picking at clothes) is a classic sign; reassure family this is part of dying, not avoidable suffering, and is rarely remembered by the patient.",
     "FIRST: actively look for and treat reversible precipitants — these are the highest-yield interventions: (a) urinary retention — palpable bladder; pass an in-and-out or indwelling catheter (huge relief); (b) faecal impaction — gentle PR exam by ASHA/community nurse; if hard stool — glycerine suppository or gentle disimpaction; (c) pain — though appearing controlled, give an empirical IR morphine 5mg dose and observe; (d) hypoxia — check SpO2; (e) review medications for delirium contributors (opioids themselves can contribute — but rotation rather than withdrawal in this terminal phase); (f) hypoglycaemia (if diabetic); (g) infection (UTI very common in obstructive uropathy).",

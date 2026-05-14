@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "eol_respiratory",
   "difficulty": "difficult",
-  "language": "hi-IN",
-  "scenario_text": "श्रीमती सरस्वती देवी, 65 वर्षीय गृहिणी, बिहार के एक छोटे गाँव में अपने पति, बेटे, बहू, और दो पोते-पोतियों के साथ रहती हैं। पिछले 12 साल से end-stage COPD है (biomass smoke चूल्हा); home O2 इस्तेमाल कर रही थीं लेकिन concentrator काम करना बंद हो गया था; पिछले 7 दिन से किसी कारणवश परिवार उन्हें district hospital ले गया था जहाँ NIV पर रखा गया, ICU में 3 दिन; परिवार और मरीज ने 'discharge against medical advice (DAMA)' पर दबाव दिया क्योंकि अस्पताल का बिल नहीं उठा सकते थे और उन्होंने स्पष्ट रूप से कहा था 'घर जाना चाहती हूँ, अपने परिवार के साथ मरना चाहती हूँ'। 12 घंटे पहले परिवार उन्हें एम्बुलेंस में घर वापस ले आया। अब वे bedridden हैं, बहुत कम होश में हैं, terminal dyspnea — agonal breathing pattern, accessory muscle use, RR 32, SpO2 ~80% (कोई O2 नहीं घर पर अभी), grunting, occasional restlessness। कोई pulse oximeter, कोई morphine, कोई injectable, कोई इस्तेमाल योग्य दवा घर पर नहीं। पति (75 वर्ष) सदमे में हैं, बेटा रो रहा है, बहू बच्चों को संभाल रही है। नज़दीकी PHC 8 किमी, palliative-team-affiliated nearest centre 40 किमी। ASHA दीदी helpline को call करती हैं — दीदी, दादी मरने वाली हैं, साँस लेने में बहुत कष्ट हो रहा है, घर में कुछ भी नहीं है, क्या कर सकते हैं?",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Saraswati Devi, a 65-year-old homemaker, lives in a small village in Bihar with her husband, son, daughter-in-law, and two grandchildren. She has had end-stage COPD for 12 years (biomass-smoke chulha); she was using home oxygen but the concentrator had stopped working; 7 days ago, for some reason, the family took her to the district hospital where she was placed on NIV, in ICU for 3 days; the family and patient insisted on 'discharge against medical advice (DAMA)' because they could not afford the hospital bill and she had clearly said 'I want to go home, I want to die with my family.' Twelve hours ago the family brought her home by ambulance. She is now bedridden, barely conscious, with terminal dyspnea — agonal breathing pattern, accessory muscle use, RR 32, SpO2 ~80% (no oxygen at home currently), grunting, occasional restlessness. No pulse oximeter, no morphine, no injectables, no usable medications at home. The husband (75 years) is in shock, the son is crying, the daughter-in-law is managing the children. The nearest PHC is 8 km, the nearest palliative-team-affiliated centre is 40 km. The ASHA-didi calls the helpline — Didi, grandmother is dying, she is having severe difficulty breathing, there is nothing at home, what can we do?",
   "patient_demographics": {
     "age": 65,
     "sex": "F",
@@ -18,8 +18,16 @@
   "clinical_context": {
     "primary_diagnosis": "End-stage GOLD IV COPD, post-DAMA from district hospital NIV; actively dying with terminal dyspnea",
     "diagnosis_date": "2013-09-12",
-    "comorbidities": ["Cor pulmonale", "Cachexia", "Iron-deficiency anaemia"],
-    "current_medications": ["None at home (hospital medications stopped at DAMA)", "Salbutamol MDI (empty)", "No oxygen available"],
+    "comorbidities": [
+      "Cor pulmonale",
+      "Cachexia",
+      "Iron-deficiency anaemia"
+    ],
+    "current_medications": [
+      "None at home (hospital medications stopped at DAMA)",
+      "Salbutamol MDI (empty)",
+      "No oxygen available"
+    ],
     "allergies": [],
     "performance_status": "PPS 10% (actively dying)",
     "care_setting": "home",
@@ -28,7 +36,7 @@
   },
   "presenting_complaint": "Actively dying end-stage COPD patient with terminal dyspnea at home after DAMA, no medications or oxygen available, family in distress.",
   "asker_role": "family_caregiver",
-  "asker_query": "दीदी, दादी की बहुत बुरी हालत है, साँस लेने में बहुत कष्ट है, घर पर कुछ भी नहीं है — न oxygen, न morphine, कुछ नहीं। हम क्या कर सकते हैं? कैसे उनकी तकलीफ कम कर सकते हैं?",
+  "asker_query": "Didi, grandmother is in a very bad state, she has severe difficulty breathing, there is nothing at home — no oxygen, no morphine, nothing. What can we do? How can we reduce her suffering?",
   "ideal_response_components": [
     "Acknowledge the family's distress and the dignity of their choice to bring her home; reassure them that they have done what she wanted; the focus now is on making her comfortable in her last hours.",
     "Rapid triage: this is terminal dyspnea in the actively dying phase; expected survival is hours; the goal is symptom relief and family support, NOT reversing the process.",

@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "end_stage_copd",
   "difficulty": "moderate",
-  "language": "ta-IN",
-  "scenario_text": "திரு. ராஜேந்திரன், 75 வயது, விழுப்புரம் அருகே ஒரு கிராமத்தில் வசிக்கும் முன்னாள் சட்டை விற்பனையாளர். அவருக்கு GOLD IV COPD (FEV1 28% predicted, 50 வருட புகைப்பழக்கம், 5 வருடம் முன்பு நிறுத்தினார்). 18 மாதங்களாக வீட்டில் 2L/min ஆக்ஸிஜன் (16 மணி நேரம்/நாள்). தற்போது Tiotropium-Olodaterol, Salbutamol, ICS-LABA (Budesonide-Formoterol DPI BD) எடுத்துக்கொள்கிறார். கடந்த 2 வாரங்களாக அவரின் ஓய்விலான மூச்சுத்திணறல் (mMRC 4) படிப்படியாக மோசமாகிறது — கடந்த வாரம் வாரம் கட்டிலில் இருந்து கழிப்பறைக்குச் செல்லவே முடியாது. SpO2 ஆக்ஸிஜனுடன் 89%, காற்றில் 85%. காய்ச்சல் இல்லை, கூடுதல் கபம் இல்லை, கால் வீக்கம் இல்லை. சமீபத்திய spirometry / X-ray இல்லை. ASHA பெண் வீடு வந்து உதவி எண்ணை அழைக்கிறார் — பெரியவருக்கு மூச்சு போதவில்லை, ஆக்ஸிஜன் அதிகரிக்கலாமா, மருந்துகளை மாற்ற வேண்டுமா?",
+  "language": "en-IN",
+  "scenario_text": "Mr. Rajendran, 75 years old, a former shop-keeper living in a village near Viluppuram. He has GOLD IV COPD (FEV1 28% predicted, 50-year smoking history, stopped 5 years ago). For 18 months he has been on home oxygen 2 L/min (16 hours/day). He currently takes Tiotropium-Olodaterol, Salbutamol, and ICS-LABA (Budesonide-Formoterol DPI BD). Over the past 2 weeks his resting breathlessness (mMRC 4) has progressively worsened — over the past week he cannot even walk from bed to toilet. SpO2 on oxygen 89%, on air 85%. No fever, no increased sputum, no leg swelling. No recent spirometry / X-ray. The ASHA worker visits the home and calls the helpline — grandfather's breathing is inadequate, can we increase oxygen, do we need to change his medications?",
   "patient_demographics": {
     "age": 75,
     "sex": "M",
@@ -18,8 +18,18 @@
   "clinical_context": {
     "primary_diagnosis": "GOLD IV end-stage COPD (FEV1 28%, GOLD group D), on long-term home oxygen",
     "diagnosis_date": "2019-08-20",
-    "comorbidities": ["Chronic hypoxic respiratory failure", "Probable mild cor pulmonale", "Hypertension"],
-    "current_medications": ["Tiotropium-Olodaterol DPI OD", "Budesonide-Formoterol DPI BD", "Salbutamol MDI PRN", "Home O2 2 L/min nasal cannula 16h/day", "Amlodipine 5mg OD"],
+    "comorbidities": [
+      "Chronic hypoxic respiratory failure",
+      "Probable mild cor pulmonale",
+      "Hypertension"
+    ],
+    "current_medications": [
+      "Tiotropium-Olodaterol DPI OD",
+      "Budesonide-Formoterol DPI BD",
+      "Salbutamol MDI PRN",
+      "Home O2 2 L/min nasal cannula 16h/day",
+      "Amlodipine 5mg OD"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3",
     "care_setting": "home",
@@ -28,7 +38,7 @@
   },
   "presenting_complaint": "Progressive resting dyspnea over 2 weeks (mMRC 4) in GOLD IV COPD on long-term home O2, without obvious AECOPD trigger.",
   "asker_role": "asha_worker",
-  "asker_query": "மேடம், தாத்தாவுக்கு மூச்சுத்திணறல் இரண்டு வாரமாக அதிகரிக்கிறது, கட்டில் இருந்து கழிப்பறை செல்லவே முடியாது. காய்ச்சல் இல்லை, கபம் கூடவில்லை. O2 போடப்படுகிறது 16 மணி நேரம். இப்போது என்ன செய்வது? O2 அதிகரிக்கலாமா?",
+  "asker_query": "Madam, grandfather's breathlessness has been increasing for two weeks, he cannot walk from bed to the toilet. No fever, no increase in sputum. Oxygen is given 16 hours a day. What should we do now? Can we increase the O2?",
   "ideal_response_components": [
     "Recognise this is progression of end-stage COPD with refractory dyspnea (not an acute exacerbation given no fever, no purulent sputum, no leg swelling, no chest pain) — palliative management of dyspnea is now the priority.",
     "Oxygen management: confirm compliance with the prescribed 16 h/day; can increase duration to 24/7 use; titrate flow rate aim SpO2 88-92% (NOT higher — risk of CO2 retention in end-stage COPD); current 2 L/min giving 89% is within target — increasing flow beyond 3 L/min usually adds no symptomatic benefit and risks CO2 retention.",

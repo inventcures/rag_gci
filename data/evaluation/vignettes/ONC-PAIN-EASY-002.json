@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "pain",
   "difficulty": "easy",
-  "language": "hi-IN",
-  "scenario_text": "श्रीमती सुनीता शर्मा, 55 वर्षीय गृहिणी, लखनऊ के बाहरी क्षेत्र में रहती हैं। उन्हें पिछले 10 महीने से Stage IV स्तन कैंसर (हड्डियों में फैला हुआ) है। वे पिछले 3 हफ्ते से Tramadol 100mg दिन में चार बार और Paracetamol 1g दिन में चार बार ले रही हैं। फिर भी पिछले 5 दिनों से पीठ और कूल्हे में बहुत तेज दर्द है जो 7/10 है, रात को सो नहीं पातीं। कोई किडनी या जिगर की बीमारी नहीं है, कोई दवा से एलर्जी नहीं। ECOG 2 है, घर में बेटा और बहू देखभाल करते हैं। नज़दीकी पैलिएटिव क्लिनिक 12 किमी दूर है जहाँ ओरल मॉर्फिन उपलब्ध है। बेटा फोन पर ASHA दीदी की मदद से हेल्पलाइन को कॉल करता है — माँ बहुत तकलीफ में हैं, अब क्या करें।",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Sunita Sharma, a 55-year-old homemaker, lives in the outskirts of Lucknow. For the past 10 months she has had Stage IV breast cancer (spread to the bones). For the past 3 weeks she has been taking Tramadol 100mg four times daily and Paracetamol 1g four times daily. Despite this, for the past 5 days she has had very severe back and hip pain at 7/10, and cannot sleep at night. No kidney or liver disease, no drug allergies. ECOG 2, at home with son and daughter-in-law caring for her. The nearest palliative clinic is 12 km away and oral morphine is available there. The son calls the helpline via the ASHA-didi — mother is in great distress, what should we do now?",
   "patient_demographics": {
     "age": 55,
     "sex": "F",
@@ -19,7 +19,11 @@
     "primary_diagnosis": "Stage IV breast cancer with bone metastases (spine, pelvis)",
     "diagnosis_date": "2025-07-20",
     "comorbidities": [],
-    "current_medications": ["Tramadol 100mg QDS", "Paracetamol 1g QDS", "Calcium + Vitamin D OD"],
+    "current_medications": [
+      "Tramadol 100mg QDS",
+      "Paracetamol 1g QDS",
+      "Calcium + Vitamin D OD"
+    ],
     "allergies": [],
     "performance_status": "ECOG 2",
     "care_setting": "home",
@@ -28,7 +32,7 @@
   },
   "presenting_complaint": "Severe back and hip pain 7/10 for 5 days despite maximum-dose tramadol and paracetamol.",
   "asker_role": "family_caregiver",
-  "asker_query": "दीदी, माँ को पीठ और कमर में बहुत दर्द है, ट्रामाडोल चार बार दे रहे हैं फिर भी आराम नहीं है, रात भर रोती हैं। अब क्या करूँ? डॉक्टर से कब मिलाएँ?",
+  "asker_query": "Didi, mother has severe pain in her back and hip, we are giving tramadol four times a day but there is no relief, she cries all night. What should I do now? When should I take her to the doctor?",
   "ideal_response_components": [
     "Recognise this is Step 2 failure — moderate-to-severe pain not controlled on maximum tramadol; switch to Step 3 strong opioid (oral morphine) per WHO ladder.",
     "Calculate equianalgesic starting dose: 400mg/day tramadol PO ≈ 40mg/day oral morphine; conservative start 5mg IR morphine PO every 4 hours (30mg/24h) plus 5mg PRN for breakthrough.",

@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "lung_ca_occupational",
   "difficulty": "difficult",
-  "language": "kn-IN",
-  "scenario_text": "ಶ್ರೀ ಬಸವರಾಜ, 52 ವರ್ಷ, ಕರ್ನಾಟಕದ ಚಿತ್ರದುರ್ಗ ಜಿಲ್ಲೆಯ ಒಂದು ಗ್ರಾಮದಿಂದ ಬಂದ ಕಲ್ಲು-ಕತ್ತರಿಸುವ ಕೆಲಸಗಾರ, 25 ವರ್ಷಗಳ silica ಧೂಳಿನ ಸಂಪರ್ಕ. ಧೂಮಪಾನ ಇಲ್ಲ. 5 ವರ್ಷಗಳ ಹಿಂದೆ silicosis with progressive massive fibrosis ಪತ್ತೆಯಾಯಿತು. ಈಗ end-stage — home O2 16 ಗಂಟೆ/ದಿನ (2L/min), mMRC 4, ECOG 4, ಬೆಡ್‌ರೂಮ್‌ನಿಂದ ಶೌಚಾಲಯಕ್ಕೆ ಸಹ ನಡೆಯಲಾಗದು. ಪುನರಾವರ್ತಿತ chest infections (ಕಳೆದ ವರ್ಷ 4 ಬಾರಿ). FEV1 ~22%. ಎರಡು ಬಾರಿ TB co-infection treatment ಆಗಿತ್ತು. ಪತ್ನಿ (45 ವರ್ಷ, ಮನೆಗೆಲಸ-ಕೆಲಸಗಾರ್ತಿ) ಮುಖ್ಯ ಕಾಪಾಡುಗಾರ್ತಿ; ಇಬ್ಬರು ಮಕ್ಕಳು (16 ಮತ್ತು 13 ವರ್ಷ, ಶಾಲೆ). ಕರ್ನಾಟಕ State Pneumoconiosis Board ಮೂಲಕ ₹3 ಲಕ್ಷ advance compensation ಪಡೆದಿದ್ದರೆಂದರೂ ಮಾಸಿಕ pension ಪತ್ತೆಯಾಗಿಲ್ಲ; ಆದಾಯ ಇಲ್ಲ; ಕುಟುಂಬ ಬಡತನದಲ್ಲಿ. ಕಳೆದ 3 ವಾರಗಳಲ್ಲಿ ಆತ ASHA-ಗೆ ಹೇಳಿದರು: 'ನಾನು ಯಾಕೆ ಬದುಕಿರಬೇಕು? ನನ್ನ ಕುಟುಂಬ ನನ್ನಿಂದ ಕಷ್ಟಪಡುತ್ತಿದೆ. ನಾನು ಸಾವಲ್ಲ ಎಂದರೆ ಒಳ್ಳೆಯದು.' ಯಾವುದೇ specific suicide plan ಇಲ್ಲ ಆದರೆ ಭಾವನೆಗಳು ಸ್ಪಷ್ಟ. ASHA helpline ಗೆ ಕರೆ ಮಾಡಿ — ಆತನಿಗೆ ಸಿಂಪತಿ ಕೊಡಲು ಮಾತ್ರವಲ್ಲ, symptom relief ಗಾಗಿ ಏನು ಮಾಡಬೇಕು, ಮನೆಯಲ್ಲಿ ಮಾತ್ರ ಬಳಸಬಹುದಾದ ಔಷಧಿಗಳು, ಡಿಪ್ರೆಶನ್, ಸಂಸಾರಿಕ ಬೆಂಬಲ, ಪರಿಹಾರ-ಸ್ಥಿತಿ — ಎಲ್ಲವನ್ನೂ ಒಟ್ಟಿಗೆ.",
+  "language": "en-IN",
+  "scenario_text": "Mr. Basavaraj, 52 years old, a stone-cutter from a village in Chitradurga district of Karnataka, with 25 years of silica dust exposure. No smoking. Five years ago he was diagnosed with silicosis with progressive massive fibrosis. He is now end-stage — home O2 16 hours/day (2 L/min), mMRC 4, ECOG 4, cannot even walk from bedroom to toilet. Recurrent chest infections (4 episodes in the past year). FEV1 ~22%. He has been treated twice for TB co-infection. His wife (45 years, domestic worker) is the primary caregiver; two children (16 and 13 years, in school). Although he received an advance compensation of ₹3 lakh through the Karnataka State Pneumoconiosis Board, the monthly pension has not come through; no income; the family is in poverty. Over the past 3 weeks he has told the ASHA: 'Why should I live? My family is suffering because of me. It would be better if I died.' No specific suicide plan but feelings are clear. The ASHA calls the helpline — not just to give him sympathy, but for symptom relief, home-administrable medications, depression, family support, and compensation status — all together.",
   "patient_demographics": {
     "age": 52,
     "sex": "M",
@@ -18,8 +18,21 @@
   "clinical_context": {
     "primary_diagnosis": "End-stage silicosis with progressive massive fibrosis; chronic hypoxic respiratory failure; recurrent infections; reactive depression with suicidal ideation",
     "diagnosis_date": "2021-02-15",
-    "comorbidities": ["Progressive massive fibrosis", "Recurrent respiratory infections", "Twice-treated pulmonary TB (silico-TB)", "Major depressive disorder (not yet treated)", "Anaemia (Hb 9.5)", "Cachexia (BMI 17)"],
-    "current_medications": ["Tiotropium-Olodaterol DPI OD", "Budesonide-Formoterol DPI BD", "Salbutamol nebulised PRN", "Home O2 2 L/min 16h/day", "Multivitamin"],
+    "comorbidities": [
+      "Progressive massive fibrosis",
+      "Recurrent respiratory infections",
+      "Twice-treated pulmonary TB (silico-TB)",
+      "Major depressive disorder (not yet treated)",
+      "Anaemia (Hb 9.5)",
+      "Cachexia (BMI 17)"
+    ],
+    "current_medications": [
+      "Tiotropium-Olodaterol DPI OD",
+      "Budesonide-Formoterol DPI BD",
+      "Salbutamol nebulised PRN",
+      "Home O2 2 L/min 16h/day",
+      "Multivitamin"
+    ],
     "allergies": [],
     "performance_status": "ECOG 4 (PPS 30%)",
     "care_setting": "home",
@@ -28,7 +41,7 @@
   },
   "presenting_complaint": "End-stage silicosis with refractory dyspnea, depression with passive suicidal ideation, family/social precarity, requesting home symptom relief.",
   "asker_role": "asha_worker",
-  "asker_query": "ಮೇಡಂ, ಬಸವರಾಜ ಸರ್ ಗೆ ಉಸಿರಾಡಲು ಕಷ್ಟ, ಹಾಸಿಗೆಗೆ ಬದ್ಧರಾಗಿದ್ದಾರೆ, ಅವರು ಹೇಳಿದರು 'ನಾನು ಯಾಕೆ ಬದುಕಿರಬೇಕು', ಪರಿವಾರ ಕಷ್ಟದಲ್ಲಿದೆ, compensation pension ಇನ್ನೂ ಬಂದಿಲ್ಲ. ಏನು ಮಾಡಬೇಕು — ಔಷಧಿ, ಮಾನಸಿಕ ಸಹಾಯ, ಪರಿಹಾರ — ಎಲ್ಲವನ್ನೂ ಹೇಳಿ.",
+  "asker_query": "Madam, Basavaraj sir has difficulty breathing, he is bed-bound, he said 'why should I live', the family is in difficulty, the compensation pension has still not come. What should we do — medication, mental support, compensation help — please tell everything.",
   "ideal_response_components": [
     "Acknowledge the full burden — end-stage silicosis with refractory symptoms, depression with passive suicidal ideation, family/social precarity, and stalled compensation. This requires a comprehensive medical-psychological-social-justice response.",
     "Acute safety assessment for suicidal ideation: ASHA should explicitly ask (with sensitivity, in Kannada): (a) 'Do you want to die now?' (b) 'Do you have any plan?' (c) 'Do you have access to means (pesticides — common rural means; rope; weapons)?'; document responses. Currently he has passive ideation ('it would be better if I died') without active plan — this is significant but not imminent crisis. Remove access to pesticides and weapons; ensure he is not alone; engage family in supervision.",

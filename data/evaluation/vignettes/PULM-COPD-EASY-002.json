@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "end_stage_copd",
   "difficulty": "easy",
-  "language": "hi-IN",
-  "scenario_text": "श्री हरि सिंह, 68 वर्षीय किसान, उत्तर प्रदेश के कानपुर के पास एक गाँव में अपनी पत्नी के साथ रहते हैं। उन्हें 5 साल से GOLD II-III COPD है (40 साल बीड़ी पीते थे, 3 साल पहले छोड़ दी)। वे Tiotropium 18 mcg एक बार दैनिक और जरूरत पड़ने पर Salbutamol MDI लेते हैं। पिछले 4 दिनों से उन्हें सामान्य से ज्यादा खाँसी है, थूक थोड़ा बढ़ गया है लेकिन सफेद/स्पष्ट रंग का है (पीला/हरा नहीं), कोई बुखार नहीं, कोई pleuritic दर्द नहीं, कोई हेमोप्टिसिस नहीं, बेसलाइन से थोड़ी ज्यादा सांस फूल रही है (mMRC 3, बेसलाइन 2)। SpO2 घर पर 93% (बेसलाइन 94%), HR 88, RR 22, अच्छी तरह बात कर रहे हैं, खा रहे हैं। पत्नी ASHA दीदी की मदद से helpline को call करती हैं — पति को थोड़ी ज़्यादा खाँसी है, क्या करें, antibiotic दें?",
+  "language": "en-IN",
+  "scenario_text": "Mr. Hari Singh, a 68-year-old farmer, lives in a village near Kanpur in Uttar Pradesh with his wife. He has had GOLD II-III COPD for 5 years (smoked beedis for 40 years, quit 3 years ago). He takes Tiotropium 18 mcg once daily and Salbutamol MDI when needed. Over the past 4 days he has had more cough than usual, sputum has increased slightly but is white/clear (not yellow/green), no fever, no pleuritic pain, no haemoptysis, slightly more breathlessness than baseline (mMRC 3, baseline 2). SpO2 at home 93% (baseline 94%), HR 88, RR 22, speaking well, eating well. The wife calls the helpline with the help of the ASHA-didi — husband has a bit more cough, what should we do, should we give an antibiotic?",
   "patient_demographics": {
     "age": 68,
     "sex": "M",
@@ -18,8 +18,14 @@
   "clinical_context": {
     "primary_diagnosis": "GOLD II-III COPD (post-bronchodilator FEV1 ~50%, GOLD group B), ex-smoker",
     "diagnosis_date": "2021-06-15",
-    "comorbidities": ["Mild hypertension"],
-    "current_medications": ["Tiotropium 18 mcg DPI OD", "Salbutamol MDI PRN", "Amlodipine 5mg OD"],
+    "comorbidities": [
+      "Mild hypertension"
+    ],
+    "current_medications": [
+      "Tiotropium 18 mcg DPI OD",
+      "Salbutamol MDI PRN",
+      "Amlodipine 5mg OD"
+    ],
     "allergies": [],
     "performance_status": "ECOG 2",
     "care_setting": "home",
@@ -28,7 +34,7 @@
   },
   "presenting_complaint": "Mild AECOPD with increased cough and white sputum over 4 days; no fever, no purulent change, SpO2 93%.",
   "asker_role": "family_caregiver",
-  "asker_query": "दीदी, मेरे पति को 4 दिन से ज्यादा खाँसी है, थूक थोड़ा बढ़ गया है लेकिन सफ़ेद है, बुख़ार नहीं है, थोड़ी सांस फूल रही है। क्या करें, antibiotic दे दूँ? या डॉक्टर के पास ले जाऊँ?",
+  "asker_query": "Didi, my husband has had more cough for 4 days, sputum has increased slightly but is white, there is no fever, slight breathlessness. What should we do, should I give an antibiotic? Or take him to the doctor?",
   "ideal_response_components": [
     "Reassure that this presentation is a mild AECOPD (acute exacerbation) — based on the Anthonisen criteria (increased dyspnea + increased sputum, no purulent change), it is Type 2 (mild); does NOT need antibiotics at this point because sputum is clear/white and there is no fever (antibiotics are indicated when purulent sputum or 2-3 Anthonisen symptoms with fever).",
     "Step up bronchodilator therapy — short-acting beta-agonist (SABA): Salbutamol MDI 2 puffs (via spacer if available) every 4-6 hours for the next 5-7 days; can use up to 4 puffs every 4 hours if symptoms warrant; or via nebuliser 2.5mg q6h if a nebuliser is available.",

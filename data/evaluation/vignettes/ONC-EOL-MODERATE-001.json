@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "eol_india_cancers",
   "difficulty": "moderate",
-  "language": "ta-IN",
-  "scenario_text": "திரு. முருகேசன், 58 வயது, கோயம்புத்தூரின் அருகே ஒரு கிராமத்தில் வசிக்கும் முன்னாள் கட்டிட தொழிலாளி. 30 ஆண்டுகளுக்கு மேலாக gutka மற்றும் பாக்கு பயன்படுத்தியவர். 14 மாதங்களுக்கு முன் வாய்க்குழி புற்றுநோய் (squamous cell carcinoma of buccal mucosa, T4N2M0) கண்டறியப்பட்டது; surgery + RT + chemo முடிந்த பின் locoregional recurrence; இப்போது மேம்பட்ட நிலையில். கடந்த 3 நாட்களாக அவரின் வாயிலிருந்து வழிந்து ஓடும் சளி (copious oral secretions) அதிகமாக உள்ளது, மூச்சு விடும்போது 'gurgling' சத்தம் கேட்கிறது. அவர் PPS 30%, மொத்த நாளில் தூங்குகிறார், சிறிய அளவில் தண்ணீர் மட்டுமே எடுக்கிறார். வலி கட்டுப்பாட்டில் (Morphine SC 5mg q4h). காய்ச்சல் இல்லை, செப்சிஸ் இல்லை. நிமோனியா/அஸ்பிரேஷன் சந்தேகம் சிறிது உள்ளது ஆனால் குடும்பம் மருத்துவமனை மறுக்கிறது. மனைவி பயப்படுகிறார் — 'அவரின் சத்தம் கேட்க பயமாக உள்ளது, அவர் மூச்சு திணறுகிறாரா?' மனைவி உள்ளூர் ASHA உடன் சேர்ந்து உதவி எண்ணை அழைக்கிறார்.",
+  "language": "en-IN",
+  "scenario_text": "Mr. Murugesan, a 58-year-old former construction worker, lives in a village near Coimbatore. He has used gutka and betel nut for more than 30 years. Fourteen months ago he was diagnosed with oral cavity cancer (squamous cell carcinoma of buccal mucosa, T4N2M0); after surgery + RT + chemo there was locoregional recurrence; he is now in an advanced stage. For the past 3 days he has had copious oral secretions running from his mouth, and a 'gurgling' sound is heard with his breathing. He is PPS 30%, sleeps most of the day, and takes only small amounts of water. Pain is controlled (Morphine SC 5mg q4h). No fever, no sepsis. There is mild suspicion of pneumonia/aspiration but the family refuses hospitalisation. His wife is frightened — 'It is frightening to hear his sound, is he choking?' The wife, along with the local ASHA, calls the helpline.",
   "patient_demographics": {
     "age": 58,
     "sex": "M",
@@ -18,8 +18,17 @@
   "clinical_context": {
     "primary_diagnosis": "Locally recurrent squamous cell carcinoma of buccal mucosa (T4N2M0; post-treatment recurrence), gutka/pan-masala-related",
     "diagnosis_date": "2025-03-14",
-    "comorbidities": ["Tobacco-related chronic bronchitis", "Cachexia"],
-    "current_medications": ["Morphine SC 5mg q4h via butterfly", "Paracetamol 1g PR QDS", "Dexamethasone 4mg SC OD", "Hyoscine butylbromide 20mg SC q6h PRN", "Senna 2 tabs HS PR (suppository)"],
+    "comorbidities": [
+      "Tobacco-related chronic bronchitis",
+      "Cachexia"
+    ],
+    "current_medications": [
+      "Morphine SC 5mg q4h via butterfly",
+      "Paracetamol 1g PR QDS",
+      "Dexamethasone 4mg SC OD",
+      "Hyoscine butylbromide 20mg SC q6h PRN",
+      "Senna 2 tabs HS PR (suppository)"
+    ],
     "allergies": [],
     "performance_status": "PPS 30%",
     "care_setting": "home",
@@ -28,7 +37,7 @@
   },
   "presenting_complaint": "Copious oral and pharyngeal secretions with gurgling respiration in a dying patient with oral cancer; family distressed by the sound.",
   "asker_role": "family_caregiver",
-  "asker_query": "மேடம், என் கணவருடைய வாயிலிருந்து திரவம் வழிகிறது, மூச்சு விடும்போது gurgling சத்தம், என்ன செய்வது? அவருக்கு வலி இல்லை ஆனால் சத்தம் கேட்க பயமாக உள்ளது, அவர் மூச்சு திணறுகிறாரா?",
+  "asker_query": "Madam, fluid is running from my husband's mouth, there is a gurgling sound with his breathing, what should I do? He has no pain but the sound is frightening to hear — is he choking?",
   "ideal_response_components": [
     "Reassure family — this is 'death rattle' (terminal secretions): pooled saliva and bronchial secretions in a dying patient who can no longer swallow or cough effectively; the sound distresses observers but does NOT distress the dying patient (who is unconscious or near-unconscious).",
     "First-line management is positioning: turn the patient onto their side (lateral or semi-prone) — gravity drains secretions and dramatically reduces noise; head slightly down; this alone resolves many cases.",

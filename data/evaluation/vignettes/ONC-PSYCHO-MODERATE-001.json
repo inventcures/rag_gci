@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "psychosocial_cultural",
   "difficulty": "moderate",
-  "language": "hi-IN",
-  "scenario_text": "श्री महेश गुप्ता, 65 वर्षीय सेवानिवृत्त सरकारी अधिकारी, दिल्ली के बाहरी इलाके में अपनी पत्नी, बेटे (विवाहित), और बहू के साथ रहते हैं। उन्हें पिछले 14 महीने से Stage IV pancreatic cancer है, अब वे best supportive care पर हैं, ECOG 2, और जानते हैं कि बीमारी आगे बढ़ रही है। पिछले 2 हफ़्ते से वे home palliative team के पास बार-बार चर्चा करना चाहते हैं — 'मैं अपने आखिरी दिनों के बारे में सोच कर तैयारी करना चाहता हूँ, ICU नहीं चाहता, घर पर मरना चाहता हूँ, अपनी पत्नी के लिए property और बैंक account व्यवस्थित करना है, बेटे को कुछ कहना है' — लेकिन हर बार जब वह यह बात उठाते हैं, पत्नी रोने लगती हैं, बेटा कहता है 'पापा ऐसी बात मत कीजिए, आप ठीक हो जाएँगे', और बातचीत बंद हो जाती है। कोई major depression नहीं, cognitively intact. वे home palliative care nurse को बुलाते हैं — 'मुझे advance care planning के लिए मदद चाहिए, परिवार सुनना नहीं चाहता'। Nurse helpline को call करती हैं।",
+  "language": "en-IN",
+  "scenario_text": "Mr. Mahesh Gupta, a 65-year-old retired government officer, lives in the outskirts of Delhi with his wife, son (married), and daughter-in-law. For the past 14 months he has had Stage IV pancreatic cancer; he is now on best supportive care, ECOG 2, and knows that the disease is progressing. For the past 2 weeks he has wanted to repeatedly discuss with the home palliative team — 'I want to think about and prepare for my last days, I don't want ICU, I want to die at home, I want to organise property and bank account for my wife, I have things to say to my son' — but each time he raises this, his wife starts crying, the son says 'Papa, don't talk like this, you will get better', and the conversation shuts down. No major depression, cognitively intact. He calls the home palliative care nurse — 'I need help with advance care planning, my family won't listen.' The nurse calls the helpline.",
   "patient_demographics": {
     "age": 65,
     "sex": "M",
@@ -18,8 +18,17 @@
   "clinical_context": {
     "primary_diagnosis": "Stage IV pancreatic adenocarcinoma (progressed, best supportive care)",
     "diagnosis_date": "2025-02-28",
-    "comorbidities": ["Type 2 diabetes (on insulin)", "Mild hypertension"],
-    "current_medications": ["Morphine SR 30mg BD", "Pancreatic enzyme replacement (Creon) with meals", "Insulin (basal-bolus)", "Amlodipine 5mg OD", "Senna 2 tabs HS"],
+    "comorbidities": [
+      "Type 2 diabetes (on insulin)",
+      "Mild hypertension"
+    ],
+    "current_medications": [
+      "Morphine SR 30mg BD",
+      "Pancreatic enzyme replacement (Creon) with meals",
+      "Insulin (basal-bolus)",
+      "Amlodipine 5mg OD",
+      "Senna 2 tabs HS"
+    ],
     "allergies": [],
     "performance_status": "ECOG 2",
     "care_setting": "home",
@@ -28,7 +37,7 @@
   },
   "presenting_complaint": "Patient-initiated advance care planning request, blocked by family's avoidance.",
   "asker_role": "patient",
-  "asker_query": "बहन, मैं अपने आखिरी दिनों के लिए तैयारी करना चाहता हूँ — ICU नहीं जाऊँगा, घर पर रहूँगा, पत्नी के लिए कुछ कागज़ात तैयार करने हैं, बेटे को कुछ बातें कहनी हैं। लेकिन जब भी मैं बात उठाता हूँ, पत्नी रोती है, बेटा 'ऐसी बात मत कीजिए' कहकर रोक देता है। आप कैसे मदद कर सकती हैं?",
+  "asker_query": "Sister, I want to prepare for my last days — I will not go to ICU, I will stay at home, I have to prepare some papers for my wife, I have things to say to my son. But whenever I raise the topic, my wife cries, my son stops me saying 'don't talk like this'. How can you help me?",
   "ideal_response_components": [
     "Affirm and validate Mr. Gupta's right to plan — patient autonomy is recognised under Indian law (Common Cause v. Union of India, 2018 Supreme Court ruling on living wills) and Indian medical ethics; his wish for ACP is appropriate, mature, and important.",
     "Acknowledge the family's emotional response — for the wife and son, his discussing dying is itself painful; they are protecting themselves from premature grief; this is normal and not 'wrong'.",

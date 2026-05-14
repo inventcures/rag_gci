@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "lung_ca_occupational",
   "difficulty": "moderate",
-  "language": "kn-IN",
-  "scenario_text": "ಶ್ರೀ ಮಂಜುನಾಥ, 58 ವರ್ಷ, ಬೆಂಗಳೂರು ಗ್ರಾಮಾಂತರ ಜಿಲ್ಲೆಯ ಒಂದು ಕಲ್ಲು ಗಣಿಗಾರಿಕೆ ಪ್ರದೇಶದಿಂದ ಬಂದ ಕಲ್ಲು-ಕತ್ತರಿಸುವ ಕೆಲಸಗಾರ. 25 ವರ್ಷಗಳ ಧೂಳಿನ ಸಂಪರ್ಕ (ಗ್ರಾನೈಟ್ ಕತ್ತರಿಸುವಿಕೆ, ಪಾಲಿಶ್ ಮಾಡುವಿಕೆ). ಧೂಮಪಾನ ಇಲ್ಲ. 3 ವರ್ಷಗಳ ಹಿಂದೆ Silicosis ಪತ್ತೆಯಾಯಿತು (chest X-ray ಮೇಲೆ ಮೇಲಿನ-ಲೋಬ್ ನೋಡ್ಯುಲರ್ ಒಪಾಸಿಟಿಗಳು, HRCT ಮೇಲೆ pulmonary fibrosis with calcifications). ಕರ್ನಾಟಕ State Pneumoconiosis Board ಮೂಲಕ ಗುರುತಿಸಲ್ಪಟ್ಟ ಕೇಸ್ — ಸಣ್ಣ disability pension ಪಡೆಯುತ್ತಿದ್ದಾರೆ. ಬೇಸ್ಲೈನ್ mMRC 3. ಕಳೆದ 6 ವಾರಗಳಿಂದ ಡಿಸ್ಪ್ನಿಯಾ ಹೆಚ್ಚುತ್ತಿದೆ (mMRC ಈಗ 4), ಮಧ್ಯಮ ಕೆಮ್ಮು, ಎರಡು ಬಾರಿ ಕಪದಲ್ಲಿ ರಕ್ತ ಚಿಹ್ನೆಗಳು (streak), ರಾತ್ರಿ ಬೆವರು, 4 ಕೆಜಿ ತೂಕ ನಷ್ಟ, ಜ್ವರ ಇಲ್ಲ. SpO2 91% ಗಾಳಿಯಲ್ಲಿ. ASHA ಹುಡುಗಿ ಮನೆ ವಿಜಿಟ್ ಮಾಡಿ helpline ಗೆ ಕರೆ ಮಾಡುತ್ತಾಳೆ — silicosis ಜೊತೆಗೆ ಬೇರೇನಾದರೂ ಇದೆಯಾ? ಏನು ಮಾಡಬೇಕು?",
+  "language": "en-IN",
+  "scenario_text": "Mr. Manjunath, 58 years old, a stone-cutter from a stone-quarrying area in Bengaluru Rural district. He has had 25 years of dust exposure (granite cutting, polishing). No smoking. Three years ago he was diagnosed with silicosis (upper-lobe nodular opacities on chest X-ray, pulmonary fibrosis with calcifications on HRCT). He is a recognised case under the Karnataka State Pneumoconiosis Board — receiving a small disability pension. Baseline mMRC 3. Over the past 6 weeks his dyspnea has increased (mMRC now 4), moderate cough, blood streaks in sputum twice, night sweats, 4 kg weight loss, no fever. SpO2 91% on air. The ASHA worker visits the home and calls the helpline — is there something else besides silicosis? What should we do?",
   "patient_demographics": {
     "age": 58,
     "sex": "M",
@@ -18,8 +18,15 @@
   "clinical_context": {
     "primary_diagnosis": "Simple silicosis with progression (25-year occupational silica exposure), suspected superimposed TB",
     "diagnosis_date": "2023-06-10",
-    "comorbidities": ["Silicosis with occupational disability", "Anaemia (Hb 10)"],
-    "current_medications": ["Tiotropium 18 mcg DPI OD", "Salbutamol MDI PRN", "Multivitamin"],
+    "comorbidities": [
+      "Silicosis with occupational disability",
+      "Anaemia (Hb 10)"
+    ],
+    "current_medications": [
+      "Tiotropium 18 mcg DPI OD",
+      "Salbutamol MDI PRN",
+      "Multivitamin"
+    ],
     "allergies": [],
     "performance_status": "ECOG 2",
     "care_setting": "home",
@@ -28,7 +35,7 @@
   },
   "presenting_complaint": "Increasing dyspnea, weight loss, night sweats, intermittent blood-streaked sputum over 6 weeks in known silicosis patient — high suspicion of superimposed TB.",
   "asker_role": "asha_worker",
-  "asker_query": "ಮೇಡಂ, ಮಂಜುನಾಥನವರಿಗೆ ಸಿಲಿಕೋಸಿಸ್ ಇದೆ, ಈಗ 6 ವಾರಗಳಿಂದ ಉಸಿರಾಟ ಜಾಸ್ತಿ, ರಾತ್ರಿ ಬೆವರು, 4 ಕೆಜಿ ತೂಕ ಕಡಿಮೆ, ಕಪದಲ್ಲಿ ಸ್ವಲ್ಪ ರಕ್ತ ಎರಡು ಬಾರಿ, ಜ್ವರ ಇಲ್ಲ. ಸಿಲಿಕೋಸಿಸ್ ಹೆಚ್ಚಾಗಿದೆಯಾ ಅಥವಾ ಬೇರೆ ಏನು? ಏನು ಮಾಡಬೇಕು?",
+  "asker_query": "Madam, Manjunath sir has silicosis, now for 6 weeks his breathing has worsened, night sweats, 4 kg weight loss, blood in sputum twice, no fever. Has the silicosis worsened or is it something else? What should we do?",
   "ideal_response_components": [
     "URGENT priority: rule out active pulmonary TB — silicosis patients have a 3-30x higher risk of TB; constitutional symptoms (weight loss, night sweats, haemoptysis) in a silicosis patient mandate TB workup; this is the most important next step.",
     "Immediate investigations: (a) Two sputum samples for AFB smear (Ziehl-Neelsen) and GeneXpert MTB/Rif (early-morning spot + spot); (b) Chest X-ray PA (compare with old films); (c) HRCT chest if available — distinguish silicotic progression from TB cavity; (d) CBC, ESR, sputum culture; (e) Mantoux/IGRA (less helpful in endemic India but adjunct).",

@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "fibrosis_ild",
   "difficulty": "difficult",
-  "language": "ta-IN",
-  "scenario_text": "திருமதி பழனியம்மாள், 70 வயது, மதுரை மாவட்டத்தின் ஒரு கிராமத்தில் மகனுடன் வசிக்கிறார். 12 ஆண்டுகளுக்கு முன் pulmonary TB-க்கு சிகிச்சை முடிக்கப்பட்டது (sputum-positive, category-I, completed). அதன் பின்னர் bilateral upper-lobe extensive post-TB fibrosis சில bronchiectasis-உடன். கடந்த 4 ஆண்டுகளாக படிப்படியாக மோசமாகிறார். கடந்த 1 ஆண்டில் முதன்மை palpitation, leg swelling, abdominal distension, exertional dyspnea (mMRC 4). சமீபத்திய echo: severe pulmonary hypertension (PASP 80 mmHg), dilated RV with reduced function, moderate TR, IVC dilated — cor pulmonale. SpO2 88% (air at rest), 80% on minimal exertion. PFT — severe restrictive pattern. Home O2 உள்ளது இல்லை. Furosemide 40mg OD + Spironolactone 25mg OD மூலம் congestive symptoms சில அளவிற்கு கட்டுப்படுத்தப்படுகின்றன. Sildenafil 20mg TDS pulmonary hypertension-க்காக 6 மாதங்களுக்கு முன்பு தொடங்கப்பட்டது (modest symptomatic benefit). ECOG 3, BMI 19. மகன் (school teacher, 45 வயது) மற்றும் மருமகள் காப்பாற்றுகிறார்கள். அருகிலுள்ள CMC Vellore-ஐ ஒத்த pulmonary HT clinic 130 கிமி. Pulmonologist helpline-க்கு call செய்கிறார் — அடுத்த நடவடிக்கைகள், home O2 prescription, symptom management, goals of care discussion guidance.",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Palaniammal, 70 years old, lives in a village in Madurai district with her son. Pulmonary TB treatment was completed 12 years ago (sputum-positive, category-I, completed). Subsequent bilateral upper-lobe extensive post-TB fibrosis with some bronchiectasis. Over the past 4 years she has progressively worsened. In the past 1 year, prominent palpitations, leg swelling, abdominal distension, exertional dyspnea (mMRC 4). Recent echo: severe pulmonary hypertension (PASP 80 mmHg), dilated RV with reduced function, moderate TR, dilated IVC — cor pulmonale. SpO2 88% (air at rest), 80% on minimal exertion. PFT — severe restrictive pattern. No home oxygen yet. Congestive symptoms are partly controlled with Furosemide 40mg OD + Spironolactone 25mg OD. Sildenafil 20mg TDS was started 6 months ago for pulmonary hypertension (modest symptomatic benefit). ECOG 3, BMI 19. The son (school teacher, 45 years) and daughter-in-law care for her. The nearest pulmonary HT clinic akin to CMC Vellore is 130 km away. A pulmonologist calls the helpline — guidance on next steps, home O2 prescription, symptom management, goals of care discussion.",
   "patient_demographics": {
     "age": 70,
     "sex": "F",
@@ -18,8 +18,18 @@
   "clinical_context": {
     "primary_diagnosis": "Post-TB pulmonary fibrosis with severe secondary pulmonary hypertension (PASP 80) and cor pulmonale with right heart failure",
     "diagnosis_date": "2013-05-01",
-    "comorbidities": ["Secondary pulmonary hypertension (Group 3 + 5)", "Cor pulmonale with chronic right heart failure", "Mild bronchiectasis"],
-    "current_medications": ["Sildenafil 20mg PO TDS", "Furosemide 40mg PO OD", "Spironolactone 25mg PO OD", "Bronchodilator inhaler (tiotropium-formoterol DPI) OD", "Multivitamin"],
+    "comorbidities": [
+      "Secondary pulmonary hypertension (Group 3 + 5)",
+      "Cor pulmonale with chronic right heart failure",
+      "Mild bronchiectasis"
+    ],
+    "current_medications": [
+      "Sildenafil 20mg PO TDS",
+      "Furosemide 40mg PO OD",
+      "Spironolactone 25mg PO OD",
+      "Bronchodilator inhaler (tiotropium-formoterol DPI) OD",
+      "Multivitamin"
+    ],
     "allergies": [],
     "performance_status": "ECOG 3",
     "care_setting": "home",

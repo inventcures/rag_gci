@@ -4,8 +4,8 @@
   "domain": "oncology",
   "sub_area": "pain",
   "difficulty": "difficult",
-  "language": "bn-IN",
-  "scenario_text": "শ্রী অরবিন্দ দাস, ৭২ বছর বয়সী প্রাক্তন স্কুল-শিক্ষক, শিলচরের কাছাকাছি একটি গ্রামে স্ত্রী ও ছোট ছেলের সাথে থাকেন। গত ১৪ মাস ধরে তাঁর Hepatocellular Carcinoma (BCLC stage D, child-pugh C, AFP > 5000) ধরা পড়েছে, ভিত্তিতে HBV-related cirrhosis. তিনি Morphine SR 20mg দিনে দু'বার এবং Paracetamol 500mg দিনে তিনবার (hepatic dose-adjusted) নিচ্ছেন। গত ৪৮ ঘন্টায় তাঁর পেটে ও পিঠে ব্যথা ৭-৮/১০ হয়েছে, তিনি কম খাচ্ছেন, ঘুম-জাগরণ-চক্র উল্টে গেছে, মাঝে মাঝে অসংলগ্ন কথা বলছেন (asterixis present), হালকা জন্ডিস বেড়েছে — এটি hepatic encephalopathy grade 1-2 বলে মনে হচ্ছে। Albumin 2.1, INR 1.9, ammonia raised, eGFR 60. কোনো রক্তপাত নেই, কোনো ভেন্টিলেটরি সমস্যা নেই। নিকটতম palliative unit ৩৫ কিমি দূর। ছেলে ASHA-দিদির সাহায্যে হেল্পলাইন ফোন করেছে — বাবার ব্যথা বাড়ছে, ঘুম-জাগরণ ঠিক নেই, morphine আরও বাড়াব?",
+  "language": "en-IN",
+  "scenario_text": "Mr. Arabinda Das, a 72-year-old retired schoolteacher, lives in a village near Silchar with his wife and younger son. For the past 14 months he has been diagnosed with Hepatocellular Carcinoma (BCLC stage D, Child-Pugh C, AFP >5000), on a background of HBV-related cirrhosis. He is on Morphine SR 20mg twice daily and Paracetamol 500mg three times daily (hepatic dose-adjusted). Over the past 48 hours, his abdominal and back pain has worsened to 7-8/10, he is eating less, sleep-wake cycle is reversed, he occasionally speaks incoherently (asterixis present), mild jaundice has worsened — this appears to be hepatic encephalopathy grade 1-2. Albumin 2.1, INR 1.9, raised ammonia, eGFR 60. No bleeding, no ventilatory problem. The nearest palliative unit is 35 km away. The son calls the helpline with the help of the ASHA-didi — Father's pain is increasing, sleep-wake is disturbed, should we increase the morphine further?",
   "patient_demographics": {
     "age": 72,
     "sex": "M",
@@ -18,8 +18,18 @@
   "clinical_context": {
     "primary_diagnosis": "Hepatocellular carcinoma BCLC stage D on background HBV cirrhosis, Child-Pugh C, with hepatic encephalopathy grade 1-2",
     "diagnosis_date": "2025-03-02",
-    "comorbidities": ["HBV cirrhosis (decompensated)", "Mild CKD (eGFR 60)", "Chronic anaemia"],
-    "current_medications": ["Morphine SR 20mg BD", "Paracetamol 500mg TDS (hepatic-adjusted)", "Lactulose 30mL TDS", "Tenofovir 300mg OD", "Spironolactone 50mg OD"],
+    "comorbidities": [
+      "HBV cirrhosis (decompensated)",
+      "Mild CKD (eGFR 60)",
+      "Chronic anaemia"
+    ],
+    "current_medications": [
+      "Morphine SR 20mg BD",
+      "Paracetamol 500mg TDS (hepatic-adjusted)",
+      "Lactulose 30mL TDS",
+      "Tenofovir 300mg OD",
+      "Spironolactone 50mg OD"
+    ],
     "allergies": [],
     "performance_status": "ECOG 4",
     "care_setting": "home",
@@ -28,7 +38,7 @@
   },
   "presenting_complaint": "Worsening abdominal and back pain 7-8/10 over 48 hours with new hepatic encephalopathy (asterixis, sleep-wake reversal, mild confusion).",
   "asker_role": "family_caregiver",
-  "asker_query": "দিদি, বাবার পেট-পিঠে ব্যথা বাড়ছে, কিন্তু এখন বাবা মাঝে মাঝে অজানা কথা বলছে, রাতে জেগে থাকে, দিনে ঘুমায়। morphine কি আরও বাড়াব? নাকি কমাব? কী করব এখন?",
+  "asker_query": "Didi, father's abdominal and back pain is increasing, but now father is sometimes saying strange things, stays awake at night, sleeps during the day. Should I increase the morphine? Or reduce it? What should I do now?",
   "ideal_response_components": [
     "Recognise this is a complex pain crisis in a Child-Pugh C patient with new/worsening hepatic encephalopathy (HE) — increasing morphine alone will likely worsen HE and is unsafe.",
     "First-line: treat the HE — confirm and intensify lactulose (titrate to 2-3 soft stools/day; currently 30mL TDS — may need 45mL TDS); add rifaximin 550mg BD if available and affordable; look for and treat precipitants (constipation, infection including SBP, GI bleed, hypokalaemia, dehydration, sedative drugs).",

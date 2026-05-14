@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "fibrosis_ild",
   "difficulty": "moderate",
-  "language": "hi-IN",
-  "scenario_text": "श्रीमती कमलेश गुप्ता, 68 वर्षीय गृहिणी, लखनऊ में पुत्र (इंजीनियर) के साथ रहती हैं। उन्हें 18 महीने पहले Idiopathic Pulmonary Fibrosis (IPF) diagnose हुई थी (HRCT पर UIP pattern, FVC 70% predicted at baseline, DLCO 50%)। वे Pirfenidone 2400mg/दिन (full dose) 14 महीने से ले रही हैं। बेसलाइन mMRC 2, ECOG 1। पिछले 3 महीनों में उनकी dyspnea धीरे-धीरे बढ़ रही है — अब घर के अंदर भी सीढ़ी चढ़ने में कठिन (mMRC 3); 6-min walk test में SpO2 95% (rest) से 88% (post-exercise) तक गिर रही है। शुष्क खाँसी बढ़ी है। कोई जलन नहीं, कोई थूक नहीं, कोई बुख़ार नहीं। हाल का HRCT (2 हफ्ते पहले) — मामूली प्रगति, कोई infective changes नहीं। FVC अब 60% (drop 10%) हुई है। Pirfenidone पर मामूली GI side effects (anorexia, mild nausea) हैं, photosensitivity ने उन्हें outdoor walking कम करने पर मजबूर किया है। बहू, जो साथ रहती हैं, helpline को call करती हैं — Pirfenidone अच्छा कर रहा है या नहीं, oxygen शुरू करें, क्या और कर सकते हैं?",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Kamlesh Gupta, a 68-year-old homemaker, lives in Lucknow with her son (an engineer). She was diagnosed 18 months ago with Idiopathic Pulmonary Fibrosis (IPF) (UIP pattern on HRCT, FVC 70% predicted at baseline, DLCO 50%). She has been on Pirfenidone 2400 mg/day (full dose) for 14 months. Baseline mMRC 2, ECOG 1. Over the past 3 months her dyspnea has gradually increased — now she has difficulty even climbing stairs inside the house (mMRC 3); in the 6-min walk test her SpO2 falls from 95% (rest) to 88% (post-exercise). Dry cough has increased. No burning, no sputum, no fever. Recent HRCT (2 weeks ago) — mild progression, no infective changes. FVC is now 60% (a 10% drop). She has mild GI side effects on pirfenidone (anorexia, mild nausea); photosensitivity has forced her to reduce outdoor walking. The daughter-in-law, who lives with her, calls the helpline — Is pirfenidone working or not, should we start oxygen, what else can we do?",
   "patient_demographics": {
     "age": 68,
     "sex": "F",
@@ -18,8 +18,17 @@
   "clinical_context": {
     "primary_diagnosis": "Idiopathic Pulmonary Fibrosis (UIP pattern on HRCT) on pirfenidone — disease progressing",
     "diagnosis_date": "2024-11-08",
-    "comorbidities": ["Gastroesophageal reflux disease (on pantoprazole)", "Mild hypertension"],
-    "current_medications": ["Pirfenidone 800mg TDS (2400mg/day)", "Pantoprazole 40mg OD", "Amlodipine 5mg OD", "Multivitamin", "N-acetylcysteine 600mg BD (controversial in IPF, often co-prescribed in India)"],
+    "comorbidities": [
+      "Gastroesophageal reflux disease (on pantoprazole)",
+      "Mild hypertension"
+    ],
+    "current_medications": [
+      "Pirfenidone 800mg TDS (2400mg/day)",
+      "Pantoprazole 40mg OD",
+      "Amlodipine 5mg OD",
+      "Multivitamin",
+      "N-acetylcysteine 600mg BD (controversial in IPF, often co-prescribed in India)"
+    ],
     "allergies": [],
     "performance_status": "ECOG 2",
     "care_setting": "home",
@@ -28,7 +37,7 @@
   },
   "presenting_complaint": "Progressive dyspnea over 3 months in IPF on full-dose pirfenidone; FVC dropped 10%; exercise-induced desaturation to 88%.",
   "asker_role": "family_caregiver",
-  "asker_query": "दीदी, माँ की साँस की तकलीफ 3 महीने से बढ़ रही है, pirfenidone पूरी dose पर हैं फिर भी improvement नहीं, oxygen शुरू करना चाहिए? Pirfenidone काम कर रहा है क्या? और कुछ कर सकते हैं?",
+  "asker_query": "Didi, mother's breathlessness has been increasing for 3 months, she is on full-dose pirfenidone and there is no improvement, should we start oxygen? Is pirfenidone working? Can we do something else?",
   "ideal_response_components": [
     "Confirm this is IPF progression despite full-dose antifibrotic therapy — defined as ≥10% absolute decline in FVC, or ≥15% in DLCO, or worsening symptoms with imaging progression over 6-12 months; Mrs. Gupta meets these criteria.",
     "Pirfenidone IS still working — antifibrotic therapy in IPF slows but does not stop progression; without pirfenidone, expected decline is faster (CAPACITY/ASCEND trials show ~50% slower rate of FVC decline on therapy). Do NOT stop pirfenidone unless intolerable side effects; explain this to family.",

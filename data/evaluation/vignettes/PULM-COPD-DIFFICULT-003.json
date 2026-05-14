@@ -4,8 +4,8 @@
   "domain": "pulmonology",
   "sub_area": "end_stage_copd",
   "difficulty": "difficult",
-  "language": "bn-IN",
-  "scenario_text": "শ্রী আবুল হোসেন, ৬৫ বছর বয়সী চা-বাগান শ্রমিক, কাছাড় জেলার একটি অত্যন্ত প্রত্যন্ত গ্রামে পরিবার-সহ থাকেন। ৮ বছর GOLD III COPD (FEV1 ~৪২% predicted ২ বছর আগে; পরীক্ষা পুনরায় হয়নি)। ধূমপায়ী + biomass smoke + occupational dust exposure। গত ২ দিন ধরে: জ্বর ৩৮.৫°C, কাশি বেড়েছে, কফ হলুদ-সবুজ ও বেশি পরিমাণে, শ্বাসকষ্ট বাড়ছে (mMRC বেসলাইন ২ → এখন ৪), রাতে ঘুমাতে কষ্ট, কথা বলতে কষ্ট ছোট ছোট বাক্যে। SpO2 ৮৭% (ঘরে কোনো oxygen নেই), HR ১১০, RR ২৬, কপালে ঘাম, তবে confused নয়, পানি পান করতে পারছেন। বর্তমান ওষুধ: Tiotropium DPI OD, Salbutamol MDI PRN। কোনো home O2 নেই। CCHRC palliative team এখানে regular outreach করে না; নিকটতম PHC ১৫ কিমি, district hospital ৬০ কিমি, ambulance available কিন্তু বৃষ্টিতে রাস্তা খারাপ ও দিন শেষ হয়ে যাচ্ছে। ছেলে (২৫ বছর, school-passed) ASHA-দিদির সাহায্যে helpline ফোন করেছেন — বাবার অবস্থা খারাপ হচ্ছে, কী করব, হাসপাতালে নিয়ে যাব নাকি?",
+  "language": "en-IN",
+  "scenario_text": "Mr. Abul Hossain, a 65-year-old tea-garden worker, lives with his family in a very remote village in Cachar district. He has had GOLD III COPD for 8 years (FEV1 ~42% predicted 2 years ago; not retested). Smoker + biomass smoke + occupational dust exposure. Over the past 2 days: fever 38.5°C, increased cough, yellow-green and increased volume of sputum, increasing breathlessness (mMRC baseline 2 → now 4), difficulty sleeping at night, can speak only in short sentences. SpO2 87% (no oxygen at home), HR 110, RR 26, sweating on forehead, but not confused, able to drink water. Current medications: Tiotropium DPI OD, Salbutamol MDI PRN. No home oxygen. The CCHRC palliative team does not have regular outreach here; the nearest PHC is 15 km, district hospital 60 km, ambulance available but the road is bad due to rain and the day is ending. The son (25 years, school-pass) calls the helpline with the help of the ASHA-didi — father's condition is worsening, what should we do, should we take him to hospital?",
   "patient_demographics": {
     "age": 65,
     "sex": "M",
@@ -18,8 +18,14 @@
   "clinical_context": {
     "primary_diagnosis": "GOLD III COPD with current moderate-severe AECOPD with suspected bacterial bronchitis",
     "diagnosis_date": "2018-11-22",
-    "comorbidities": ["Active smoker (10 beedi/day; trying to reduce)", "Chronic anaemia"],
-    "current_medications": ["Tiotropium 18 mcg DPI OD", "Salbutamol MDI PRN"],
+    "comorbidities": [
+      "Active smoker (10 beedi/day; trying to reduce)",
+      "Chronic anaemia"
+    ],
+    "current_medications": [
+      "Tiotropium 18 mcg DPI OD",
+      "Salbutamol MDI PRN"
+    ],
     "allergies": [],
     "performance_status": "ECOG 2 (baseline)",
     "care_setting": "home",
@@ -28,7 +34,7 @@
   },
   "presenting_complaint": "Moderate-severe AECOPD with fever, purulent sputum, SpO2 87%, in a remote village 60 km from hospital, decision needed on home vs transfer.",
   "asker_role": "family_caregiver",
-  "asker_query": "দিদি, বাবার ২ দিন ধরে জ্বর, কাশি, কফ হলুদ-সবুজ, শ্বাসকষ্ট বাড়ছে, oxygen নেই বাড়িতে, SpO2 ৮৭%। হাসপাতাল ৬০ কিমি, রাস্তা খারাপ। কী করব, হাসপাতালে নেব?",
+  "asker_query": "Didi, father has had fever for 2 days, cough, yellow-green sputum, increasing breathlessness, no oxygen at home, SpO2 87%. The hospital is 60 km away, road is bad. What should we do, should we take him to hospital?",
   "ideal_response_components": [
     "Stratify severity — this is moderate-to-severe AECOPD by Anthonisen criteria (three cardinal symptoms: increased dyspnea + increased sputum + purulent sputum) PLUS fever, SpO2 87%, accessory muscle use suggested, baseline ECOG 2. This is the patient profile for whom inpatient management has best evidence — BUT goals and feasibility must be considered.",
     "Decision-making framework — share with the family, do not decide alone: (a) Transfer to district hospital (60 km, bad roads, evening — risky journey but treatable disease, patient is otherwise reasonable baseline, transfer is technically appropriate); (b) Home-based intensive management with clear escalation triggers if transfer is genuinely impossible or refused; (c) Discuss with the family who decides — what does Mr. Hossain himself want?",
