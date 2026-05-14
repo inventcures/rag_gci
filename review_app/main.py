@@ -23,12 +23,12 @@ import data
 APP_DIR = Path(__file__).parent
 
 SEED_USERS = [
-    {"user_id": "doc1", "name": "doc1", "site": "", "pin": "1234"},
-    {"user_id": "doc2", "name": "doc2", "site": "", "pin": "1234"},
-    {"user_id": "doc3", "name": "doc3", "site": "", "pin": "1234"},
-    {"user_id": "doc4", "name": "doc4", "site": "", "pin": "1234"},
-    {"user_id": "doc5", "name": "doc5", "site": "", "pin": "1234"},
-    {"user_id": "doc6", "name": "doc6", "site": "", "pin": "1234"},
+    {"user_id": "doc1", "name": "doc1", "site": "", "pin": "0175"},
+    {"user_id": "doc2", "name": "doc2", "site": "", "pin": "4152"},
+    {"user_id": "doc3", "name": "doc3", "site": "", "pin": "6706"},
+    {"user_id": "doc4", "name": "doc4", "site": "", "pin": "6912"},
+    {"user_id": "doc5", "name": "doc5", "site": "", "pin": "7682"},
+    {"user_id": "doc6", "name": "doc6", "site": "", "pin": "8860"},
 ]
 
 auth.ensure_users_seeded(SEED_USERS)

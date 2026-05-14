@@ -55,21 +55,26 @@ Download `/export.csv` frequently to capture reviews before any redeploy.
 ## Default PINs
 
 The first time the app boots it seeds `review_app/users.json` with the six
-reviewer accounts below. All start with PIN `1234`. PINs are stored as
-PBKDF2-SHA256 hashes (100k iterations) using the same pattern as
-`auth/pin_auth.py`.
+reviewer accounts below. PINs are stored as PBKDF2-SHA256 hashes (100k
+iterations); only the hash is persisted on disk.
 
-| user_id  | Display name | Default PIN |
-|----------|--------------|:-----------:|
-| doc1     | doc1         | 1234        |
-| doc2     | doc2         | 1234        |
-| doc3     | doc3         | 1234        |
-| doc4     | doc4         | 1234        |
-| doc5     | doc5         | 1234        |
-| doc6     | doc6         | 1234        |
+PINs are intentionally kept out of this README — see `SEED_USERS` in
+`main.py` (sensitive default value; rotate before sharing publicly).
 
-Communicate each reviewer's PIN separately. To rotate a PIN, delete
-`review_app/users.json` and edit the `SEED_USERS` list in `main.py`.
+To rotate any PIN:
+1. Edit `SEED_USERS` in `main.py`.
+2. Delete `review_app/users.json` (local) or `/data/users.json` (on Railway
+   if you mount the volume there) so `ensure_users_seeded()` re-runs.
+3. Redeploy.
+
+| user_id | Display name |
+|---------|--------------|
+| doc1    | doc1         |
+| doc2    | doc2         |
+| doc3    | doc3         |
+| doc4    | doc4         |
+| doc5    | doc5         |
+| doc6    | doc6         |
 
 ## Data layout
 
