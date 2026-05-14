@@ -75,9 +75,15 @@ offline/
 clinical_validation/
 personalization/
 analytics/
-evaluation/
+/evaluation/
 auth/
 scripts/
+
+# Explicit re-include: the review app needs the vignette + rag_output
+# JSON files and the rubric. (The `/evaluation/` line above only excludes
+# the Python module at repo root, not `data/evaluation/`.)
+!data/evaluation/
+!data/evaluation/**
 
 # Root-level Python scripts not needed
 simple_rag_server.py
