@@ -1,0 +1,102 @@
+# Files NOT to ship to Railway. The review app only needs:
+#   - review_app/  (the FastAPI app)
+#   - data/evaluation/vignettes/*.json
+#   - data/evaluation/rag_outputs/*.json
+#   - data/evaluation/rubric.json
+#   - railway.toml + nixpacks.toml
+# Everything else (RAG pipeline, ChromaDB, voice integrations, videos)
+# is deliberately excluded -- the review app reads pre-generated artifacts only.
+
+# Local dev artifacts
+__pycache__/
+*.pyc
+.DS_Store
+.git/
+.gitignore
+.claude/
+.vscode/
+.idea/
+venv/
+*.egg-info/
+
+# Large binary assets not needed for the review app
+data/chroma_db/
+data/documents/
+data/conversations/
+data/longitudinal/
+data/extractions/
+data/handoff_requests/
+data/medication_voice_reminders/
+data/medication_reminders/
+data/user_profiles/
+data/comprehension_profiles/
+data/auth/
+data/expert_samples/
+data/cache/
+data/backups/
+data/meta_agent/
+data/memory_agents/
+data/graphrag/
+data/pageindex/
+data/metrics/
+data/sus_scores/
+
+# Videos and audio
+*.mov
+*.mp4
+*.mp3
+*.wav
+*.m4a
+cache/
+
+# Other large directories not used by review app
+ekstep_event_*/
+papers_*/
+out/
+docs/
+tests/
+palli-sahayak-android/
+web_client/
+
+# Python source for components the review app doesn't import
+bolna_integration/
+sarvam_integration/
+retell_integration/
+gemini_live/
+graphrag_integration/
+pageindex_integration/
+knowledge_graph/
+mobile_api/
+sync/
+memory_agents/
+meta_agent/
+context1_integration/
+offline/
+clinical_validation/
+personalization/
+analytics/
+evaluation/
+auth/
+scripts/
+
+# Root-level Python scripts not needed
+simple_rag_server.py
+whatsapp_bot.py
+*_test*.py
+test_*.py
+create_*.py
+add_speaker_*.py
+medication_voice_reminders.py
+safety_enhancements.py
+smart_clarification_system.py
+voice_router.py
+voice_safety_wrapper.py
+voice_safety_wrapper.py
+
+# Large reference files
+v2_palli-sahayak_scientific-preprint_pdf.pdf
+prompt_misc*
+rag_server.log
+
+# Conversation export logs
+2026-*.txt
