@@ -1,0 +1,82 @@
+{
+  "vignette_id": "PULM-FIB-DIFFICULT-002",
+  "title": "Post-TB fibrosis with secondary pulmonary hypertension and cor pulmonale",
+  "domain": "pulmonology",
+  "sub_area": "fibrosis_ild",
+  "difficulty": "difficult",
+  "language": "ta-IN",
+  "scenario_text": "திருமதி பழனியம்மாள், 70 வயது, மதுரை மாவட்டத்தின் ஒரு கிராமத்தில் மகனுடன் வசிக்கிறார். 12 ஆண்டுகளுக்கு முன் pulmonary TB-க்கு சிகிச்சை முடிக்கப்பட்டது (sputum-positive, category-I, completed). அதன் பின்னர் bilateral upper-lobe extensive post-TB fibrosis சில bronchiectasis-உடன். கடந்த 4 ஆண்டுகளாக படிப்படியாக மோசமாகிறார். கடந்த 1 ஆண்டில் முதன்மை palpitation, leg swelling, abdominal distension, exertional dyspnea (mMRC 4). சமீபத்திய echo: severe pulmonary hypertension (PASP 80 mmHg), dilated RV with reduced function, moderate TR, IVC dilated — cor pulmonale. SpO2 88% (air at rest), 80% on minimal exertion. PFT — severe restrictive pattern. Home O2 உள்ளது இல்லை. Furosemide 40mg OD + Spironolactone 25mg OD மூலம் congestive symptoms சில அளவிற்கு கட்டுப்படுத்தப்படுகின்றன. Sildenafil 20mg TDS pulmonary hypertension-க்காக 6 மாதங்களுக்கு முன்பு தொடங்கப்பட்டது (modest symptomatic benefit). ECOG 3, BMI 19. மகன் (school teacher, 45 வயது) மற்றும் மருமகள் காப்பாற்றுகிறார்கள். அருகிலுள்ள CMC Vellore-ஐ ஒத்த pulmonary HT clinic 130 கிமி. Pulmonologist helpline-க்கு call செய்கிறார் — அடுத்த நடவடிக்கைகள், home O2 prescription, symptom management, goals of care discussion guidance.",
+  "patient_demographics": {
+    "age": 70,
+    "sex": "F",
+    "language_spoken": "Tamil (primary)",
+    "literacy": "primary_school",
+    "rural_urban": "rural",
+    "state": "Tamil Nadu",
+    "occupation": "former agricultural labourer"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Post-TB pulmonary fibrosis with severe secondary pulmonary hypertension (PASP 80) and cor pulmonale with right heart failure",
+    "diagnosis_date": "2013-05-01",
+    "comorbidities": ["Secondary pulmonary hypertension (Group 3 + 5)", "Cor pulmonale with chronic right heart failure", "Mild bronchiectasis"],
+    "current_medications": ["Sildenafil 20mg PO TDS", "Furosemide 40mg PO OD", "Spironolactone 25mg PO OD", "Bronchodilator inhaler (tiotropium-formoterol DPI) OD", "Multivitamin"],
+    "allergies": [],
+    "performance_status": "ECOG 3",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 18,
+    "primary_caregiver": "son (school teacher) and daughter-in-law"
+  },
+  "presenting_complaint": "Severe pulmonary hypertension secondary to post-TB fibrosis with refractory dyspnea, cor pulmonale, and SpO2 88% at rest — physician seeking comprehensive management plan.",
+  "asker_role": "physician",
+  "asker_query": "Palaniammal has post-TB fibrosis with severe PH (PASP 80) and cor pulmonale. SpO2 88% air, no home O2 yet. On sildenafil + diuretics with modest benefit. Looking for: home O2 prescription criteria, role of PH-specific therapy in Group 3, cautious opioid initiation for dyspnea, prognostication, advance care planning given travel distance to specialist centre.",
+  "ideal_response_components": [
+    "Confirm phenotype — post-TB fibrosis is the underlying lung disease causing chronic hypoxia; the resulting pulmonary hypertension is Group 3 PH (PH due to lung disease) ± Group 5 (post-TB granulomatous component). Group 3 PH responds less reliably to PH-specific therapy than Group 1 idiopathic PAH; the primary intervention is correcting hypoxia.",
+    "Home oxygen prescription — strongly indicated and overdue: criteria met (resting SpO2 88% on air; will fall further on exertion); prescribe long-term oxygen therapy (LTOT) at 1-2 L/min via nasal cannula 15-18 h/day targeting SpO2 88-92%; expect significant improvement in dyspnea, exercise tolerance, sleep, and right-heart afterload over weeks to months; survival benefit established in chronic hypoxic respiratory failure (NOTT and MRC trials).",
+    "Sildenafil for Group 3 PH: evidence is mixed — modest symptomatic benefit possible (PALF study) but not survival benefit; can continue if she perceives benefit, as does on modest dose; do NOT use other PH-specific therapies (riociguat, ambrisentan, macitentan) which can worsen gas exchange in Group 3 PH; refer to pulmonary HT clinic for formal Group 3 classification and management.",
+    "Heart failure optimisation: continue furosemide and spironolactone; titrate furosemide to euvolaemia (40-80mg OD or BD); strict fluid restriction (1-1.2 L/day); salt restriction; daily weight monitoring; AVOID excessive diuresis (pre-load dependence in PH); compression stockings if leg oedema.",
+    "Cautious low-dose opioid for refractory dyspnea: Morphine IR 2.5mg PO every 4-6 hours, titrate by symptom response; in PH and cor pulmonale, opioids are evidence-based for dyspnea but be alert for hypercapnia/sedation — monitor early; benefit usually outweighs risk in symptomatic disease.",
+    "Bronchodilator continuation; consider pulmonary rehab (modified for severe disease) if available.",
+    "Vaccinations: flu annual, pneumococcal, Covid; influenza is a major trigger for AE in fibrotic lung + PH.",
+    "Screen for and address other contributors: nocturnal hypoxia (overnight oximetry; may need nocturnal O2 or NIV if sleep-disordered breathing); iron deficiency (worsens PH; check ferritin and transferrin saturation; IV iron if deficient and improves outcomes); thromboembolism risk (especially with reduced mobility).",
+    "Prognostication: severe Group 3 PH with PASP >70 mmHg, FC III-IV, hypoxia, and right heart failure carries 1-2 year median survival; openly discuss this with the family in age-appropriate, compassionate terms; the son (school teacher, educated) can absorb prognostic information.",
+    "Goals-of-care conversation: at 70 with rural residence and 130 km to specialist centre, discuss preferences — does she want frequent specialist visits, hospital admissions for decompensations, or community-based home palliation? Document advance directive per 2018 Supreme Court framework; ensure family-shared decision-making.",
+    "Pulmonary HT specialist referral: telephone consult with CMC Vellore PH clinic for formal classification and any therapeutic refinement; one in-person visit if feasible; thereafter local management with telemedicine.",
+    "Home palliative team integration: 18 km local palliative unit; arrange visits, anticipatory crisis kit (SC morphine, SC midazolam) for severe dyspnea or acute right-heart failure events; ensure 24/7 helpline access.",
+    "Caregiver support: school-teacher son can balance work with care; ensure daughter-in-law has support and respite."
+  ],
+  "expected_guideline_citations": [
+    "ERS Statement on Post-Tuberculosis Lung Disease (Allwood 2021)",
+    "ESC/ERS Guidelines for the Diagnosis and Treatment of Pulmonary Hypertension (2022) — Group 3 PH section",
+    "Indian Chest Society / NCCP COPD/Fibrosis Guidelines",
+    "ATS/ERS Statement on Optimum Symptom Treatment in Advanced Lung Disease",
+    "MRC and NOTT Trials on LTOT in chronic hypoxic respiratory failure",
+    "IAPC Handbook of Palliative Care — Advanced respiratory failure"
+  ],
+  "safety_traps": [
+    "Prescribing Group-1-PAH-specific drugs (riociguat, ambrisentan) in Group 3 PH — can worsen V/Q mismatch and gas exchange.",
+    "Aggressive over-diuresis — drops preload, worsens PH and right heart failure.",
+    "Withholding home oxygen because patient is not actively in extremis — LTOT has survival benefit at SpO2 <88%.",
+    "Avoiding opioids because of fear of respiratory depression in PH — at titrated low doses, benefits exceed risks for refractory dyspnea.",
+    "Forcing referral to a 130-km specialist centre against patient's reasonable preference for local care.",
+    "Missing iron deficiency optimisation (commonly overlooked in PH)."
+  ],
+  "indian_context_notes": [
+    "Post-TB lung disease + secondary PH is a hugely under-recognised Indian phenotype — millions of TB survivors progress to chronic respiratory failure.",
+    "PH-specific therapy availability: sildenafil generic widely available (₹500-1500/month); other PH drugs imported, very expensive (₹30,000-1.5 lakh/month); largely unaffordable in rural India.",
+    "Home O2 in rural Tamil Nadu — concentrator availability via private vendors; small towns may not have backup; coordinate with district hospital.",
+    "CMC Vellore is the regional referral centre for PH; telephone/telemedicine model can reduce travel burden for this elderly patient.",
+    "Tamil register — physician asker can be addressed with technical detail.",
+    "Son as school teacher — culturally common pattern, balanced caregiver capacity."
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "ph_specialist_telephone_consult_and_home_o2_initiation",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

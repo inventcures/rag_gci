@@ -1,0 +1,79 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-001",
+  "title": "Terminal agitated delirium in advanced cervical cancer at home",
+  "domain": "oncology",
+  "sub_area": "eol_india_cancers",
+  "difficulty": "difficult",
+  "language": "bn-IN",
+  "scenario_text": "শ্রীমতী সুমিত্রা দাস ('মাশিমা'), ৬৫ বছর বয়সী বিধবা, কাছাড় জেলার একটি গ্রামে নাতি-নাতনি ও ছেলের বউয়ের সাথে থাকেন। প্রায় ১৮ মাস আগে স্টেজ IVB cervical cancer ধরা পড়েছিল, ছাড়া হয়নি কোনো screening; এখন বিস্তৃত pelvic disease + bone mets, last days of life বলে মনে হচ্ছে। গত ২৪ ঘন্টায় তিনি ক্রমাগত এলোমেলো, কাপড় ছেঁড়ার মতো হাত নাড়াচ্ছেন (carphologia), দু-একটা অসংলগ্ন কথা বলছেন, রাতে বেশি খারাপ, পরিবার ভয় পেয়েছে — 'মাশিমা চিৎকার করছেন, কাপড় টানছেন, কী হল?'। তিনি Morphine SR 30mg দিনে দু'বার ৪ সপ্তাহ ধরে নিচ্ছেন (pain controlled হয়েছিল)। গত ৩ দিনে urine output কমে গেছে, ছোট bladder ভর্তি palpable, কিন্তু কোনো catheter নেই। বমি নেই, জ্বর নেই, কিন্তু constipation 5 days। শ্বাসকষ্ট মাঝারি (mMRC 3 আগে; এখন প্রায়ই দ্রুত শ্বাস)। CCHRC home-team আসতে ৩৫ কিমি; ASHA-দিদি এখন বাড়িতে — পরিবারের পক্ষে হাসপাতাল ভর্তির ইচ্ছা নেই, বাড়িতেই মৃত্যু চান। ASHA-দিদি হেল্পলাইন ফোন করেছেন।",
+  "patient_demographics": {
+    "age": 65,
+    "sex": "F",
+    "language_spoken": "Bengali (primary)",
+    "literacy": "illiterate",
+    "rural_urban": "rural",
+    "state": "Assam",
+    "occupation": "widow, former homemaker"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IVB cervical cancer with pelvic and bone metastases, end-of-life phase",
+    "diagnosis_date": "2024-10-22",
+    "comorbidities": ["Obstructive uropathy (likely)", "Chronic anaemia"],
+    "current_medications": ["Morphine SR 30mg BD", "Morphine IR 5mg q4h PRN (rarely used)", "Paracetamol 1g QDS (now intermittent)", "Lactulose 15mL HS", "Senna 2 tabs HS"],
+    "allergies": [],
+    "performance_status": "PPS 20%",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 35,
+    "primary_caregiver": "daughter-in-law (with grandchildren)"
+  },
+  "presenting_complaint": "Acute hyperactive delirium with carphologia and agitation in a dying patient with cervical cancer at home; family distressed.",
+  "asker_role": "asha_worker",
+  "asker_query": "দিদি, মাশিমা চিৎকার করছেন, কাপড় টানছেন, রাতে বেশি, ৩ দিন পায়খানা হয়নি, প্রস্রাব কম, কী করব? পরিবার হাসপাতালে যেতে চায় না, বাড়িতেই থাকতে চান।",
+  "ideal_response_components": [
+    "Recognise this as hyperactive terminal delirium (terminal restlessness) — common in last days; carphologia (picking at clothes) is a classic sign; reassure family this is part of dying, not avoidable suffering, and is rarely remembered by the patient.",
+    "FIRST: actively look for and treat reversible precipitants — these are the highest-yield interventions: (a) urinary retention — palpable bladder; pass an in-and-out or indwelling catheter (huge relief); (b) faecal impaction — gentle PR exam by ASHA/community nurse; if hard stool — glycerine suppository or gentle disimpaction; (c) pain — though appearing controlled, give an empirical IR morphine 5mg dose and observe; (d) hypoxia — check SpO2; (e) review medications for delirium contributors (opioids themselves can contribute — but rotation rather than withdrawal in this terminal phase); (f) hypoglycaemia (if diabetic); (g) infection (UTI very common in obstructive uropathy).",
+    "Pharmacological control of agitation — haloperidol is first-line for hyperactive delirium in palliative care: Haloperidol 0.5-1mg SC every 4-6 hours scheduled; PRN 0.5mg SC q1h for breakthrough up to 5mg/24h total; oral if she will take it.",
+    "If refractory to haloperidol — add midazolam 2.5-5mg SC stat then 5-10mg/24h SC infusion; this is symptom-targeted proportional sedation, NOT 'palliative sedation' to unconsciousness, and is fully ethical in the dying phase per EAPC framework.",
+    "AVOID: lorazepam/midazolam alone without haloperidol (benzodiazepine monotherapy can worsen hyperactive delirium); naloxone (no evidence of opioid toxicity); physical restraints (dignity violation, worsen agitation).",
+    "Continue all baseline analgesia — do not stop morphine; if oral route lost, convert to SC: Morphine SC 12mg/24h (= 30mg PO BD x 2 / 2.5 ratio); via butterfly q4h or syringe driver if available.",
+    "Comfort measures: dim lighting, familiar voices, soft music if culturally appropriate, presence of family (especially daughter-in-law and grandchildren), positioning; avoid over-stimulation; minimise disturbances.",
+    "Family education and support: 'mashima' is not in pain — this is the body's way; her shouting and grasping is part of dying, not directed at us; she may not be aware; presence, gentle touch, recitation of Geeta or her favourite bhajans can comfort. Reassure that this stage typically lasts hours to a few days.",
+    "Religious/cultural support: Bengali Hindu family — ensure tulsi leaf and Ganga water available; family priest can be contacted; the granddaughter or daughter-in-law may wish to read Geeta verses.",
+    "Telephone consult the CCHRC palliative home-team today; arrange visit within 24 hours for catheterisation if not already done, syringe driver setup, anticipatory medication kit (SC morphine, SC haloperidol, SC midazolam, SC glycopyrronium).",
+    "Document goals — home death is the family's preference; do not transfer."
+  ],
+  "expected_guideline_citations": [
+    "EAPC Recommendations on Delirium in Palliative Care (Bush 2018)",
+    "IAPC Handbook of Palliative Care (2nd ed.) — Delirium and terminal restlessness",
+    "Pallium India End-of-Life Care Manual",
+    "NICE NG31 — Care of dying adults in the last days of life",
+    "AAHPM Position on Palliative Sedation"
+  ],
+  "safety_traps": [
+    "Restraining the patient (worsens agitation, dignity violation).",
+    "Lorazepam or midazolam alone without haloperidol for hyperactive delirium (paradoxical worsening).",
+    "Empirical naloxone assuming opioid toxicity without checking pupil/RR signs (precipitates pain crisis).",
+    "Transferring to hospital against family's documented preference for home death.",
+    "Missing urinary retention or faecal impaction as the precipitant (very high-yield to reverse).",
+    "Sedating to unconsciousness too quickly without first treating reversibles."
+  ],
+  "indian_context_notes": [
+    "CCHRC catchment, rural Bengali-speaking Assam — home palliative team coverage strong but 35 km away; ASHA + telephone consult bridge the gap.",
+    "Bengali Hindu cultural norm of dying at home with family — 'pulling at clothes' may be culturally interpreted as restlessness for sacred body-purity rituals; sensitive framing.",
+    "Religious rituals at dying: tulsi leaf, Ganga jal at lips, Geeta verses (especially chapter 8), repetition of 'Hare Krishna' or family deity name.",
+    "Grandchildren in same household — common joint-family pattern; ensure children are supported and have ageappropriate explanation.",
+    "Catheterisation by an ASHA may be limited by training — call ANM or community nurse; in-and-out catheter is feasible at home with sterile technique.",
+    "Haloperidol available; SC injectable kit may need to be brought from CCHRC."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "home_palliative_team_24h_with_anticipatory_kit",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

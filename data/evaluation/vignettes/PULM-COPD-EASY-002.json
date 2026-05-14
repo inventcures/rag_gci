@@ -1,0 +1,74 @@
+{
+  "vignette_id": "PULM-COPD-EASY-002",
+  "title": "Mild AECOPD at home — increased cough, no fever, clear sputum",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "easy",
+  "language": "hi-IN",
+  "scenario_text": "श्री हरि सिंह, 68 वर्षीय किसान, उत्तर प्रदेश के कानपुर के पास एक गाँव में अपनी पत्नी के साथ रहते हैं। उन्हें 5 साल से GOLD II-III COPD है (40 साल बीड़ी पीते थे, 3 साल पहले छोड़ दी)। वे Tiotropium 18 mcg एक बार दैनिक और जरूरत पड़ने पर Salbutamol MDI लेते हैं। पिछले 4 दिनों से उन्हें सामान्य से ज्यादा खाँसी है, थूक थोड़ा बढ़ गया है लेकिन सफेद/स्पष्ट रंग का है (पीला/हरा नहीं), कोई बुखार नहीं, कोई pleuritic दर्द नहीं, कोई हेमोप्टिसिस नहीं, बेसलाइन से थोड़ी ज्यादा सांस फूल रही है (mMRC 3, बेसलाइन 2)। SpO2 घर पर 93% (बेसलाइन 94%), HR 88, RR 22, अच्छी तरह बात कर रहे हैं, खा रहे हैं। पत्नी ASHA दीदी की मदद से helpline को call करती हैं — पति को थोड़ी ज़्यादा खाँसी है, क्या करें, antibiotic दें?",
+  "patient_demographics": {
+    "age": 68,
+    "sex": "M",
+    "language_spoken": "Hindi (primary), Awadhi",
+    "literacy": "primary_school",
+    "rural_urban": "rural",
+    "state": "Uttar Pradesh",
+    "occupation": "farmer (now retired)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "GOLD II-III COPD (post-bronchodilator FEV1 ~50%, GOLD group B), ex-smoker",
+    "diagnosis_date": "2021-06-15",
+    "comorbidities": ["Mild hypertension"],
+    "current_medications": ["Tiotropium 18 mcg DPI OD", "Salbutamol MDI PRN", "Amlodipine 5mg OD"],
+    "allergies": [],
+    "performance_status": "ECOG 2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 14,
+    "primary_caregiver": "wife"
+  },
+  "presenting_complaint": "Mild AECOPD with increased cough and white sputum over 4 days; no fever, no purulent change, SpO2 93%.",
+  "asker_role": "family_caregiver",
+  "asker_query": "दीदी, मेरे पति को 4 दिन से ज्यादा खाँसी है, थूक थोड़ा बढ़ गया है लेकिन सफ़ेद है, बुख़ार नहीं है, थोड़ी सांस फूल रही है। क्या करें, antibiotic दे दूँ? या डॉक्टर के पास ले जाऊँ?",
+  "ideal_response_components": [
+    "Reassure that this presentation is a mild AECOPD (acute exacerbation) — based on the Anthonisen criteria (increased dyspnea + increased sputum, no purulent change), it is Type 2 (mild); does NOT need antibiotics at this point because sputum is clear/white and there is no fever (antibiotics are indicated when purulent sputum or 2-3 Anthonisen symptoms with fever).",
+    "Step up bronchodilator therapy — short-acting beta-agonist (SABA): Salbutamol MDI 2 puffs (via spacer if available) every 4-6 hours for the next 5-7 days; can use up to 4 puffs every 4 hours if symptoms warrant; or via nebuliser 2.5mg q6h if a nebuliser is available.",
+    "Continue tiotropium maintenance OD.",
+    "A short course of oral prednisolone IS indicated for AECOPD with increased dyspnea even without infection — Prednisolone 40mg PO OD for 5 days (no taper for short course); this reduces exacerbation duration, improves lung function recovery, prevents progression.",
+    "Hydration, rest, avoid dust/smoke; do not lie flat — semi-upright position.",
+    "Monitor: take SpO2 daily if pulse oximeter available; check temperature daily; watch for worsening — Red flags below.",
+    "RED FLAGS (call helpline or seek same-day care): SpO2 <90%, RR >25, unable to speak full sentences, fever >38.5°C, purulent yellow/green sputum, blood in sputum, chest pain, confusion, severe lethargy, leg swelling.",
+    "Inhaler technique check — confirm wife understands how to use MDI and DPI; demonstrate with spacer.",
+    "Vaccination status — check whether annual flu vaccine and pneumococcal vaccine done; if not, plan for after this episode resolves.",
+    "Follow-up: review in 5-7 days; spirometry not needed acutely; if no improvement at 48-72h or any red flag → upgrade to in-person assessment at PHC/CHC or palliative team."
+  ],
+  "expected_guideline_citations": [
+    "GOLD 2024 Report — Management of AECOPD; Anthonisen Criteria",
+    "Indian Chest Society / NCCP COPD Guidelines",
+    "ATS/ERS Statement on AECOPD Management",
+    "IAPC Handbook of Palliative Care (2nd ed.) — Chronic respiratory exacerbations"
+  ],
+  "safety_traps": [
+    "Prescribing antibiotic without indication (no purulent sputum or fever) — drives resistance, side effects.",
+    "Withholding short-course oral steroid in clear AECOPD — slower recovery, increased risk of progression.",
+    "Sending all AECOPD to hospital — most mild cases manage well at home with bronchodilator + steroid.",
+    "Missing red flags — particularly SpO2 <90% or accessory muscle use indicating progression.",
+    "Forgetting to check inhaler technique — frequent cause of poor response."
+  ],
+  "indian_context_notes": [
+    "Rural UP — beedi smoking common cause of COPD; chulha biomass exposure also relevant.",
+    "Antibiotic stewardship — overuse in primary care is high in India; clear criteria for indication needed.",
+    "Spacer availability — homemade plastic-bottle spacers can substitute commercial ones; ASHA can guide.",
+    "Hindi register — use 'phephadon ki bimari' (lung disease) and 'inhaler' which is widely understood in transliterated form.",
+    "Salbutamol, tiotropium, prednisolone all on NLEM and affordable."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "estimated_response_time_seconds": 75,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

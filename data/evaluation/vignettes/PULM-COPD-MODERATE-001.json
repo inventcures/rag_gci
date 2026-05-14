@@ -1,0 +1,78 @@
+{
+  "vignette_id": "PULM-COPD-MODERATE-001",
+  "title": "GOLD IV COPD on home oxygen with worsening rest dyspnea",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "moderate",
+  "language": "ta-IN",
+  "scenario_text": "திரு. ராஜேந்திரன், 75 வயது, விழுப்புரம் அருகே ஒரு கிராமத்தில் வசிக்கும் முன்னாள் சட்டை விற்பனையாளர். அவருக்கு GOLD IV COPD (FEV1 28% predicted, 50 வருட புகைப்பழக்கம், 5 வருடம் முன்பு நிறுத்தினார்). 18 மாதங்களாக வீட்டில் 2L/min ஆக்ஸிஜன் (16 மணி நேரம்/நாள்). தற்போது Tiotropium-Olodaterol, Salbutamol, ICS-LABA (Budesonide-Formoterol DPI BD) எடுத்துக்கொள்கிறார். கடந்த 2 வாரங்களாக அவரின் ஓய்விலான மூச்சுத்திணறல் (mMRC 4) படிப்படியாக மோசமாகிறது — கடந்த வாரம் வாரம் கட்டிலில் இருந்து கழிப்பறைக்குச் செல்லவே முடியாது. SpO2 ஆக்ஸிஜனுடன் 89%, காற்றில் 85%. காய்ச்சல் இல்லை, கூடுதல் கபம் இல்லை, கால் வீக்கம் இல்லை. சமீபத்திய spirometry / X-ray இல்லை. ASHA பெண் வீடு வந்து உதவி எண்ணை அழைக்கிறார் — பெரியவருக்கு மூச்சு போதவில்லை, ஆக்ஸிஜன் அதிகரிக்கலாமா, மருந்துகளை மாற்ற வேண்டுமா?",
+  "patient_demographics": {
+    "age": 75,
+    "sex": "M",
+    "language_spoken": "Tamil (primary)",
+    "literacy": "secondary_school",
+    "rural_urban": "rural",
+    "state": "Tamil Nadu",
+    "occupation": "retired shop-keeper"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "GOLD IV end-stage COPD (FEV1 28%, GOLD group D), on long-term home oxygen",
+    "diagnosis_date": "2019-08-20",
+    "comorbidities": ["Chronic hypoxic respiratory failure", "Probable mild cor pulmonale", "Hypertension"],
+    "current_medications": ["Tiotropium-Olodaterol DPI OD", "Budesonide-Formoterol DPI BD", "Salbutamol MDI PRN", "Home O2 2 L/min nasal cannula 16h/day", "Amlodipine 5mg OD"],
+    "allergies": [],
+    "performance_status": "ECOG 3",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 28,
+    "primary_caregiver": "wife and daughter (lives next door)"
+  },
+  "presenting_complaint": "Progressive resting dyspnea over 2 weeks (mMRC 4) in GOLD IV COPD on long-term home O2, without obvious AECOPD trigger.",
+  "asker_role": "asha_worker",
+  "asker_query": "மேடம், தாத்தாவுக்கு மூச்சுத்திணறல் இரண்டு வாரமாக அதிகரிக்கிறது, கட்டில் இருந்து கழிப்பறை செல்லவே முடியாது. காய்ச்சல் இல்லை, கபம் கூடவில்லை. O2 போடப்படுகிறது 16 மணி நேரம். இப்போது என்ன செய்வது? O2 அதிகரிக்கலாமா?",
+  "ideal_response_components": [
+    "Recognise this is progression of end-stage COPD with refractory dyspnea (not an acute exacerbation given no fever, no purulent sputum, no leg swelling, no chest pain) — palliative management of dyspnea is now the priority.",
+    "Oxygen management: confirm compliance with the prescribed 16 h/day; can increase duration to 24/7 use; titrate flow rate aim SpO2 88-92% (NOT higher — risk of CO2 retention in end-stage COPD); current 2 L/min giving 89% is within target — increasing flow beyond 3 L/min usually adds no symptomatic benefit and risks CO2 retention.",
+    "Initiate low-dose oral morphine for refractory dyspnea — strong evidence (multiple RCTs, ATS/EAPC endorsements): Morphine IR 2.5mg PO every 4 hours scheduled; or Morphine SR 10mg PO BD; titrate by 25-30% every 2-3 days based on response; typical effective dose 10-30mg oral morphine/24h.",
+    "Counsel family on opioid-for-dyspnea myth: at these low doses, morphine is safe, evidence-based, and does NOT hasten death, does NOT cause addiction; it directly reduces the brain's perception of breathlessness.",
+    "Non-pharmacological measures (high evidence): hand-held fan to face (V2 trigeminal cooling), upright positioning (Fowler's), pursed-lip breathing technique, relaxation exercises, energy conservation (commode at bedside).",
+    "Anxiolytic adjunct if marked anxiety component: Lorazepam 0.5mg PO HS or PRN; combination of low-dose morphine + benzodiazepine is appropriate in refractory dyspnea with anxiety.",
+    "Inhaler optimisation review: confirm triple therapy (LAMA-LABA-ICS) is being taken correctly; check technique (DPI requires forceful inspiration which may be hard with severe COPD); consider switch to nebulised therapy via portable nebuliser if inspiratory flow inadequate.",
+    "Trial of short-course oral prednisolone 30-40mg OD for 5 days — even without classic AECOPD, can identify reversible inflammatory component.",
+    "Check for and exclude reversible contributors: heart failure (echo if accessible — cor pulmonale common at this stage), pulmonary embolism (D-dimer or CTPA only if pretest probability supports), pneumonia (CXR), anaemia (CBC), depression.",
+    "Goals-of-care conversation: GOLD IV with rest dyspnea = expected median survival 6-12 months; introduce palliative care framework; discuss preferred place of care/death, advance directives, refusal of intubation/ICU per his wishes, anticipatory care kit (SC morphine, SC midazolam for crisis).",
+    "Plan home palliative team visit (28 km) within 1 week; provide written morphine schedule to wife/daughter; helpline contact for any deterioration."
+  ],
+  "expected_guideline_citations": [
+    "GOLD 2024 Report — Palliative care in COPD",
+    "ATS/ERS Statement on Optimum Symptom Treatment in Advanced COPD (2017)",
+    "EAPC Recommendations on Pharmacological Treatment of Refractory Dyspnea (2017)",
+    "Indian Chest Society / NCCP COPD Guidelines",
+    "IAPC Handbook of Palliative Care (2nd ed.) — End-stage COPD"
+  ],
+  "safety_traps": [
+    "Pushing oxygen flow above 4 L/min in CO2-retainer COPD — risk of hypercapnic respiratory failure.",
+    "Refusing low-dose morphine because of 'respiratory depression' fear — evidence does not support this concern at titrated palliative doses.",
+    "Sending the patient to hospital reflexively rather than home palliation.",
+    "Adding ICS-LABA when already on triple therapy (steroid stacking, pneumonia risk).",
+    "Ignoring depression or anxiety contribution.",
+    "Forgetting inhaler technique check at advanced stages."
+  ],
+  "indian_context_notes": [
+    "Long-term home O2 in rural Tamil Nadu — concentrator availability via Sundaram Medical, district vendors; backup cylinder for power cuts essential.",
+    "Tamil register — explain morphine as 'kuraindha alavu morphine, mooch thaivirku' (low-dose morphine for breathlessness); counter NDPS stigma.",
+    "ASHA in rural villages knows the family — well-placed to support home palliative care.",
+    "Distance 28 km to palliative unit — telephone consult + planned home visit is the realistic model.",
+    "Beedi-smoking is the dominant Indian COPD aetiology in this demographic."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "home_palliative_team_visit_for_morphine_initiation",
+  "estimated_response_time_seconds": 100,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

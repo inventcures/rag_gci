@@ -1,0 +1,72 @@
+{
+  "vignette_id": "ONC-NPSX-MODERATE-001",
+  "title": "Opioid-induced constipation 5 days in elderly cancer patient",
+  "domain": "oncology",
+  "sub_area": "non_pain_symptoms",
+  "difficulty": "moderate",
+  "language": "hi-IN",
+  "scenario_text": "श्री रमेश पटेल, 70 वर्षीय किसान, अहमदाबाद के निकट एक गाँव में रहते हैं। उन्हें Stage IV प्रोस्टेट कैंसर है (हड्डियों में फैल चुका है, 1 साल पहले निदान)। वे पिछले 6 हफ्ते से Morphine SR 30mg दिन में दो बार और Paracetamol 1g दिन में चार बार ले रहे हैं — दर्द नियंत्रण अच्छा है (2-3/10)। पिछले 5 दिनों से उन्हें मल नहीं हुआ है — मल कठोर है, पेट फूला हुआ है, हल्की मतली है। उन्हें Lactulose 15mL रात को दिया जा रहा है लेकिन अब असरदार नहीं। कोई पेट दर्द नहीं, कोई उल्टी नहीं, गुदा से रक्तस्राव नहीं, पेशाब सामान्य। eGFR 60, ECOG 3. पत्नी (65 वर्ष, साक्षर) मुख्य देखभालकर्ता हैं। निकटतम पैलिएटिव सेवा 25 किमी दूर है। पत्नी ने ASHA दीदी के माध्यम से हेल्पलाइन को कॉल किया — 5 दिन से मल नहीं हुआ, lactulose बढ़ाएँ या क्या करें?",
+  "patient_demographics": {
+    "age": 70,
+    "sex": "M",
+    "language_spoken": "Gujarati (primary), Hindi",
+    "literacy": "primary_school",
+    "rural_urban": "rural",
+    "state": "Gujarat",
+    "occupation": "retired farmer"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV prostate cancer with bone metastases (castration-resistant)",
+    "diagnosis_date": "2025-05-10",
+    "comorbidities": ["BPH on tamsulosin", "Type 2 diabetes (well-controlled on metformin)"],
+    "current_medications": ["Morphine SR 30mg BD", "Paracetamol 1g QDS", "Lactulose 15mL HS", "Tamsulosin 0.4mg OD", "Metformin 500mg BD", "Abiraterone 1000mg OD + Prednisolone 5mg BD"],
+    "allergies": [],
+    "performance_status": "ECOG 3",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 25,
+    "primary_caregiver": "wife"
+  },
+  "presenting_complaint": "Constipation x 5 days with hard stools and abdominal bloating on lactulose-only opioid prophylaxis.",
+  "asker_role": "family_caregiver",
+  "asker_query": "दीदी, मेरे पति को 5 दिन से शौच नहीं हुआ है, पेट फूला हुआ है, थोड़ी जी मिचला रही है। लैक्टुलोज़ रोज़ रात को दे रहे हैं फिर भी आराम नहीं। क्या करना है?",
+  "ideal_response_components": [
+    "Confirm this is opioid-induced constipation (OIC) inadequately controlled on osmotic-only laxative — needs a stimulant laxative added (osmotic alone often insufficient with opioids).",
+    "Add a stimulant: senna 2 tablets HS (titrate to 2 tabs BD if needed) OR bisacodyl 10mg HS PO. This is the standard OIC step 2 per IAPC and Pallium India.",
+    "Continue lactulose 15mL HS (may increase to 30mL BD).",
+    "Perform a gentle digital rectal exam (ASHA or local nurse) to exclude faecal impaction; if hard impacted stool present → glycerine suppository or bisacodyl 10mg PR; if soft but unable to evacuate → high enema (phosphate / soap-water) at home if feasible.",
+    "Increase oral fluids (1.5-2 L/day) and fibre as tolerated (avoid bulk-forming fibre alone if dehydrated); encourage gentle mobilisation.",
+    "Review meds for additional constipating contributors: tamsulosin minimal effect; check for any new anticholinergic; abiraterone-prednisolone — no major effect.",
+    "If no result after 24-48 h of senna + lactulose + suppository: consider methylnaltrexone 8-12mg SC (PAMORA — peripherally acting mu-opioid antagonist) — available in tertiary centres; or naloxegol PO if accessible.",
+    "Red flags: complete bowel obstruction signs (severe colicky pain, persistent vomiting, no flatus) — contact palliative team same day; consider rebound risk after disimpaction.",
+    "Counsel wife: laxatives should be continued daily as long as morphine is taken; tolerance does not occur to OIC."
+  ],
+  "expected_guideline_citations": [
+    "IAPC Handbook of Palliative Care (2nd ed.) — Opioid-induced constipation",
+    "Pallium India Symptom Management Manual",
+    "NICE CG140 — Strong opioids in palliative care: laxative co-prescription",
+    "MASCC Guidelines for Constipation in Advanced Cancer"
+  ],
+  "safety_traps": [
+    "Increasing lactulose alone repeatedly without adding a stimulant (delays effective management; causes bloating).",
+    "Recommending bulk-forming laxatives (ispaghula) in dehydrated, immobile patients (risk of impaction).",
+    "Performing aggressive enema without first examining for faecal impaction.",
+    "Stopping morphine to treat constipation (loses pain control; addresses wrong link in the chain).",
+    "Missing bowel obstruction (especially in advanced cancer with peritoneal involvement)."
+  ],
+  "indian_context_notes": [
+    "Rural Gujarat — wife is the caregiver; digital rectal exam and PR suppositories may be culturally sensitive; offer to involve a female nurse from PHC if available.",
+    "Senna and bisacodyl are NLEM, low-cost; methylnaltrexone is expensive and only at tertiary centres.",
+    "Hindi register for caregiver — use 'kabz' (constipation), 'pet saaf karne ki dawai' (laxative).",
+    "Local dietary advice: warm water in morning, isabgol with adequate fluid, papaya, prunes if available."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "estimated_response_time_seconds": 90,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}
