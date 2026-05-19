@@ -79,46 +79,52 @@
       </div>
     </div>
 
-    <!-- MIDDLE: RAG output -->
+    <!-- MIDDLE: RAG output(s) — one card per LLM provider -->
     <div class="col-lg-4">
-      <div class="card h-100">
-        <div class="card-header bg-light"><strong>RAG output</strong></div>
-        <div class="card-body small">
-          <div class="d-flex gap-2 flex-wrap mb-2">
-            <span class="badge bg-primary">Evidence level: {{ rag_output.evidence_level or 'n/a' }}</span>
-            <span class="badge bg-secondary">Language: {{ rag_output.language or vignette.language }}</span>
-            {% if rag_output.generated_at %}
-              <span class="badge bg-light text-dark">Generated: {{ rag_output.generated_at }}</span>
+      {% for entry in rag_outputs %}
+        {% set out = entry.output %}
+        <div class="card mb-3">
+          <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <strong>RAG output — {{ entry.label }}</strong>
+            <span class="badge bg-secondary">{{ entry.provider }}</span>
+          </div>
+          <div class="card-body small">
+            <div class="d-flex gap-2 flex-wrap mb-2">
+              <span class="badge bg-primary">Evidence: {{ out.evidence_level or 'n/a' }}</span>
+              <span class="badge bg-secondary">Lang: {{ out.language or vignette.language }}</span>
+              {% if out.elapsed_ms %}
+                <span class="badge bg-light text-dark">{{ out.elapsed_ms }} ms</span>
+              {% endif %}
+              {% if out.generated_at %}
+                <span class="badge bg-light text-dark">{{ out.generated_at[:10] }}</span>
+              {% endif %}
+            </div>
+            <h6>Answer <span class="text-muted small">({{ (out.answer or '') | length }} chars)</span></h6>
+            <div class="rag-answer border rounded p-2 mb-3 bg-white" style="white-space: pre-wrap;">{{ out.answer }}</div>
+
+            <h6>Sources <span class="text-muted small">({{ (out.sources or []) | length }})</span></h6>
+            {% if out.sources %}
+              <ul class="small mb-0">
+                {% for s in out.sources %}
+                  <li>
+                    <strong>{{ s.title or s.source or s.document or 'source' }}</strong>
+                    {% if s.relevance is defined and s.relevance %}
+                      — relevance {{ '%.2f' | format(s.relevance) }}
+                    {% elif s.relevance_score is defined %}
+                      — relevance {{ '%.2f' | format(s.relevance_score) }}
+                    {% endif %}
+                    {% if s.snippet %}
+                      <div class="text-muted">{{ s.snippet[:200] }}{% if s.snippet|length > 200 %}…{% endif %}</div>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-muted small mb-0">No sources reported.</p>
             {% endif %}
           </div>
-          <h6>Answer</h6>
-          <div class="rag-answer border rounded p-2 mb-3 bg-white">{{ rag_output.answer }}</div>
-
-          <h6>Sources <span class="text-muted small">({{ (rag_output.sources or []) | length }})</span></h6>
-          {% if rag_output.sources %}
-            <ul class="small">
-              {% for s in rag_output.sources %}
-                <li>
-                  <strong>{{ s.title or s.source or 'source' }}</strong>
-                  {% if s.relevance_score is defined %}
-                    — relevance {{ '%.2f' | format(s.relevance_score) }}
-                  {% endif %}
-                  {% if s.snippet %}
-                    <div class="text-muted">{{ s.snippet }}</div>
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <p class="text-muted small">No sources reported.</p>
-          {% endif %}
-
-          {% if rag_output.validation_result %}
-            <h6 class="mt-3">Auto-validation</h6>
-            <pre class="small text-muted bg-light p-2 rounded">{{ rag_output.validation_result | tojson(indent=2) }}</pre>
-          {% endif %}
         </div>
-      </div>
+      {% endfor %}
     </div>
 
     <!-- RIGHT: Rubric -->
@@ -182,6 +188,23 @@
               <span>0 (dangerous)</span>
               <strong id="overall_score_val">{{ existing.overall_score if existing else 5 }}</strong>
               <span>10 (excellent)</span>
+            </div>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="reviewer_real_name">Your name (required)</label>
+              <input type="text" class="form-control form-control-sm" id="reviewer_real_name"
+                     name="reviewer_real_name" required
+                     value="{{ existing.reviewer_real_name if existing else '' }}"
+                     placeholder="e.g. Dr. Jane Doe">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="reviewer_institution">Your institution (required)</label>
+              <input type="text" class="form-control form-control-sm" id="reviewer_institution"
+                     name="reviewer_institution" required
+                     value="{{ existing.reviewer_institution if existing else '' }}"
+                     placeholder="e.g. AIIMS Delhi, Pallium India, KMC Manipal">
             </div>
           </div>
 

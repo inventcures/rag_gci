@@ -187,26 +187,42 @@ async def main() -> int:
     load_dotenv()
     from simple_rag_server import SimpleRAGPipeline  # noqa
 
+    # CLI: --provider {gemini,groq,medgemma}  --only VID1,VID2,VID3
+    provider_arg = None
+    only_ids = None
+    for i, arg in enumerate(sys.argv):
+        if arg == "--provider" and i + 1 < len(sys.argv):
+            provider_arg = sys.argv[i + 1].lower()
+        elif arg == "--only" and i + 1 < len(sys.argv):
+            only_ids = set(sys.argv[i + 1].split(","))
+
+    if provider_arg:
+        os.environ["GENAI_LLM_PROVIDER"] = provider_arg
+        logger.info(f"Overriding LLM provider via --provider: {provider_arg}")
+
     logger.info("Initializing SimpleRAGPipeline...")
     rag_pipeline = SimpleRAGPipeline()
+    provider = rag_pipeline.llm_provider  # "gemini" / "groq" / "medgemma"
 
     vignettes = load_vignettes()
     if not vignettes:
         logger.error("No vignettes found in %s", VIGNETTES_DIR)
         return 1
-    logger.info("Loaded %d vignettes", len(vignettes))
+    if only_ids:
+        vignettes = {k: v for k, v in vignettes.items() if k in only_ids}
+        logger.info("Filtered to %d vignettes: %s", len(vignettes), sorted(vignettes))
+    logger.info("Loaded %d vignettes; provider=%s", len(vignettes), provider)
 
-    # Groq free tier: 6000 TPM. Each query uses ~2-3k tokens (context +
-    # response), so space queries to stay under the limit. Also retry on
-    # empty answer (which indicates the LLM call rate-limited inside the
-    # pipeline and we only got an empty string back).
-    INTER_REQUEST_DELAY_S = float(os.environ.get("RAG_RUNNER_DELAY_S", "30"))
+    # Inter-request spacing: Groq rate-limits at 6000 TPM (need ~30s gap);
+    # Gemini 2.5 Flash free tier is 10 RPM (need ~6s gap). Configurable.
+    default_delay = 6 if provider == "gemini" else 30
+    INTER_REQUEST_DELAY_S = float(os.environ.get("RAG_RUNNER_DELAY_S", default_delay))
     MAX_RETRIES = 2
 
     results = []
     for i, (vid, v) in enumerate(sorted(vignettes.items()), 1):
         for attempt in range(1, MAX_RETRIES + 2):
-            logger.info("[%d/%d] %s (attempt %d)", i, len(vignettes), vid, attempt)
+            logger.info("[%d/%d] %s (attempt %d, provider=%s)", i, len(vignettes), vid, attempt, provider)
             result = await run_one(v, rag_pipeline)
             answer = result.get("answer", "") or ""
             if answer.strip() and not result.get("error"):
@@ -219,7 +235,11 @@ async def main() -> int:
                 )
                 await asyncio.sleep(wait)
 
-        out_path = OUTPUTS_DIR / f"{vid}.json"
+        # Tag the output with the provider used + write to a
+        # provider-suffixed filename so multiple LLM outputs per vignette
+        # can coexist for side-by-side review.
+        result["provider"] = provider
+        out_path = OUTPUTS_DIR / f"{vid}_{provider}.json"
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         results.append((vid, result.get("error"), result.get("elapsed_ms")))

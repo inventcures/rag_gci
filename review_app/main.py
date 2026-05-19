@@ -164,13 +164,20 @@ def review_page(request: Request, vignette_id: str):
     vignette = data.load_vignette(vignette_id)
     if not vignette:
         raise HTTPException(404, f"Vignette {vignette_id} not found")
-    rag_output = data.load_rag_output(vignette_id) or {
-        "answer": "(No RAG output found yet for this vignette.)",
-        "sources": [],
-        "evidence_level": "unknown",
-        "validation_result": {},
-        "language": vignette.get("language", ""),
-    }
+    rag_outputs = data.load_rag_outputs(vignette_id)
+    if not rag_outputs:
+        rag_outputs = [{
+            "provider": "unknown",
+            "label": "(no RAG output found)",
+            "output": {
+                "answer": "(No RAG output found yet for this vignette.)",
+                "sources": [], "evidence_level": "unknown",
+                "validation_result": {},
+                "language": vignette.get("language", ""),
+            },
+        }]
+    # Back-compat: keep `rag_output` (first one) for templates that still use it.
+    rag_output = rag_outputs[0]["output"]
     rubric = data.load_rubric()
     existing = data.review_by(user["user_id"], vignette_id)
 
@@ -184,7 +191,8 @@ def review_page(request: Request, vignette_id: str):
             "request": request,
             "user": user,
             "vignette": vignette,
-            "rag_output": rag_output,
+            "rag_output": rag_output,        # back-compat (first variant)
+            "rag_outputs": rag_outputs,      # NEW: all provider variants
             "rubric": rubric,
             "existing": existing,
             "position": position,
@@ -232,6 +240,13 @@ async def submit_review(request: Request, vignette_id: str):
         overall_score = 0
     overall_score = max(0, min(10, overall_score))
 
+    reviewer_real_name = (form.get("reviewer_real_name") or "").strip()
+    reviewer_institution = (form.get("reviewer_institution") or "").strip()
+    if not reviewer_real_name:
+        raise HTTPException(400, "Your name is required.")
+    if not reviewer_institution:
+        raise HTTPException(400, "Your institution is required.")
+
     comments = (form.get("comments") or "").strip()
     if len(comments) < 50:
         raise HTTPException(400, "Comments must be at least 50 characters.")
@@ -249,6 +264,8 @@ async def submit_review(request: Request, vignette_id: str):
     review = {
         "reviewer_id": user["user_id"],
         "reviewer_name": user["name"],
+        "reviewer_real_name": reviewer_real_name,
+        "reviewer_institution": reviewer_institution,
         "vignette_id": vignette_id,
         "dimension_scores": dimension_scores,
         "sub_item_scores": sub_item_scores,

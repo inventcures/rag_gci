@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Didi, Mashima is shouting, pulling at her clothes, worse at night, no bowel motion for 3 days, urine is reduced — what should I do? The family does not want to go to hospital, they want to stay at home.",
+  "answer": "For a patient in the end-of-life phase experiencing acute hyperactive delirium, the priority is to ensure comfort and manage distress. When reversible causes like constipation (no bowel motion for 3 days) are suspected, these must be addressed immediately, as fecal impaction can exacerbate agitation. For the delirium itself, pharmacological management often involves neuroleptics; in the Indian palliative context, **Haloperidol** is the standard choice for agitation. While specific titration depends on the patient's baseline, a typical starting dose for terminal agitation is 0.5mg to 1mg orally or subcutaneously, which can be repeated as needed. If the patient is unable to swallow, the route must be switched to subcutaneous or rectal, as oral medications are no longer appropriate when the patient is profoundly weak or struggling to swallow.\nIn your home-based setting, your immediate action plan is to simplify the medication regimen and support the family. First, assess for fecal impaction; if present, a gentle suppository or enema may be required to relieve the physical discomfort contributing to her agitation. Second, educate the family that this delirium is a symptom of the dying process—not \"madness\"—and encourage them to avoid confrontation, keep the environment calm, and speak to her in a soothing, reassuring tone. Because the patient is in the terminal phase, prioritize comfort over routine medications; if she cannot swallow, stop non-essential oral tablets and focus on essential symptom control (e.g., pain and agitation) via non-oral routes. If you are in a region where morphine or haloperidol access is restricted, coordinate with your local palliative care team or hospice to ensure the family has the necessary NDPS-compliant prescriptions.\nMonitor for side effects such as excessive sedation or extrapyramidal symptoms (involuntary movements).",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T04:52:15.872948Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3946,
+  "error": null,
+  "provider": "gemini"
+}

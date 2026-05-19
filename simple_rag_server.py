@@ -754,16 +754,25 @@ class SimpleRAGPipeline:
         self.embedding_model = None
         self.vector_db = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.translation_model = "llama-3.1-8b-instant"  # Model for query translation
-        
-        # Check for MedGemma preference from environment
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY")
+        self.translation_model = "llama-3.1-8b-instant"  # Model for query translation (still Groq)
+
+        # LLM provider for response generation: "gemini" (default) or "groq" or "medgemma".
+        # Override with GENAI_LLM_PROVIDER env var.
+        self.llm_provider = os.getenv("GENAI_LLM_PROVIDER", "gemini").lower()
+        self.gemini_model = os.getenv("GENAI_GEMINI_MODEL", "gemini-3.1-flash-lite")
+
         use_medgemma = os.getenv("USE_MEDGEMMA", "false").lower() == "true"
         if use_medgemma:
-            self.response_model = "medgemma"  # Use MedGemma for English response generation
-            logger.info("🩺 MedGemma model selected for English response generation")
+            self.llm_provider = "medgemma"
+            self.response_model = "medgemma"
+            logger.info("🩺 MedGemma selected for response generation")
+        elif self.llm_provider == "gemini":
+            self.response_model = self.gemini_model
+            logger.info(f"💎 Gemini ({self.gemini_model}) selected for response generation")
         else:
-            self.response_model = "qwen/qwen3-32b"  # Use Qwen3 for high-quality response generation
-            logger.info("🧠 Qwen3-32B reasoning model selected for response generation")
+            self.response_model = "qwen/qwen3-32b"
+            logger.info("🧠 Qwen3-32B (Groq) selected for response generation")
         
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
@@ -1608,64 +1617,136 @@ class SimpleRAGPipeline:
         # No thinking tags found, return as-is
         return response
 
-    async def _generate_answer(self, question: str, context: str) -> str:
-        """Generate answer using Groq API"""
+    async def _call_gemini_api(
+        self,
+        prompt: str,
+        max_tokens: int = 2048,
+        temperature: float = 0.3,
+    ) -> Optional[str]:
+        """
+        Call Google's Gemini API for text generation. Returns the response
+        text on success, None on failure (caller should handle fallback).
+
+        Uses google-generativeai-style REST endpoint:
+        https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+        """
+        if not self.gemini_api_key:
+            logger.error("GEMINI_API_KEY not configured")
+            return None
+
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.gemini_model}:generateContent?key={self.gemini_api_key}"
+        )
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens,
+            },
+        }
         try:
-            if not self.groq_api_key:
-                return "Error: GROQ_API_KEY not configured"
-            
-            prompt = f"""You are an expert medical assistant. You MUST respond ONLY in English language using English script/alphabet.
+            response = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=45,
+            )
+            if response.status_code != 200:
+                logger.error(
+                    f"Gemini API error: {response.status_code} - {response.text[:500]}"
+                )
+                return None
+            data = response.json()
+            candidates = data.get("candidates", [])
+            if not candidates:
+                logger.error(f"Gemini API returned no candidates: {data}")
+                return None
+            parts = candidates[0].get("content", {}).get("parts", [])
+            text = "".join(p.get("text", "") for p in parts).strip()
+            if not text:
+                logger.warning(f"Gemini API returned empty text: {data}")
+                return None
+            return text
+        except Exception as e:
+            logger.error(f"Gemini API call failed: {e}")
+            return None
 
-CRITICAL LANGUAGE REQUIREMENT:
-- Your response MUST be in English language only
-- Use English alphabet/script only (no Hindi, Bengali, or other scripts)
-- Even if the question is in another language, respond in English
+    async def _call_llm(
+        self,
+        prompt: str,
+        max_tokens: int = 2048,
+        temperature: float = 0.3,
+    ) -> tuple:
+        """
+        Provider-agnostic LLM call. Returns (text, provider_name).
+        Routes based on self.llm_provider; falls back to Groq if Gemini fails.
+        """
+        # Try Gemini first if configured
+        if self.llm_provider == "gemini" and self.gemini_api_key:
+            text = await self._call_gemini_api(prompt, max_tokens, temperature)
+            if text:
+                return text, "gemini"
+            logger.warning("Gemini call failed; falling back to Groq")
 
-INSTRUCTIONS:
-1. Carefully examine the medical context provided
-2. If the context contains relevant information, provide a clear, medically accurate answer in English
-3. If the context lacks sufficient information, clearly state this in English
-4. Be direct and concise - do not include reasoning steps in your response
+        # Groq path (default fallback)
+        if not self.groq_api_key:
+            return "Error: no LLM provider configured", "error"
+
+        try:
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "qwen/qwen3-32b",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                },
+                timeout=45,
+            )
+            if response.status_code == 200:
+                raw = response.json()["choices"][0]["message"]["content"].strip()
+                return self._extract_and_log_thinking(raw), "groq"
+            logger.error(f"Groq API error: {response.status_code} - {response.text[:500]}")
+            return f"Error generating response: {response.status_code}", "error"
+        except Exception as e:
+            logger.error(f"Groq call failed: {e}")
+            return f"Error generating answer: {e}", "error"
+
+    async def _generate_answer(self, question: str, context: str) -> str:
+        """Generate answer using configured LLM provider (Gemini default, Groq fallback)."""
+        try:
+            prompt = f"""You are an expert palliative care physician answering a question for a community health worker or family caregiver in India.
+
+LANGUAGE: Respond in English only.
+
+LENGTH AND STRUCTURE:
+- Write 2 to 3 substantive paragraphs (approximately 200-400 words total).
+- Paragraph 1: Direct clinical answer with specific drug names, doses, routes, frequencies as applicable.
+- Paragraph 2: Practical action plan tailored to the asker's setting (home / hospice / hospital), including who does what and time-criticality.
+- Paragraph 3 (when relevant): Anticipated side effects, follow-up criteria, red-flag escalation triggers, and caregiver education.
+
+QUALITY REQUIREMENTS:
+1. Ground every clinical claim in the provided medical context — do not invent facts.
+2. Cite specific guidelines by name (WHO, IAPC, Pallium India, NICE, GOLD) when applicable.
+3. Adapt to the Indian context where relevant: NDPS Act opioid access, family decision-making, rural resource constraints, regional drug availability.
+4. Always include a clear handoff/escalation cue when red flags are present.
+5. Empathetic, non-judgemental tone appropriate for the asker (caregiver, ASHA, patient).
+6. Avoid generic deflection ("consult a physician") unless the question is genuinely outside scope.
 
 MEDICAL CONTEXT:
 {context}
 
 QUESTION: {question}
 
-ENGLISH ANSWER:"""
-            
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": self.response_model,  # Use English-optimized model for response generation
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "temperature": 0.3,  # Lower temperature for more consistent medical responses
-                "max_tokens": 512  # Reduced to enforce WhatsApp length limit
-            }
-            
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                raw_answer = result["choices"][0]["message"]["content"].strip()
-                return self._extract_and_log_thinking(raw_answer)
-            else:
-                logger.error(f"Groq API error: {response.status_code} - {response.text}")
-                return f"Error generating response: {response.status_code}"
-                
+ANSWER (2-3 paragraphs):"""
+
+            answer, _provider = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
+            return answer
         except Exception as e:
             logger.error(f"Error generating answer: {e}")
             return f"Error generating answer: {str(e)}"
@@ -1680,108 +1761,59 @@ ENGLISH ANSWER:"""
             # Create citation mapping
             citation_text = self._format_citation_context(context, metadatas)
             
+            # Unified detailed prompt (Gemini default, Groq fallback) — 2-3 paragraphs
             if should_fuse:
-                # Multiple similar contexts - synthesize and cite all
-                prompt = f"""You are an expert medical assistant. You MUST respond ONLY in English language using English script/alphabet. Your task is to analyze multiple related medical contexts and synthesize them into a comprehensive answer with multiple citations.
-
-🚨 CRITICAL LENGTH REQUIREMENT: Your ENTIRE response including citations MUST BE UNDER 1500 CHARACTERS. Count carefully! If your draft is too long, shorten it while keeping medical accuracy. 🚨
-
-CRITICAL LANGUAGE REQUIREMENT:
-- Your response MUST be in English language only
-
-
-FUSION INSTRUCTIONS:
-1. Carefully analyze ALL provided medical contexts below
-2. Synthesize information from multiple sources to provide a comprehensive answer
-3. Extract relevant information even if the question language differs from the context language
-4. Combine complementary information from different sources
-5. Provide a well-structured, medically accurate answer that integrates insights from all relevant contexts
-6. Always conclude with citations to ALL sources used
-7. KEEP TOTAL RESPONSE UNDER 1500 CHARACTERS
-
-CITATION REQUIREMENTS:
-- End your response with: {{retrieved from: [docname_pg{{pagenum}}], [docname_pg{{pagenum}}] etc.}}
-- Cite ALL sources that contributed to your answer
-- Use the SHORT format: docname_pg{{pagenum}} (e.g., palliative_care_pg5)
-
-MEDICAL CONTEXTS (MULTIPLE SOURCES):
-{citation_text}
-
-QUESTION: {question}
-
-SYNTHESIZED ANSWER (UNDER 1500 CHARS):"""
+                instructions = (
+                    "SYNTHESIS MODE: Multiple related medical contexts are provided. "
+                    "Integrate complementary information across all of them. Cite every "
+                    "source that contributed.\n"
+                )
+                context_label = "MEDICAL CONTEXTS (MULTIPLE SOURCES)"
             else:
-                # Single closest context - focus on most relevant source
-                prompt = f"""You are an expert medical assistant. You MUST respond ONLY in English language using English script/alphabet. Your task is to analyze the most relevant medical document and provide an accurate, focused answer with proper citation.
+                instructions = (
+                    "FOCUSED MODE: One primary medical context is provided. Build your "
+                    "answer on it. Cite this source.\n"
+                )
+                context_label = "MEDICAL CONTEXT (MOST RELEVANT)"
 
-🚨 CRITICAL LENGTH REQUIREMENT: Your ENTIRE response including citations MUST BE UNDER 1500 CHARACTERS. Count carefully! If your draft is too long, shorten it while keeping medical accuracy. 🚨
+            prompt = f"""You are an expert palliative care physician answering a question for a community health worker or family caregiver in India.
 
-CRITICAL LANGUAGE REQUIREMENT:
-- Your response MUST be in English language only
-- Use English alphabet/script only (no Hindi, Bengali, or other scripts)
-- Even if the question is in another language, respond in English
+LANGUAGE: Respond in English only.
 
-FOCUSED INSTRUCTIONS:
-1. Carefully analyze the provided medical context (most relevant to your question)
-2. Extract relevant information even if the question language differs from the context language
-3. Provide a clear, medically accurate answer based on this specific context
-4. Focus on being helpful - if there's any relevant medical information, use it to provide a useful response
-5. Always conclude with a proper citation to this specific source
-6. KEEP TOTAL RESPONSE UNDER 1500 CHARACTERS
+{instructions}
+LENGTH AND STRUCTURE:
+- Write 2 to 3 substantive paragraphs (approximately 200-400 words total).
+- Paragraph 1: Direct clinical answer with specific drug names, doses, routes, frequencies as applicable.
+- Paragraph 2: Practical action plan tailored to the asker's setting (home / hospice / hospital). Specify who does what and time-criticality.
+- Paragraph 3 (when relevant): Anticipated side effects, follow-up criteria, red-flag escalation triggers, and caregiver education.
 
-CITATION REQUIREMENTS:
-- ONLY cite at the END of your response - NO inline citations in the text
-- End your response with: [ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]
-- Multiple pages from same document: separate with commas
-- Multiple documents: separate with semicolons
-- Always use this exact format
+QUALITY REQUIREMENTS:
+1. Ground every clinical claim in the provided medical context — do not invent facts.
+2. Cite specific guidelines by name (WHO, IAPC, Pallium India, NICE, GOLD) when applicable.
+3. Adapt to the Indian context where relevant: NDPS Act opioid access, family decision-making, rural resource constraints, regional drug availability.
+4. Always include a clear handoff/escalation cue when red flags are present.
+5. Empathetic, non-judgemental tone appropriate for the asker (caregiver, ASHA, patient).
+6. Avoid generic deflection ("consult a physician") unless the question is genuinely outside scope.
 
+CITATION FORMAT (at end of response):
+[ Sources: doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]
 
-MEDICAL CONTEXT (MOST RELEVANT):
+{context_label}:
 {citation_text}
 
 QUESTION: {question}
 
-FOCUSED ANSWER (UNDER 1500 CHARS):"""
+ANSWER (2-3 paragraphs followed by Sources line):"""
             
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            # Use MedGemma if selected, otherwise use Groq
+            # Route via provider-agnostic helper (Gemini default, Groq fallback)
             if self.response_model == "medgemma":
                 answer, model_used = await self._call_medgemma_endpoint(prompt, citation_text, question)
                 if answer.startswith("Error"):
-                    return answer
+                    return answer, "error"
             else:
-                payload = {
-                    "model": self.response_model,  # Use English-optimized model for response generation
-                    "messages": [
-                        {
-                            "role": "user", 
-                            "content": prompt
-                        }
-                    ],
-                    "temperature": 0.2,  # Very low temperature for consistent medical responses
-                    "max_tokens": 512  # Reduced to enforce WhatsApp length limit
-                }
-                
-                response = requests.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    raw_answer = result["choices"][0]["message"]["content"].strip()
-                    answer = self._extract_and_log_thinking(raw_answer)
-                    model_used = "qwen3"
-                else:
-                    logger.error(f"Groq API error: {response.status_code} - {response.text}")
-                    return f"Error generating response: {response.status_code}"
+                answer, model_used = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
+                if answer.startswith("Error"):
+                    return answer, model_used
             
             # Debug: Log what the LLM generated
             logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")

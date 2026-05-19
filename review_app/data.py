@@ -261,12 +261,72 @@ def list_vignettes() -> list[dict]:
 
 # ---------- RAG outputs ----------
 
+# Display order for providers when multiple variants exist for a vignette.
+_PROVIDER_ORDER = ["groq", "gemini", "medgemma"]
+_PROVIDER_LABEL = {
+    "groq": "Groq (Qwen3-32B)",
+    "gemini": "Gemini 3.1 Flash Lite",
+    "medgemma": "MedGemma",
+}
+
+
 def load_rag_output(vignette_id: str) -> Optional[dict]:
-    path = RAG_OUTPUTS_DIR / f"{vignette_id}.json"
-    if not path.exists():
-        return None
-    with path.open() as f:
-        return json.load(f)
+    """Back-compat: return a single output. Tries new {vid}_{provider}.json
+    files first, falls back to the legacy {vid}.json. Returns whatever is
+    first in _PROVIDER_ORDER, or None if no output exists."""
+    outputs = load_rag_outputs(vignette_id)
+    return outputs[0]["output"] if outputs else None
+
+
+def load_rag_outputs(vignette_id: str) -> list[dict]:
+    """Return ALL provider outputs for a vignette, sorted by _PROVIDER_ORDER.
+    Each entry: {provider, label, output}."""
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    # New-format provider-suffixed files: {vid}_{provider}.json
+    for path in sorted(RAG_OUTPUTS_DIR.glob(f"{vignette_id}_*.json")):
+        suffix = path.stem.removeprefix(f"{vignette_id}_")
+        if not suffix:
+            continue
+        try:
+            with path.open() as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        provider = data.get("provider") or suffix
+        seen.add(provider)
+        out.append(
+            {
+                "provider": provider,
+                "label": _PROVIDER_LABEL.get(provider, provider),
+                "output": data,
+            }
+        )
+
+    # Legacy unsuffixed file
+    legacy = RAG_OUTPUTS_DIR / f"{vignette_id}.json"
+    if legacy.exists() and "legacy" not in seen:
+        try:
+            with legacy.open() as f:
+                data = json.load(f)
+            out.append(
+                {
+                    "provider": data.get("provider", "legacy"),
+                    "label": _PROVIDER_LABEL.get(data.get("provider", ""), "Previous output"),
+                    "output": data,
+                }
+            )
+        except Exception:
+            pass
+
+    # Sort by provider order
+    def sort_key(entry):
+        p = entry["provider"]
+        return (_PROVIDER_ORDER.index(p) if p in _PROVIDER_ORDER else 99, p)
+
+    out.sort(key=sort_key)
+    return out
 
 
 # ---------- Reviews ----------
@@ -339,6 +399,8 @@ def export_reviews_csv() -> str:
         "review_id",
         "reviewer_id",
         "reviewer_name",
+        "reviewer_real_name",
+        "reviewer_institution",
         "vignette_id",
         "submitted_at",
         "overall_score",
@@ -359,6 +421,8 @@ def export_reviews_csv() -> str:
             "review_id": r.get("review_id", ""),
             "reviewer_id": r.get("reviewer_id", ""),
             "reviewer_name": r.get("reviewer_name", ""),
+            "reviewer_real_name": r.get("reviewer_real_name", ""),
+            "reviewer_institution": r.get("reviewer_institution", ""),
             "vignette_id": r.get("vignette_id", ""),
             "submitted_at": r.get("submitted_at", ""),
             "overall_score": r.get("overall_score", ""),

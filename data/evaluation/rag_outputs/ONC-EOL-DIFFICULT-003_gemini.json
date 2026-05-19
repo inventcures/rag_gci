@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-003",
+  "language": "en-IN",
+  "asker_query": "Didi, my mother's mouth does not open even 10 millimetres, she cannot swallow tablets, she has refused NG tube, the pain is severe, she cries all night. How can we reduce her pain? Which medicine and how should it be given?",
+  "answer": "It is distressing to see your mother in such pain, but please know that there are effective ways to manage this even when she cannot swallow. Because she has both persistent background pain and sharp, shooting neuropathic pain, we must address both. Since she cannot take oral tablets, we must switch to routes that bypass the mouth. For severe pain in advanced cancer, the WHO and IAPC guidelines recommend the use of opioids. You should consult a palliative care physician immediately to initiate **Morphine** or **Fentanyl**. In India, under the NDPS Act, registered palliative care centers can provide access to oral morphine, but since she cannot swallow, you may need **transdermal fentanyl patches** (applied to the skin) or **subcutaneous injections** of morphine. For neuropathic pain (the shooting/burning sensation), medications like **Gabapentin** or **Amitriptyline** are often added, which can sometimes be crushed and administered via a small syringe into the cheek pouch if she allows, or provided as liquid formulations if available.\nIn your home setting, your primary goal is to ensure comfort without forcing her to swallow. Please contact a local palliative care team (such as those affiliated with Pallium India) who can visit your home to initiate these medications safely. If she is in severe distress, do not wait; seek a hospice or palliative care unit that can manage subcutaneous infusions. While waiting for professional help, you can try to keep her environment calm and use gentle, non-pharmacological comfort measures. If she develops sudden, uncontrollable agitation, severe difficulty breathing, or if the pain becomes completely unresponsive to her current regimen, these are red flags requiring urgent escalation to a hospital-based palliative care unit.\nMonitor her closely for side effects once stronger pain medication is started, particularly constipation (which is very common with opioids) and drowsiness.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T04:52:31.676927Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3795,
+  "error": null,
+  "provider": "gemini"
+}
