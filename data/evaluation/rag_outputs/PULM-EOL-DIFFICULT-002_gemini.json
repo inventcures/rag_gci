@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-EOL-DIFFICULT-002",
+  "language": "en-IN",
+  "asker_query": "Didi, grandmother is in a very bad state, she has severe difficulty breathing, there is nothing at home — no oxygen, no morphine, nothing. What can we do? How can we reduce her suffering?",
+  "answer": "It is deeply distressing to see a loved one struggle with breathlessness, but please know that you can provide significant comfort even without oxygen or hospital equipment. For terminal dyspnea, the gold standard for symptom relief is low-dose oral morphine, which acts on brain centers to reduce the sensation of breathlessness. If you can access a palliative care service or a physician authorized under the NDPS Act, they may prescribe morphine (typically starting at 5 mg every 6 hours). In the meantime, focus on non-pharmacological measures, which are essential: position the patient upright or leaning forward to ease the work of breathing, ensure a fan is blowing cool air toward her face, and maintain a calm, reassuring presence to manage the panic that often accompanies end-stage breathlessness.\nAs a caregiver, your primary role is to reduce her anxiety and physical distress. If she is experiencing wheezing, check if she has any remaining bronchodilators (like salbutamol) and use them if available, though do not exhaust yourself searching for equipment that may not provide relief if the lungs are severely damaged. Prioritize \"anticipatory care\": keep the environment quiet, minimize the number of people in the room, and explain to the family that her restlessness may be due to the disease process itself. If she becomes delirious or shows signs of severe panic, focus on gentle touch and verbal reassurance. Because she is actively dying, the goal is comfort; if she is unable to swallow, do not force medications, as this can cause further distress.\nWatch for red flags such as sudden, extreme agitation or complete loss of consciousness. While these are expected in the final stages, if the family feels overwhelmed by the \"lack of clarity,\" contact your local palliative care team or ASHA worker immediately to help navigate these final moments.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:19:29.912273Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3631,
+  "error": null,
+  "provider": "gemini"
+}

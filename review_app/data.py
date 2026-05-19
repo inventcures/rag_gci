@@ -262,9 +262,12 @@ def list_vignettes() -> list[dict]:
 # ---------- RAG outputs ----------
 
 # Display order for providers when multiple variants exist for a vignette.
-_PROVIDER_ORDER = ["groq", "gemini", "medgemma"]
+# Groq is intentionally excluded — it was the legacy baseline and has been
+# superseded by Gemini 3.1 Flash Lite for all 40 cases. Loader still reads
+# old {vid}_groq.json files if present, but they're hidden from the UI by
+# being absent from this list.
+_PROVIDER_ORDER = ["gemini", "medgemma"]
 _PROVIDER_LABEL = {
-    "groq": "Groq (Qwen3-32B)",
     "gemini": "Gemini 3.1 Flash Lite",
     "medgemma": "MedGemma",
 }
@@ -285,6 +288,9 @@ def load_rag_outputs(vignette_id: str) -> list[dict]:
     seen: set[str] = set()
 
     # New-format provider-suffixed files: {vid}_{provider}.json
+    # Only surface providers whitelisted in _PROVIDER_ORDER. Files like
+    # {vid}_groq.json on disk are preserved as historical baseline but
+    # not rendered in the UI.
     for path in sorted(RAG_OUTPUTS_DIR.glob(f"{vignette_id}_*.json")):
         suffix = path.stem.removeprefix(f"{vignette_id}_")
         if not suffix:
@@ -295,6 +301,8 @@ def load_rag_outputs(vignette_id: str) -> list[dict]:
         except Exception:
             continue
         provider = data.get("provider") or suffix
+        if provider not in _PROVIDER_ORDER:
+            continue  # hidden (e.g., legacy 'groq')
         seen.add(provider)
         out.append(
             {

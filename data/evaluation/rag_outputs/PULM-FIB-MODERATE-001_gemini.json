@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-FIB-MODERATE-001",
+  "language": "en-IN",
+  "asker_query": "Didi, mother's breathlessness has been increasing for 3 months, she is on full-dose pirfenidone and there is no improvement, should we start oxygen? Is pirfenidone working? Can we do something else?",
+  "answer": "It is understandable to feel concerned when breathlessness increases despite being on full-dose pirfenidone. In Idiopathic Pulmonary Fibrosis (IPF), pirfenidone is intended to slow the rate of disease progression rather than reverse existing lung scarring; a decline in FVC indicates the underlying condition is advancing. Regarding your question on oxygen, it is often beneficial for patients experiencing breathlessness at rest or during exertion, especially when oxygen saturation drops below 90%. According to *Twycross (2008)*, oxygen therapy can decrease the work of breathing. For home use, nasal prongs at 4L/min are recommended as they are comfortable and allow the patient to maintain social contact with family. If she experiences associated panic or anxiety due to the breathlessness, a physician may consider adding diazepam 2–5mg p.r.n. or lorazepam 1mg sublingually b.d. and p.r.n.\nAs a caregiver, your immediate action plan is to ensure the oxygen setup is safe and consistent. If you initiate oxygen, monitor her respiratory rate and comfort level closely. Since she is at home, ensure the oxygen concentrator or cylinder is serviced and that you have a backup plan for power outages, which are common in many Indian settings. You should maintain a symptom diary to track how many hours a day she requires oxygen and whether it effectively reduces her distress. It is vital to remember that oxygen is a medical intervention; please consult her treating pulmonologist or a palliative care specialist to confirm the flow rate and duration, as they will need to assess if her desaturation requires long-term oxygen therapy (LTOT).\nBe vigilant for \"red-flag\" symptoms that require immediate escalation to a hospital. If she develops sudden, severe worsening of breathlessness, confusion, blue discoloration of the lips (cyanosis), or if she becomes drowsy, seek emergency medical help immediately, as these may indicate acute respiratory failure.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:20:23.477625Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3298,
+  "error": null,
+  "provider": "gemini"
+}

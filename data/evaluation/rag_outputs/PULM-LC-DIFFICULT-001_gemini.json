@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Mrs. Mathew has rapid reaccumulation of MPE — 3 taps in 6 weeks. Recently started on Morphine SR 10mg BD. Looking for guidance on next step — talc slurry pleurodesis vs IPC vs continued thoracentesis, prognosis considerations, lung re-expansion concerns, patient preference framing.",
+  "answer": "For a patient like Mrs. Mathew experiencing recurrent symptomatic malignant pleural effusion (MPE), the primary goal is to minimize the burden of repeated procedures while maximizing comfort. While thoracentesis provides temporary relief, the frequency of her taps suggests that definitive management is necessary. Options such as talc slurry pleurodesis or an Indwelling Pleural Catheter (IPC) should be discussed based on her lung re-expansion status; if the lung fails to re-expand fully due to trapped lung, an IPC is often preferred over pleurodesis. Regarding her breathlessness, morphine is an appropriate intervention. If she is already on morphine for pain, you should increase her total daily dose by 30–50% to address dyspnea. If she were not on morphine, a starting dose of 5–6mg every 4–6 hours is recommended. Please note that nebulized morphine is not effective and should be avoided.\nIn your home or hospice setting, the priority is to integrate non-drug interventions alongside pharmacological management. Ensure Mrs. Mathew is referred to a physiotherapist for breathing retraining and activity pacing, which is vital if she experiences anxiety or panic associated with her breathlessness. As a caregiver, your role is to facilitate an overt discussion about her goals of care—balancing the invasiveness of procedures against her remaining time and quality of life. If she is in a rural setting where specialized thoracic intervention is limited, prioritize symptom control (morphine titration and oxygen if hypoxic) while arranging for a palliative care consultation to discuss the feasibility of IPC placement, which allows for home-based drainage and reduces the need for hospital travel.\nMonitor closely for signs of respiratory distress or sudden changes in consciousness. While morphine is effective for breathlessness, it can cause sedation; ensure the dose is titrated to comfort without causing excessive drowsiness.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:20:33.348059Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3867,
+  "error": null,
+  "provider": "gemini"
+}

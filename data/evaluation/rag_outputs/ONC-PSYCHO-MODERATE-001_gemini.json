@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-PSYCHO-MODERATE-001",
+  "language": "en-IN",
+  "asker_query": "Sister, I want to prepare for my last days — I will not go to ICU, I will stay at home, I have to prepare some papers for my wife, I have things to say to my son. But whenever I raise the topic, my wife cries, my son stops me saying 'don't talk like this'. How can you help me?",
+  "answer": "It is deeply distressing to feel silenced when you are trying to prepare for your final days, but your desire to plan is a sign of strength and a common, healthy response to advanced illness. When your family avoids these conversations, it is often \"collusion\"—they are not trying to be difficult, but are acting out of a well-intentioned, though misguided, desire to protect you and themselves from emotional pain. To address your clinical needs, we must simplify your medication regimen as your intake decreases. As you become weaker or struggle to swallow, we should transition from oral medications to essential symptom relief only. For example, if you can no longer swallow tablets, we will discontinue non-essential drugs like Amlodipine or routine insulin, focusing instead on comfort medications (such as subcutaneous morphine for pain or breathlessness) as guided by your palliative care team.\nTo move forward, I recommend a facilitated family meeting where a neutral third party—such as your palliative care physician or a trained counselor—can act as a bridge. You can ask your doctor to speak with your wife and son alone first, using an empathetic approach: \"I wish I had better news, but it is my duty to help [Patient] prepare so he can be comfortable and at peace.\" This shifts the burden of \"breaking the news\" away from you and onto the medical team, allowing the conversation to focus on your goals, such as completing your legal papers and speaking with your son. Your role is to remain honest about your wishes, while the medical team provides the \"realistic hope\" that even if a cure is no longer possible, we can ensure your final days are spent at home, free from the distress of unwanted ICU interventions.\nPlease monitor for \"red flags\" that indicate the final phase of illness, such as becoming bedbound, semi-comatose, or unable to swallow even sips of water.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:18:04.429453Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3781,
+  "error": null,
+  "provider": "gemini"
+}

@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-002",
+  "language": "en-IN",
+  "asker_query": "Madam, aunty's breathing has become much worse since yesterday, legs are very swollen, stomach is also bigger, urine is less, heart is beating fast and irregular. Family does not want hospital. What is happening, what can we do at home, what medicines to adjust?",
+  "answer": "It is distressing to see your loved one struggling with increased breathlessness, swelling, and an irregular heartbeat. In the context of end-stage COPD and cor pulmonale, these symptoms suggest that the heart is struggling to pump effectively, leading to fluid retention (edema and ascites) and potentially an arrhythmia like atrial fibrillation. Since the family prefers home-based care, the focus shifts to symptom relief and comfort. First, ensure the patient is in an upright or semi-reclined position and use a fan to blow cool air across the face, which can significantly reduce the sensation of breathlessness. Regarding medications, continue the essential symptom-relief drugs. If the patient is wheezing or has tight airways, ensure the Salbutamol nebulization is used as needed. Corticosteroids (e.g., Dexamethasone 8–32 mg daily) may be considered to reduce airway edema, but this requires a physician's assessment to confirm the dose and route. Because the patient is hypotensive and has decreased urine output, you must be cautious with diuretics like Furosemide; please consult your palliative care team before increasing these, as they may worsen the low blood pressure.\nTo manage this at home, establish a clear plan with your local palliative care team or ASHA worker. Non-pharmacological measures are critical: use pursed-lip breathing and paced activities to conserve energy. Educate the family on \"anticipatory prescribing\"—having clear instructions for when to use the Morphine IR for breakthrough breathlessness or panic. Because the patient has suspected new atrial fibrillation and hypotension, this is a high-risk situation. If the patient develops severe confusion, extreme lethargy, or if the breathing becomes so labored that she cannot speak in sentences, these are red flags. In these instances, the family must decide if they wish to escalate to a hospital for stabilization or if they prefer to focus entirely on comfort (palliative) care at home.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:18:22.695642Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3508,
+  "error": null,
+  "provider": "gemini"
+}

@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-MODERATE-002",
+  "language": "en-IN",
+  "asker_query": "Mr. Khanna has GOLD IV COPD, chronic PaCO2 56, on home O2 + morphine, 3 admissions in 6 months. Patient and family considering nocturnal home NIV. Looking for: indication strength, recommended settings (IPAP/EPAP), monitoring at home, contraindications, how to weave it into a palliative goals-of-care framework given his explicit wish not to die on a ventilator in ICU. Also: handoff plan if it doesn't work, and family-physician training pointers.",
+  "answer": "For a patient like Mr. Khanna with GOLD IV COPD and chronic hypercapnic respiratory failure, non-invasive ventilation (NIV) can be a valuable tool to reduce the work of breathing and manage frequent exacerbations. While the *Indian Primer of Palliative Care* emphasizes optimizing bronchodilators and using morphine to reduce the respiratory drive and sensation of dyspnea, NIV is often indicated when hypercapnia persists despite optimal medical therapy. In a palliative framework, NIV should be framed as a comfort-focused intervention rather than a bridge to invasive mechanical ventilation. If initiated, settings are typically titrated by a respiratory therapist or physician (starting with low IPAP/EPAP levels like 10/4 cmH2O and titrating based on comfort and blood gas improvement). Crucially, ensure the family understands that NIV is a trial; if it fails to provide relief or causes distress, it should be withdrawn in favor of comfort-focused pharmacological management, such as increasing morphine or adding anxiolytics like lorazepam (1mg sublingually) to manage the panic associated with breathlessness.\nIn the home setting, the caregiver’s role is to monitor for mask fit, skin breakdown, and patient tolerance. Because Mr. Khanna has explicitly stated he does not want to die on a ventilator in an ICU, the NIV must be clearly documented in his advance care plan as a \"ceiling of care.\" If the patient remains severely breathless despite NIV, or if he develops altered consciousness or hemodynamic instability, this is a red-flag trigger to transition immediately to palliative sedation or symptom-focused care at home. Caregivers should be trained in \"non-pharmacological\" comfort measures—such as using a fan to blow air across the face, pursed-lip breathing, and relaxation techniques—which are essential complements to any technological intervention.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:19:10.646500Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3174,
+  "error": null,
+  "provider": "gemini"
+}
