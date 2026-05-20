@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-MODERATE-001",
+  "language": "en-IN",
+  "asker_query": "Madam, Rukmini-aaji has become very breathless over 2 weeks, can't lie flat, saturation 88, rate 26, no fever. I checked her chest — right side dull at the back, no breath sounds. Last CT had small effusion. Should we tap it? Will it come back? Should we admit her?",
+  "answer": "It is distressing to see Rukmini-aaji struggling with breathlessness. Given her clinical presentation of a large right-sided pleural effusion, the priority is to determine if this is a \"correctable\" cause of her distress. Therapeutic thoracocentesis (tapping the fluid) is a standard intervention to provide immediate relief for symptomatic malignant effusions. While the fluid may re-accumulate, draining it can significantly improve her quality of life in the short term. Regarding her medications, since she is already on morphine for pain, you should increase her regular oral morphine dose by 30–50% to help manage the respiratory drive associated with her breathlessness. If she were not already on morphine, a starting dose of 5–6 mg every 4–6 hours would be appropriate. Please note that nebulized morphine is ineffective and should be avoided.\nFor your action plan, you do not necessarily need to admit her to a hospital if home-based care is preferred and stable. You should coordinate with a local palliative care team or a physician to perform the thoracocentesis at home or in an outpatient clinic. The primary goal is to relieve the physical pressure caused by the fluid. Simultaneously, ensure non-pharmacological support: explain the cause of her breathlessness to her and her family to reduce anxiety, and ensure she is positioned upright or semi-upright, as lying flat will worsen her symptoms. If she experiences sudden, severe distress or signs of airway obstruction, this is a medical emergency requiring immediate escalation to a facility capable of administering parenteral benzodiazepines (like IV or IM midazolam) for urgent sedation.\nMonitor her closely for signs of infection, worsening anemia, or cardiac failure, as these are common contributors to breathlessness in advanced cancer that may require specific treatments like antibiotics, blood transfusions, or diuretics.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:33:26.521635Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3191,
+  "error": null,
+  "provider": "gemini"
+}

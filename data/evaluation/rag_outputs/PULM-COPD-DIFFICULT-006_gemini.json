@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-006",
+  "language": "en-IN",
+  "asker_query": "Sir, Anil-ji is in our hospice 3 days now, bedbound. Sacrum has Stage 1 pressure mark — red, not broken. He is thin, has incontinence, diabetic. Nurse is on leave. How do I prevent the bed sore getting worse? Daily care plan please.",
+  "answer": "👤 Connecting you to a human caregiver as requested.\n\nRequest ID: 749ebe3db7ca\nSomeone will be with you shortly.",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:29:00.783204Z",
+  "rag_method": "vector",
+  "elapsed_ms": 5,
+  "error": null,
+  "provider": "gemini"
+}

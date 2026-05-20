@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-007",
+  "language": "en-IN",
+  "asker_query": "Doctor, amma has a deep bed sore on her back — about 6 cm across, 2 cm deep, yellow slough in middle and pink edges, heavy fluid soaks the dressing. No smell, no fever. She is bedbound on morphine 5 mg every 4 hours. How should we dress it? Antibiotic? Will it heal or are we just keeping her comfortable?",
+  "answer": "Managing a Stage 3 pressure ulcer in a patient with end-stage COPD and severe cachexia requires a focus on comfort and symptom control rather than aggressive healing, given her limited physiological reserve. For the wound, focus on moisture management and pain relief. Since she is already on systemic morphine, you may consider topical morphine (0.1% gel, typically 5–10 mL applied twice or thrice daily) if the ulcer is painful during dressing changes, as peripheral opioid receptors in inflamed tissue can provide localized relief. For the heavy exudate, use an absorbent dressing to protect the surrounding skin. Regarding antibiotics, they are generally not indicated for localized pressure ulcers unless there are clear signs of spreading infection (fever, spreading redness, or foul odor). Since your patient currently has no smell or fever, systemic antibiotics are likely unnecessary and may cause unwanted side effects.\nYour primary goal is to maintain skin integrity and prevent further deterioration while ensuring Amma remains comfortable. As a caregiver, your action plan involves: 1) Gentle cleansing of the wound with normal saline at every dressing change to remove slough; 2) Applying an absorbent dressing to manage the exudate, changing it as soon as it becomes saturated to prevent skin maceration; and 3) Ensuring she is repositioned frequently (if her COPD and comfort allow) to relieve pressure. Because she is on aspirin and has a history of MI and diabetes, avoid adding NSAIDs for pain, as these are contraindicated in patients with atherosclerotic disease and pose high risks for GI bleeding and renal impairment. Continue her current pain regimen, but monitor for signs of opioid-induced constipation, which may be exacerbated by her immobility.\nPlease be aware that in the context of a PPS of 20 and severe cachexia, the wound may not heal completely; our priority is to prevent pain and infection.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:29:11.345000Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4559,
+  "error": null,
+  "provider": "gemini"
+}

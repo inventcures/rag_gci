@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-010",
+  "language": "en-IN",
+  "asker_query": "Helpline — Dr Menon, govt hospital Kochi, 11 pm — Mrs Amma PPS 20 end-stage COPD with dementia, D2 admission for AECOPD on Pip-Tazo, now septic shock: BP 84/52, lactate 4.2, RR 32, sat 86 on 4 L, fever 39.6, output 50/4h. Chart says no ICU, comfort focus, admit only if treatable. Daughter on her way from Bengaluru. Do I push fluids and vasopressors? Switch antibiotics? Or stop and go to comfort care?",
+  "answer": "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!\n\n\nActions:\n1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:29:39.439075Z",
+  "rag_method": "vector",
+  "elapsed_ms": 6,
+  "error": null,
+  "provider": "gemini"
+}

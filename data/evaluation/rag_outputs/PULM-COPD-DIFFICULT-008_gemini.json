@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-008",
+  "language": "en-IN",
+  "asker_query": "Helpline — duty MO Thrissur — Mr Pillai end-stage COPD D4 admission. Was alert at 9 pm. Now 2:30 am unrousable, RR 8, sat 96 on 2 L (high for him), pupils 2 mm, glucose 162. Last morphine 8 pm, lorazepam 9 pm. Is this opioid/benzo toxicity vs hypercapnic narcosis vs terminal phase? Should I give naloxone/flumazenil? Plan?",
+  "answer": "This clinical presentation of unrousability, bradypnea (RR 8), and a \"paradoxically high\" SpO2 in a patient with chronic type 2 respiratory failure (baseline PaCO2 ~55 mmHg) is highly suggestive of hypercapnic narcosis, likely precipitated by the recent initiation of morphine and lorazepam. In patients with GOLD IV COPD, oxygen therapy must be titrated carefully; high concentrations can suppress the hypoxic respiratory drive, leading to CO2 retention and subsequent narcosis. While opioids and benzodiazepines can contribute to sedation, the high SpO2 (96%) despite bradypnea strongly indicates that the patient is retaining CO2. Naloxone and flumazenil should generally be avoided in this context, as they may precipitate acute withdrawal, severe agitation, or rebound hypertension, and do not address the underlying hypercapnic failure.\nImmediate action is required to stabilize the patient. First, reduce the oxygen flow to 1 L/min or use a Venturi mask to target an SpO2 of 88–92%, which is safer for patients with hypercapnic ventilatory failure. Stop all further doses of morphine and lorazepam. The duty MO should perform an urgent arterial blood gas (ABG) analysis to confirm the severity of hypercapnia and acidosis. If the patient is in the terminal phase, prioritize comfort and symptom management; if the patient is potentially reversible, consider non-invasive ventilation (NIV) if available and consistent with the patient’s goals of care. Ensure the nursing staff monitors the patient’s respiratory rate and level of consciousness every 30 minutes.\nIf the patient remains unrousable or if the respiratory rate continues to drop below 8 breaths per minute, this is a red-flag escalation trigger requiring immediate senior medical review to discuss the transition to end-of-life care or intensive support. Caregivers should be educated that in end-stage COPD, oxygen is a drug that must be used at the lowest effective dose to prevent CO2 buildup.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:29:23.928970Z",
+  "rag_method": "vector",
+  "elapsed_ms": 6581,
+  "error": null,
+  "provider": "gemini"
+}

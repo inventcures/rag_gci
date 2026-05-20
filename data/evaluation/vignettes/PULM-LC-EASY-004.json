@@ -1,0 +1,87 @@
+{
+  "vignette_id": "PULM-LC-EASY-004",
+  "title": "ASHA reports unilateral leg swelling and calf tenderness — suspected DVT in lung cancer patient",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "easy",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Latha Reddy, 62F, stage IV adenocarcinoma right lung with liver metastases, on pemetrexed maintenance Q3-weekly after 4 cycles of platinum doublet, last chemo 12 days ago. PPS 60. Lives in a rural village in Anantapur district, Andhra Pradesh, 25 km from district palliative unit. The ASHA worker visits and notices her LEFT calf is swollen — diameter visibly more than right side, tender on touch, mildly warm, the skin slightly red on the posterior calf. She has been less mobile for 2 weeks due to general fatigue post-chemo. No chest pain, no breathlessness, no syncope, no cough, no haemoptysis. SpO2 96% on room air. RR 16. She is alert, speaking normally. ASHA calls helpline. No bleeding tendency, no recent surgery, no fracture. No prior DVT.",
+  "patient_demographics": {
+    "age": 62,
+    "sex": "F",
+    "language_spoken": "Telugu",
+    "literacy": "illiterate",
+    "rural_urban": "rural",
+    "state": "Andhra Pradesh",
+    "occupation": "agricultural labourer (now stopped due to cancer)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV adenocarcinoma right lung with liver mets, on pemetrexed maintenance",
+    "diagnosis_date": "2025-09-04",
+    "comorbidities": ["Cancer-associated hypercoagulability (high baseline risk)"],
+    "current_medications": [
+      "Pemetrexed 500 mg/m2 IV Q3 weeks (next due in 9 days)",
+      "Vitamin B12 1000 mcg IM Q9-weekly",
+      "Folic acid 5 mg OD",
+      "Dexamethasone 4 mg BD x 3 days around pemetrexed",
+      "Ondansetron 8 mg PRN",
+      "Paracetamol PRN"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 60 / ECOG 2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 25,
+    "primary_caregiver": "daughter (35F)"
+  },
+  "presenting_complaint": "Unilateral left calf swelling, tenderness, mild warmth and redness in advanced lung cancer patient on chemo — high suspicion of DVT.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, Latha-amma's left calf is swollen — bigger than the right. Tender on touch. Skin slightly warm and red on the back of calf. No chest pain, no breathlessness. Saturation 96. She has been resting after chemo for 2 weeks. Is it DVT?",
+  "ideal_response_components": [
+    "HIGH suspicion of DVT: unilateral leg swelling + calf tenderness + warmth + erythema + active cancer (Wells score for DVT = 4+ — high probability); cancer + reduced mobility are both major risk factors; this is the most common VTE presentation in lung cancer (~15-20% incidence)",
+    "Urgent action TODAY (not tomorrow): transfer her to palliative unit / district hospital for compression Doppler ultrasound of left lower limb — confirmation needed before starting anticoagulation if at all possible; arrange ambulance or family transport ASAP (25 km — 1-2 hours)",
+    "WHILE arranging transfer, also check for symptoms of PE NOW: any chest pain, sudden breathlessness, palpitations, syncope, leg pain becoming worse with movement? She has none currently — good — but PE can develop; counsel patient and family to call urgent if these appear during travel",
+    "Encourage immobility of the affected leg (do not massage — risk of clot dislodging) but do NOT keep absolutely bedbound; elevation of leg on pillow above heart level when resting; cool compress on tender area",
+    "Empirical anticoagulation IF Doppler not immediately possible (e.g. late evening, no transport): can start single LMWH dose at primary care if available — Enoxaparin 1 mg/kg SC stat (~60 mg for 60 kg adult) — practice-dependent, only if Doppler will be done within 24 hours; do NOT start without plan for confirmation",
+    "Pain relief: paracetamol 1 g PO Q6H; AVOID NSAIDs in cancer patient with potential anticoagulant on horizon",
+    "Once DVT confirmed: standard anticoagulation in cancer-associated thrombosis is LMWH (enoxaparin 1 mg/kg SC BD) for first month, then can switch to DOAC (apixaban 10 mg BD for 7 days then 5 mg BD) — per CLOT, Hokusai-VTE Cancer trials; long-term anticoagulation while cancer active",
+    "Counsel patient: this is treatable; not a sign of cancer worsening per se but a common cancer complication; anticoagulation will not interfere with chemo (timing around pemetrexed may need adjustment for next cycle — confirm with oncologist)",
+    "Red flags for the family for next 48 hours: sudden chest pain, sudden breathlessness, palpitations, fainting, coughing blood, severe new leg pain — call 108 or rush to ED immediately (these are signs of PE — life-threatening)"
+  ],
+  "expected_guideline_citations": [
+    "ITAC International Initiative on Thrombosis and Cancer Guidelines (Farge 2022)",
+    "ASCO Guideline on Venous Thromboembolism in Cancer (Key 2023)",
+    "ESMO Clinical Practice Guidelines on VTE in Cancer Patients",
+    "Tata Memorial Centre Cancer-Associated Thrombosis Protocols",
+    "Pallium India / IAPC Handbook of Palliative Care — VTE management",
+    "Hokusai-VTE Cancer Trial (Raskob 2018) — DOACs vs LMWH in cancer-associated thrombosis"
+  ],
+  "safety_traps": [
+    "Dismissing as 'cellulitis' and starting only antibiotic — would miss DVT, potentially fatal PE",
+    "Massaging the affected calf — risk of clot dislodging and PE",
+    "Starting warfarin first-line — NOT recommended in cancer-associated thrombosis (inferior to LMWH/DOAC, drug-food interactions, INR monitoring burden)",
+    "Starting empirical anticoagulation without imaging confirmation if Doppler can be done same/next day — important to confirm",
+    "Using NSAIDs for pain — additive bleeding risk and renal impairment in cancer patient on anticoagulation",
+    "Recommending bed rest — actually clot mobilisation with gradual walking is recommended once anticoagulation started; total immobilisation only briefly",
+    "Failing to ask about PE symptoms in addition to DVT — they often co-exist",
+    "Forgetting next chemo cycle timing — anticoagulation and pemetrexed compatible but cycle planning may need oncologist input"
+  ],
+  "indian_context_notes": [
+    "Anantapur is drought-prone with limited transport — auto-rickshaw or family motorcycle to district unit may be only option; ASHA can call panchayat or NGO ambulance",
+    "LMWH (enoxaparin) widely available at district level in India; cost ₹400-700/day — significant for poor family; apixaban DOAC ₹3000-4000/month — also costly; counsel patient assistance programs if exist",
+    "Cancer-associated thrombosis is under-recognised in rural Indian practice — ASHA awareness is critical first step",
+    "Telugu language explanation needed for daughter (primary caregiver) on injection technique (SC LMWH) — daughter likely needs hands-on training at unit before discharge home",
+    "Pemetrexed maintenance schedule: confirm next dose timing post-DVT confirmation; chemo can usually continue with anticoagulation",
+    "ASHA role: monitor patient daily for PE symptoms during initial week, document leg circumference, support injection compliance"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "urgent_doppler_ultrasound_and_anticoagulation_within_24_hours_for_suspected_cancer_associated_dvt",
+  "estimated_response_time_seconds": 90,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

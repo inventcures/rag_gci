@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-009",
+  "language": "en-IN",
+  "asker_query": "Helpline — Dr Kumar, hospice Pune — Mr Rao end-stage COPD, agitated since morning, RR 28, sat 88 on 1.5 L, temp 38.4, HR 110 AF, sputum yellow-green, constipated 4 days, on morphine 7.5 mg Q6H, haloperidol 0.5 HS, metformin. PPS 30. How do I sort causes and what to do — hospice setting, limited investigations?",
+  "answer": "For the management of acute delirium in this hospice setting, first address reversible factors: treat the suspected infection (purulent sputum, fever) and relieve the 4-day constipation, as these are common triggers for delirium in end-stage disease. Regarding pharmacotherapy, the current dose of haloperidol (0.5 mg) is likely sub-therapeutic for acute agitation. According to *Twycross*, you may initiate haloperidol at 1.5–3 mg PO stat or 2.5–5 mg SC stat, with the option to titrate up to 2.5–10 mg/24h via continuous subcutaneous infusion (CSCI) if needed. For rapid anxiolysis in the context of breathlessness-related panic, lorazepam 1 mg sublingually can be used as a PRN, as noted in the *Indian Primer*. Given the patient’s CKD 3a and current opioid regimen, monitor for opioid-induced neurotoxicity; if delirium persists despite dose adjustments, consider an opioid rotation.\nIn a hospice or home setting, the care team should prioritize a \"by the clock\" approach for symptom control while maintaining a daily diary to review PRN usage. The caregiver should be instructed to monitor for \"red flags\" such as intractable agitation, worsening respiratory distress, or loss of consciousness, which necessitate immediate escalation to the palliative physician. Because the patient is on aspirin and has multiple comorbidities, avoid adding NSAIDs for fever, as they pose significant risks for GI and renal toxicity in elderly patients with CKD and history of cardiac events (*Indian Primer*). Ensure the patient is hydrated, but avoid aggressive fluid resuscitation that could worsen cor pulmonale. Oxygen therapy should be used judiciously; it is a carefully considered decision rather than a routine intervention, and continuous use should be re-evaluated if it does not improve the patient's comfort or quality of life.\nCaregivers must be educated that delirium is a common, distressing symptom in late-stage disease, and the goal is to balance sedation with comfort.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:29:33.430639Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3499,
+  "error": null,
+  "provider": "gemini"
+}

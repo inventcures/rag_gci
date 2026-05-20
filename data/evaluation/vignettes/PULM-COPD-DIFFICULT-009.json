@@ -1,0 +1,93 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-009",
+  "title": "Acute confusion and agitation in hospice COPD patient — hypercapnia vs sepsis vs delirium",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Dr Ravi Kumar, the visiting palliative physician at a 20-bed NGO hospice in Pune, Maharashtra, calls the helpline urgently at 11 am about Mr. Gopal Rao, 74M, end-stage GOLD IV COPD, admitted 6 days ago for terminal symptom control. PPS 30 on admission. Comorbidities: cor pulmonale, prior MI on aspirin, CKD 3a, type 2 diabetes on metformin. Current medications: triple inhaler, oral morphine 7.5 mg Q6H + PRN, lorazepam 0.5 mg PRN, low-dose haloperidol 0.5 mg HS started 2 days ago for night agitation, furosemide 40 mg OD, paracetamol PRN, LTOT 1.5 L/min. He has been progressively more confused for 48 hours; today since morning he is acutely agitated — pulling at oxygen tubing, calling out, swatting at caregivers, sweating, RR 28, SpO2 88% on 1.5 L, HR 110 irregular (AF — known), BP 134/82, temperature 38.4°C, glucose 148, urine output 200 mL in last 8 hours. Family son is distressed. Last bowel motion 4 days ago. Sputum yellow-green increased volume past 2 days but no antibiotic yet. The physician asks: how to differentiate the causes (hypercapnia, sepsis from new chest infection, opioid neurotoxicity, urinary retention, constipation-delirium, terminal agitation), how to investigate without overwhelming a PPS 30 patient, and what to treat empirically.",
+  "patient_demographics": {
+    "age": 74,
+    "sex": "M",
+    "language_spoken": "Marathi (primary), Hindi",
+    "literacy": "secondary_school",
+    "rural_urban": "urban",
+    "state": "Maharashtra",
+    "occupation": "retired post office clerk, smoker 35 years quit 10 years ago"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "End-stage GOLD IV COPD with cor pulmonale, acute delirium with hyperactive features, likely infective exacerbation overlay",
+    "diagnosis_date": "2015-07-19",
+    "comorbidities": ["Cor pulmonale", "Atrial fibrillation on aspirin (warfarin held)", "Prior MI", "CKD 3a (eGFR 48)", "Type 2 diabetes on metformin"],
+    "current_medications": [
+      "Tiotropium 18 mcg OD",
+      "Budesonide-Formoterol 400/12 BD DPI",
+      "Salbutamol MDI PRN",
+      "Morphine IR 7.5 mg PO Q6H + 5 mg PRN",
+      "Lorazepam 0.5 mg SL PRN",
+      "Haloperidol 0.5 mg PO HS (D3)",
+      "Furosemide 40 mg OD",
+      "Aspirin 75 mg OD",
+      "Metformin 500 mg BD",
+      "Paracetamol 500 mg QDS PRN",
+      "Home O2 1.5 L/min"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 30",
+    "care_setting": "hospice",
+    "distance_to_palliative_unit_km": 0,
+    "primary_caregiver": "hospice team + son (40M)"
+  },
+  "presenting_complaint": "Acute hyperactive delirium in hospice end-stage COPD patient with fever, hypoxia, increased purulent sputum, constipation, possible drug contributions.",
+  "asker_role": "physician",
+  "asker_query": "Helpline — Dr Kumar, hospice Pune — Mr Rao end-stage COPD, agitated since morning, RR 28, sat 88 on 1.5 L, temp 38.4, HR 110 AF, sputum yellow-green, constipated 4 days, on morphine 7.5 mg Q6H, haloperidol 0.5 HS, metformin. PPS 30. How do I sort causes and what to do — hospice setting, limited investigations?",
+  "ideal_response_components": [
+    "Quick differential framework — '5 Cs' / DELIRIUM mnemonic adapted: Catastrophic intracranial (less likely without focal signs), CO2 retention (likely, hypercapnia), Constipation (4 days — likely contributor), Catheter / UTI (urine output low 200/8h — check), Chest infection (sputum + fever + hypoxia — likely), Cardiac (AF rate uncontrolled), Drug (morphine + lorazepam + haloperidol + metformin in CKD — review), Endocrine (glucose 148 — not it), Hypoxia/Hypercapnia, Pain (uncontrolled?), Retention urinary",
+    "Triage proportionate to PPS 30 in hospice: aim for bedside investigations only — RR, SpO2, temperature, HR/BP/rhythm, finger-prick glucose, bladder scan or palpation for urinary retention, PR exam for impaction, sputum sample if feasible, hospice point-of-care CRP if available; arrange ABG only if NIV being considered; AVOID CT, lengthy IV diagnostic work-up unless directly changes plan",
+    "TREAT what is treatable AT BEDSIDE: (a) chest infection — start oral amoxicillin-clavulanate 625 mg TDS for 5 days (covers likely community organisms, NLEM, cheap); (b) hypercapnia — keep O2 at 1.5 L/min targeting SpO2 88-92%, fan to face; (c) constipation — Bisacodyl PR suppository + lactulose 30 mL stat + glycerin enema if no result in 6 h; PR exam first to exclude impaction (manual evacuation if impacted); (d) AF rate 110 — usually settles with treating underlying; if persists and contributing to symptoms, low-dose bisoprolol 1.25 mg may be added (cautious in COPD); (e) urinary retention — bladder scan/palpate, intermittent catheter if >300 mL",
+    "Review and adjust contributing medications: (a) reduce morphine to 5 mg Q6H given CKD 3a + delirium possibility — or change to longer interval; (b) stop lorazepam PRN — benzos worsen hyperactive delirium and hypercapnia; (c) increase haloperidol — for hyperactive delirium 0.5-1 mg PO/SC Q2H PRN, daily max 5 mg in elderly; alternative olanzapine 2.5-5 mg HS; (d) stop metformin in CKD with acute illness (lactic acidosis risk) — switch to sliding scale insulin if needed",
+    "Manage agitation with patient and family safety in mind: cot sides (not restraints), familiar voice (son), low light at night, day-night rhythm cues, music in Marathi, no over-stimulation, frequent reassurance",
+    "Family discussion: this is most likely the PRE-TERMINAL phase with infective overlay — be honest with son: 'multiple things are going wrong at once; some are treatable, some are signs of his disease reaching end; we will treat what is treatable here without sending him to hospital — that aligns with his wishes; if he does not respond in 24-48 hours we should prepare for the possibility that this is his final illness; we will keep him comfortable above all'",
+    "If agitation/distress severe and refractory after above measures: consider palliative sedation discussion — midazolam SC infusion 10-30 mg/24h titrated, AFTER explicit family discussion and documentation; this is comfort sedation, not euthanasia",
+    "Reassess in 6-12 hours: if responding (RR down, fever down, sputum clearing, agitation settling, bowels moved) — continue plan; if deteriorating despite all measures — full transition to comfort-focused dying care",
+    "Documentation: review status, treatment plan, family discussion, advance care preferences — clear hospice notes"
+  ],
+  "expected_guideline_citations": [
+    "GOLD 2025 Report — Severe COPD exacerbations and palliative care",
+    "EAPC Recommendations on Palliative Sedation (Cherny 2009, updated)",
+    "Pallium India / IAPC Handbook of Palliative Care — Delirium in advanced disease",
+    "NICE CG103 Delirium in adults (2010, updated 2019)",
+    "BTS/ICS NIV guidelines (Davidson 2016)",
+    "WHO Palliative Care for Non-Cancer Conditions"
+  ],
+  "safety_traps": [
+    "Continuing lorazepam PRN for agitation — benzos worsen hyperactive delirium and CO2 retention",
+    "Increasing oxygen flow to 'fix' the sat 88 — risks CO2 narcosis worsening delirium",
+    "Continuing metformin in acute illness with CKD — lactic acidosis risk",
+    "Transferring PPS 30 patient to hospital ICU against advance preferences — violates care plan, no clear benefit",
+    "Empirical levofloxacin (QT, tendon, delirium worsening) when amoxicillin-clavulanate sufficient for community organisms",
+    "Forgetting PR exam — faecal impaction missed in 40% of agitated elderly is a textbook trap",
+    "Not screening for urinary retention — common, fixable",
+    "Reflex midazolam infusion before treating reversible causes — must try reversal first",
+    "Failing to set 24-48 h review point — drift without reassessment"
+  ],
+  "indian_context_notes": [
+    "Pune NGO hospice has Marathi-speaking staff and physician — communicate plan in Marathi to son and team",
+    "Amoxicillin-clavulanate on NLEM, ₹150 for 5 days oral course — appropriate for hospice resource setting",
+    "Bisacodyl suppository, glycerin enema, lactulose all standard hospice stock in Maharashtra",
+    "Family of post office clerk: modest means; avoiding hospital transfer also saves family financial burden (auto-rickshaw + ICU costs not feasible)",
+    "Marathi cultural framework for end of life: importance of bedside presence of family elder son; right time to call extended family for darshan if patient declines",
+    "Spiritual / religious: Hindu practice — sacred text reading (Dnyaneshwari, Gita), tulsi leaf in mouth in terminal phase; honour"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": true,
+  "handoff_trigger_expected": "acute_delirium_with_infective_exacerbation_overlay_in_end_stage_copd_treat_reversible_at_bedside_consider_palliative_sedation_if_refractory",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

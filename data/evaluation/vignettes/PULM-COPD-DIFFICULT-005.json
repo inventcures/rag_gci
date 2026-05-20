@@ -1,0 +1,88 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-005",
+  "title": "Cor pulmonale with severe leg ulcers from chronic oedema in immobile end-stage COPD patient",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Sumitra Bose, 79F, GOLD IV COPD with cor pulmonale, bedbound for 4 months (PPS 30). On Furosemide 40 mg OD, Spironolactone 25 mg OD, Tiotropium, Budesonide-Formoterol, LTOT 1.5 L/min. Lives in a single-room ground-floor home in rural Burdwan district, West Bengal, 38 km from palliative unit. The wife (her primary caregiver is her husband 82M, frail himself) and son-in-law manage care. For 6 weeks, both legs have severe pitting oedema and now there are weeping serous ulcers on both medial malleoli — about 4 x 3 cm each, shallow, base pink/yellow slough, no bleeding, no obvious pus. Surrounding skin is brown-pigmented, mildly tender, no spreading erythema, no fever. Patient is uncomfortable when dressings done. Albumin 2.4. No diabetes. Family caregiver (husband) calls helpline — he is overwhelmed; daughter (lives 200 km away) has just arrived to help. They ask: how to dress these ulcers, what medicines, and whether to bring her to hospital.",
+  "patient_demographics": {
+    "age": 79,
+    "sex": "F",
+    "language_spoken": "Bengali",
+    "literacy": "primary_school",
+    "rural_urban": "rural",
+    "state": "West Bengal",
+    "occupation": "homemaker (chulha exposure 55 years, never-smoker)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "GOLD IV COPD with cor pulmonale, chronic venous/lymphoedema from right heart failure, bilateral medial malleolar ulcers",
+    "diagnosis_date": "2017-08-22",
+    "comorbidities": ["Cor pulmonale", "Hypoalbuminaemia (2.4 g/dL)", "Bilateral chronic lower limb oedema", "PPS 30, bedbound 4 months"],
+    "current_medications": [
+      "Tiotropium 18mcg OD",
+      "Budesonide-Formoterol 200/6 BD DPI",
+      "Salbutamol MDI PRN",
+      "Furosemide 40mg OD",
+      "Spironolactone 25mg OD",
+      "Home O2 1.5 L/min ≥15h/day"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 30",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 38,
+    "primary_caregiver": "husband (82M, frail) and visiting daughter (50F)"
+  },
+  "presenting_complaint": "Bilateral lower limb oedema-related shallow venous ulcers in immobile cor pulmonale patient; caregivers need wound care plan and decision on hospital transfer.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Sir, my wife has had swelling legs for months and now both ankles have weeping wounds 4 cm each. They look pink, some yellow slough, no smell, no fever, painful only when we clean. Should we bring her to hospital or can we treat at home? What dressing? Any medicine?",
+  "ideal_response_components": [
+    "Confirm not currently infected: no spreading erythema, no fever, no pus, no foul smell, no rapid spread — manageable at home with structured wound care; would NEED hospital review if cellulitis develops",
+    "Wound care plan: clean with normal saline (DO NOT use Dettol/Savlon/povidone iodine on chronic ulcer — cytotoxic to granulation); pat dry; apply non-adherent dressing (paraffin gauze e.g. Jelonet or simple sterile gauze with petroleum jelly) directly on wound bed; cover with absorbent gauze pad; change every 2-3 days or sooner if soaked",
+    "Address the cause — the OEDEMA: continue and optimise diuresis, fluid restrict to 1.2 L/day, low-salt diet (counsel Bengali family — limit panta, pickle, fried snacks); elevate legs above heart level when in bed (pillows under calves, not just under feet); avoid prolonged sitting with legs down",
+    "Compression: light compression bandaging (NOT firm) on ulcerated legs is appropriate for venous/cor pulmonale oedema once active infection excluded — use crepe bandage 8 cm, figure-of-eight from toe to below knee, light pressure; teach daughter to do daily; AVOID firm compression if any ABPI concern (not feasible in rural setting — assess clinically that pedal pulses palpable bilaterally before light compression)",
+    "Nutrition for wound healing: albumin 2.4 — protein-rich foods within means (fish, eggs, dal, paneer — culturally Bengali fish is excellent and locally available); consider oral protein supplement; zinc-rich foods; vitamin C",
+    "Pain on dressing: pre-medicate with paracetamol 1 g PO 30 min before dressing change; if more pain expected, oral morphine 2.5 mg PO 30 min before dressing; counsel about non-stick technique",
+    "Pressure ulcer prevention concurrently: patient bedbound 4 months at high risk for sacral pressure injury — 2-hourly repositioning, foam mattress or homemade air-cushion (bicycle tube), check sacrum/heels daily; this care simultaneously prevents further skin breakdown",
+    "Family support: husband 82M is also frail; daughter visit is opportunity to recruit village helper or arrange relief; ASHA visits to be increased to twice weekly for wound check",
+    "RED FLAGS: spreading redness, increasing pain, fever, foul-smelling discharge, blackening of skin (necrosis), increasing oedema with breathlessness, confusion — call helpline urgently; consider antibiotic (e.g. amoxicillin-clavulanate 625 mg TDS for 7 days) at first sign of cellulitis without waiting for hospital transfer in rural setting",
+    "Decision on hospital today: NOT required if family can provide above care; 38 km transport for stable chronic wound would not change management"
+  ],
+  "expected_guideline_citations": [
+    "IAPC Handbook of Palliative Care 2nd ed. — Wound care in palliative patients",
+    "Pallium India Module — Wound care for community workers",
+    "EWMA Position Document — Wound bed preparation",
+    "NICE CG179 (Pressure ulcers: prevention and management, 2014)",
+    "GOLD 2025 Report — Cor pulmonale complications",
+    "Indian Society of Wound Management Position Statement (2022)"
+  ],
+  "safety_traps": [
+    "Using Dettol / Savlon / undiluted povidone-iodine on wound bed — cytotoxic, delays healing",
+    "Firm compression bandaging without checking peripheral pulses — risk of arterial compromise in elderly",
+    "Empirical IV antibiotics for non-infected chronic ulcer — selects resistance, no benefit",
+    "Failing to optimise underlying oedema — wound will not heal without addressing cause",
+    "Forcing 38 km hospital transfer for a stable chronic wound — unnecessary burden",
+    "Missing pressure ulcer risk on sacrum/heels — concurrent risk in bedbound patient",
+    "Failing to address dressing-change pain — distresses patient, makes family reluctant",
+    "Stopping diuretics due to 'low albumin' — wrong; the volume overload is driving the problem"
+  ],
+  "indian_context_notes": [
+    "Bengali cuisine: fish-protein abundant locally and culturally accepted — leverage for wound healing",
+    "Family caregiver burden: husband 82F is himself frail; daughter visit is rare — recruit ASHA and village volunteer",
+    "Burdwan district rural setting: paraffin gauze (Jelonet) widely available at district hospital pharmacy; cost ~₹50-100/pack",
+    "Compression bandages (crepe) widely available, ₹50-100; teach reusable technique",
+    "Distance 38 km — transfer requires arrangement of car/auto, ~₹1500-2500 round trip; major burden",
+    "Bengali family elders are often deeply attached to home — hospital admission resisted; respect and plan around"
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "asha_increased_visits_and_palliative_nurse_review_within_one_week",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

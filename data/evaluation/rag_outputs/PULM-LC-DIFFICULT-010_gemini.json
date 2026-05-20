@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-010",
+  "language": "en-IN",
+  "asker_query": "Helpline — Dr Sharma, oncology Delhi — Mr Mehrotra lung Ca, brain mets s/p WBRT+SRS, on osimertinib + bevacizumab + LMWH prophylaxis. Tonight GCS dropped 14 to 11, new right facial droop, right arm 4/5, BP up 158/94, no seizure, pupils equal, glucose 142, sat 96. Need to differentiate leptomeningeal vs intracranial bleed vs new met vs stroke vs opioid. Reverse LMWH? Plan tonight?",
+  "answer": "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!\n\n\nActions:\n1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:32:37.235507Z",
+  "rag_method": "vector",
+  "elapsed_ms": 7,
+  "error": null,
+  "provider": "gemini"
+}

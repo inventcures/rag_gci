@@ -1,0 +1,102 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-010",
+  "title": "Acute altered mental status with new focal signs in lung cancer with brain mets — leptomeningeal vs bleed vs opioid",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Dr Anjali Sharma, the duty oncology registrar in a tertiary cancer hospital ward in Delhi, calls the helpline at 1 am about Mr. Rakesh Mehrotra, 58M, stage IV adenocarcinoma lung with 5 known brain mets s/p WBRT 6 weeks ago + SRS to 2 dominant lesions 3 weeks ago, on osimertinib 80 mg OD + EGFR T790M, started bevacizumab 4 cycles ago (last 11 days ago — for leptomeningeal disease suspected on recent MRI). PPS 60 on admission 4 days ago (for symptom control of headache and confusion). On admission he had GCS 14 (eye 4, verbal 4 — mildly confused but orientating, motor 6), headache controlled with dexamethasone 8 mg BD + paracetamol + low-dose morphine 5 mg Q6H. Tonight at midnight, the nurse found him: GCS 11 (E3 V3 M5), new RIGHT facial droop, new mild RIGHT arm weakness (4/5), pupils equal 3 mm reactive, BP 158/94 (was 130/80 evening), HR 76, SpO2 96% on RA, glucose 142, temperature 37.1, no seizure activity witnessed. Last morphine 10 pm. He has been receiving prophylactic enoxaparin 40 mg SC OD for the past 2 weeks (admission decision for cancer + immobility). The registrar asks: differentiate leptomeningeal progression vs intracranial bleed (anticoagulant + bevacizumab) vs new met vs stroke vs opioid + hypercapnia; what to do tonight; should enoxaparin be reversed?",
+  "patient_demographics": {
+    "age": 58,
+    "sex": "M",
+    "language_spoken": "Hindi / English",
+    "literacy": "graduate",
+    "rural_urban": "metro",
+    "state": "Delhi",
+    "occupation": "lawyer (never smoker, urban air pollution exposure)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV adenocarcinoma lung with 5 brain mets s/p WBRT + SRS, suspected leptomeningeal disease, on osimertinib + bevacizumab",
+    "diagnosis_date": "2024-02-14",
+    "comorbidities": ["Brain metastases (multifocal)", "Suspected leptomeningeal disease", "Hypertension (controlled)", "Bevacizumab (VEGF — bleeding risk)"],
+    "current_medications": [
+      "Osimertinib 80 mg OD",
+      "Bevacizumab 15 mg/kg IV Q3 weeks (last D11)",
+      "Dexamethasone 8 mg PO BD",
+      "Morphine IR 5 mg PO Q6H + 5 mg Q2H PRN",
+      "Paracetamol 1 g QDS",
+      "Levetiracetam 1000 mg BD (seizure prophylaxis)",
+      "Enoxaparin 40 mg SC OD (prophylactic)",
+      "Telmisartan 40 mg OD",
+      "Pantoprazole 40 mg OD",
+      "Lactulose 15 mL HS"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 60 on admission",
+    "care_setting": "hospital_ward",
+    "distance_to_palliative_unit_km": 0,
+    "primary_caregiver": "wife (55F, in adjacent ward family-room)"
+  },
+  "presenting_complaint": "Acute drop in GCS (14→11) with new right facial droop and right arm weakness in lung cancer with brain mets on bevacizumab + LMWH — needs urgent imaging and treatment decision tonight.",
+  "asker_role": "physician",
+  "asker_query": "Helpline — Dr Sharma, oncology Delhi — Mr Mehrotra lung Ca, brain mets s/p WBRT+SRS, on osimertinib + bevacizumab + LMWH prophylaxis. Tonight GCS dropped 14 to 11, new right facial droop, right arm 4/5, BP up 158/94, no seizure, pupils equal, glucose 142, sat 96. Need to differentiate leptomeningeal vs intracranial bleed vs new met vs stroke vs opioid. Reverse LMWH? Plan tonight?",
+  "ideal_response_components": [
+    "Excellent triage by registrar — this is a NEUROLOGICAL EMERGENCY with broad differential: (a) INTRACRANIAL HAEMORRHAGE — high suspicion given bevacizumab (VEGF — known bleed risk especially in brain mets) + LMWH prophylactic + new focal signs; (b) ISCHAEMIC STROKE — cancer-associated hypercoagulability despite LMWH; (c) PROGRESSIVE BRAIN MET / new met / SRS-related radio-necrosis; (d) LEPTOMENINGEAL PROGRESSION; (e) SEIZURE (post-ictal with Todd's paresis) — unwitnessed possible despite levetiracetam; (f) opioid contribution unlikely given new FOCAL signs (opioid would be diffuse depression)",
+    "IMMEDIATE actions (within minutes): (a) NEURO assessment — full GCS, NIH Stroke Scale if competent, cranial nerves, motor in all 4 limbs, plantars, neck stiffness, fundi if possible; (b) STAT NON-CONTRAST CT BRAIN — fastest way to exclude haemorrhage; (c) FBC, urgent coag profile (INR, aPTT, fibrinogen — bevacizumab can cause coagulopathy), urea/creatinine, electrolytes, glucose, ABG; (d) CONTINUOUS monitoring — BP target 140-160 systolic if haemorrhage suspected (do not let high BP propagate bleed); avoid hypotension if ischaemic stroke; (e) consider MRI brain (with contrast and SWI sequence) once CT done if haemorrhage excluded — better for new mets, leptomeningeal, small infarct",
+    "WHILE imaging happening — empirical actions: (a) HOLD next enoxaparin dose pending CT result; (b) HOLD osimertinib until cause clarified; (c) call neurosurgery on standby (if haemorrhage requiring evacuation); (d) HOLD bevacizumab indefinitely if any bleed evidence; (e) consider seizure prophylaxis boost — levetiracetam already on; (f) DO NOT reflexively reverse LMWH yet — wait for CT; reversal of prophylactic LMWH dose has limited benefit; protamine partial reversal possible if therapeutic dose haemorrhage confirmed",
+    "If CT shows HAEMORRHAGE: (a) STOP enoxaparin and bevacizumab permanently or until bleed resolves; (b) consider protamine sulfate 1 mg per 1 mg enoxaparin in last 8 h (partial reversal of LMWH); (c) neurosurgery review for evacuation — likely NOT indicated in advanced metastatic disease with poor PPS expected; (d) BP control — labetalol IV or nicardipine to target SBP 140-160; (e) discuss goals of care with family — at this stage with brain bleed + lung cancer + leptomeningeal disease, prognosis is days to short weeks; aggressive ICU support unlikely to provide meaningful recovery",
+    "If CT shows ISCHAEMIC STROKE: (a) cancer-associated stroke (Trousseau syndrome / paraneoplastic) — active cancer often has multifocal embolic pattern; (b) THROMBOLYSIS within window — generally avoided in active cancer with brain mets due to bleed risk; case-by-case; (c) escalate anticoagulation to therapeutic LMWH if no haemorrhage, given documented thromboembolic event",
+    "If CT shows NEW BRAIN MET or progression: (a) increase dexamethasone — high-dose 16 mg OD or 4 mg QDS; (b) consider re-RT to symptomatic lesion (single fraction); (c) review osimertinib continuation; (d) leptomeningeal progression — generally poor prognosis, may consider intrathecal chemo or methotrexate at specialised centres but rarely changes outcome",
+    "If CT shows SRS-related RADIO-NECROSIS: high-dose dexamethasone + bevacizumab (paradoxically — for radio-necrosis bevacizumab is effective); paradox here since bevacizumab caused suspected bleed elsewhere",
+    "FAMILY CONVERSATION tonight with wife in family room: explain change in clinical status honestly — 'Mr Mehrotra has had a sudden neurological change suggesting either bleeding in the brain, a stroke, or progression of the cancer. We are doing a CT scan right now to find out which. The result will guide what we do next. Whatever it is, the situation has changed in the last hour. We will know in 30-60 minutes; I will come back to you then. Please call your daughter / family members to come to the hospital if they are nearby.'",
+    "Goals-of-care discussion AFTER CT: at PPS 60 admission dropping rapidly with confirmed brain pathology, the discussion is between (a) active treatment (steroids, RT, hold offending drugs) with ICU support if needed, AND (b) comfort-focused care if family/patient preferences favour avoiding ICU for an unrecoverable trajectory; review advance directives in chart",
+    "Document everything: clinical assessment, time of change, investigations ordered, decisions made, family discussions",
+    "Plan for ALL CT outcomes: have a decision tree ready so the family knows what each outcome means",
+    "Monitor: GCS Q15 min, BP Q15 min, pupils Q15 min, plantar response Q1H; head-up 30° position; oxygen target 94-98% (not hypercapnic phenotype); IV access; do not feed orally if GCS dropping (aspiration risk)",
+    "Bring palliative care team into the conversation tonight — they are essential for goals-of-care navigation regardless of CT outcome"
+  ],
+  "expected_guideline_citations": [
+    "ESMO Clinical Practice Guidelines on Brain Metastases (Le Rhun 2021)",
+    "EANO Guideline on Diagnosis and Treatment of Leptomeningeal Disease",
+    "AHA/ASA Guidelines on Stroke Management (2019, updated)",
+    "EAU/SNIS Guidelines on Intracranial Haemorrhage Management",
+    "ITAC International Initiative on Thrombosis and Cancer (Farge 2022)",
+    "Bevacizumab prescribing information — intracranial bleed risk",
+    "Pallium India / IAPC Handbook of Palliative Care — Neurological emergencies in advanced cancer",
+    "Tata Memorial Centre Brain Metastases Protocols"
+  ],
+  "safety_traps": [
+    "Empirical antihypertensive aggressive lowering before CT — could worsen ischaemic stroke perfusion",
+    "Empirical thrombolysis without CT — disaster if it is haemorrhage",
+    "Continuing enoxaparin without holding pending CT — propagates bleed if present",
+    "Reflex reversal of LMWH (protamine) BEFORE confirming bleed — unnecessary; prophylactic dose minimal effect",
+    "Continuing bevacizumab cycle next week — clearly to be held until cause clear",
+    "Continuing osimertinib without review — likely continue unless adverse role discovered, but pause for evaluation",
+    "Reflex intubation if GCS drops below 8 — appropriate IF active treatment is the plan; not if comfort focus",
+    "Missing seizure (Todd's paresis) — unwitnessed seizure possible; consider EEG if focal signs persist",
+    "Not involving palliative care — at metastatic lung Ca with brain involvement, palliative care is essential",
+    "Not having decision tree for CT outcomes — disorganised discussion with family",
+    "Aggressive ICU transfer reflex without family discussion — at PPS 60 dropping, may not be appropriate"
+  ],
+  "indian_context_notes": [
+    "Tertiary cancer hospitals in Delhi (AIIMS, Tata, Max, BLK, Rajiv Gandhi Cancer Centre, MAMC) — 24-hour CT/MRI/neurosurgery available; standard of care quickly accessible",
+    "Bevacizumab in lung cancer (LUME-Lung, IMpower150) used variably in Indian practice; ~₹40,000-1,20,000/cycle; bleed risk class warning recognised",
+    "Hindi/English family conversation; graduate lawyer family — capable of nuanced discussion; wife in family room is engaged",
+    "Cancer-associated stroke is under-recognised in Indian practice — multi-disciplinary approach needed",
+    "Religious framework: depends on family — Hindu, Sikh, Muslim communities all have specific dying rituals; ask wife what she wants",
+    "Goals-of-care conversation in Indian tertiary oncology is improving but not yet standardised — flag for palliative team involvement",
+    "Cost: ICU + neurosurgery if needed ₹1-3 lakh/day in private Delhi; AIIMS public free; counsel family",
+    "Patient's daughter / extended family in Delhi accessible quickly — call now"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": true,
+  "handoff_trigger_expected": "acute_focal_neurological_deterioration_in_brain_mets_patient_on_anticoagulant_and_bevacizumab_emergency_ct_and_goals_of_care_review",
+  "estimated_response_time_seconds": 90,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

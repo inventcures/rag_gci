@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-EASY-005",
+  "language": "en-IN",
+  "asker_query": "Madam, the family has a small oxygen cylinder for travel. How long will it last at 2 litres per minute? How do we carry it in the car safely? Where do we refill it? Any safety rules I should tell them?",
+  "answer": "For a patient with GOLD IV COPD, oxygen therapy is a critical support, but it must be managed with caution. A standard D-cylinder (typically holding 400–450 liters of oxygen) will last approximately 3 to 3.5 hours when used continuously at a flow rate of 2 liters per minute. Given your patient’s requirement of 15+ hours per day, a single small cylinder is insufficient for a 2-day journey; you must advise the family to carry multiple cylinders or arrange for a portable oxygen concentrator. Regarding safety, the cylinder must be secured upright in the vehicle—never allowed to roll freely—and kept away from heat sources, smoking, or open flames. Refilling is typically done at authorized medical gas suppliers or local hospital oxygen plants; ensure the family identifies these locations along their travel route before departing.\nIn the home or during travel, prioritize non-pharmacological measures to manage breathlessness, such as using a handheld fan, practicing pursed-lip breathing, and maintaining a calm, reassuring presence. Do not initiate or adjust oxygen flow rates without explicit instructions from the patient’s physician, as inappropriate concentrations can be dangerous, particularly in patients with hypercapnic ventilatory failure who rely on hypoxic drive. If the patient experiences a panic attack or severe distress, medications such as diazepam (2–5mg PRN) or lorazepam (1mg sublingually BD/PRN) may be considered, but only after direct consultation with the palliative care team. Always document the use of these medications and ensure the family understands that these are for symptom relief, not a substitute for medical assessment.\nMonitor the patient closely for signs of worsening respiratory distress, such as increased confusion, lethargy, or a change in consciousness, which may indicate hypercapnia.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:30:24.712657Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3982,
+  "error": null,
+  "provider": "gemini"
+}

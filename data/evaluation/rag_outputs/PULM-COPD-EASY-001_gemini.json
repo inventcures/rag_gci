@@ -1,47 +1,16 @@
 {
   "vignette_id": "PULM-COPD-EASY-001",
   "language": "en-IN",
-  "asker_query": "I have COPD for about a year now. I am on tiotropium and use salbutamol when needed. I want to know if my treatment is right, what exercises I should do, and what else I can do to keep my breathing good. Should I take any vaccines?",
-  "answer": "For a patient with GOLD Stage III COPD, your current management with Tiotropium (a long-acting muscarinic antagonist) and Salbutamol (a short-acting beta-agonist) is a standard foundation. However, as your condition is classified as GOLD Group B, the primary goal is symptom control and prevention of exacerbations. In the Indian context, it is essential to ensure your inhaler technique is perfect; even the best medication fails if the drug does not reach the lungs. Regarding vaccinations, you should consult your physician about the annual Influenza vaccine and the Pneumococcal vaccine, as these are critical for preventing respiratory infections that can trigger severe breathlessness. While investigations like X-rays may appear normal even when you feel breathless, it is vital to address \"controllable causes\" such as respiratory infections or anemia, which can worsen your symptoms despite your current medication.\nTo keep your breathing stable, you should incorporate pulmonary rehabilitation or simple, supervised breathing exercises, such as pursed-lip breathing, which helps keep airways open longer. As a caregiver or patient, your action plan should focus on monitoring: keep a daily log of your Salbutamol usage. If you find yourself needing your \"rescue\" inhaler (Salbutamol) more than twice a week, or if you experience a sudden increase in sputum production or change in color, this is a time-critical signal to contact your doctor, as it may indicate an impending exacerbation. Ensure you are not exposed to indoor air pollution, such as smoke from biomass fuels (chulhas), which is a common trigger in rural and semi-urban Indian settings.\nBe aware that while your current medications are generally well-tolerated, you should monitor for side effects like dry mouth or palpitations.",
-  "sources": [
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    }
-  ],
+  "asker_query": "Doctor sir, this is Ramesh from Solapur. I am taking my regular inhalers but when I walk to the toilet I feel my chest is heavy and I have to stop. Is this dangerous? Should I come to hospital?",
+  "answer": "🚨 Emergency detected. Connecting you to a human caregiver immediately.\n\nRequest ID: 0dca2a33b7ba\nA nurse will contact you within 5 minutes.",
+  "sources": [],
   "evidence_level": "C",
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:18:42.284885Z",
+  "generated_at": "2026-05-20T04:29:45.447496Z",
   "rag_method": "vector",
-  "elapsed_ms": 3145,
+  "elapsed_ms": 5,
   "error": null,
   "provider": "gemini"
 }

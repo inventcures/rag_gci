@@ -1,11 +1,11 @@
 {
   "vignette_id": "PULM-COPD-DIFFICULT-003",
   "language": "en-IN",
-  "asker_query": "Didi, father has had fever for 2 days, cough, yellow-green sputum, increasing breathlessness, no oxygen at home, SpO2 87%. The hospital is 60 km away, road is bad. What should we do, should we take him to hospital?",
-  "answer": "Managing breathlessness and infection in a remote setting requires a focus on both symptom relief and addressing reversible causes. For your father’s current symptoms of fever, purulent sputum, and low oxygen saturation (87%), he likely requires antibiotics to treat the suspected bacterial bronchitis, which is a controllable contributor to his distress. If you cannot reach the hospital immediately, prioritize positioning him upright to ease his breathing and ensure he uses his Salbutamol MDI as needed. If available, a trial of nebulization with Salbutamol and Ipratropium can be more effective than an MDI during severe exacerbations. Morphine (e.g., 5 mg every 6 hours) is a gold-standard pharmacological intervention in palliative care for refractory breathlessness, as it acts as both an antitussive and a respiratory sedative to reduce the sensation of air hunger. Please note that oxygen therapy should only be continued if it demonstrably improves his comfort; if he remains distressed despite oxygen, it may not be providing the relief you hope for.\nGiven the 60 km distance and poor road conditions, you must weigh the burden of travel against the potential for medical intervention. If his breathlessness is bordering on panic or if he is experiencing delirium, the physical toll of a long, bumpy journey may outweigh the benefits of hospital care, especially if the goal is comfort at home. If you choose to stay home, ensure you have an \"anticipatory prescription\" from a local physician for antibiotics, steroids (such as Dexamethasone 8mg), and anxiolytics to manage the anxiety associated with his breathlessness. The family should focus on \"essential care\"—discontinuing non-essential medications and prioritizing comfort.",
+  "asker_query": "Doctor sir, papa eats 2-3 spoons khichdi at most. Lost 7 kg in 4 months. He is on insulin and warfarin. Daughter-in-law cries he is starving in front of us. Should we give megestrol? Cannabis tablet? NG tube? PEG tube? Please tell me what we can do.",
+  "answer": "It is deeply distressing to watch a loved one struggle with severe cachexia, and it is common for families to feel that \"feeding is love.\" However, in end-stage COPD, the body’s metabolic processes are failing, and the inability to eat is often a symptom of the disease progression rather than a reversible condition. Regarding your questions: NG or PEG tubes are generally not recommended in this phase, as they do not improve survival or quality of life in end-stage cachexia and can cause significant discomfort, agitation, and risk of aspiration. Appetite stimulants like megestrol (160–800mg once daily) may be considered in a minority of patients, but they are only effective for a few weeks and must be stopped if no benefit is seen within 1–2 weeks. Cannabis is not a standard evidence-based treatment for cachexia in this setting. Given his complex medication list—specifically warfarin and insulin—any new drug must be carefully managed to avoid dangerous interactions or hypoglycemia.\nIn your home setting, the priority is to shift the focus from \"forcing nutrition\" to \"comfort and connection.\" You can support your father by offering small, frequent, nutrient-dense snacks rather than large meals, and by creating a social environment for eating, such as sitting at a table together. Acknowledge the \"feeding is love\" syndrome; it is helpful to discuss with the family that his lack of appetite is a natural part of his illness, not a failure of your care. Review his current medications with his palliative physician to discontinue non-essential drugs that may be contributing to his burden, while keeping essential symptom-relief medications. If he experiences early satiety (feeling full after a few bites), ensure he is not suffering from gastric stasis, which can sometimes be managed with a prokinetic drug.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -29,7 +29,7 @@
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:18:33.137405Z",
+  "generated_at": "2026-05-20T04:28:37.878403Z",
   "rag_method": "vector",
-  "elapsed_ms": 4440,
+  "elapsed_ms": 3319,
   "error": null,
   "provider": "gemini"
 }

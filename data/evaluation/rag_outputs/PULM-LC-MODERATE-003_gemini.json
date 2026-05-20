@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-LC-MODERATE-003",
+  "language": "en-IN",
+  "asker_query": "Madam, Ajith-sir's breathing rate has risen to 28 in last 36 hours, dry cough new, sat 91 on air (usually 96), temp 37.4, HR 102. On durvalumab D11 of 3rd dose. No haemoptysis, no leg swelling, no chest pain. Differential is wide — pneumonia, pneumonitis, PE, progression. What do we do tonight?",
+  "answer": "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!\n\n\nActions:\n1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:33:41.953198Z",
+  "rag_method": "vector",
+  "elapsed_ms": 6,
+  "error": null,
+  "provider": "gemini"
+}

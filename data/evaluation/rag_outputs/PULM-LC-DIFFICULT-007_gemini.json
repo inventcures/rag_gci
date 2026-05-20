@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-007",
+  "language": "en-IN",
+  "asker_query": "Doctor, my wife has had 5 episodes of haemoptysis in 5 days, 50-80 mL each. Hb dropped 1.8 in 5 days. Tranexamic started 2 days back. We are terrified of a massive bleed at home. Can we get radiation to stop this? Should we go to hospice? What can we do at home tonight to prevent disaster?",
+  "answer": "Managing recurrent haemoptysis in advanced lung cancer requires balancing the risk of a catastrophic bleed with the patient’s comfort. While palliative radiotherapy can sometimes be used to control bleeding, it is a clinical decision based on the patient's overall prognosis and performance status. For immediate management at home, ensure the patient is positioned comfortably, as lying flat can make coughing and breathing difficult; assisting the patient to sit upright or in a semi-recumbent position is often more effective for managing secretions and airway clearance. If the bleeding is associated with anxiety or panic, low-dose benzodiazepines such as diazepam (2–5 mg p.r.n.) or lorazepam (1 mg sublingually b.d. and p.r.n.) may be indicated to reduce the distress that often exacerbates breathlessness and coughing.\nIn the event of a massive haemorrhage—a rare but serious palliative emergency—the priority is to keep the patient calm and provide immediate sedation to reduce distress. If you are at home, ensure you have a \"rescue kit\" prepared in consultation with your palliative care team. This should include injectable benzodiazepines (e.g., midazolam 5–20 mg IV or 20 mg IM/PR) to be administered if a massive bleed occurs, ensuring the patient is unconscious and comfortable. It is critical to have continuous company present. If the patient is already under the care of a hospice or home-based palliative team, contact them immediately to establish a clear \"do not rush to hospital\" plan, as emergency transport during a massive bleed is often distressing and rarely provides a better outcome than comfort-focused care at home.\nCaregivers should monitor for red flags, including sudden, large-volume bright red blood, severe breathlessness, or a rapid decline in consciousness. If these occur, focus on keeping the patient calm and administering the prescribed rescue medication. Do not attempt to force oral fluids or medications during an active, large-volume bleed.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:32:15.354767Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3884,
+  "error": null,
+  "provider": "gemini"
+}

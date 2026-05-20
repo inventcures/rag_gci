@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-006",
+  "language": "en-IN",
+  "asker_query": "Sir, URGENT — Karunakaran-uncle just coughed up about 400 mL bright red blood in 90 seconds, gasping, eyes wide, no BP, weak pulse, agonal breathing. Son at bedside, daughter being called. Comfort-care directive in place. What do I do RIGHT NOW?",
+  "answer": "🚨 Emergency detected. Connecting you to a human caregiver immediately.\n\nRequest ID: e355d4cd518d\nA nurse will contact you within 5 minutes.",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:32:05.467219Z",
+  "rag_method": "vector",
+  "elapsed_ms": 1,
+  "error": null,
+  "provider": "gemini"
+}

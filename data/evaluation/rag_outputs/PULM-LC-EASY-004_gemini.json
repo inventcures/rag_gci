@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-LC-EASY-004",
+  "language": "en-IN",
+  "asker_query": "Madam, Latha-amma's left calf is swollen — bigger than the right. Tender on touch. Skin slightly warm and red on the back of calf. No chest pain, no breathlessness. Saturation 96. She has been resting after chemo for 2 weeks. Is it DVT?",
+  "answer": "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!\n\n\nActions:\n1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:33:11.323531Z",
+  "rag_method": "vector",
+  "elapsed_ms": 8,
+  "error": null,
+  "provider": "gemini"
+}

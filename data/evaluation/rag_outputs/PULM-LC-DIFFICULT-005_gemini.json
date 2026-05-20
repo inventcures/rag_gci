@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-005",
+  "language": "en-IN",
+  "asker_query": "Madam, Nikhil-da has a new DVT — right popliteal, confirmed on Doppler at oncology centre today. He has been on apixaban 5 BD for 14 days after enoxaparin earlier. Different leg from before. Stable — no chest symptoms, no breathlessness. Brain mets treated with SRS. eGFR 75, Hb 11.5, plt 230. What is the next step for anticoagulation failure in cancer?",
+  "answer": "For a patient with cancer-associated thrombosis who experiences recurrent VTE despite therapeutic anticoagulation (apixaban), the clinical priority is to transition to a more reliable anticoagulant regimen. While current guidelines often favor low-molecular-weight heparin (LMWH) for cancer-associated thrombosis, the recurrence on apixaban suggests a need for escalation. In the palliative setting, if the patient is stable and asymptomatic, the standard of care involves switching back to LMWH (e.g., enoxaparin) at therapeutic doses, as it is generally considered more reliable than direct oral anticoagulants (DOACs) in the setting of treatment failure. Given the brain metastases, ensure that the patient remains on his seizure prophylaxis (levetiracetam) as prescribed, as intracranial stability is paramount.\nIn your home or hospice setting, the primary caregiver should coordinate with the oncology team to facilitate this transition immediately. The physician must calculate the appropriate weight-based dose of LMWH, as this is time-critical to prevent further propagation of the clot or a potential pulmonary embolism. Monitor the patient closely for any signs of bleeding—such as easy bruising, dark stools, or hematuria—especially since he is on dual therapy for his underlying malignancy and hypertension. If the patient develops sudden shortness of breath, chest pain, or focal neurological deficits, this is a red-flag emergency requiring immediate hospital transfer for evaluation of pulmonary embolism or intracranial hemorrhage.\nRegarding symptom management for his underlying condition, if he experiences neuropathic pain or secondary complications from his disease, medications such as Gabapentin (starting at 100 mg TDS) or corticosteroids (e.g., Dexamethasone 8–32 mg/day for intracranial pressure) may be utilized as part of his palliative care plan.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:31:59.463424Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3374,
+  "error": null,
+  "provider": "gemini"
+}

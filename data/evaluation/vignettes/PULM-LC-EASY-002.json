@@ -1,0 +1,86 @@
+{
+  "vignette_id": "PULM-LC-EASY-002",
+  "title": "ASHA asks how to help intermittent dry cough in stable advanced lung cancer patient",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "easy",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Geeta Bhargava, 68F, stage IV squamous cell carcinoma right lung, no driver mutation, completed 4 cycles carboplatin-paclitaxel 5 months ago, now on best supportive care + palliative radiotherapy completed to right hilum 2 months ago. PPS 60, ambulant at home, lives in semi-rural village in Jhansi district, UP, 30 km from district palliative unit. She has a dry irritant cough — about every 20-30 minutes, especially when talking or in dusty air — for the last 6 weeks since radiotherapy completed. No haemoptysis, no fever, no chest pain. Mild post-radiotherapy fibrosis on last CT. The ASHA worker visits and notices the cough is bothering both patient and her elderly husband (76M, hard of hearing, lives alone with her). ASHA calls helpline. Patient is currently on paracetamol PRN for back pain (mild, from bone mets in T8), morphine IR 2.5 mg Q8H + PRN (low background for bone pain and mild dyspnea), bisacodyl HS, lactulose, dexamethasone 4 mg OD (started 3 weeks ago for radiation pneumonitis prevention, now tapering as per oncologist). No diabetes. No fever, no allergic symptoms.",
+  "patient_demographics": {
+    "age": 68,
+    "sex": "F",
+    "language_spoken": "Hindi / Bundeli",
+    "literacy": "primary_school",
+    "rural_urban": "rural",
+    "state": "Uttar Pradesh",
+    "occupation": "homemaker (chulha cooking 50 years, biomass exposure — possible aetiological co-factor)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV SCC right lung, post-chemo, post-palliative-RT, post-radiation mild fibrosis",
+    "diagnosis_date": "2024-10-03",
+    "comorbidities": ["Mild post-RT pulmonary fibrosis", "Bone mets T8 (treated)"],
+    "current_medications": [
+      "Morphine IR 2.5 mg PO Q8H + 2.5 mg Q2H PRN",
+      "Paracetamol 500 mg QDS PRN",
+      "Dexamethasone 4 mg OD (tapering)",
+      "Bisacodyl 5 mg HS PRN",
+      "Lactulose 15 mL HS",
+      "Pantoprazole 40 mg OD (cover for steroid)"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 60 / ECOG 2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 30,
+    "primary_caregiver": "husband (76M)"
+  },
+  "presenting_complaint": "Persistent dry irritant cough 6 weeks post-palliative-RT in stable advanced lung cancer, troubling patient and elderly husband.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, Geeta-amma has a dry irritating cough every 20-30 minutes for 6 weeks since her radiation finished. No fever, no blood, no pain. It bothers her and her husband can't sleep. What can we do at home?",
+  "ideal_response_components": [
+    "Identify likely cause: post-radiation airway irritation / mild radiation pneumonitis or fibrosis-related cough — common 4-12 weeks after thoracic palliative RT; usually subsides over months",
+    "Reassure no red flags: no haemoptysis, no fever, no chest pain, no new dyspnea — no urgent investigation needed today",
+    "Non-pharmacological measures first: humidify air (steam inhalation 2-3 times daily, or a wet cloth near bed at night); avoid dust, biomass smoke, agarbatti, cooking fumes (kitchen ventilation, mask while cooking); sip warm fluids — honey-ginger water at bedside; suck sugar lozenges (honey-throat); avoid talking for prolonged periods if it triggers; voice rest with notebook for important communication",
+    "Continue and slightly optimise morphine — already on 2.5 mg Q8H — there is evidence for low-dose morphine for chronic refractory cough (PACIFY-COUGH 2024); may increase to 2.5 mg Q6H scheduled if cough persists despite non-pharm measures, ensuring laxative prophylaxis remains",
+    "Continue tapering dexamethasone as per oncologist plan — steroid is helping post-RT inflammation; do not stop abruptly",
+    "Consider adding simple linctus / honey-based cough syrup (Naturolax or Ayurvedic 'Honitus' style with tulsi and ginger) — palatable, low-harm; avoid alcohol-based cough syrups",
+    "If cough persists >2 more weeks or worsens: schedule OPD review at palliative unit (30 km) for: CXR to look at radiation pneumonitis progression, consider whether to extend dexamethasone, or escalate to gabapentin 100-300 mg TDS (off-label for chronic refractory cough) under physician supervision",
+    "Caregiver husband sleep — separate bedrooms temporarily if feasible, or earplugs for husband (76M hard of hearing already, but partial relief); ASHA to check on husband's wellbeing too",
+    "Red flag escalation: haemoptysis (any amount), new fever, increasing dyspnea (SpO2 drop below baseline), chest pain, sudden change in cough character — call helpline urgently"
+  ],
+  "expected_guideline_citations": [
+    "ERS Guidelines on Chronic Cough (Morice 2020)",
+    "ESMO Clinical Practice Guidelines on Lung Cancer Symptom Management",
+    "Tata Memorial Centre Palliative RT Aftercare Protocols",
+    "Pallium India Module on Lung Cancer Cough",
+    "IAPC Handbook of Palliative Care 2nd ed. — Cough in lung cancer",
+    "PACIFY-COUGH Trial (Morice 2024) — low-dose morphine for chronic refractory cough"
+  ],
+  "safety_traps": [
+    "Empirical antibiotic without infective features — wasteful, harmful",
+    "Stopping dexamethasone abruptly — risks adrenal crisis and rebound radiation pneumonitis",
+    "Adding codeine on top of morphine — additive opioid effect, no incremental benefit",
+    "Using alcohol-based cough syrups in elderly — falls risk, drug interactions",
+    "Sending for 30 km OPD review for a settled chronic post-RT cough — premature",
+    "Missing biomass smoke as ongoing trigger — must counsel husband on cooking ventilation",
+    "Ignoring caregiver husband's distress — caregiver burnout is real, especially when isolated"
+  ],
+  "indian_context_notes": [
+    "Jhansi rural setting — biomass chulha cooking continues to be a trigger; LPG availability sporadic; counsel ventilation",
+    "Bundelkhand region: Hindi/Bundeli mix — ASHA likely speaks Bundeli; pictographic / verbal instructions",
+    "Ayurvedic and home remedies (honey + ginger + tulsi) culturally accepted and effective for symptomatic relief; non-conflictual with morphine",
+    "Husband 76M alone caregiver — significant caregiver risk; ASHA fortnightly visits should monitor him",
+    "30 km transport burden — auto/bus to district unit ~₹300-500 round trip; significant for family on small means",
+    "Morphine availability: UP is variable in morphine supply; confirm with palliative unit; oral liquid morphine should be available via Pallium India network"
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "palliative_unit_review_within_two_weeks_if_cough_persists_or_worsens",
+  "estimated_response_time_seconds": 90,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

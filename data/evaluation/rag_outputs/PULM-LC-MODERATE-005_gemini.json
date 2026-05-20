@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-MODERATE-005",
+  "language": "en-IN",
+  "asker_query": "Sister, papa has coughed up about 30-50 mL bright red blood three times in last 24 hours. He is stable in between — sat 93 on 2 L, BP 124/76, no severe distress. He is on morphine 7.5 mg Q4H. Hb 10.4. Duty doctor comes in 4 hours. What can we do now to control the bleeding and what should we prepare for?",
+  "answer": "Managing recurrent haemoptysis in a patient with a central lung mass requires a focus on both symptom control and preparation for potential emergencies. Since your father is currently stable, the immediate priority is to manage anxiety and ensure comfort. If he is distressed or anxious, you may consider a benzodiazepine, such as Lorazepam 0.5–1 mg sublingually or Midazolam 1–2 mg (SC or oral), as these can help manage the panic often associated with breathlessness or bleeding. Because he is already on morphine for pain, if his breathlessness increases, you may discuss with his doctor increasing his current morphine dose by 30–50% to reduce the respiratory drive and ease the work of breathing. Please note that nebulized morphine is not effective and should be avoided.\nIn the home or hospice setting, your primary role is to maintain a calm environment and prepare for a potential \"massive haemoptysis\" event, which is a rare but critical emergency. Keep the patient in a comfortable position, ideally sitting up or leaning forward to prevent aspiration. Ensure that \"continuous company\" is provided, as the presence of a calm caregiver significantly reduces patient panic. You should have an emergency kit ready: if a massive bleed occurs, the goal is to keep the patient comfortable and calm. If you have access to injectable medications, medical professionals may use Midazolam (5–20 mg IV or 20 mg IM) to induce unconsciousness if a massive, life-threatening haemorrhage occurs. Do not attempt to force oxygen or other interventions if the patient is in the terminal phase of a massive bleed; focus on presence and reassurance.\nWatch for red flags: if the volume of blood increases significantly, if he becomes pale, sweaty, or confused, or if his breathing becomes labored despite current measures, this is an escalation trigger. Contact your palliative care team or the duty doctor immediately.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:34:03.032081Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3271,
+  "error": null,
+  "provider": "gemini"
+}

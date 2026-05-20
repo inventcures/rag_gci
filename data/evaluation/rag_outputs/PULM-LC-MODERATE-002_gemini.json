@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-MODERATE-002",
+  "language": "en-IN",
+  "asker_query": "Doctor, since I heard 4 days ago that my cancer has come back, I keep sighing every few minutes, my chest feels empty, I gasp at night and wake up sweating. Saturation 95-96. My wife says I look fine. I think I am suffocating but the meter is normal. Am I dying soon?",
+  "answer": "It is understandable that you feel this way; receiving news of disease progression is an incredibly stressful event that often triggers a cycle of anxiety and physical breathlessness. In advanced lung cancer, breathlessness is frequently multifactorial, but when your oxygen saturation remains stable (95-96%), your symptoms are likely driven by the emotional distress of your diagnosis. According to Twycross, breathlessness is a common trigger for panic, which can create a feedback loop where anxiety increases your respiratory rate, leading to the sensation of \"air hunger\" or \"suffocation\" even when your lungs are functioning adequately. While you are currently experiencing distress, this does not necessarily mean you are in the \"terminal\" phase (days-to-weeks); rather, it is a symptom of the anxiety associated with your recent transition in treatment.\nTo manage this, your primary goal is to break the cycle of panic. If you are at home, your wife can assist by ensuring you are in a cool, well-ventilated room, perhaps using a small fan to blow a gentle stream of air across your face, which is a proven non-pharmacological way to reduce the sensation of breathlessness. If the \"gasping\" at night persists, you should speak with your oncologist about a short-term, low-dose anxiolytic, such as a benzodiazepine (e.g., Lorazepam 0.5 mg at bedtime), which can help calm the autonomic nervous system and improve sleep. In the Indian context, ensure your prescription is documented clearly, as the NDPS Act requires strict adherence for controlled medications. You should maintain your current medications, but keep a log of when the \"sighing\" occurs to see if it correlates with specific times of stress or physical exertion.\nPlease monitor your symptoms closely.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:33:35.943435Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3419,
+  "error": null,
+  "provider": "gemini"
+}

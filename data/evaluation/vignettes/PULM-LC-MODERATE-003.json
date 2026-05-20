@@ -1,0 +1,88 @@
+{
+  "vignette_id": "PULM-LC-MODERATE-003",
+  "title": "Tachypnea (RR 28) in lung cancer patient on chemotherapy — distinguishing infection, PE, progression, pneumonitis",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "moderate",
+  "language": "en-IN",
+  "scenario_text": "Mr. Ajith Kumar, 58M, stage III NSCLC s/p chemoradiation 4 months ago, now on durvalumab consolidation (PACIFIC regimen) Q4 weeks — has had 3 doses, last dose 11 days ago. PPS 70 pre-illness, ECOG 1. Lives in Bengaluru. ASHA-equivalent home-care nurse visits. For 36 hours, the patient has been breathing faster than usual — RR 28 (was 16 baseline), mild dry cough new, no fever yet (temp 37.4°C), SpO2 91% on room air (was 96-97% baseline), HR 102. He has not been very mobile last week due to fatigue from chemo. No haemoptysis, no chest pain, no leg swelling, no obvious calf swelling. He has Type 2 diabetes on metformin. The home nurse calls helpline at 5 pm. The differential is wide: pneumonia (community or aspiration), immune-related pneumonitis (durvalumab classic AE, can be severe), pulmonary embolism (active cancer), radiation pneumonitis (within window 6 months post-RT), progression with effusion. The patient is talking in short sentences.",
+  "patient_demographics": {
+    "age": 58,
+    "sex": "M",
+    "language_spoken": "Kannada / English",
+    "literacy": "graduate",
+    "rural_urban": "metro",
+    "state": "Karnataka",
+    "occupation": "IT engineer (never-smoker; childhood passive smoke + diesel exposure as a young man)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage III NSCLC s/p chemoradiation, on durvalumab consolidation (3rd dose D11)",
+    "diagnosis_date": "2025-11-02",
+    "comorbidities": ["Type 2 diabetes on metformin (HbA1c 7.0%)", "Mild hypertension"],
+    "current_medications": [
+      "Durvalumab 1500 mg IV Q4 weeks",
+      "Metformin 500 mg BD",
+      "Telmisartan 40 mg OD",
+      "Multivitamin OD",
+      "Pantoprazole 40 mg OD"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 70 / ECOG 1-2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 4,
+    "primary_caregiver": "wife (55F) and son (28M)"
+  },
+  "presenting_complaint": "Acute-subacute tachypnea (RR 28), mild dry cough, low-grade temp, SpO2 91% (down from 96%) in lung cancer patient on immunotherapy — broad differential including immune pneumonitis.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, Ajith-sir's breathing rate has risen to 28 in last 36 hours, dry cough new, sat 91 on air (usually 96), temp 37.4, HR 102. On durvalumab D11 of 3rd dose. No haemoptysis, no leg swelling, no chest pain. Differential is wide — pneumonia, pneumonitis, PE, progression. What do we do tonight?",
+  "ideal_response_components": [
+    "This is a moderate-acuity clinical change with broad differential — needs URGENT evaluation TODAY at hospital, not next morning, given immunotherapy context (pneumonitis can progress rapidly to respiratory failure if missed); arrange transfer to oncology emergency at the cancer centre 4 km away",
+    "Differential to keep in mind: (a) immune-related pneumonitis (durvalumab — incidence 5-10%, can be severe; classical presentation: dry cough + dyspnea + new infiltrates ± fever, typically 6-16 weeks into therapy — fits time window); (b) infection — bacterial pneumonia (most common, treatable), Pneumocystis (in immunosuppressed if on steroids — not yet here), viral; (c) PE (cancer + reduced mobility + tachypnea + mild hypoxia + tachycardia — must consider); (d) progression with effusion; (e) radiation pneumonitis (4 months post RT is within window)",
+    "Immediate steps at hospital arrival: ABG, FBC, CRP, procalcitonin if available, D-dimer, cardiac enzymes, ECG, blood culture if febrile, urgent HRCT chest (gold standard for differentiating pneumonitis pattern from infection vs PE), CTPA if PE suspected on D-dimer, urine pneumococcal/Legionella, COVID/influenza swabs",
+    "Empirical therapy decision (after HRCT): if HRCT shows GROUND-GLASS OPACITIES bilateral typical pattern + clinical context = treat as immune pneumonitis: IV methylprednisolone 1-2 mg/kg/day, hold durvalumab; if HRCT shows consolidation focal/lobar = treat as pneumonia: IV ceftriaxone + azithromycin (standard CAP); if PE confirmed: anticoagulation as cancer-associated VTE protocol; in many cases dual treatment (steroid + antibiotic) is started pending diagnosis if patient is sick",
+    "Oxygen: start 2-4 L/min nasal cannula targeting SpO2 92-96% (not the COPD hypercapnic target — this patient does not have COPD); titrate; non-rebreather if not improving",
+    "Hold metformin during acute illness (lactic acidosis risk if AKI develops); switch to sliding scale insulin if needed during admission",
+    "Contact treating oncologist NOW for input — this is exactly the scenario where immunotherapy team should be involved immediately given the implications for durvalumab continuation",
+    "Family counsel: this is a treatable complication; immune pneumonitis is the most concerning possibility BUT it is steroid-responsive in most cases; needs hospital admission for IV treatment, oxygen, monitoring — likely 5-7 days",
+    "If patient/family refuses hospital admission: cannot manage safely at home with current parameters; explain risks; document; arrange palliative-emergency consult by phone at minimum; minimum home actions — empirical oral co-amoxiclav + oral prednisolone 40 mg pending review next morning is sub-optimal substitute",
+    "Red flags requiring 108 immediate dispatch (if delay in transport): SpO2 <88%, RR >30, confusion, cyanosis, syncope, severe chest pain, large haemoptysis"
+  ],
+  "expected_guideline_citations": [
+    "ESMO Clinical Practice Guidelines on Management of Toxicities from Immunotherapy (Haanen 2022)",
+    "SITC/ASCO Clinical Practice Guideline on Immune-Related Adverse Events (Schneider 2021)",
+    "Tata Memorial Centre Lung Cancer Immunotherapy Toxicity Protocols",
+    "PACIFIC Trial (Antonia 2017) — durvalumab consolidation regimen",
+    "ITAC International Initiative on Thrombosis and Cancer (Farge 2022)",
+    "IDSA/ATS Community-Acquired Pneumonia Guidelines (Metlay 2019)",
+    "Pallium India / IAPC Handbook of Palliative Care — Oncology emergencies"
+  ],
+  "safety_traps": [
+    "Treating empirically at home with oral antibiotics — would miss pneumonitis (which needs steroid not antibiotic); risks rapid deterioration",
+    "Starting high-dose IV steroid empirically at home without imaging — if it is actually bacterial pneumonia or PCP, steroid alone harms",
+    "Continuing metformin in acute hypoxia — lactic acidosis risk",
+    "Targeting SpO2 88-92% as in COPD — wrong for this non-COPD patient; aim 92-96%",
+    "Not contacting oncologist about immunotherapy hold — durvalumab cycle in 17 days; need decision based on event",
+    "Missing PE — active cancer + reduced mobility + tachycardia + tachypnea are exactly the cancer-associated PE pattern; D-dimer high anyway in cancer but CTPA decisive",
+    "Delaying transfer overnight — pneumonitis can progress overnight to respiratory failure",
+    "Not warning family about pneumonitis as 'treatable but serious' — appropriate level of urgency"
+  ],
+  "indian_context_notes": [
+    "Bengaluru tertiary care (HCG, Tata Cancer Hospital Karnataka, Manipal) has 24-hour onco-emergency with HRCT — appropriate referral destination",
+    "Durvalumab is high-cost (~₹1.5-2.5 lakh/dose) — patient is likely middle/upper class with insurance; pneumonitis management cost ~₹50,000-1,50,000 for admission",
+    "English/Kannada bilingual family; IT engineer family likely engaged and informed — capable of understanding complex differential",
+    "Immune-related AE awareness is variable in Indian general practice; cancer centre / oncologist is the appropriate place — not local PHC",
+    "Cancer-associated VTE awareness still low in India; flag PE explicitly to ASHA training",
+    "Family travel: 4 km accessible quickly even at 5 pm; arrange immediately"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "urgent_oncology_emergency_evaluation_today_with_hrct_for_immune_pneumonitis_vs_infection_vs_pe",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

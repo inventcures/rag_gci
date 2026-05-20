@@ -1,0 +1,103 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-008",
+  "title": "Sacral pressure ulcer in immobile lung cancer patient in hospice with cachexia and bone mets",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mr. Sundaram Pillai, 70M, stage IV adenocarcinoma right lung with extensive bone mets (vertebrae T2-T8 with spinal cord compression at T6 — paraplegic for 4 months despite emergency RT and dexamethasone; ECOG 4, PPS 20). On morphine SR 60 mg BD + IR PRN, methadone has been considered, dexamethasone 4 mg OD, paracetamol, ondansetron PRN, lactulose, denosumab Q4 weekly. Admitted to a 25-bed Pallium India tertiary hospice in Trivandrum, Kerala, 3 weeks ago. Severe cachexia BMI 14.8, albumin 2.0, urinary catheter in situ, bowel care alternate-day enemas. On admission already had Stage 2 sacral pressure ulcer (partial-thickness, ~4 cm). Today (D21), the sacral ulcer has become STAGE 4: full-thickness loss with exposed sacral bone, granular base partially, slough 30%, exudate moderate-heavy serous-purulent, surrounding skin erythematous 2 cm border, mild warmth, NO fever (temp 37.4), no spreading cellulitis beyond border, no foul odour yet. Daughter (45F) is at bedside daily. The family caregiver-volunteer at the hospice (trained ASHA-level) calls the helpline for the hospice physician (in OPD) to ask the comprehensive management plan including infection risk, debridement, dressing system, pain control, and family discussion.",
+  "patient_demographics": {
+    "age": 70,
+    "sex": "M",
+    "language_spoken": "Malayalam",
+    "literacy": "secondary_school",
+    "rural_urban": "urban",
+    "state": "Kerala",
+    "occupation": "retired fisherman (smoker 35 years, asbestos shipyard exposure)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV adenocarcinoma lung with spinal cord compression T6 (paraplegic), Stage 4 sacral pressure ulcer with bone exposure, severe cachexia",
+    "diagnosis_date": "2024-06-25",
+    "comorbidities": ["Spinal cord compression T6 (paraplegic 4 months)", "Stage 4 sacral pressure ulcer (bone exposed)", "Severe cachexia BMI 14.8", "Hypoalbuminaemia 2.0", "Urinary catheter in situ", "Type 2 diabetes on insulin (now relaxed targets)"],
+    "current_medications": [
+      "Morphine SR 60 mg BD + IR 20 mg Q1H PRN",
+      "Dexamethasone 4 mg OD",
+      "Paracetamol 1 g QDS",
+      "Ondansetron 4 mg PRN",
+      "Lactulose 15 mL HS",
+      "Denosumab 120 mg SC Q4 weeks",
+      "Insulin sliding scale BD (relaxed)",
+      "Pantoprazole 40 mg OD",
+      "Calcium + vitamin D OD"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 20 / ECOG 4",
+    "care_setting": "hospice",
+    "distance_to_palliative_unit_km": 0,
+    "primary_caregiver": "daughter (45F) and hospice team"
+  },
+  "presenting_complaint": "Stage 4 sacral pressure ulcer with exposed bone, slough, moderate-heavy exudate, mild surrounding erythema (borderline infection signs) in paraplegic end-stage lung cancer patient at PPS 20.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Sister, Sundaram-uncle's sacral wound has progressed to Stage 4 — bone is showing, 30% slough, lots of fluid, edges red, no fever, no smell yet. He is paraplegic, cachectic, PPS 20. On morphine SR 60 BD. Daughter is at bedside. What is the comprehensive management plan — debridement, dressing, antibiotics, pain control, family discussion?",
+  "ideal_response_components": [
+    "Frame: Stage 4 ulcer with exposed bone in PPS 20 patient = wound healing is NOT a realistic goal; goals are now COMFORT (pain control during dressings), EXUDATE CONTROL, ODOUR PREVENTION, OSTEOMYELITIS PREVENTION/MANAGEMENT, and FAMILY DIGNITY/BURDEN MINIMISATION",
+    "Infection risk assessment: erythema 2 cm border + mild warmth + serous-purulent exudate but no fever, no spreading cellulitis, no foul odour = borderline/early local infection; with exposed bone, OSTEOMYELITIS is the concern; clinically rather than imaging-driven; appropriate response is CAUTIOUS empirical antibiotic (NOT broad-spectrum IV without indication)",
+    "Antibiotic decision: oral amoxicillin-clavulanate 625 mg TDS for 7-10 days OR oral clindamycin 300 mg QDS for 7-10 days (if penicillin allergy) — covers staph and anaerobes typical for pressure ulcer; AVOID IV unless systemic features; review at 1 week; if no improvement → consider osteomyelitis-targeted course (4-6 weeks); but at PPS 20, weigh duration vs trajectory",
+    "Debridement: NO sharp surgical debridement in PPS 20 end-of-life — causes pain, bleeding, no benefit; use AUTOLYTIC debridement (hydrogel) ± enzymatic; gentle cleaning with normal saline at dressing changes; bone fragments visible — do not pry, do not stimulate",
+    "Wound dressing system for Stage 4 with heavy exudate: (a) primary layer — hydrogel (Solugel/Intrasite) on slough, paraffin gauze over base + bone area; (b) secondary — super-absorbent foam (Mepilex/Allevyn) or alginate (Kaltostat) for heavy exudate; (c) outer — bulk gauze + tape; (d) change every 2-3 days or when strikethrough; (e) odour prevention — TOPICAL METRONIDAZOLE GEL 0.75% applied to wound surface OR crushed metronidazole tablet sprinkled (strong evidence — anaerobe-driven odour); apply prophylactically because once odour established, distressing for patient and family",
+    "Pain control during dressing changes: 30 min before dressing — give BREAKTHROUGH morphine 20 mg PO (or his usual breakthrough); consider TOPICAL 2% lidocaine gel directly on wound bed 5 min before manipulation (off-label, evidence in palliative wound care); use non-traumatic technique, soak dressings off with saline if stuck; second nurse present to talk to patient during change",
+    "Continuous pain control optimisation: morphine SR 60 BD = TDD 120 mg + breakthrough — appropriate for current; however with growing wound, consider methadone rotation discussion (methadone is good for incident + neuropathic pain components common in this clinical picture; rotation must be under specialist supervision because of complex pharmacokinetics)",
+    "Pressure offloading (despite the wound being present): continue 2-hourly turns to prevent additional ulcers on other sites; use alternating-pressure mattress (likely available at Pallium India tertiary hospice); for sacral — 30° lateral tilt; float heels off bed with pillow under calves",
+    "Nutrition: at PPS 20 with BMI 14.8 albumin 2.0, the wound CANNOT heal; do not pursue 'high-protein diet' goal as if healing were possible; offer comfort feeding — Malayalam favorite foods in tiny portions (kanji, banana, jackfruit puree, fish curry small amount, kheer); supplement if accepted; do not force; DO NOT insert NG/PEG just for ulcer healing — futile",
+    "Urinary catheter: in situ — maintains dryness around the wound area, appropriate for this scenario despite UTI risk; review weekly; CSU if any UTI symptoms",
+    "Bowel care: alternate-day enemas continue; faecal contamination of wound is a concern — barrier cream (zinc oxide) on intact perineum; perineal cleansing after each motion; consider fecal collection device (rectal pouch) if liquid stool develops",
+    "Family discussion explicitly: be honest with daughter — 'Your father's wound is showing how advanced his disease is. We will keep it clean, control the smell and fluid, prevent further infection if possible, and most of all keep him comfortable during dressings. Full healing is not realistic given his stage. This is not failure; this is being honest about what comfort means now. We are caring for him and for you.'",
+    "Prognostic conversation: PPS 20 with Stage 4 ulcer and progressive cancer = likely days to short weeks; ensure advance care directives in place — DNACPR documented, preferred place of death (home vs hospice), spiritual rites, family members to be present",
+    "Document weekly photographs (with daughter's consent), wound measurements, exudate, odour, family discussions",
+    "Staff care: dressing this wound is emotionally and physically demanding for nursing staff — rotate, debrief, support",
+    "RED FLAGS for escalation: fever >38.5°C, spreading cellulitis, septicaemia signs (BP drop, tachycardia, confusion), severe new pain unresponsive to morphine breakthrough — review by physician within hours"
+  ],
+  "expected_guideline_citations": [
+    "NPUAP/EPUAP/PPPIA International Pressure Ulcer Guideline (2019)",
+    "EWMA Position Document on Wound Bed Preparation",
+    "EPUAP Guidance on Palliative Wound Care",
+    "Pallium India / IAPC Handbook — Wound care in end-stage cancer, including osteomyelitis at end of life",
+    "NICE CG179 (Pressure ulcers prevention and management, 2014, updated)",
+    "IDSA Guidelines on Diabetic Foot / Osteomyelitis (Lipsky 2012, updated)",
+    "Kerala NNPC Palliative Wound Care Protocols"
+  ],
+  "safety_traps": [
+    "Sharp surgical debridement at PPS 20 — pain, bleeding, no benefit",
+    "Empirical IV broad-spectrum antibiotic without systemic features — resistance, IV burden",
+    "Forcing 4-6 week osteomyelitis course of IV antibiotic when prognosis is shorter — disproportionate burden",
+    "NG/PEG tube 'to help wound heal' — futile, traumatising",
+    "Hydrogen peroxide / Dettol / undiluted povidone on wound bed — cytotoxic, delays granulation",
+    "Forgetting topical metronidazole for odour control — high-impact comfort measure missed",
+    "Not pre-medicating for dressing changes — preventable suffering",
+    "Forgetting to address daughter's psychological burden — invisible labour and grief",
+    "Setting unrealistic healing expectations with family — guilt and disappointment",
+    "Aspirin or NSAID for wound discomfort — bleeding risk",
+    "Not having goals-of-care conversation — at PPS 20 with stage 4 ulcer this is essential"
+  ],
+  "indian_context_notes": [
+    "Trivandrum Pallium India tertiary hospice — has full wound-care supplies (hydrogel, alginate, foam, topical metrogel, fentanyl patch, syringe driver, methadone availability)",
+    "Pallium India training materials in Malayalam include palliative wound care protocols",
+    "Topical metronidazole gel (Metrogyl 1%) is the cheapest and most effective odour control in Indian setting — ₹40/tube",
+    "Daughter as primary family caregiver — Kerala daughters often take on this role; explicit acknowledgment and respite arrangements",
+    "Family cultural framework: Hindu Tamil-Kerala — tulsi water, sacred ash, family priest visit; honour final rites planning",
+    "Asbestos occupational exposure (shipyard) — relevant aetiology; document for any compensation/legacy purposes",
+    "Cost: hospice in Pallium India network typically subsidised or free; dressing supplies on standing stock; no family financial burden",
+    "Methadone rotation: available in Pallium India tertiary; requires careful conversion (3:1 to 10:1 ratio depending on dose); typically inpatient rotation"
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "hospice_physician_review_today_for_antibiotic_decision_methadone_consideration_and_goals_of_care_documentation",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

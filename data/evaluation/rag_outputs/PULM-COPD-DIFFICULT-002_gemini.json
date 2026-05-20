@@ -1,17 +1,11 @@
 {
   "vignette_id": "PULM-COPD-DIFFICULT-002",
   "language": "en-IN",
-  "asker_query": "Madam, aunty's breathing has become much worse since yesterday, legs are very swollen, stomach is also bigger, urine is less, heart is beating fast and irregular. Family does not want hospital. What is happening, what can we do at home, what medicines to adjust?",
-  "answer": "It is distressing to see your loved one struggling with increased breathlessness, swelling, and an irregular heartbeat. In the context of end-stage COPD and cor pulmonale, these symptoms suggest that the heart is struggling to pump effectively, leading to fluid retention (edema and ascites) and potentially an arrhythmia like atrial fibrillation. Since the family prefers home-based care, the focus shifts to symptom relief and comfort. First, ensure the patient is in an upright or semi-reclined position and use a fan to blow cool air across the face, which can significantly reduce the sensation of breathlessness. Regarding medications, continue the essential symptom-relief drugs. If the patient is wheezing or has tight airways, ensure the Salbutamol nebulization is used as needed. Corticosteroids (e.g., Dexamethasone 8–32 mg daily) may be considered to reduce airway edema, but this requires a physician's assessment to confirm the dose and route. Because the patient is hypotensive and has decreased urine output, you must be cautious with diuretics like Furosemide; please consult your palliative care team before increasing these, as they may worsen the low blood pressure.\nTo manage this at home, establish a clear plan with your local palliative care team or ASHA worker. Non-pharmacological measures are critical: use pursed-lip breathing and paced activities to conserve energy. Educate the family on \"anticipatory prescribing\"—having clear instructions for when to use the Morphine IR for breakthrough breathlessness or panic. Because the patient has suspected new atrial fibrillation and hypotension, this is a high-risk situation. If the patient develops severe confusion, extreme lethargy, or if the breathing becomes so labored that she cannot speak in sentences, these are red flags. In these instances, the family must decide if they wish to escalate to a hospital for stabilization or if they prefer to focus entirely on comfort (palliative) care at home.",
+  "asker_query": "Madam, Padma-mami has a dry cough for 3 weeks, worse after meals and at night, makes her vomit and she leaks urine. Inhalers are correct. She had bad reaction to codeine 5 years ago. We tried dextromethorphan syrup 5 days, no use. What can we give safely?",
+  "answer": "For a patient with end-stage COPD and GERD-related cough, management must address both the airway sensitivity and the gastric reflux. Since codeine is contraindicated, you should focus on optimizing the GERD management, as the cough is likely exacerbated by gastric contents. Ensure she remains upright for at least 2 hours after meals and consider elevating the head of her bed at night. If the cough persists, a trial of a corticosteroid may be considered to reduce airway edema; the *Indian Primer of Palliative Care* suggests a dose of 8–32 mg daily (oral, subcutaneous, or intravenous) to assist with airway obstruction and inflammation. Additionally, ensure her inhaler technique is perfect, as poor technique often mimics treatment failure.\nIn the home setting, the caregiver should prioritize non-pharmacological measures: teach Padma-mami \"pursed-lip breathing\" to manage the panic and breathlessness associated with coughing, and use a fan to provide a cooling sensation, which can reduce the sensation of dyspnea. If the cough is triggered by secretions or \"pseudo-death rattle\" related to reflux, hyoscine hydrobromide may be considered for its anti-secretory properties, though this requires a physician's prescription. Because she is experiencing vomiting and stress incontinence, ensure she has adequate hygiene support and monitor her fluid intake to prevent dehydration. If she develops a sudden, massive cough or tracheal compression (a rare palliative emergency), seek immediate medical help; if IV access is unavailable in a rural setting, emergency management involves continuous company and urgent clinical assessment.\nCaregivers should monitor for red flags, including hemoptysis (coughing up blood), sudden worsening of breathlessness, or signs of infection such as fever or thick, discolored sputum, which would necessitate antibiotics.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -30,6 +24,12 @@
     },
     {
       "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:18:22.695642Z",
+  "generated_at": "2026-05-20T04:28:28.556094Z",
   "rag_method": "vector",
-  "elapsed_ms": 3508,
+  "elapsed_ms": 4181,
   "error": null,
   "provider": "gemini"
 }

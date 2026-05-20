@@ -1,8 +1,8 @@
 {
   "vignette_id": "PULM-COPD-EASY-002",
   "language": "en-IN",
-  "asker_query": "Didi, my husband has had more cough for 4 days, sputum has increased slightly but is white, there is no fever, slight breathlessness. What should we do, should I give an antibiotic? Or take him to the doctor?",
-  "answer": "It is understandable that you are worried about your husband’s increased cough and breathlessness. For a patient with COPD, the priority is to address reversible contributors. Since there is no fever or change in sputum color, an antibiotic may not be immediately necessary, as these often suggest a viral or non-infectious exacerbation. You should continue his regular Tiotropium and use his Salbutamol MDI more frequently as needed for breathlessness. If his symptoms persist or worsen, he should be evaluated by a doctor to rule out other treatable causes like pleural effusion, anemia, or heart failure, which can cause severe breathlessness even when chest X-rays appear normal.\nIn the home setting, you can help him by optimizing his positioning—ensure he is not lying flat, as this makes coughing and breathing harder. Encourage him to sit upright or lean forward. If he feels anxious or frightened by the breathlessness, provide a calm, reassuring presence; breathlessness is often accompanied by panic, and your support is vital. If you have access to a nebulizer, a combination of salbutamol and ipratropium can be more effective than an MDI during an exacerbation. Monitor his oxygen levels if you have a pulse oximeter, but remember that clinical comfort is the most important goal. If he develops high fever, significant lethargy, confusion, or if his breathlessness does not improve with his inhalers, please seek medical help immediately as these are red flags requiring urgent assessment.\n\n[ Sources : complete_textbook__textbook_indianprimer: pg 31,41,100,125 ; textbook_twycross_2008_introducing_palliative_care: pg 91 ]\n\n────────────────────────────────────────\n🔵 Confidence: 56%\n📚 Source Quality: Expert opinion\n\n⚠️ Please consult a physician for this matter\n────────────────────────────────────────",
+  "asker_query": "Madam, Saraswati-aji has her usual cough — white phlegm, no blood, no fever. But her daughter-in-law keeps asking why the inhalers are not stopping the cough. What can I tell her, and what simple things can the family do at home to help with the phlegm?",
+  "answer": "It is common for families to feel distressed by a chronic cough, even when the patient is stable. You can reassure the daughter-in-law that in advanced COPD, inhalers like Tiotropium and Budesonide-Formoterol are primarily designed to keep airways open and improve breathing, rather than completely stopping a productive cough. Since Saraswati-aji has no fever or blood in her phlegm, this is likely a stable symptom of her condition. If the cough is bothersome, you can suggest simple, non-pharmacological measures to help manage the secretions and improve her comfort. These include ensuring she stays hydrated to thin the mucus, encouraging her to sit upright or \"prop up\" with pillows to assist with airway clearance, and teaching her \"pursed-lip breathing\" or controlled coughing techniques to clear phlegm more effectively without exhaustion.\nAt home, the family plays a vital role in creating a supportive environment. You should instruct them to keep the room well-ventilated, perhaps by keeping windows open to ensure fresh air, and to avoid irritants like smoke or dust. If she feels breathless or anxious during a coughing spell, the family should remain calm, as their panic can worsen her distress. They can assist by using a fan to direct a gentle stream of air toward her face, which often provides significant relief for the sensation of breathlessness. If the cough becomes significantly worse, or if she develops a high fever, chest pain, or blood in the sputum, this is a red flag requiring immediate escalation to a physician or the local palliative care team.\nCaregiver education is essential for long-term management. Explain to the family that investigations like X-rays are often not useful for chronic breathlessness or cough in advanced disease, as they may appear normal even when the patient is symptomatic.",
   "sources": [
     {
       "document": "complete-textbook__Textbook_IndianPrimer.pdf",
@@ -23,13 +23,13 @@
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:18:51.527090Z",
+  "generated_at": "2026-05-20T04:29:54.851096Z",
   "rag_method": "vector",
-  "elapsed_ms": 3239,
+  "elapsed_ms": 3400,
   "error": null,
   "provider": "gemini"
 }

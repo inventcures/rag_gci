@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-004",
+  "language": "en-IN",
+  "asker_query": "Sir, Bhaskar-garu has been on Lasix 80 mg BD for 3 weeks, legs still hugely swollen, belly is filled with fluid, urine only 300 mL per day. Na 128, K 3.2. Saturation 89 on 2 L. He is exhausted. Dr Kumar is on call. What can we do?",
+  "answer": "For Bhaskar-garu, the current presentation of diuretic-resistant volume overload, oliguria (300 mL/day), and electrolyte imbalances (Na 128, K 3.2) in the context of GOLD IV COPD and CKD 3a requires urgent clinical reassessment. Given the resistance to high-dose Furosemide, the priority is to optimize fluid management while avoiding further renal insult. If the patient is in a home setting, ensure no NSAIDs (e.g., Ibuprofen, Naproxen) are being used, as these antagonize diuretics and worsen renal perfusion and salt/water retention. For refractory ascites or edema, palliative guidelines suggest a structured titration of diuretics: Spironolactone is often titrated upwards (e.g., 100–200mg daily, increasing to 200mg BD) in conjunction with loop diuretics, but this must be done under strict medical supervision due to the risk of hyperkalemia or further renal decline.\nIn your setting, the immediate action is to contact Dr. Kumar to review the medication chart, specifically to address the hypokalemia (K 3.2) and the potential need for potassium supplementation or a temporary adjustment of the diuretic regimen. Because the patient is oliguric with significant volume overload, this is a time-critical situation that may require hospital-based intervention, such as careful fluid balance monitoring or intravenous diuretics. Caregivers should monitor for \"red flag\" escalation triggers: worsening confusion (potential hepatic encephalopathy or severe hyponatremia), sudden increase in respiratory distress, or complete cessation of urine output. Ensure that any changes to the diuretic dose are documented in a daily diary to track urine output and weight, which will help Dr. Kumar determine if the current regimen is effective or if the patient has reached a state of refractory heart failure.\nCaregivers must be educated that NSAIDs are strictly contraindicated in this patient due to his CKD and diuretic use, as they increase the risk of acute renal failure and pro-thrombotic events.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:28:48.766949Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4885,
+  "error": null,
+  "provider": "gemini"
+}

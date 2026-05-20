@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-MODERATE-003",
+  "language": "en-IN",
+  "asker_query": "Madam, Lalita-mausi is breathing faster — 28 per minute. Her saturation is 89, normally 92. Slight fever 37.6. Phlegm is yellowish now. Started 1.5 days back. Son brought cold from Bhubaneswar last week. What should I do? Should we travel 40 km tonight?",
+  "answer": "Lalita-mausi is likely experiencing an acute exacerbation of COPD, potentially triggered by a respiratory infection. Given her clinical presentation—increased respiratory rate (28/min), yellow sputum, and desaturation—the priority is to manage the infection and optimize bronchodilation. You should immediately increase her Salbutamol MDI usage to 2 puffs every 4 hours, or more frequently if she remains distressed, using a spacer if available. Since she has a fever and yellow sputum, she requires a prompt clinical assessment for antibiotics, as these are \"controllable causes of breathlessness\" (Indian Primer, p. 100). Do not wait for an X-ray, as the *Indian Primer of Palliative Care* notes that investigations are often not useful in assessing chronic breathlessness and can be normal even in severe cases.\nRegarding your question about traveling 40 km tonight: if she is alert, able to speak in short sentences, and her saturation remains stable at 89% with the increased bronchodilator use, you may monitor her closely at home overnight. However, you must designate a family member to observe her breathing pattern and consciousness level continuously. If she becomes confused, drowsy, or if her respiratory rate exceeds 30/min despite the Salbutamol, this is a red-flag escalation trigger. In such a case, she requires immediate transport to the nearest hospital for oxygen therapy and potentially systemic steroids or antibiotics. If she remains stable, plan to visit the clinic first thing tomorrow morning to have a physician evaluate her for a formal antibiotic prescription.\nMonitor for side effects of increased Salbutamol, such as tremors or palpitations, which are common but usually manageable. If she develops sudden chest pain, severe agitation, or if her oxygen saturation drops below 85% despite rest, do not delay transport, regardless of the time. Ensure she stays in a comfortable, upright position to aid her breathing, and keep her hydrated.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:30:59.412412Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3204,
+  "error": null,
+  "provider": "gemini"
+}

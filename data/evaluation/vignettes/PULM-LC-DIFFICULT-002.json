@@ -1,0 +1,100 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-002",
+  "title": "Intractable post-obstructive cough in central lung cancer with prior codeine reaction and CKD",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Shanti Devi, 73F, stage III-B non-resectable SCC right lung (central tumour partially obstructing right main bronchus, post-radiotherapy 6 weeks ago — symptomatic response partial), now on best supportive care. Comorbidities: CKD 3b (eGFR 28), chronic AF on apixaban 2.5 mg BD (dose-reduced for age + renal), Type 2 diabetes on linagliptin (renal-safe), hypertension. Previously had severe sedation and delirium with codeine 4 years ago (well-documented). PPS 50. Lives in semi-rural village in Mau district, UP, 45 km from Varanasi tertiary palliative unit. For 3 weeks, intractable paroxysmal dry-irritant cough — every 10-15 minutes, worse at night, triggering vomiting, urinary incontinence, sleep deprivation. No haemoptysis, no fever, SpO2 92% RA, RR 18 between coughs. On morphine SR 15 mg BD + IR 5 mg PRN (started 2 weeks ago, marginal effect on cough), gabapentin 100 mg TDS (started 1 week ago), paracetamol PRN, omeprazole, denosumab Q4 weeks. Family caregiver (daughter-in-law) calls helpline at 11 pm — patient and family have not slept for 4 nights.",
+  "patient_demographics": {
+    "age": 73,
+    "sex": "F",
+    "language_spoken": "Bhojpuri / Hindi",
+    "literacy": "illiterate",
+    "rural_urban": "rural",
+    "state": "Uttar Pradesh",
+    "occupation": "homemaker (chulha exposure 55 years, never smoker — biomass-related lung cancer suspected)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IIIB SCC right lung (central, partially obstructing), post-RT, on best supportive care",
+    "diagnosis_date": "2025-04-18",
+    "comorbidities": ["CKD 3b (eGFR 28)", "AF on apixaban 2.5 mg BD (reduced)", "Type 2 diabetes on linagliptin", "Hypertension", "Bone mets ribs", "Stress urinary incontinence (from coughing)"],
+    "current_medications": [
+      "Morphine SR 15 mg BD + IR 5 mg Q1-2H PRN",
+      "Gabapentin 100 mg TDS (D7)",
+      "Paracetamol 500 mg QDS PRN",
+      "Apixaban 2.5 mg BD",
+      "Linagliptin 5 mg OD",
+      "Telmisartan 40 mg OD",
+      "Omeprazole 40 mg OD",
+      "Denosumab 120 mg SC Q4 weeks",
+      "Calcium + vitamin D OD",
+      "Lactulose 15 mL HS"
+    ],
+    "allergies": ["Codeine (severe sedation, delirium 4 years ago)"],
+    "performance_status": "PPS 50 / ECOG 3",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 45,
+    "primary_caregiver": "daughter-in-law (44F) and son (47M)"
+  },
+  "presenting_complaint": "Intractable dry paroxysmal cough for 3 weeks in central lung cancer despite morphine SR 15 BD + gabapentin 100 TDS; sleep deprivation in patient and family for 4 nights.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Doctor saheb, mausi-ji's cough comes every 10 minutes for 3 weeks, especially at night. She vomits, leaks urine, cannot sleep. We cannot sleep — 4 nights now. Morphine SR 15 BD + 5 PRN — not working. Gabapentin 100 TDS started 1 week. Codeine cannot be given (bad reaction before). She is on apixaban, kidneys are weak. What can we do tonight?",
+  "ideal_response_components": [
+    "Validate the suffering — 3 weeks of paroxysmal cough is destroying QoL of patient and family; this needs aggressive multi-modal escalation NOW; the current regimen is sub-therapeutic for severity",
+    "ESCALATE morphine: she is at low dose for refractory cough — increase SR to 20-30 mg BD (or switch to longer-acting better-tolerated in CKD — hydromorphone if available); morphine M3G/M6G in eGFR 28 is a concern — IDEAL is switch to oxycodone PO or fentanyl transdermal; fentanyl patch 12 mcg/h Q72h is a strong option in CKD AND avoids the swallowing burden during cough; conversion from current ~30 mg/day oral morphine = ~12 mcg/h patch; titrate over 1-2 weeks; keep oral IR morphine 2.5 mg PRN for breakthrough cough at lowest possible dose given CKD",
+    "ESCALATE gabapentin (key cough modulator): current 100 mg TDS is sub-therapeutic; titrate up over 3-5 days to 300 mg TDS (max 600 mg TDS based on tolerability) — strong evidence for chronic refractory cough (Ryan 2012); in CKD 3b reduce target dose by 50% (200 mg TDS); monitor for sedation, dizziness, peripheral oedema — common in elderly + CKD",
+    "ADD nebulised lidocaine: 1-2% lidocaine 2-5 mL nebulised Q4-6H — strong evidence for malignancy-related intractable cough; ensures local airway anaesthesia without systemic side effects; small risk of bronchospasm — first dose under observation; AVOID eating/drinking for 1 hour after due to swallow impairment",
+    "Consider PREGABALIN switch: pregabalin 25-50 mg BD (renal-adjusted) — alternative to gabapentin if titration limited; some evidence in chronic cough",
+    "Address LOCAL OBSTRUCTION: the cough is post-obstructive; partial RT response 6 weeks ago — consider repeat palliative RT (re-irradiation may be possible — discuss with rad onc); endobronchial brachytherapy or stent placement at tertiary referral (Varanasi) — both can dramatically improve cough from central obstruction; weighing 45 km travel burden against likely benefit at PPS 50 — usually worthwhile for refractory symptom",
+    "Consider HIGH-DOSE DEXAMETHASONE trial: 8 mg OD for 5-7 days for peri-tumoural inflammation contributing to cough; balance with diabetes management; if benefit, taper to lowest effective; pantoprazole already on",
+    "Consider HALOPERIDOL 0.5-1 mg HS — both for cough modulation via central pathways and for sleep-anxiety axis (off-label for cough but evidence in palliative practice)",
+    "Symptomatic comfort: humidify room (steam, wet cloth), salt-water gargle, honey-warm-water sips, sit propped at night, avoid post-meal recumbency (reflux contribution), small frequent sips of cool water",
+    "Address consequences: stress incontinence — washable pads, perineal barrier cream, pelvic floor exercises (limited at PPS 50); vomiting — small bland meals, antiemetic ondansetron 4 mg PRN (or metoclopramide 10 mg if no Parkinsonism); urinary frequency from coughing — pad",
+    "FAMILY caregiver respite: 4 nights without sleep is itself dangerous — ARRANGE one night of relief tonight if possible (another family member, neighbor, ASHA night sitter if available); cough disruption is among the most exhausting palliative symptoms; phone the palliative-aligned hospice in Varanasi about a 2-3 day in-patient symptom control admission — likely the right next step",
+    "Apixaban review: in advanced lung cancer with cachexia, CKD 3b, and refractory uncontrolled symptoms, the risk-benefit of anticoagulation shifts; discuss with palliative team about DEPRESCRIBING apixaban; if symptoms not responding, will be in transition phase soon",
+    "Linagliptin can continue (renal-safe), but diabetes target loosens at end of life",
+    "Documentation + safety net: red flags — sudden large haemoptysis (central tumour risk), sudden severe dyspnea (PE possible), confusion (uraemia/opioid metabolite/sleep), inability to swallow medications (need SC route plan now); 108 if these"
+  ],
+  "expected_guideline_citations": [
+    "ERS Guidelines on Chronic Cough (Morice 2020)",
+    "ESMO Clinical Practice Guidelines on Lung Cancer Symptom Management",
+    "Ryan NM et al. Lancet 2012 — Gabapentin for chronic refractory cough",
+    "BTS Guideline on Endobronchial Brachytherapy and Stenting (2017)",
+    "Pallium India / IAPC Handbook of Palliative Care — Refractory cough in lung cancer",
+    "EAPC Guidance on Opioids in Renal Impairment (Twycross 2018)",
+    "Tata Memorial Centre Palliative RT Re-irradiation Protocols"
+  ],
+  "safety_traps": [
+    "Re-using codeine despite well-documented severe reaction — would risk delirium and sedation again",
+    "Continuing morphine without considering metabolite accumulation in eGFR 28 — myoclonus, sedation risk; switch to fentanyl or hydromorphone preferable",
+    "Not titrating gabapentin — staying at 100 mg TDS guarantees no benefit; need 300+ mg TDS adjusted for CKD",
+    "Not considering nebulised lidocaine — under-utilised, evidence-based for malignant cough",
+    "Missing the partial bronchial obstruction option (re-RT, brachytherapy, stent) — definitive symptom control if feasible",
+    "Continuing apixaban in advanced cachectic patient with weeks-months prognosis — bleeding risk now disproportionate",
+    "Not arranging family respite or hospice admission — 4 sleepless nights is its own emergency",
+    "Empirical antibiotic without infective features",
+    "NSAIDs for cough-related soreness — CKD, anticoagulant, GI bleed risk additive",
+    "Forgetting to plan SC route NOW for when oral fails — will fail in next 2 weeks based on trajectory"
+  ],
+  "indian_context_notes": [
+    "Bhojpuri-belt rural setting: 45 km to Varanasi tertiary unit (BHU, Pallium India network) — travel burden major; phone-based escalation from local pharmacy is realistic intermediate",
+    "Fentanyl patch availability in India: TPM Trans-Patches 12-100 mcg/h available in tertiary, can be supplied via Pallium India network in UP; cost ₹500-800/patch (3 days)",
+    "Nebulised lidocaine: 2% Xylocaine widely available, ₹50/vial; nebuliser likely needs to be procured/borrowed",
+    "Daughter-in-law as primary caregiver — Indian joint family pattern; her exhaustion is invisible labour; explicitly validate and arrange relief",
+    "Religious: Hindu family — sacred chant/bhajan can provide comfort and sleep aid for patient; tulsi water sips",
+    "Cost of brachytherapy / stent: ₹50,000-1,50,000 in tertiary; counsel honestly; PMJAY/Ayushman Bharat may cover if family enrolled",
+    "Illiterate matriarch — communication via daughter-in-law primary; pictographic medication schedule essential"
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "palliative_in_patient_admission_for_symptom_reset_and_consideration_of_re_rt_or_endobronchial_intervention",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

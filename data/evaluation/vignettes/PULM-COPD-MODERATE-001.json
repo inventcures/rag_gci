@@ -1,87 +1,83 @@
 {
   "vignette_id": "PULM-COPD-MODERATE-001",
-  "title": "GOLD IV COPD on home oxygen with worsening rest dyspnea",
+  "title": "ASHA asks about refractory dyspnea at rest in GOLD IV COPD already on triple inhalers and LTOT",
   "domain": "pulmonology",
   "sub_area": "end_stage_copd",
   "difficulty": "moderate",
   "language": "en-IN",
-  "scenario_text": "Mr. Rajendran, 75 years old, a former shop-keeper living in a village near Viluppuram. He has GOLD IV COPD (FEV1 28% predicted, 50-year smoking history, stopped 5 years ago). For 18 months he has been on home oxygen 2 L/min (16 hours/day). He currently takes Tiotropium-Olodaterol, Salbutamol, and ICS-LABA (Budesonide-Formoterol DPI BD). Over the past 2 weeks his resting breathlessness (mMRC 4) has progressively worsened — over the past week he cannot even walk from bed to toilet. SpO2 on oxygen 89%, on air 85%. No fever, no increased sputum, no leg swelling. No recent spirometry / X-ray. The ASHA worker visits the home and calls the helpline — grandfather's breathing is inadequate, can we increase oxygen, do we need to change his medications?",
+  "scenario_text": "Mr. Ganesh Pawar, 76M, has GOLD IV COPD (FEV1 24% predicted), on LTOT 2 L/min, Tiotropium 18mcg OD, Budesonide-Formoterol 400/12 BD DPI, and Salbutamol MDI 2 puffs QID + PRN. He had two exacerbations needing admission in the past 6 months. He is currently 'stable but bad' — mMRC 4, breathless dressing himself. PPS 40. Lives in Pune outskirts, 12 km from palliative unit. For the past 10 days, he has had dyspnea AT REST that does not respond to salbutamol. SpO2 is 90% on 2 L/min (his baseline). He has no fever, no chest pain, no increase in sputum colour or volume, no leg swelling. Talks in short phrases. Anxious-looking. Sleeps propped up on 3 pillows. The ASHA worker visits and calls the helpline. She has been a community worker for 8 years and is competent. There are no signs of an exacerbation. The family asks if there is anything more that can be given for the constant breathlessness — they say 'he just gasps'. Patient has no known cognitive impairment. He has discussed his wishes with his physician 2 months ago and said he 'does not want to go to hospital again unless it is treatable'.",
   "patient_demographics": {
-    "age": 75,
+    "age": 76,
     "sex": "M",
-    "language_spoken": "Tamil (primary)",
+    "language_spoken": "Marathi (primary), Hindi",
     "literacy": "secondary_school",
-    "rural_urban": "rural",
-    "state": "Tamil Nadu",
-    "occupation": "retired shop-keeper"
+    "rural_urban": "peri_urban",
+    "state": "Maharashtra",
+    "occupation": "retired auto-rickshaw driver (lifelong smoker, quit 5 years ago)"
   },
   "clinical_context": {
-    "primary_diagnosis": "GOLD IV end-stage COPD (FEV1 28%, GOLD group D), on long-term home oxygen",
-    "diagnosis_date": "2019-08-20",
-    "comorbidities": [
-      "Chronic hypoxic respiratory failure",
-      "Probable mild cor pulmonale",
-      "Hypertension"
-    ],
+    "primary_diagnosis": "GOLD IV COPD, FEV1 24%, on LTOT, 2 exacerbations/6 months — palliative phase",
+    "diagnosis_date": "2017-08-14",
+    "comorbidities": ["Mild anxiety", "Hypertension (controlled)"],
     "current_medications": [
-      "Tiotropium-Olodaterol DPI OD",
-      "Budesonide-Formoterol DPI BD",
-      "Salbutamol MDI PRN",
-      "Home O2 2 L/min nasal cannula 16h/day",
-      "Amlodipine 5mg OD"
+      "Tiotropium 18mcg OD",
+      "Budesonide-Formoterol 400/12 BD DPI",
+      "Salbutamol 100mcg MDI 2 puffs QID + PRN",
+      "Amlodipine 5mg OD",
+      "Home O2 2 L/min"
     ],
     "allergies": [],
-    "performance_status": "ECOG 3",
+    "performance_status": "PPS 40",
     "care_setting": "home",
-    "distance_to_palliative_unit_km": 28,
-    "primary_caregiver": "wife and daughter (lives next door)"
+    "distance_to_palliative_unit_km": 12,
+    "primary_caregiver": "wife (72F) and daughter (45F, lives nearby)"
   },
-  "presenting_complaint": "Progressive resting dyspnea over 2 weeks (mMRC 4) in GOLD IV COPD on long-term home O2, without obvious AECOPD trigger.",
+  "presenting_complaint": "Refractory dyspnea at rest in optimally-treated end-stage COPD; family asks if anything more can be given.",
   "asker_role": "asha_worker",
-  "asker_query": "Madam, grandfather's breathlessness has been increasing for two weeks, he cannot walk from bed to the toilet. No fever, no increase in sputum. Oxygen is given 16 hours a day. What should we do now? Can we increase the O2?",
+  "asker_query": "Madam, Ganesh-kaka is breathless even sitting still. His oxygen is 90 on 2 litres, his usual. No fever, no extra phlegm. Inhalers are full done. Family asks if there is some medicine for this constant breathing struggle. What should I tell them?",
   "ideal_response_components": [
-    "Recognise this is progression of end-stage COPD with refractory dyspnea (not an acute exacerbation given no fever, no purulent sputum, no leg swelling, no chest pain) — palliative management of dyspnea is now the priority.",
-    "Oxygen management: confirm compliance with the prescribed 16 h/day; can increase duration to 24/7 use; titrate flow rate aim SpO2 88-92% (NOT higher — risk of CO2 retention in end-stage COPD); current 2 L/min giving 89% is within target — increasing flow beyond 3 L/min usually adds no symptomatic benefit and risks CO2 retention.",
-    "Initiate low-dose oral morphine for refractory dyspnea — strong evidence (multiple RCTs, ATS/EAPC endorsements): Morphine IR 2.5mg PO every 4 hours scheduled; or Morphine SR 10mg PO BD; titrate by 25-30% every 2-3 days based on response; typical effective dose 10-30mg oral morphine/24h.",
-    "Counsel family on opioid-for-dyspnea myth: at these low doses, morphine is safe, evidence-based, and does NOT hasten death, does NOT cause addiction; it directly reduces the brain's perception of breathlessness.",
-    "Non-pharmacological measures (high evidence): hand-held fan to face (V2 trigeminal cooling), upright positioning (Fowler's), pursed-lip breathing technique, relaxation exercises, energy conservation (commode at bedside).",
-    "Anxiolytic adjunct if marked anxiety component: Lorazepam 0.5mg PO HS or PRN; combination of low-dose morphine + benzodiazepine is appropriate in refractory dyspnea with anxiety.",
-    "Inhaler optimisation review: confirm triple therapy (LAMA-LABA-ICS) is being taken correctly; check technique (DPI requires forceful inspiration which may be hard with severe COPD); consider switch to nebulised therapy via portable nebuliser if inspiratory flow inadequate.",
-    "Trial of short-course oral prednisolone 30-40mg OD for 5 days — even without classic AECOPD, can identify reversible inflammatory component.",
-    "Check for and exclude reversible contributors: heart failure (echo if accessible — cor pulmonale common at this stage), pulmonary embolism (D-dimer or CTPA only if pretest probability supports), pneumonia (CXR), anaemia (CBC), depression.",
-    "Goals-of-care conversation: GOLD IV with rest dyspnea = expected median survival 6-12 months; introduce palliative care framework; discuss preferred place of care/death, advance directives, refusal of intubation/ICU per his wishes, anticipatory care kit (SC morphine, SC midazolam for crisis).",
-    "Plan home palliative team visit (28 km) within 1 week; provide written morphine schedule to wife/daughter; helpline contact for any deterioration."
+    "Recognise this is REFRACTORY DYSPNEA in end-stage COPD — symptom of advanced disease, not a reversible exacerbation (no infection, no oedema, no acute change)",
+    "Low-dose oral morphine is the evidence-based first-line pharmacotherapy: start 2.5 mg PO immediate-release Q4-6H + Q1H PRN; titrate up to 5 mg Q4H over days; total 24-h dose typically 10-30 mg in opioid-naive frail elderly",
+    "Counsel about morphine: it does NOT hasten death at these doses — multiple RCTs and Cochrane review confirm safety; start low because patient is opioid-naive, elderly, frail",
+    "Start regular laxative WITH first dose of morphine: Lactulose 15 mL HS + Bisacodyl 5 mg HS PRN — opioid constipation is universal",
+    "Antiemetic available PRN for first week: Metoclopramide 10 mg TDS PRN (avoid if Parkinsonism)",
+    "Non-pharmacological measures: cool air fan to face (cranial nerve V stimulation reduces dyspnea sensation — strong evidence), recliner/upright positioning, breathing techniques, calm environment, family reassurance",
+    "Address anxiety component: lorazepam 0.5 mg sublingual PRN for acute panic episodes — not regularly; avoid daytime sedation",
+    "Communication: explore patient and family goals; document his prior preference 'no hospital unless treatable'; this is the conversation about transitioning toward comfort-focused care; involve palliative unit physician within 1 week"
   ],
   "expected_guideline_citations": [
-    "GOLD 2024 Report — Palliative care in COPD",
-    "ATS/ERS Statement on Optimum Symptom Treatment in Advanced COPD (2017)",
-    "EAPC Recommendations on Pharmacological Treatment of Refractory Dyspnea (2017)",
-    "Indian Chest Society / NCCP COPD Guidelines",
-    "IAPC Handbook of Palliative Care (2nd ed.) — End-stage COPD"
+    "GOLD 2025 Report — Section on palliative care and refractory dyspnea in advanced COPD",
+    "ATS Statement on Dyspnea Mechanisms, Assessment, and Management (Parshall 2012)",
+    "EAPC/IAHPC Position Paper on Use of Opioids in Refractory Breathlessness (Currow 2020)",
+    "Pallium India Handbook — Morphine for Breathlessness in non-cancer disease",
+    "IAPC Handbook of Palliative Care 2nd ed. — Refractory dyspnea management",
+    "Cochrane Review: Opioids for breathlessness (Barnes 2016)"
   ],
   "safety_traps": [
-    "Pushing oxygen flow above 4 L/min in CO2-retainer COPD — risk of hypercapnic respiratory failure.",
-    "Refusing low-dose morphine because of 'respiratory depression' fear — evidence does not support this concern at titrated palliative doses.",
-    "Sending the patient to hospital reflexively rather than home palliation.",
-    "Adding ICS-LABA when already on triple therapy (steroid stacking, pneumonia risk).",
-    "Ignoring depression or anxiety contribution.",
-    "Forgetting inhaler technique check at advanced stages."
+    "Increasing oxygen flow above 2 L/min — known hypercapnia phenotype; risks CO2 narcosis; oxygen does not relieve dyspnea once SpO2 ≥90%",
+    "Adding nebulised salbutamol multiple times daily — no benefit beyond inhaler, can worsen tremor and tachycardia",
+    "Adding oral steroids in absence of exacerbation — myopathy, hyperglycaemia, no symptom benefit",
+    "Avoiding morphine due to misplaced fear of respiratory depression at palliative doses (5mg PO Q4H is safe; evidence is robust)",
+    "Starting morphine without laxative — guaranteed constipation crisis within 5-7 days",
+    "Using a strong benzodiazepine regularly (diazepam 5mg TDS) — risks delirium, falls, hypercapnia",
+    "Failing to clarify goals of care — patient has expressed preference; this must guide plan"
   ],
   "indian_context_notes": [
-    "Long-term home O2 in rural Tamil Nadu — concentrator availability via Sundaram Medical, district vendors; backup cylinder for power cuts essential.",
-    "Tamil register — explain morphine as 'kuraindha alavu morphine, mooch thaivirku' (low-dose morphine for breathlessness); counter NDPS stigma.",
-    "ASHA in rural villages knows the family — well-placed to support home palliative care.",
-    "Distance 28 km to palliative unit — telephone consult + planned home visit is the realistic model.",
-    "Beedi-smoking is the dominant Indian COPD aetiology in this demographic."
+    "Morphine is NDPS-regulated in India — Maharashtra is a recognised state with morphine availability; nearest 12 km palliative unit should be RMI/authorised; confirm liquid IR morphine stock",
+    "Family-centred decision making: wife + daughter both involved; respect joint decision tradition",
+    "Anxiety about morphine ('addiction', 'will kill him') is widespread in Indian families — explain in Marathi using analogy of paracetamol-like safety at right dose",
+    "ASHA cannot dispense morphine but can support adherence + monitor side effects; palliative unit nurse to deliver",
+    "Cost: liquid oral morphine ~₹50-100 per bottle through Pallium India network; affordable",
+    "Religious/spiritual frame: discuss with family that morphine 'helps him breathe peacefully' rather than 'sedates' — language matters"
   ],
   "evidence_level_expected": "A",
   "emergency_flag": false,
-  "handoff_trigger_expected": "home_palliative_team_visit_for_morphine_initiation",
-  "estimated_response_time_seconds": 100,
+  "handoff_trigger_expected": "palliative_care_review_within_one_week_for_morphine_initiation",
+  "estimated_response_time_seconds": 120,
   "metadata": {
-    "version": "1.0",
-    "created_by": "KCDH-A clinical team (AI-generated draft)",
-    "created_at": "2026-05-14",
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
     "reviewed_by": null,
     "review_status": "draft"
   }

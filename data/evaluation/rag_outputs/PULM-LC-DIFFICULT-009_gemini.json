@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-009",
+  "language": "en-IN",
+  "asker_query": "Helpline — palliative unit Vadodara duty PA — Mrs Mehta lung Ca with peritoneal mets, 72-hour MBO: bilious vomiting 1.5 L/24h, abdominal distension, silent abdomen, colicky pain 9/10 peaks, dehydrated HR 102, BP 108/64. Surgeon unavailable. Senior on leave. Family son at bedside. What is the immediate plan?",
+  "answer": "⚡ Please consult a doctor as soon as possible.\n\n\nActions:\n1. Schedule doctor appointment\n2. Monitor symptoms\n3. Rest and stay hydrated\n4. Contact if symptoms worsen\n\n🚨 Emergency detected. Connecting you to a human caregiver immediately.\n\nRequest ID: 5a1afe47e401\nA nurse will contact you within 5 minutes.",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:32:31.225309Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4,
+  "error": null,
+  "provider": "gemini"
+}

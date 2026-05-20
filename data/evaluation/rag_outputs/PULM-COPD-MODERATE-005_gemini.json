@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-MODERATE-005",
+  "language": "en-IN",
+  "asker_query": "Hello, I am his son. During day his saturation is 91-92 on 2 litres. Night at 2 am it dropped to 84. We increased to 4 litres and it came to 90. Is it OK to keep him on 4 at night? What is correct? He snores a bit.",
+  "answer": "For a patient with GOLD IV COPD and chronic hypercapnic respiratory failure, increasing oxygen to 4 L/min carries significant risks. In patients dependent on hypoxic drive, high concentrations of oxygen can lead to carbon dioxide retention, which may be fatal. According to standard guidelines, oxygen therapy should be titrated carefully; for hypercapnic patients, the target saturation is typically 88–92%. While 84% is low, you must prioritize avoiding excessive oxygen. Please do not maintain 4 L/min without explicit physician approval, as this may suppress his respiratory drive. Instead, ensure he is using his prescribed inhalers correctly and consider non-pharmacological interventions like using an electric fan or opening a window, which can provide significant relief for breathlessness without the risks associated with high-flow oxygen.\nAt home, your priority is to optimize his current management before escalating oxygen. First, ensure his bronchodilators (Tiotropium and Budesonide-Formoterol) are being used with proper technique, as these are the foundation of his care. If he experiences acute panic or severe breathlessness, you may use a handheld fan to blow air across his face, which is often as effective as oxygen for symptom relief. If he remains distressed, a physician may consider low-dose anxiolytics like Diazepam (2–5 mg PRN) or Lorazepam (1 mg sublingually) to manage the panic associated with breathlessness. Since he snores and has a high BMI, his night-time desaturation may be related to obstructive sleep apnea or hypoventilation; please consult his doctor about a formal sleep evaluation or the potential need for non-invasive ventilation (NIV) rather than simply increasing oxygen flow.\nMonitor him closely for \"red-flag\" symptoms: increased confusion, extreme drowsiness, or blue-tinted lips/fingernails, which may indicate dangerous CO2 retention. If these occur, seek emergency medical care immediately.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:31:18.216290Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3390,
+  "error": null,
+  "provider": "gemini"
+}

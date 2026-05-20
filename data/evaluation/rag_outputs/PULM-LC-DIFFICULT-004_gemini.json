@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-004",
+  "language": "en-IN",
+  "asker_query": "Doctor sahab, my wife has suddenly become breathless 4 hours back — rate 32, sat 84 on air, right chest pain sharp 6/10, heart racing 118, BP dropped to 102/68 from 130 baseline, light-headed on standing. She is on chemo. Less mobile for 6 days. No leg swelling visible. 108 can be here in 15 min. Should we go to hospital?",
+  "answer": "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!\n\n\nActions:\n1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:31:50.087349Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4,
+  "error": null,
+  "provider": "gemini"
+}

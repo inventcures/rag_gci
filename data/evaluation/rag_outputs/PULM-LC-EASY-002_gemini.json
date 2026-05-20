@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-EASY-002",
+  "language": "en-IN",
+  "asker_query": "Madam, Geeta-amma has a dry irritating cough every 20-30 minutes for 6 weeks since her radiation finished. No fever, no blood, no pain. It bothers her and her husband can't sleep. What can we do at home?",
+  "answer": "For Geeta-amma’s persistent dry, irritant cough, the primary goal is to suppress the cough reflex, as it is non-productive and exhausting. Since she is already on morphine for pain, this may provide some baseline antitussive effect, but if the cough remains distressing, you can consider simple demulcents like a simple linctus to soothe the throat. Non-drug measures are essential: ensure she is not lying flat, as it is difficult to cough effectively in that position; instead, assist her to sit upright or use pillows for support. If the cough is related to post-radiation fibrosis or irritation, ensure she avoids environmental triggers like smoke or dust. If the cough persists despite these measures, a physician may need to evaluate if a change in her opioid dose or the addition of specific antitussives is required, keeping in mind that the aim for a dry, non-productive cough is to suppress the urge to cough.\nIn the home setting, the caregiver (husband) should focus on positioning and comfort. Help Geeta-amma maintain an upright posture, especially at night, to reduce the irritation that triggers the cough reflex. You can also try steam inhalations to soothe the airways, provided she is stable and can manage the equipment safely. It is important to document the frequency and timing of the cough to share with the palliative care team during your next visit. If the cough is preventing sleep, the caregiver should prioritize creating a calm environment and ensuring she is not distressed by the inability to rest. If she shows signs of increased breathlessness, fever, or starts coughing up blood (hemoptysis), this is a red flag requiring immediate contact with your palliative care physician or local hospice team.\nCaregivers should be aware that while a dry cough is common after radiation, it can also be a sign of underlying issues like acid reflux or heart failure. Always check if she has any trouble swallowing or if the cough is worse after eating.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:32:55.954153Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3568,
+  "error": null,
+  "provider": "gemini"
+}

@@ -1,76 +1,79 @@
 {
   "vignette_id": "PULM-COPD-EASY-001",
-  "title": "GOLD III COPD with mild exertional dyspnea — patient asks for optimisation",
+  "title": "Stable GOLD III COPD patient asks about persistent breathlessness on walking indoors",
   "domain": "pulmonology",
   "sub_area": "end_stage_copd",
   "difficulty": "easy",
   "language": "en-IN",
-  "scenario_text": "Mr. Joseph Thomas, a 72-year-old retired teacher from Ernakulam, Kerala, has GOLD stage III COPD (FEV1 42% predicted, post-bronchodilator) confirmed on spirometry a year ago. He is a former smoker (quit 8 years ago, 30 pack-year history). He is currently on tiotropium 18 mcg inhaler once daily (DPI) and salbutamol MDI as needed. He has mild dyspnea on exertion (mMRC grade 2 — can walk on level ground but slower than peers his age, needs to stop after walking ~200m uphill), no orthopnea, no leg swelling, no recent exacerbation in the past 12 months, no productive cough beyond mild morning mucus. He lives independently with his wife (68, retired nurse), is fully ambulant (ECOG 1). He has come to the palliative-care-informed OPD asking 'what else can I do to keep my breathing as good as possible — are my inhalers right, should I do exercises?'. The OPD nurse calls the helpline for a structured response she can share with him.",
+  "scenario_text": "Mr. Ramesh Kulkarni, a 72-year-old retired textile mill worker from Solapur, Maharashtra, has GOLD III COPD diagnosed six years ago. He stopped smoking four years back and uses Tiotropium 18mcg OD via Handihaler and Formoterol 12mcg BD via DPI, plus a Salbutamol MDI as rescue (with a spacer his nurse provided). His baseline mMRC dyspnea is grade 3 — he gets breathless walking 20-30 metres on the flat. He lives in a single-room ground-floor flat with his wife. He has been clinically stable for the past four months. Today, he picked up the helpline phone himself at 10am, sounding slightly anxious but not in distress. He says his breathing feels heavy when he walks across the room to the toilet, and he wonders if this is normal or if he needs to come to the hospital. His SpO2 last week at the OPD was 91% on room air. He has no fever, no increase in sputum, no leg swelling, no chest pain. He has not used his rescue inhaler today. His wife is present and confirms he looks the same as usual — no blue lips, no confusion.",
   "patient_demographics": {
     "age": 72,
     "sex": "M",
-    "language_spoken": "Malayalam, English",
-    "literacy": "graduate",
+    "language_spoken": "Marathi (primary), basic Hindi",
+    "literacy": "secondary_school",
     "rural_urban": "urban",
-    "state": "Kerala",
-    "occupation": "retired schoolteacher"
+    "state": "Maharashtra",
+    "occupation": "retired textile mill worker (cotton dust exposure ~40 years)"
   },
   "clinical_context": {
-    "primary_diagnosis": "GOLD stage III COPD (FEV1 42% predicted, GOLD group B), former smoker",
-    "diagnosis_date": "2025-04-10",
-    "comorbidities": ["Hypertension (controlled on amlodipine)", "Dyslipidemia (on atorvastatin)"],
-    "current_medications": ["Tiotropium 18 mcg DPI OD", "Salbutamol MDI 100 mcg PRN", "Amlodipine 5mg OD", "Atorvastatin 10mg OD"],
+    "primary_diagnosis": "GOLD III COPD (FEV1 38% predicted), ex-smoker 4 years",
+    "diagnosis_date": "2020-03-10",
+    "comorbidities": ["Hypertension (controlled)", "Mild dyslipidaemia"],
+    "current_medications": [
+      "Tiotropium 18mcg inhalation OD via Handihaler",
+      "Formoterol 12mcg inhalation BD via DPI",
+      "Salbutamol 100mcg MDI PRN with spacer",
+      "Telmisartan 40mg OD",
+      "Atorvastatin 10mg HS"
+    ],
     "allergies": [],
-    "performance_status": "ECOG 1",
-    "care_setting": "OPD",
-    "distance_to_palliative_unit_km": 3,
-    "primary_caregiver": "wife"
+    "performance_status": "PPS 70",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 8,
+    "primary_caregiver": "wife (68F, healthy)"
   },
-  "presenting_complaint": "Stable GOLD III COPD patient seeking optimisation of disease management.",
+  "presenting_complaint": "Patient himself calls helpline asking whether breathlessness on walking across the room is normal for him or signals an emergency.",
   "asker_role": "patient",
-  "asker_query": "I have COPD for about a year now. I am on tiotropium and use salbutamol when needed. I want to know if my treatment is right, what exercises I should do, and what else I can do to keep my breathing good. Should I take any vaccines?",
+  "asker_query": "Doctor sir, this is Ramesh from Solapur. I am taking my regular inhalers but when I walk to the toilet I feel my chest is heavy and I have to stop. Is this dangerous? Should I come to hospital?",
   "ideal_response_components": [
-    "Affirm the patient's proactive approach — self-management is the single most powerful intervention in COPD.",
-    "Inhaler technique check: ask the OPD nurse to observe his technique with both tiotropium DPI and salbutamol MDI — incorrect technique is the commonest reason for poor symptom control; correct technique using a placebo device demonstration; consider spacer for MDI if technique is suboptimal.",
-    "Therapy review per GOLD 2024: a GOLD group B patient (mMRC 2, no exacerbations) on monotherapy with tiotropium is reasonable; if symptom burden persists, escalate to LAMA + LABA dual bronchodilator (e.g., umeclidinium + vilanterol or tiotropium + olodaterol) — generally not yet ICS unless frequent exacerbations or eosinophil count ≥300.",
-    "Pulmonary rehabilitation (PR) referral: highest evidence intervention for symptoms and quality of life in COPD; 6-8 week structured programme covering exercise (endurance, strength), education (energy conservation, breathing techniques), nutrition, psychological support; available at Amrita Institute Kochi or major tertiary centres.",
-    "Daily home exercise: 30 minutes of moderate walking per day if tolerated, with pursed-lip breathing technique; upper-limb resistance training (light weights); diaphragmatic breathing exercises; if available, Pranayama (Anulom-Vilom, Bhramari) under qualified teacher.",
-    "Vaccinations: (a) Annual influenza vaccine (every winter); (b) Pneumococcal vaccine — PCV13 followed by PPSV23 (≥65 years); (c) Covid-19 booster as per current schedule; (d) Pertussis-containing Tdap if not received in adult life.",
-    "Smoking — confirmed quit; reinforce avoidance of second-hand smoke and biomass smoke (kitchen ventilation, no incense in closed rooms).",
-    "Nutrition: adequate protein intake (1.0-1.2 g/kg/day) for diaphragmatic muscle health; vitamin D status check; weight maintenance.",
-    "Self-monitoring and action plan: teach symptoms of exacerbation (increased cough, sputum colour change, dyspnea); written 'COPD action plan' (when to use rescue inhaler more often, when to start a short course of steroid + antibiotic, when to seek emergency care).",
-    "Comorbidity management: continue antihypertensive and statin; screen for osteoporosis (DEXA), cardiovascular disease (often co-exists), depression and anxiety (high prevalence in COPD), sleep apnoea if any history of snoring/daytime sleepiness.",
-    "Follow-up: 3-6 monthly review with spirometry, symptom score (CAT or mMRC), exacerbation count, comorbidities."
+    "Reassure: this is his baseline mMRC 3 breathlessness pattern — not a new symptom or exacerbation given no fever, no sputum change, no leg swelling, SpO2 baseline 91%",
+    "Confirm absence of red flags: blue lips, confusion, drowsiness, chest pain, ankle swelling, fever, increased phlegm or change in colour, inability to speak full sentence — none present",
+    "Practical advice: pursed-lip breathing technique (breathe in through nose 2 seconds, out through pursed lips 4 seconds) before and during walking; pause and rest in a chair midway",
+    "Use Salbutamol MDI with spacer 15-20 minutes BEFORE planned activity (toilet, bath) — 2 puffs — this is preventive bronchodilator use, perfectly safe",
+    "Continue regular Tiotropium and Formoterol — never skip; check inhaler technique with ASHA or nurse next visit",
+    "Energy conservation: keep a commode chair or stool in the toilet so he can sit; do not rush; do not hold breath when straining at stool",
+    "Re-contact helpline urgently if: lips/fingertips turn blue, drowsy/confused, fever, new ankle swelling, sputum becomes yellow/green/blood-streaked, or breathlessness becomes worse than this and is not relieved by 2 puffs salbutamol"
   ],
   "expected_guideline_citations": [
-    "GOLD 2024 Report (Global Initiative for Chronic Obstructive Lung Disease)",
-    "Indian Chest Society / NCCP Guidelines for COPD (2020 update)",
-    "ATS/ERS Statement on Pulmonary Rehabilitation (2013)",
-    "IAPC Handbook of Palliative Care (2nd ed.) — Chronic respiratory disease",
-    "Pallium India COPD Management Resources"
+    "GOLD 2025 Report — non-pharmacological management of stable COPD (pulmonary rehabilitation, breathing techniques)",
+    "IAPC Handbook of Palliative Care 2nd ed. — chronic refractory dyspnea management",
+    "Pallium India Breathlessness Toolkit (2023)",
+    "ATS/ERS Statement on Pulmonary Rehabilitation 2013 (Spruit et al.)",
+    "NICE NG115 (COPD in over 16s, 2018, updated 2019)"
   ],
   "safety_traps": [
-    "Adding inhaled corticosteroid without indication (eosinophil count, exacerbation history) — increases pneumonia risk.",
-    "Recommending domiciliary oxygen for non-hypoxic dyspnea on exertion (no benefit, may harm CO2 retention if escalated).",
-    "Failing to check inhaler technique before adding new drugs.",
-    "Generic 'do exercises' without referring to structured pulmonary rehab.",
-    "Missing vaccination recommendations.",
-    "Overlooking depression/anxiety screening in stable COPD."
+    "Telling him to come to hospital immediately — this is unnecessary, baseline-level symptom",
+    "Recommending oral corticosteroids — not an exacerbation, no role here",
+    "Recommending antibiotics — no sputum change, no fever, no indication",
+    "Increasing the dose of Tiotropium (already at max daily dose)",
+    "Recommending oxygen therapy at home without ABG/resting SpO2 criteria (SpO2 91% does not meet LTOT threshold of ≤88%)",
+    "Ignoring the question and just escalating to physician for a stable baseline complaint"
   ],
   "indian_context_notes": [
-    "Pulmonary rehabilitation availability: only at major centres in India (Amrita Kochi, CMC Vellore, AIIMS, PGI, Tata) — refer where feasible.",
-    "Pranayama and yoga have moderate evidence for COPD symptom management and are culturally acceptable; ensure qualified teacher.",
-    "Biomass smoke (chulha cooking) is a major Indian COPD aetiology — ask about kitchen ventilation; salbutamol is on NLEM.",
-    "Malayalam-English bilingual patient — written action plan in Malayalam preferred.",
-    "Kerala has strong palliative care network; refer for community-based supports."
+    "Patient calls helpline directly — Indian rural/peri-urban patients often hesitate to call without family permission; affirm his decision to call as good self-care",
+    "Spacers are not universally available in Maharashtra government supply; confirm patient has and uses spacer correctly",
+    "Cotton dust occupational exposure relevant — patient is a textile mill worker (byssinosis component may overlap with smoking COPD)",
+    "Family-centric Indian decision making: include wife in plan; she should know red flags too",
+    "Marathi-language education materials from Pallium India and PUCAR Maharashtra available — share if patient has smartphone"
   ],
   "evidence_level_expected": "A",
   "emergency_flag": false,
-  "estimated_response_time_seconds": 90,
+  "handoff_trigger_expected": null,
+  "estimated_response_time_seconds": 60,
   "metadata": {
-    "version": "1.0",
-    "created_by": "KCDH-A clinical team (AI-generated draft)",
-    "created_at": "2026-05-14",
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
     "reviewed_by": null,
     "review_status": "draft"
   }

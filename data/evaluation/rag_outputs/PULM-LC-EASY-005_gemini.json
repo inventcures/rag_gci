@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-LC-EASY-005",
+  "language": "en-IN",
+  "asker_query": "Sir, my father is bringing up small streaks of red blood with his morning phlegm for 2 days now — maybe 1 teaspoon total over the day. No fever, no chest pain, no breathing trouble. Saturation 95. He is on aspirin and immunotherapy. Should we be worried?",
+  "answer": "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!\n\n\nActions:\n1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:33:17.328850Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3,
+  "error": null,
+  "provider": "gemini"
+}

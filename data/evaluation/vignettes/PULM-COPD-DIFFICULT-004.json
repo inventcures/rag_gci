@@ -1,0 +1,89 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-004",
+  "title": "Refractory cor pulmonale with diuretic resistance, hyponatraemia, and decompensated dyspnea in COPD",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mr. Bhaskar Rao, 76M, end-stage GOLD IV COPD with severe cor pulmonale (echo 3 weeks ago: PASP 75 mmHg, dilated RV, IVC plethoric, moderate TR, normal LV EF 55%), on LTOT 2 L/min. Comorbidities: CKD 3a (eGFR 45), Type 2 diabetes on metformin, hypothyroidism on thyroxine. On Furosemide 80 mg BD, Spironolactone 50 mg OD, Tiotropium, Budesonide-Formoterol, salbutamol PRN. PPS 40. Lives in Vijayawada, Andhra Pradesh, with son and daughter-in-law, 4 km from palliative-aligned hospital. Despite high-dose diuretics for 3 weeks, both lower limbs remain severely oedematous (pitting to thighs), abdomen distended with shifting dullness (ascites), JVP visibly raised, SpO2 89% on 2 L. Last labs (5 days ago): Na 128, K 3.2, urea 78, creatinine 1.6 (eGFR 45), eGFR previously 55. Patient is fatigued, RR 26, breathless at rest. Family caregiver (son) reports patient producing only ~300 mL urine/day despite 80 mg BD furosemide. ASHA is present. They have called the palliative-aligned hospital where Dr Kumar (palliative physician) is on phone consultation.",
+  "patient_demographics": {
+    "age": 76,
+    "sex": "M",
+    "language_spoken": "Telugu (primary), Hindi",
+    "literacy": "graduate",
+    "rural_urban": "urban",
+    "state": "Andhra Pradesh",
+    "occupation": "retired civil engineer (smoker 25 years, quit 10 years ago)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "GOLD IV COPD with decompensated cor pulmonale, diuretic-resistant volume overload, hyponatraemia (Na 128), CKD 3a (eGFR 45)",
+    "diagnosis_date": "2016-03-14",
+    "comorbidities": ["Cor pulmonale (PASP 75 mmHg)", "CKD 3a (eGFR 45, declining)", "Type 2 diabetes on metformin", "Hypothyroidism on thyroxine", "Hyponatraemia (Na 128) - chronic", "Hypokalaemia (K 3.2) - drug-induced"],
+    "current_medications": [
+      "Tiotropium 18mcg OD",
+      "Budesonide-Formoterol 400/12 BD DPI",
+      "Salbutamol MDI PRN",
+      "Furosemide 80mg BD",
+      "Spironolactone 50mg OD",
+      "Metformin 500mg BD",
+      "Thyroxine 75mcg OD",
+      "Home O2 2 L/min ≥18h/day"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 40",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 4,
+    "primary_caregiver": "son (50M)"
+  },
+  "presenting_complaint": "Diuretic-resistant volume overload with worsening cor pulmonale, hyponatraemia and hypokalaemia — needs careful pharmacological and clinical management.",
+  "asker_role": "asha_worker",
+  "asker_query": "Sir, Bhaskar-garu has been on Lasix 80 mg BD for 3 weeks, legs still hugely swollen, belly is filled with fluid, urine only 300 mL per day. Na 128, K 3.2. Saturation 89 on 2 L. He is exhausted. Dr Kumar is on call. What can we do?",
+  "ideal_response_components": [
+    "Recognise diuretic resistance + decompensated cor pulmonale + hyponatraemia + hypokalaemia + CKD progression — this is a complex multi-system problem requiring physician involvement (which the team correctly has on call)",
+    "Step 1 — switch loop diuretic route or compound: oral furosemide absorption is unreliable with gut oedema; switch to IV furosemide bolus (40-80 mg slow IV) at home/hospice OR change to torasemide oral 20-40 mg OD (better oral bioavailability than furosemide); reassess urine output 4-6 h after dose",
+    "Step 2 — sequential nephron blockade if still resistant: ADD low-dose thiazide (metolazone 2.5-5 mg OD, given 30 min before loop) for 3-5 days — synergistic diuresis; monitor K+, Na+, creatinine every 2-3 days; STOP once net negative balance achieved",
+    "Step 3 — correct hyponatraemia and hypokalaemia: this is dilutional / drug-induced. Fluid restrict to 1-1.2 L/day; oral KCl supplement 20-40 mEq/day (or potassium-rich foods — banana, coconut water, ghee-less curd) and review spironolactone dose (50 mg may need reduction if K corrects rapidly); recheck Na/K at 48 h",
+    "Step 4 — review and adjust contributing factors: STOP metformin (eGFR 45 borderline; lactic acidosis risk if AKI develops) — switch to linagliptin 5 mg OD (safe in renal impairment) or insulin if needed; verify thyroxine dose correct (hypothyroidism can worsen oedema); ensure NO recent NSAID exposure",
+    "Step 5 — symptomatic dyspnea: low-dose oral morphine 2.5 mg PO Q6H + PRN (CKD eGFR 45 — start low, monitor); fan to face; head-of-bed elevated 30-45°; continue O2 2 L/min target SpO2 88-92%",
+    "Step 6 — consider home paracentesis vs hospital ward admission for IV diuretic protocol: at PPS 40 with eGFR declining and patient/family preferences for home, 4-km hospital palliative unit can do day-care IV diuretic + paracentesis for symptomatic ascites if patient willing",
+    "Step 7 — Goals of care: this is a steep decompensation; involve palliative team for explicit conversation about prognosis (likely months at best), what 'success' looks like (comfort vs survival), willingness for repeat hospitalisations vs home-based comfort care; review and document advance preferences",
+    "RED FLAGS: confusion (Na drop, CO2 retention), SpO2 <85% despite 2 L, severe orthopnea, syncope, anuria — escalate immediately to inpatient palliative ward"
+  ],
+  "expected_guideline_citations": [
+    "GOLD 2025 Report — Cor pulmonale management in advanced COPD",
+    "ESC Guidelines for Heart Failure (2021, focused update 2023) — diuretic resistance algorithms",
+    "ERS Statement on Pulmonary Hypertension in Chronic Lung Disease (Nathan 2019)",
+    "Indian Chest Society / NCCP — Management of cor pulmonale",
+    "IAPC Handbook of Palliative Care 2nd ed. — Volume management in advanced disease",
+    "Pallium India Module — End-stage non-cancer disease"
+  ],
+  "safety_traps": [
+    "Doubling furosemide to 160 mg BD orally without addressing gut oedema absorption issue — diminishing returns, AKI risk",
+    "Adding ACEi/ARB in cor pulmonale with hyponatraemia and CKD — hyperkalaemia, hypotension, AKI risk",
+    "Continuing metformin at eGFR 45 with declining renal function — lactic acidosis risk",
+    "Aggressive saline correction of hyponatraemia (Na 128, likely chronic and dilutional) — risk of osmotic demyelination if corrected too fast; fluid restrict instead",
+    "Ignoring K+ 3.2 — arrhythmia risk especially given diuretic continuation",
+    "Empirical antibiotic without infective features",
+    "Hospitalisation for ICU-level care that family/patient may not want — clarify goals first",
+    "Missing the prognostic reality — failing to have goals-of-care discussion is the bigger error than any single drug choice"
+  ],
+  "indian_context_notes": [
+    "Telugu-speaking graduate family — capable of nuanced discussion; English/Telugu both work",
+    "Vijayawada has palliative-aligned hospitals — day-care IV diuretic feasible; counsel cost (₹500-1500/visit)",
+    "Metolazone widely available in India (Zaroxolyn / Diutide), inexpensive",
+    "Coconut water (locally abundant in coastal AP) is cheap K+ source — culturally easy recommendation",
+    "Family discussion of prognosis in Telugu requires sensitivity; involve son first, then patient with family present",
+    "Spiritual: Hindu beliefs about death — chanting, sacred reading, family presence at bedside; honour these"
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "palliative_physician_review_today_or_tomorrow_for_diuretic_resistance_and_goals_of_care",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-EASY-004",
+  "language": "en-IN",
+  "asker_query": "Madam, the family has turned the oxygen knob to 4 from 2. Patient's saturation is 96. He looks fine. What flow rate should I set, and what SpO2 should I aim for?",
+  "answer": "For a patient with GOLD IV COPD and chronic type 2 respiratory failure, increasing oxygen flow to 4 L/min is potentially dangerous. In patients with hypercapnic ventilatory failure, the respiratory drive often relies on hypoxia; administering high concentrations of oxygen can suppress this drive, leading to further carbon dioxide retention and fatal outcomes. You must return the oxygen flow to the physician-prescribed rate of 2 L/min. For these patients, the target oxygen saturation is typically lower than in the general population; a saturation of 88–92% is often acceptable and safer to avoid hypercapnia. While 96% may look \"fine,\" it risks suppressing the patient's breathing drive.\nAs a community health worker, your immediate action is to reset the flow to 2 L/min and educate the family that \"more oxygen is not always better\" and can be harmful. If the patient experiences acute breathlessness, prioritize non-pharmacological measures: use a handheld fan to blow air across the face, encourage pursed-lip breathing, and ensure the patient is in a comfortable, upright position. If the patient remains distressed or experiences panic, you may consider a trial of sublingual lorazepam (1mg) or diazepam (2–5mg) if previously prescribed by their palliative physician. Always document the patient's baseline saturation when they are comfortable so the family knows what \"normal\" looks like for them, rather than chasing a 96–100% target.\nMonitor the patient closely for signs of worsening hypercapnia, such as increased drowsiness, confusion, or shallow, slow breathing. If these red flags appear, or if the patient’s breathlessness does not improve with the prescribed flow and non-pharmacological techniques, escalate to the palliative care team or the nearest hospital immediately.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:30:14.727546Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3100,
+  "error": null,
+  "provider": "gemini"
+}

@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-EASY-003",
+  "language": "en-IN",
+  "asker_query": "Madam, Mahesh-ji is eating less — half of normal. He has lost 2 kg in 6 weeks. No fever, no loose motion. He says food has no taste. What should the family do at home?",
+  "answer": "It is common for patients with advanced COPD to experience anorexia and cachexia, which are often multifactorial. First, ensure that the reduced appetite is not caused by reversible secondary factors such as a sore mouth, constipation, or medication side effects. If these are ruled out, focus on non-pharmacological management: encourage small, frequent, energy-dense meals rather than large ones, and present food in a pleasing, odor-neutral environment to minimize fatigue. If the patient experiences early satiety (feeling full after a few bites), advise the family to use smaller plates and offer food whenever the patient feels hungry, rather than adhering to strict meal times. If nausea is present, a prokinetic or an anti-emetic like Haloperidol (1.5 mg at bedtime, if indicated by a physician for specific triggers like uremia) may be considered, though nutritional support alone cannot fully reverse cachexia in advanced disease.\nFor the family, the primary goal is to shift the focus from \"he must eat to survive\" to \"comfort and quality of life.\" As a caregiver or ASHA, help the family recognize that \"food as love\" is a natural instinct, but forcing food can cause distress. Explain that it is normal for the patient to be satisfied with less at this stage of illness. Advise the family to prioritize whatever the patient fancies, even if it is only fluids or small snacks. Review the current medication list with a palliative care physician to discontinue non-essential drugs (such as unnecessary supplements or aggressive cholesterol-lowering agents) that may contribute to a feeling of fullness or pill burden, while maintaining essential symptom-relief medications.\nMonitor the patient for red flags that require escalation, such as sudden worsening of breathlessness, signs of delirium, or severe, unmanageable pain.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:30:05.624087Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4770,
+  "error": null,
+  "provider": "gemini"
+}

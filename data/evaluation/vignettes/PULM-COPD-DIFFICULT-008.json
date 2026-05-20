@@ -1,0 +1,92 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-008",
+  "title": "Inability to rouse end-stage COPD inpatient — distinguishing terminal phase from reversible cause",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Dr Priya Nair, the duty MO at a 50-bed district hospital ward in Thrissur, Kerala, calls the helpline at 2:30 am about Mr. Krishnan Pillai, 79M, end-stage GOLD IV COPD with cor pulmonale, admitted 4 days ago with infective exacerbation, who is currently on IV piperacillin-tazobactam, IV hydrocortisone (Day 4 — was supposed to step down to PO today), nebulised salbutamol-ipratropium Q4H, LTOT 2 L/min, oral morphine 5 mg Q6H started yesterday for refractory dyspnea, lorazepam 0.5 mg PRN, insulin sliding scale for new steroid-induced hyperglycaemia. PPS pre-admission 40. At 2:00 am the nurse found him unrousable to voice, responding only to firm sternal rub with a groan, RR 8 (was 22 in the evening), SpO2 96% on 2 L/min (was 91-92%), BP 110/68, HR 78, pupils both 2 mm constricted, no twitching, no tongue bite, no incontinence noted, glucose finger-prick 162. Family at bedside, distressed; daughter says 'is he dying or is something wrong?'. The MO has not yet given any reversal agents. She is asking for the next step. Last morphine dose was 8 pm (6.5 hours ago); evening lorazepam 0.5 mg given at 9 pm.",
+  "patient_demographics": {
+    "age": 79,
+    "sex": "M",
+    "language_spoken": "Malayalam",
+    "literacy": "secondary_school",
+    "rural_urban": "urban",
+    "state": "Kerala",
+    "occupation": "retired plantation supervisor, smoker 30 years quit 12 years ago"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "End-stage GOLD IV COPD with cor pulmonale + acute infective exacerbation Day 4 of admission",
+    "diagnosis_date": "2014-04-08",
+    "comorbidities": ["Cor pulmonale", "Chronic type 2 respiratory failure (PaCO2 baseline ~55)", "Steroid-induced hyperglycaemia (new)", "Recent opioid initiation (morphine D2)"],
+    "current_medications": [
+      "IV piperacillin-tazobactam 4.5 g Q8H",
+      "IV hydrocortisone 100 mg Q6H (Day 4)",
+      "Nebulised salbutamol 2.5 mg + ipratropium 500 mcg Q4H",
+      "Tiotropium 18 mcg OD via spacer",
+      "Morphine IR 5 mg PO Q6H (D2) + PRN",
+      "Lorazepam 0.5 mg SL PRN (last 9 pm)",
+      "Insulin sliding scale",
+      "O2 2 L/min nasal cannula"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 40 pre-admission",
+    "care_setting": "hospital_ward",
+    "distance_to_palliative_unit_km": 0,
+    "primary_caregiver": "daughter (45F)"
+  },
+  "presenting_complaint": "Acute drop in consciousness with bradypnea (RR 8) and SpO2 'paradoxically high' (96% on O2) — possible opioid or benzo over-effect with hypercapnia, or terminal phase.",
+  "asker_role": "physician",
+  "asker_query": "Helpline — duty MO Thrissur — Mr Pillai end-stage COPD D4 admission. Was alert at 9 pm. Now 2:30 am unrousable, RR 8, sat 96 on 2 L (high for him), pupils 2 mm, glucose 162. Last morphine 8 pm, lorazepam 9 pm. Is this opioid/benzo toxicity vs hypercapnic narcosis vs terminal phase? Should I give naloxone/flumazenil? Plan?",
+  "ideal_response_components": [
+    "Excellent triage by MO — pattern strongly suggests OPIOID +/- BENZODIAZEPINE TOXICITY layered on HYPERCAPNIC NARCOSIS in a known type 2 respiratory failure phenotype: RR 8 + miosis (2 mm) + recently started morphine + lorazepam evening dose + 'paradoxically high' SpO2 on continuous oxygen (oxygen is suppressing hypoxic drive worsening CO2 retention)",
+    "Immediate priorities: (a) reduce FiO2 — titrate O2 DOWN to keep SpO2 88-92% (this is the known hypercapnic target), DO NOT keep at 96%; (b) obtain urgent ABG to confirm PaCO2 and pH (if pH <7.25 and PaCO2 rising, NIV/BiPAP is needed); (c) airway: position lateral or semi-prone, jaw thrust if needed, suction secretions",
+    "Naloxone — give CAUTIOUSLY: dilute naloxone 400 mcg in 9 mL saline = 40 mcg/mL; give 40-80 mcg IV every 1-2 minutes titrated to RR ≥10 and arousability — DO NOT give full 400 mcg bolus (precipitates severe pain, acute opioid withdrawal, agitation, pulmonary oedema, and you LOSE the comfort gained from opioid). Aim is reversal of toxicity, NOT full reversal of analgesia",
+    "Flumazenil — generally NOT recommended even with benzo contribution: risk of seizure (especially in patients on long-term benzos, mixed overdose), and effect is transient; better to support respiration. Consider only if patient is purely benzodiazepine-toxic, no contraindication, and reversal essential",
+    "BiPAP / NIV: if ABG confirms acute-on-chronic type 2 respiratory failure (pH 7.20-7.35, PaCO2 rising) — start NIV (IPAP 12-14, EPAP 4-5) — gold-standard intervention; this is treatable",
+    "Hold next dose of morphine and lorazepam until reassessed; do NOT discontinue morphine entirely (rebound dyspnea); plan dose reduction to 2.5 mg Q6H once awake or change to longer interval, and avoid scheduled benzo",
+    "Consider hydrocortisone-induced delirium contribution; if course completing today, step down today as planned; review need for ongoing steroid",
+    "Exclude other reversible causes: hypoglycaemia (glucose 162 — not it), stroke (focal signs? cannot fully assess if unresponsive — note pupils equal, no focal twitching), sepsis recurrence (BP and HR stable), electrolyte (recheck Na/K) — but the pattern is overwhelmingly drug + CO2",
+    "Family conversation NOW: daughter is at bedside; honest framing — 'we think the medicines we gave him for pain and breathing have built up plus his lungs are not clearing CO2 well; this is potentially reversible; we are doing X, Y, Z; if despite this he does not wake, it may mean he is entering his final phase'; align on goals — does the family want NIV? Intubation? Or comfort-focused care if NIV fails? Document advance directives",
+    "Avoid intubation reflex — at PPS 40 pre-admission end-stage COPD, ceiling of care should be NIV unless family/patient wishes invasive ventilation; this is the conversation right now",
+    "Monitor: continuous SpO2 with target 88-92%, RR Q15 min, GCS Q30 min, ABG at 2 h, glucose Q6H; document carefully"
+  ],
+  "expected_guideline_citations": [
+    "BTS/ICS Guideline for Acute NIV in Acute Respiratory Failure (Davidson 2016)",
+    "GOLD 2025 Report — Severe COPD exacerbation management, NIV criteria",
+    "AAP/UK NPSA Guidance on Naloxone Titration in Palliative Care (Wilcock 2017)",
+    "EAPC Guidance on Opioid Reversal in Palliative Patients",
+    "Pallium India / IAPC Handbook of Palliative Care — opioid safety and titration",
+    "Indian Society of Critical Care Medicine NIV Guidelines (2020)"
+  ],
+  "safety_traps": [
+    "Giving full 400 mcg naloxone bolus IV — precipitates severe withdrawal, agitation, pain, pulmonary oedema; standard ED algorithm not appropriate in palliative opioid context",
+    "Continuing O2 at flow that gives SpO2 96% — worsening hypercapnia; this is the proximate driver of obtundation",
+    "Reflex intubation without discussion of pre-admission PPS 40 and patient/family wishes — risk of trapping in mechanical ventilation",
+    "Stopping morphine entirely — rebound severe dyspnea later; this is dose reduction, not cessation",
+    "Giving flumazenil without considering seizure risk and short duration",
+    "Empirical insulin push for glucose 162 — not hypoglycaemia; not the cause",
+    "Missing the ABG opportunity — must obtain to guide NIV decision",
+    "Not having family conversation now — daughter will face this decision in next hours either way",
+    "Documenting only physical care without goals-of-care entry — required clinical record"
+  ],
+  "indian_context_notes": [
+    "District hospital in Kerala has NIV typically available — Thrissur is well-equipped; access not an issue here",
+    "Family-led decisions: in Kerala, daughter often the principal communicator with doctor; involve husband, son too — joint family decision norm",
+    "Malayalam language for family discussion; avoid English jargon",
+    "Kerala has strong palliative culture (NNPC, IPM Kozhikode) — even ward MOs typically trained in opioid titration; this MO is doing well",
+    "Naloxone availability: standard in ER and ICU — typically 400 mcg/mL ampoule; dilution for titrated use must be explicit",
+    "Cost: NIV machine and consumables — ~₹5000-15000/day in private; usually free or subsidised in government hospitals; relevant for prolonged stay decisions"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": true,
+  "handoff_trigger_expected": "acute_drug_induced_hypercapnic_respiratory_depression_requires_titrated_naloxone_oxygen_down_and_niv_assessment",
+  "estimated_response_time_seconds": 90,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

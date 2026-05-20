@@ -1,0 +1,92 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-005",
+  "title": "Recurrent DVT on therapeutic anticoagulation in advanced lung cancer with brain mets — escalation decision",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mr. Nikhil Banerjee, 60M, stage IV adenocarcinoma left lung with multiple brain metastases (last MRI 4 weeks ago: 4 lesions, post-stereotactic RT to all 4 — partial response), on osimertinib for 14 months. PPS 60. Lives in Kolkata with wife. 6 weeks ago — diagnosed left popliteal DVT, started enoxaparin 1 mg/kg BD. After 4 weeks switched to apixaban 5 mg BD on patient preference (oral over injection). Now Day 14 of apixaban. Today the home-care nurse visits and finds NEW unilateral right calf swelling — diameter +3 cm vs left, calf tenderness, mildly warm — different leg from previous DVT. Patient is otherwise stable — no dyspnea, no chest pain, no haemoptysis, no new neurological signs, SpO2 95%, RR 16, HR 84. Compression Doppler at oncology centre confirms new RIGHT-sided proximal DVT. This is therapeutic-anticoagulation FAILURE — recurrent VTE on full-dose DOAC. Hb 11.5, platelets 230, eGFR 75. The home-care nurse calls the helpline for next-step guidance because the oncologist is in clinic and the case is complex.",
+  "patient_demographics": {
+    "age": 60,
+    "sex": "M",
+    "language_spoken": "Bengali (primary), English",
+    "literacy": "graduate",
+    "rural_urban": "metro",
+    "state": "West Bengal",
+    "occupation": "retired civil servant (never smoker; possible asbestos exposure from old office building)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV adenocarcinoma lung with brain mets s/p SRS, on osimertinib; recurrent VTE on apixaban (failure)",
+    "diagnosis_date": "2024-04-15",
+    "comorbidities": ["Treated brain mets s/p SRS (stable)", "Prior left popliteal DVT 6 weeks ago", "Hypertension"],
+    "current_medications": [
+      "Osimertinib 80 mg OD",
+      "Apixaban 5 mg BD (D14 since switch from enoxaparin)",
+      "Telmisartan 40 mg OD",
+      "Levetiracetam 500 mg BD (for seizure prophylaxis post brain mets)",
+      "Pantoprazole 40 mg OD"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 60 / ECOG 2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 6,
+    "primary_caregiver": "wife (58F)"
+  },
+  "presenting_complaint": "New contralateral DVT confirmed on Doppler 14 days into therapeutic apixaban for prior DVT — anticoagulation failure in cancer-associated VTE.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, Nikhil-da has a new DVT — right popliteal, confirmed on Doppler at oncology centre today. He has been on apixaban 5 BD for 14 days after enoxaparin earlier. Different leg from before. Stable — no chest symptoms, no breathlessness. Brain mets treated with SRS. eGFR 75, Hb 11.5, plt 230. What is the next step for anticoagulation failure in cancer?",
+  "ideal_response_components": [
+    "Recognise this is RECURRENT VTE on therapeutic anticoagulation — classified as anticoagulation FAILURE; this is a known and important phenomenon in cancer-associated thrombosis (~7-9% per year on DOAC, up to 11-17% on warfarin)",
+    "First — confirm there are NO confounders for failure: (a) compliance — patient is graduate, likely compliant, confirm; (b) drug-drug interactions — apixaban is metabolised by CYP3A4/P-gp; OSIMERTINIB is a moderate CYP3A4 inducer — POSSIBLE pharmacokinetic interaction reducing apixaban levels (this is the critical point — many oncologists overlook this); LEVETIRACETAM has minimal interaction; (c) progression of cancer — recent imaging? recheck if old; (d) thrombocytosis or paraneoplastic state; (e) other prothrombotic state (antiphospholipid)",
+    "Management plan: SWITCH BACK TO LMWH at full therapeutic dose — enoxaparin 1 mg/kg SC BD (~70-80 mg BD for adult) for at least the first month, then can consider Step 2; or use TINZAPARIN if available 175 IU/kg OD; LMWH has the strongest evidence base in recurrent cancer-VTE (ITAC guidelines)",
+    "Alternative if patient strongly refuses injections: increase apixaban to 5 mg BD + monitor (not strongly evidence-based for cancer-VTE failure); OR switch to dabigatran (but reversal in this brain-mets patient if bleed is the concern); LMWH is preferred",
+    "INVESTIGATE for underlying cause of failure: (a) review imaging — has cancer progressed? Get new CT chest/abdomen/pelvis if no recent imaging; (b) verify osimertinib-apixaban interaction with clinical pharmacist — this may be the cause; (c) anti-Xa level on apixaban (may detect low levels if interaction-related); (d) APS workup if clinically indicated; (e) consider IVC FILTER as adjunct (NOT replacement) ONLY in selected cases — recurrent VTE on therapeutic anticoag AND/OR contraindication to anticoag; controversial; brain mets is NOT a contraindication to anticoag per se",
+    "Brain mets consideration: SRS-treated 4 weeks ago, currently stable on imaging; the bleeding risk into a brain met on therapeutic anticoag is real but treated mets with stable imaging at 4+ weeks post-SRS is generally OK to anticoagulate; recent SRS may increase brain bleed risk for ~4-6 weeks (just within edge of window) — discuss risk-benefit with rad onc and neurosurgeon; if MRI showed any haemorrhagic component → reconsider",
+    "Symptomatic measures for the new DVT: leg elevation, compression stocking (graduated) once acute settles, paracetamol PRN for pain (avoid NSAID — bleed and renal risk on anticoag); ambulation as tolerated (controlled, not bed rest)",
+    "Counsel patient + wife: 'Cancer increases blood clotting risk even on blood thinners; we need to escalate to injections again to give better protection; this is not your fault or non-compliance; we will also check if any medicine interaction caused this'",
+    "Monitor for PE symptoms — recurrent VTE event raises PE risk; specific red flags — sudden dyspnea, chest pain, syncope — call 108",
+    "Oncology + palliative care joint review within 1 week: revisit osimertinib continuation — may consider alternative TKI or hold pending clarification; rebalance overall treatment in context of recurrent VTE",
+    "Long-term: indefinite full-dose LMWH while cancer active; counsel on injection technique (rotate sites, gentle pressure, ice for cosmetic bruising); cost-burden conversation"
+  ],
+  "expected_guideline_citations": [
+    "ITAC International Initiative on Thrombosis and Cancer (Farge 2022) — section on recurrent VTE",
+    "ASCO Guideline on VTE in Cancer (Key 2023)",
+    "ESMO Clinical Practice Guidelines on Cancer-Associated Thrombosis",
+    "ISTH SSC Guidance on Recurrent VTE on Anticoagulation (Lyman 2021)",
+    "Tata Memorial Centre Cancer-VTE Protocols",
+    "Pallium India / IAPC Handbook of Palliative Care — VTE in advanced cancer",
+    "Osimertinib prescribing information — drug interactions"
+  ],
+  "safety_traps": [
+    "Continuing apixaban at same dose after failure — recurrent VTE risk continues",
+    "Reflexively placing IVC filter without trying LMWH switch first — filter without anticoag has its own risks (filter thrombosis)",
+    "Stopping anticoagulation entirely 'because brain mets' — without nuanced risk-benefit",
+    "Missing the osimertinib-apixaban interaction — under-recognised; this is the key teaching point",
+    "Switching to warfarin — inferior to LMWH and DOAC in cancer-VTE",
+    "Increasing apixaban dose above 5 mg BD without evidence base",
+    "Forgetting to investigate underlying cause (progression, drug interaction)",
+    "Continuing osimertinib without reviewing whether interaction or progression is driving failure",
+    "Not having palliative team involved — recurrent VTE marks a worsening trajectory",
+    "Aspirin or NSAID add-on — additive bleeding risk, no benefit"
+  ],
+  "indian_context_notes": [
+    "Kolkata tertiary centres (Tata Medical Centre Kolkata, AMRI, Apollo, IPGMER) — easy access for multidisciplinary review",
+    "LMWH cost ₹400-700/day full therapeutic dose — significant; counsel sustainability; tinzaparin OD dosing reduces cost slightly",
+    "Bengali-language family communication; graduate patient and wife can engage with nuance",
+    "Drug interaction awareness in Indian oncology is improving — explicit flagging of osimertinib + apixaban kinetics is teaching opportunity",
+    "Brain mets post-SRS — Tata Medical Centre Kolkata and others have neuro-oncology MDT; loop in",
+    "Patient assistance programs for osimertinib (AstraZeneca) — full-dose drug access; switching TKI changes financial profile too",
+    "Family-led decision in Bengali bhadralok context — wife is influential; involve in discussion"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "oncology_review_within_one_week_for_anticoagulation_failure_switch_to_lmwh_and_drug_interaction_check",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

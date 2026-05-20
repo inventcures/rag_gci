@@ -1,0 +1,102 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-007",
+  "title": "Recurrent moderate haemoptysis in advanced lung cancer at home — bridging to emergency RT and family preparation",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Manjula Rajan, 64F, stage IV adenocarcinoma right lung (central mass 5 cm, peri-hilar, on CT 5 weeks ago), brain mets s/p WBRT 3 months ago. On osimertinib for 8 months — partial response, recently re-imaged shows possible progression. PPS 50. Lives in Erode, Tamil Nadu, with husband and son. Family has chosen home-based palliative care; family is well-informed and engaged. ASHA-level home nurse visits twice weekly. Over the past 5 days, the patient has had 5 separate episodes of haemoptysis — each 50-80 mL bright red, lasting 5-10 minutes each, no large bolus, BP and HR stable between episodes, SpO2 92% on room air. Hb has dropped from 11.2 to 9.4 over 5 days. She is on morphine SR 20 mg BD + IR PRN, dexamethasone 4 mg OD, paracetamol PRN. No anticoagulant. The family explicitly wants to AVOID dying from a massive bleed at home — they have heard about it and are afraid. They are asking: can we get RT to stop the bleeding? Should we admit to hospice? What can we do at home in the meantime? Husband (66M) is articulate, retired engineer. The home nurse calls helpline.",
+  "patient_demographics": {
+    "age": 64,
+    "sex": "F",
+    "language_spoken": "Tamil (primary), English",
+    "literacy": "secondary_school",
+    "rural_urban": "urban",
+    "state": "Tamil Nadu",
+    "occupation": "retired bank clerk (never smoker; possible passive smoke + biomass childhood)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV adenocarcinoma central right lung with possible progression; brain mets s/p WBRT; on osimertinib M8",
+    "diagnosis_date": "2024-09-12",
+    "comorbidities": ["Treated brain mets s/p WBRT", "Mild anaemia (Hb 9.4, dropped from 11.2)", "Hypertension (controlled)"],
+    "current_medications": [
+      "Osimertinib 80 mg OD",
+      "Morphine SR 20 mg BD + IR 5 mg PRN",
+      "Dexamethasone 4 mg OD",
+      "Paracetamol PRN",
+      "Telmisartan 40 mg OD",
+      "Levetiracetam 500 mg BD",
+      "Pantoprazole 40 mg OD",
+      "Lactulose 15 mL HS",
+      "Tranexamic acid 1g PO Q8H (started 2 days ago)"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 50 / ECOG 3",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 12,
+    "primary_caregiver": "husband (66M, retired engineer), son (38M)"
+  },
+  "presenting_complaint": "Recurrent moderate haemoptysis (5 episodes/5 days, 50-80 mL each, Hb drop 1.8 g) in central lung cancer at home; family seeking definitive intervention to prevent catastrophic bleed.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Doctor, my wife has had 5 episodes of haemoptysis in 5 days, 50-80 mL each. Hb dropped 1.8 in 5 days. Tranexamic started 2 days back. We are terrified of a massive bleed at home. Can we get radiation to stop this? Should we go to hospice? What can we do at home tonight to prevent disaster?",
+  "ideal_response_components": [
+    "Acknowledge the family's clear-eyed assessment and reasonable fear; recurrent moderate haemoptysis with Hb drop in central lung Ca = SIGNIFICANT escalating bleeding pattern; this is precisely the situation where palliative haemostatic RT is most useful and where preparation prevents trauma",
+    "Definitive intervention — PALLIATIVE HAEMOSTATIC EXTERNAL BEAM RT to the bleeding tumour: arrange URGENT (next-day or within 48-72 h) consultation with radiation oncology at Erode regional cancer centre (or Coimbatore 100 km if needed); single-fraction 8 Gy or short course 20 Gy/5# — response 60-80% within 1-2 weeks; this is the single most effective intervention",
+    "Bronchial artery embolisation (BAE): alternative or adjunct — interventional radiology at tertiary centre (Coimbatore — KMCH, GKNM, or Chennai); response rate 80-90% short-term; rebleed possible; cost ~₹1.5-3 lakh in private; PMJAY may cover",
+    "Endobronchial intervention: if a discrete bleeding endobronchial vessel — argon plasma coagulation (APC), Nd:YAG laser, or cryotherapy via flexible bronchoscopy at tertiary centre; useful when RT not feasible or response delayed",
+    "Continue and OPTIMISE tranexamic acid: at 1 g PO Q8H already; can increase to 1 g Q6H if tolerated; NEBULISED TXA 500 mg in 5 mL saline Q4-6H as add-on — local effect, well-tolerated, evidence in cancer haemoptysis",
+    "Anti-coagulation review — none currently on, good; ensure no aspirin or NSAID inadvertently used",
+    "Optimise opioid for cough suppression: cough perpetuates rebleeding; if not already, consider scheduled morphine increase by 25-50% (to ~30 mg SR BD); ensure laxative cover",
+    "Steroid review: dexamethasone 4 mg OD — can continue or reduce; high-dose steroid (e.g. 16 mg OD) sometimes used for peri-tumoural inflammation and haemoptysis (mixed evidence) — case-by-case decision",
+    "TRANSFUSION threshold: Hb 9.4 currently — symptomatic? if asymptomatic, transfusion can wait; if symptomatic anaemia (palpitations, severe fatigue, dyspnea), transfuse 1-2 units PRBC at hospice/day care; at PPS 50 transfusion is often appropriate for QoL",
+    "CHOICE: hospice admission vs continued home — given recurrent escalating pattern, HOSPICE ADMISSION for 5-7 days for: (a) stabilisation and observation while RT planned, (b) IV TXA if oral fails, (c) emergency kit readily available, (d) family respite, (e) staff trained for catastrophic bleed if it occurs; in Tamil Nadu several Pallium India-aligned hospices exist; or KMCH palliative ward (Coimbatore) for 24-hour symptom control",
+    "If family prefers home: institute the FULL CATASTROPHIC BLEED PREPARATION at home — (a) dark towels (multiple) and dark bowl at bedside permanently; (b) emergency kit: midazolam 10 mg + morphine 10 mg pre-drawn vials, suction setup if available, calling bell, named contact number; (c) family trained in 'crisis-bleed protocol' — sit patient up, on bleeding side down (right side, right lateral), midazolam SC stat + morphine SC stat, stay with patient, do NOT call 108 (which would transport to hospital and disrupt comfort death), call hospice/palliative team instead; (d) ensure hospice / palliative-aligned doctor available 24/7 by phone; (e) consider in-home overnight nursing during high-risk window",
+    "Family conversation IN DEPTH today: be honest with husband and son — 'The pattern of bleeding has been escalating. RT can reduce but not eliminate the risk of a large bleed. We will arrange RT urgently. In the meantime, we will prepare for the possibility of a large bleed so that if it happens, your wife is COMFORTABLE and you are PRESENT and PREPARED, not panicked. This is not about giving up; it is about being honest and protecting her and you. We continue to actively treat — RT, TXA — while also preparing for if treatment is not in time.'",
+    "Address the family's specific fear of 'dying from massive bleed at home' — this is a real fear; mitigation is RT + preparation + skilled care, not denial or avoidance of home; many families later find that prepared home death is far better than unprepared hospital death; explicitly offer the choice",
+    "Document everything: clinical events, family discussions, advance care plan, RT referral, hospice option, escalation triggers",
+    "Bereavement preparation already starts now — gentle conversation about what dying may look like; spiritual/religious wishes; who needs to be informed; final arrangements"
+  ],
+  "expected_guideline_citations": [
+    "Pallium India / IAPC Handbook of Palliative Care — Haemoptysis crisis management",
+    "Tata Memorial Centre Palliative Radiotherapy Protocols",
+    "ESMO Clinical Practice Guidelines on Lung Cancer Symptom Management",
+    "EAPC Guidance on Emergency Symptoms in Palliative Care",
+    "Wand O et al. Chest 2018 — Nebulised tranexamic acid",
+    "Pallium India Catastrophic Bleed Algorithm (Vijayakumar 2018)",
+    "British Thoracic Society Guideline on Haemoptysis (2023)",
+    "NICE NG142 End of life care for adults"
+  ],
+  "safety_traps": [
+    "Not arranging palliative RT — most effective intervention overlooked",
+    "Sending all care to acute hospital ED — will spend hours waiting, anti-comfort experience",
+    "Reflexive call to 108 if a large bleed occurs at home — wrong if home death is the plan; need palliative escalation pathway not emergency pathway",
+    "Not preparing the family explicitly with dark towels / emergency kit — preventable trauma",
+    "Continuing osimertinib without oncology review — disease may be progressing centrally; review needed but do not stop reflexively (could rebound)",
+    "Empirical antibiotic without infective features — no role",
+    "Aspirin or NSAID for pain — bleed risk additive",
+    "Not transfusing for symptomatic anaemia at appropriate PPS — denies QoL benefit",
+    "Failing to discuss home vs hospice CHOICE — family agency matters",
+    "Telling family 'don't worry' — undermines trust; honest preparation is the standard"
+  ],
+  "indian_context_notes": [
+    "Erode regional cancer centre or Coimbatore tertiary (KMCH, GKNM) — palliative RT accessible within 48-72 h with referral",
+    "Single-fraction 8 Gy palliative RT cost ₹5,000-15,000 government / ₹15,000-30,000 private — affordable; PMJAY covers",
+    "Tamil-language family communication; husband and son are engaged and articulate — capable of nuanced understanding",
+    "Pallium India network in Tamil Nadu has hospices in Madurai, Coimbatore, Chennai; some catchment for Erode",
+    "Tranexamic acid (Pause / Trapic) — cheap, widely available ₹15-30/tab",
+    "BAE / bronchoscopic intervention — only tertiary centres; counsel cost honestly",
+    "Religious/cultural framework: Tamil Hindu family — sacred ash, vibhuti, chanting of mantras at bedside; family may wish to bring family deity image",
+    "Cremation tradition — body to be moved home for final rites if death occurs at hospice; arrange transport"
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "urgent_palliative_rt_consultation_within_48_hours_and_hospice_admission_decision",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-002",
+  "language": "en-IN",
+  "asker_query": "Doctor saheb, mausi-ji's cough comes every 10 minutes for 3 weeks, especially at night. She vomits, leaks urine, cannot sleep. We cannot sleep — 4 nights now. Morphine SR 15 BD + 5 PRN — not working. Gabapentin 100 TDS started 1 week. Codeine cannot be given (bad reaction before). She is on apixaban, kidneys are weak. What can we do tonight?",
+  "answer": "For managing Mausi-ji’s intractable cough, the priority is to address the underlying airway irritation while optimizing her current regimen. Since she is already on morphine, you should increase her current total daily dose of morphine by 30–50% to help suppress the respiratory drive associated with the cough. If she is not achieving relief, ensure she is taking the IR morphine regularly rather than just PRN. For anxiety or panic associated with the paroxysmal coughing, consider adding a benzodiazepine; Lorazepam 0.5–1 mg sublingually or Midazolam 1–2 mg orally can be used to manage the distress and sleep deprivation. Please note that nebulized morphine is ineffective and should be avoided. Ensure you are also addressing reversible factors: check for acid reflux (which can trigger cough) and consider a trial of bronchodilators if there is any bronchospasm.\nFor your immediate action plan at home, focus on positioning and environmental comfort. Encourage Mausi-ji to sit upright, as lying flat often worsens central airway obstruction and cough. Ensure the room is well-ventilated and free of irritants like smoke or dust. As a caregiver, you should document the frequency and severity of the cough episodes to share with her palliative care team. If she develops sudden, severe difficulty breathing, stridor (a high-pitched whistling sound), or massive hemoptysis (coughing up significant blood), this is a medical emergency; contact your local hospice or hospital team immediately for urgent assessment. Given her CKD 3b, monitor for any signs of increased sedation or confusion when adjusting opioid doses.\nCaregivers should be aware that while morphine helps, it may cause constipation; continue her lactulose and monitor bowel movements closely. If the cough remains refractory, the palliative team may consider other interventions like radiotherapy or stenting if the obstruction is worsening.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:31:34.341778Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4113,
+  "error": null,
+  "provider": "gemini"
+}

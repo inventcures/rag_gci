@@ -1,0 +1,93 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-006",
+  "title": "Sacral pressure ulcer prevention in newly bedbound end-stage COPD in hospice",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mr. Anil Verma, 72M, end-stage GOLD IV COPD with cor pulmonale, PPS 30 — admitted to a 12-bed hospice in Lucknow, UP, three days ago because home care became unmanageable (wife had stroke 2 weeks ago). He is bedbound, can shift slightly with help. BMI 18, mild incontinence (urinary), Type 2 diabetes on insulin (HbA1c 8.1%), albumin 2.8. He is on LTOT 2 L/min, triple inhalers, low-dose morphine 2.5 mg Q6H PO for dyspnea (recently started), furosemide 40 mg OD. On admission inspection: stage 1 pressure injury (non-blanching erythema) on sacrum, intact skin. Heels — Stage 0 but at risk. ASHA-equivalent hospice caregiver, who has nursed but is new, asks the helpline how to do bed sore prevention and care for this patient. The hospice has ripple mattresses available, sliding sheets, and basic dressing supplies. The hospice nurse-in-charge is on leave for 2 days; the helpline doctor will be the back-up.",
+  "patient_demographics": {
+    "age": 72,
+    "sex": "M",
+    "language_spoken": "Hindi (primary), Urdu",
+    "literacy": "secondary_school",
+    "rural_urban": "urban",
+    "state": "Uttar Pradesh",
+    "occupation": "retired auto-rickshaw driver, smoker 40 years (quit 6 years ago)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "End-stage GOLD IV COPD with cor pulmonale, Stage 1 sacral pressure injury, newly bedbound, in hospice care",
+    "diagnosis_date": "2016-12-01",
+    "comorbidities": ["Type 2 diabetes on insulin (HbA1c 8.1)", "Hypoalbuminaemia (2.8)", "Urinary incontinence", "Cachexia BMI 18"],
+    "current_medications": [
+      "Tiotropium 18mcg OD",
+      "Budesonide-Formoterol 400/12 BD DPI",
+      "Salbutamol MDI PRN",
+      "Furosemide 40mg OD",
+      "Insulin NPH 8 units HS + regular SC sliding scale TDS",
+      "Morphine IR 2.5 mg PO Q6H + 2.5 mg Q2H PRN",
+      "Lactulose 15 mL HS",
+      "Home O2 2 L/min ≥18h/day"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 30",
+    "care_setting": "hospice",
+    "distance_to_palliative_unit_km": 0,
+    "primary_caregiver": "hospice staff (wife post-stroke)"
+  },
+  "presenting_complaint": "Newly bedbound patient with Stage 1 sacral pressure injury, multiple risk factors (cachexia, incontinence, diabetes, immobility) — caregiver needs structured prevention and stage-1 management plan.",
+  "asker_role": "asha_worker",
+  "asker_query": "Sir, Anil-ji is in our hospice 3 days now, bedbound. Sacrum has Stage 1 pressure mark — red, not broken. He is thin, has incontinence, diabetic. Nurse is on leave. How do I prevent the bed sore getting worse? Daily care plan please.",
+  "ideal_response_components": [
+    "Risk stratification: this patient is HIGH RISK (Braden score likely ≤14): immobility + incontinence + cachexia BMI 18 + albumin 2.8 + diabetes + advanced age + already Stage 1 sacral injury",
+    "Repositioning protocol: turn every 2 hours during day, every 3-4 hours at night (with morphine sleep cycle in mind), using 30-degree lateral tilt (NOT 90-degree side-lying which loads trochanter); document each turn on a turning chart at bedside",
+    "Pressure-relief surface: place patient on ripple/alternating-pressure mattress (available at hospice); if not, use thick foam mattress + sheepskin or homemade air-filled bicycle tubes under sacrum and heels; ensure no creases under patient",
+    "HEELS — high-risk zone: float heels off the bed using a pillow lengthwise under calf, NOT a donut/ring (causes ischaemia); inspect heels daily",
+    "Skin inspection: full body skin check at each turn — sacrum, hips, heels, elbows, scapulae, ears, occiput; document with photographs if smartphone available",
+    "Incontinence management: barrier cream (zinc oxide / petroleum jelly) on perineum and sacrum after each change; super-absorbent pads changed promptly; if soaking persists, consider intermittent catheterisation discussion (avoid indwelling unless essential — UTI risk; appropriate for terminal care if dignity/comfort requires)",
+    "Stage 1 dressing: erythema only, intact skin — DO NOT apply hydrocolloid or transparent film over Stage 1 (some evidence supports prophylactic foam dressing on sacrum to reduce shear/friction — Mepilex Border or similar — if available); the priority is OFFLOADING not dressing",
+    "Nutrition: target 1.2-1.5 g/kg protein/day — eggs, milk, dal, fish, paneer; oral protein supplement if affordable; address diabetes via sliding scale rather than tight control given cachexia; address with hospice dietician",
+    "Glycaemic control: HbA1c 8.1% is acceptable in end-of-life context; target fasting 150-200 mg/dL; insulin doses to be reviewed daily; risk of hypoglycaemia from declining intake — monitor",
+    "Hygiene: daily warm-water sponge bath; avoid hot water, harsh soaps; pat dry; never rub the reddened area (worsens shear); no massage of bony prominences (outdated, harmful)",
+    "Hydration: balance between pressure-ulcer-prevention hydration and diuretic-induced volume control — aim ~1 L oral fluid (less than total fluid restriction given diuretics) over 24 h; check skin turgor on forearm",
+    "ESCALATION: photograph the Stage 1 area daily; if skin BREAKS (Stage 2+), notify hospice nurse on her return (or call helpline before); fever, purulence, surrounding erythema, foul smell — call doctor immediately"
+  ],
+  "expected_guideline_citations": [
+    "NPUAP/EPUAP/PPPIA International Pressure Ulcer Guideline (2019)",
+    "NICE CG179 (Pressure ulcers: prevention and management, 2014, updated)",
+    "Pallium India Module — Skin care in bedbound palliative patients",
+    "IAPC Handbook of Palliative Care 2nd ed. — Pressure ulcer prevention",
+    "Indian Society of Wound Management — Position Statement",
+    "WHO Palliative Care for Non-Cancer Conditions"
+  ],
+  "safety_traps": [
+    "Using a donut/ring cushion under heels or sacrum — causes pressure ischaemia, contraindicated",
+    "Massaging the reddened area — increases tissue damage, outdated practice",
+    "Applying hydrocolloid over intact Stage 1 — obscures view, not standard",
+    "Using harsh soaps or hot water — dries elderly skin, worsens breakdown",
+    "Routine indwelling catheter for incontinence — UTI risk; appropriate only if essential for comfort/dignity",
+    "Aggressive tight glycaemic control in cachectic end-of-life patient — hypoglycaemia risk > benefit",
+    "Failing to offload heels — heel ulcers in bedbound elderly are extremely common and preventable",
+    "Inadequate turning schedule (e.g. only at shift change) — Stage 1 progresses to Stage 2-4 within days",
+    "Forgetting to document — without documentation, prevention cannot be audited"
+  ],
+  "indian_context_notes": [
+    "Lucknow hospice — ripple mattress availability variable; check supply; alternative is foam + cycle-tube air cushion (rural innovation)",
+    "Family caregiver crisis (wife post-stroke) is precisely why hospice was right move — counsel daughter not to feel guilt about admission",
+    "Hindi/Urdu instruction for hospice attendants; simple pictographic turning chart at bedside",
+    "Diabetes management at end of life is poorly addressed in Indian setting — flag for hospice physician on return",
+    "Religious / cultural: regular prayer (namaaz / pooja) positioning needs — coordinate with turning schedule sensitively",
+    "Cost: protein supplements expensive; eggs and dal are affordable substitutes"
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "daily_skin_assessment_and_hospice_nurse_review_on_return",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

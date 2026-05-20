@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-MODERATE-004",
+  "language": "en-IN",
+  "asker_query": "Madam, Hari-tau has both legs swollen, soft pitting up to knees on both sides. Weight gone up 2.5 kg in 5 days. Breathing a bit worse. Saturation 88 on 1.5 L, usually 90. He ate lots of pickle and namkeen at the family shaadi last week. What should I do? Is it DVT?",
+  "answer": "It is understandable to be worried about Hari-tau’s sudden weight gain and increased swelling, especially given his history of cor pulmonale. While sudden swelling can sometimes indicate a DVT, the rapid 2.5 kg weight gain following a high-salt diet (pickle and namkeen) strongly suggests fluid retention due to his heart failure. To manage this, the diuretic dose may need adjustment; per standard palliative care guidelines, loop diuretics like Furosemide are often titrated upward in resistant cases of fluid overload. You should contact his primary physician immediately to discuss increasing his Furosemide, as the current 20mg OD dose may be insufficient given his recent dietary salt intake. Do not start any new medications, especially NSAIDs (like Ibuprofen or Naproxen), as these cause salt and water retention and can worsen heart failure and kidney function.\nFor your immediate action plan, monitor his weight daily at the same time, ideally in the morning after he uses the toilet. Ensure he strictly adheres to a low-salt diet, avoiding all pickles and processed snacks. If he is still ambulant, encourage gentle movement, but prioritize rest if he is breathless. You must observe him closely for \"red-flag\" symptoms: if his breathing becomes significantly more labored, if he develops chest pain, or if the swelling becomes asymmetrical (one leg much larger/redder than the other), this requires urgent medical evaluation to rule out DVT or acute respiratory decompensation.\nBe aware that diuretics can lead to electrolyte imbalances or dehydration. Watch for signs like extreme thirst, dizziness, or confusion. If he is on Metformin, ensure he maintains adequate hydration, as renal perfusion can be affected by both heart failure and diuretic use. Always keep his current medication list updated and available for any healthcare provider you consult. If his oxygen saturation drops consistently below 88% despite his usual 1.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:31:08.823853Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3408,
+  "error": null,
+  "provider": "gemini"
+}

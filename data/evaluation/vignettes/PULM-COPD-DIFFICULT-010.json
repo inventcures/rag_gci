@@ -1,0 +1,93 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-010",
+  "title": "High fever and sepsis in ward COPD inpatient — escalation vs ceiling-of-care decision",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Dr Aravind Menon, ward registrar in a tertiary government hospital ward in Kochi, calls the helpline at 11 pm about Mrs. Janaki Amma, 81F, end-stage GOLD IV COPD with cor pulmonale and severe frailty (CFS 8), admitted 2 days ago with infective exacerbation. PPS 20 pre-admission. Comorbidities: stage 4 chronic pressure ulcer sacrum, severe cachexia BMI 13.8, AF on aspirin, prior stroke with left hemiparesis, vascular dementia (no longer recognising family for ~6 months), hypothyroid on thyroxine. Pre-admission preference (documented in chart, agreed with daughter): 'no ICU, no intubation, comfort focus, hospital admission only if treatable cause'. On admission Day 1 she had improved on IV piperacillin-tazobactam + nebulisers + oral morphine 2.5 mg Q8H. Tonight, 11 pm, she has spiked fever 39.6°C, HR 124, BP 84/52 (was 110/70 4 hours ago), RR 32, SpO2 86% on 4 L/min (was 91% on 2 L earlier), lactate 4.2 mmol/L (sent 30 min ago), WBC 22,000, glucose 198, urine output 50 mL in last 4 hours. She is moaning, semi-rousable. Daughter (only family decision-maker; lives in Bengaluru, on phone) is on her way. The registrar asks: should she escalate to ICU/vasopressors? Add broad-spectrum antibiotics? Or transition explicitly to comfort care given documented preferences?",
+  "patient_demographics": {
+    "age": 81,
+    "sex": "F",
+    "language_spoken": "Malayalam",
+    "literacy": "primary_school",
+    "rural_urban": "urban",
+    "state": "Kerala",
+    "occupation": "retired homemaker (lifelong biomass chulha, never-smoker)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "End-stage GOLD IV COPD with cor pulmonale, severe frailty CFS 8, vascular dementia, septic shock D2 of admission",
+    "diagnosis_date": "2010-02-18",
+    "comorbidities": ["Stage 4 sacral pressure ulcer", "Severe cachexia BMI 13.8", "AF on aspirin", "Prior stroke with hemiparesis", "Vascular dementia", "Hypothyroidism"],
+    "current_medications": [
+      "IV piperacillin-tazobactam 4.5 g Q8H",
+      "Nebulised salbutamol-ipratropium Q4H",
+      "Tiotropium via spacer",
+      "Morphine IR 2.5 mg PO Q8H (D2)",
+      "Aspirin 75 mg OD",
+      "Thyroxine 50 mcg OD",
+      "Paracetamol 500 mg QDS PRN",
+      "O2 nasal cannula"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 20 pre-admission",
+    "care_setting": "hospital_ward",
+    "distance_to_palliative_unit_km": 0,
+    "primary_caregiver": "daughter (52F, in Bengaluru, on phone)"
+  },
+  "presenting_complaint": "Acute septic shock (lactate 4.2, hypotension, hypoxia) in PPS 20 end-stage COPD with vascular dementia and documented no-ICU preference — ceiling-of-care decision required NOW.",
+  "asker_role": "physician",
+  "asker_query": "Helpline — Dr Menon, govt hospital Kochi, 11 pm — Mrs Amma PPS 20 end-stage COPD with dementia, D2 admission for AECOPD on Pip-Tazo, now septic shock: BP 84/52, lactate 4.2, RR 32, sat 86 on 4 L, fever 39.6, output 50/4h. Chart says no ICU, comfort focus, admit only if treatable. Daughter on her way from Bengaluru. Do I push fluids and vasopressors? Switch antibiotics? Or stop and go to comfort care?",
+  "ideal_response_components": [
+    "Honour the documented advance preference — this is the foundation: 'no ICU, no intubation, comfort focus, admit only if treatable cause' — this was made BY the patient and daughter while patient still had capacity (the admission decision flag implies they accepted ward-level treatment but not invasive escalation)",
+    "Clinical interpretation: septic shock in PPS 20 end-stage COPD + vascular dementia + Stage 4 pressure ulcer (likely septic focus) + cachexia BMI 13.8 — even with full ICU support, mortality is extremely high (>80%); meaningful recovery to baseline is unlikely; survival of a hospitalisation could be days of suffering with no return home",
+    "Decision framework: the ward-level treatment trial of antibiotics has not worked (deterioration on D2); the chart says 'admit only if treatable' — this is the moment when 'treatable' has shifted to 'not treatable to baseline'; the ethically and clinically right transition is to COMFORT-FOCUSED CARE with the family agreement",
+    "Immediate steps tonight (within minutes): (a) phone the daughter NOW — do not wait for her to arrive; clearly and compassionately explain the change in clinical state, the previous discussion, and what comfort-focused care will look like; obtain consent or assent for transition; (b) document the conversation in the chart with time, content, who agreed",
+    "DO NOT start vasopressors / push aggressive IV fluids / arrange ICU transfer — these violate advance preferences AND are unlikely to benefit",
+    "DO NOT necessarily stop antibiotics immediately if family wants continued ward-level treatment for some additional hours while reaching the hospital — this is acceptable as a 'time-limited trial' while comfort measures are also instituted; explicitly time-limit (e.g. 12 h)",
+    "Switch to comfort prescriptions NOW: (a) increase oral morphine — given pain/dyspnea and current PPS 20, switch to SC route — morphine 5 mg SC stat then 2.5-5 mg SC Q1H PRN; consider continuous SC infusion 15-30 mg/24h via syringe driver if available; (b) midazolam 2.5 mg SC PRN for agitation/distress; (c) hyoscine butylbromide 20 mg SC Q4H PRN for secretions; (d) paracetamol PR 1 g Q6H for fever comfort; (e) Reduce O2 to 2 L/min for comfort target SpO2 88-92% — do not chase saturation; (f) STOP non-essential drugs (aspirin, thyroxine, sliding scale insulin, nebulisers if not symptomatic benefit) — deprescribe",
+    "Position for comfort, mouth care every 2 hours (oral sponge with sips of water, lip balm), pressure relief (the wound is septic source — clean, dress, but no aggressive debridement), familiar music or chanting if family wishes, dim lighting, allow family at bedside without restrictions even at night",
+    "Family at bedside when daughter arrives: explain dying process — what to expect (changing breathing patterns including Cheyne-Stokes, death rattle from secretions, mottling of skin, decreased urine output, decreased consciousness); reassure these are part of natural dying, not suffering when comfort medicines on board",
+    "Spiritual / religious care: ask daughter about chaplain/priest/family member to perform Hindu rituals if appropriate; tulsi leaf, Gita reading, sacred water — these are not 'extra' but core comfort",
+    "Bereavement: ensure daughter has support; offer chaplain or social worker contact; communicate honestly that death may occur within hours to a day or two",
+    "Document the explicit transition in chart: 'transition to comfort-focused care D2 23:30, agreed with daughter on phone, in line with documented pre-admission preferences; ward-level treatment trial unsuccessful; ICU not appropriate per prior decision; comfort prescriptions instituted as above; family expected within 6 hours; for review at 06:00'"
+  ],
+  "expected_guideline_citations": [
+    "GMC Guidance on End of Life Care Treatment and Care Towards the End of Life (2022)",
+    "EAPC Recommendations on End-of-life Care for Frail Older People (2017)",
+    "Pallium India / IAPC Handbook of Palliative Care — Care of the imminently dying",
+    "NICE NG31 Care of dying adults in the last days of life (2015)",
+    "Indian Society of Critical Care Medicine Position Statement on End-of-life care in ICU (2022, ICU/EOL)",
+    "Surviving Sepsis Campaign Guidelines (2021) — relevant for explaining what is being withheld and why"
+  ],
+  "safety_traps": [
+    "Reflexively starting vasopressors and arranging ICU transfer — violates documented advance preference, no patient-centred benefit",
+    "Aggressive 30 mL/kg IV crystalloid bolus in this cachectic cor pulmonale patient — risk of pulmonary oedema and worsening dyspnea",
+    "Adding multiple broad-spectrum antibiotics + antifungals on top of pip-tazo — the issue is no longer infection treatability but disease trajectory",
+    "Continuing thyroxine, aspirin, metformin equivalents — deprescribing is part of comfort care",
+    "Forgetting SC route — patient at PPS 20 with dropping consciousness will soon be unable to swallow",
+    "Not calling daughter NOW — by the time she arrives, decisions cannot be re-explained; consent is required",
+    "Calling for cardiac arrest team / running a code if she arrests — violates preference; explicit DNACPR documentation should be in place",
+    "Skipping mouth care because 'patient is unconscious' — most distressing dying symptom; family will judge care quality on this",
+    "Documenting only the medications and not the transition decision and its rationale — legal and bereavement consequences"
+  ],
+  "indian_context_notes": [
+    "Kerala government hospital — has access to SC route, syringe driver less consistently available; manual SC injections by ward nurse Q2-4H feasible",
+    "Kerala has strong palliative culture (NNPC, IPM Kozhikode); transition to comfort care is widely accepted by ward teams when correctly framed",
+    "Malayalam family conversation with daughter on phone — clear, paced, give time; tertiary hospital may have palliative team to support call",
+    "Indian end-of-life dynamic: daughter as decision-maker is increasingly common; document her relationship and explicit consent",
+    "Religious / cultural: many Hindu families wish patient transported home in last hours so death occurs at home — discuss feasibility; ambulance with comfort meds for last journey is acceptable if family wishes",
+    "Cost: ICU/vasopressors at private rate ₹25,000-1,00,000/day; government hospital subsidised but family burden, time off work for daughter — non-trivial considerations"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": true,
+  "handoff_trigger_expected": "transition_to_comfort_focused_care_with_family_consent_and_advance_preference_alignment",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

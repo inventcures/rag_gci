@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-008",
+  "language": "en-IN",
+  "asker_query": "Sister, Sundaram-uncle's sacral wound has progressed to Stage 4 — bone is showing, 30% slough, lots of fluid, edges red, no fever, no smell yet. He is paraplegic, cachectic, PPS 20. On morphine SR 60 BD. Daughter is at bedside. What is the comprehensive management plan — debridement, dressing, antibiotics, pain control, family discussion?",
+  "answer": "For a patient with a Stage 4 sacral pressure ulcer at a Palliative Performance Scale (PPS) of 20, the primary goal is comfort and symptom control rather than aggressive surgical intervention. Given the exposed bone and heavy exudate, focus on moisture balance and infection management. If the surrounding erythema suggests localized infection, consider systemic antibiotics, but prioritize comfort-focused dressings (e.g., absorbent foam or alginate dressings to manage exudate). Avoid aggressive surgical debridement in this cachectic state; instead, use conservative measures to manage slough. Regarding pain, if the patient experiences breakthrough pain shortly before the next scheduled dose, the logical step is to increase the frequency of the morphine or adjust the dose, rather than adding sedatives. Ensure that NSAIDs are avoided or used with extreme caution given his advanced age, cachexia, and potential for renal impairment, adhering to the principle of using the lowest effective dose for the shortest duration.\nThe caregiver and family should focus on pressure redistribution using a high-specification mattress or frequent repositioning (if tolerated) to prevent further tissue damage. Since the patient has an indwelling catheter, monitor for bladder spasms or catheter-related irritation, which can exacerbate discomfort; if spasms occur, consider antimuscarinics or flavoxate (200mg TDS-QDS) if tolerated. For the wound, perform gentle cleansing and apply dressings that require infrequent changes to minimize pain. If the patient develops fever, spreading cellulitis, or worsening pain that is unresponsive to current morphine titration, this is a red-flag trigger requiring immediate escalation to a palliative care physician for potential antibiotic adjustment or review of the analgesic regimen.\nCaregiver education is vital: emphasize that \"end-of-life\" wound care is about preventing odor and pain rather than healing.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:32:25.218625Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3861,
+  "error": null,
+  "provider": "gemini"
+}

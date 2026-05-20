@@ -1,0 +1,92 @@
+{
+  "vignette_id": "PULM-LC-MODERATE-004",
+  "title": "Confirmed DVT in lung cancer patient — managing anticoagulation, recurrent thrombosis risk and bleeding",
+  "domain": "oncology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "moderate",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Kavitha Subramanian, 64F, stage IV adenocarcinoma left lung with brain mets (treated with WBRT 3 months ago, currently stable), on docetaxel-ramucirumab second-line chemo, 3 cycles completed. PPS 60. Lives in Coimbatore, Tamil Nadu. 10 days ago she developed left calf swelling with tenderness, diagnosed as left popliteal-femoral DVT on Doppler at oncology centre, started on enoxaparin 1 mg/kg SC BD. Today (Day 10 of LMWH) she presents with: persisting calf swelling (slightly improved), new mild bruising on abdomen at injection sites, gingival bleeding when brushing teeth, and one episode of darker stools yesterday (no melena per se, no haematemesis). Hb has dropped from 11.5 to 10.2 over 10 days. No haemoptysis, no chest pain, no severe abdominal pain. Platelets 95,000 (was 140,000 last week — chemo nadir vs ITP? — last docetaxel 9 days ago). Family caregiver (husband) calls home-care helpline. She is on ramucirumab (VEGF inhibitor — well-known bleeding/perforation risk).",
+  "patient_demographics": {
+    "age": 64,
+    "sex": "F",
+    "language_spoken": "Tamil (primary), English",
+    "literacy": "graduate",
+    "rural_urban": "urban",
+    "state": "Tamil Nadu",
+    "occupation": "retired school principal (life-long non-smoker)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV adenocarcinoma lung with treated brain mets, on docetaxel-ramucirumab 2L; D10 cancer-associated DVT on LMWH; new bleeding concerns + thrombocytopaenia",
+    "diagnosis_date": "2024-07-10",
+    "comorbidities": ["Treated brain mets s/p WBRT (stable)", "Chemo-induced thrombocytopaenia (current platelet 95)", "Mild anaemia (Hb 10.2, dropped from 11.5)"],
+    "current_medications": [
+      "Enoxaparin 60 mg SC BD (D10 of treatment for confirmed DVT)",
+      "Docetaxel 75 mg/m2 + Ramucirumab Q3 weeks (next due in 12 days)",
+      "Dexamethasone 8 mg BD x 3 days around docetaxel",
+      "Ondansetron PRN",
+      "Pegfilgrastim post-chemo D2",
+      "Pantoprazole 40 mg OD"
+    ],
+    "allergies": [],
+    "performance_status": "PPS 60 / ECOG 2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 7,
+    "primary_caregiver": "husband (66M), daughter (35F)"
+  },
+  "presenting_complaint": "Cancer-associated DVT on therapeutic LMWH developing minor bleeding (gingival, darker stool, abdominal bruising) and thrombocytopaenia 95 — needs anticoagulation reassessment.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Doctor, my wife was started on enoxaparin 10 days back for left leg DVT. Now her gums bleed when brushing, abdomen has bruises at injection sites, one dark stool yesterday, hemoglobin dropped from 11.5 to 10.2. Platelets 95,000. She is on ramucirumab too. Should we stop the injections? Should we go to hospital tonight?",
+  "ideal_response_components": [
+    "Recognise the bleeding signals: gingival bleeding + injection site bruising + one dark stool + Hb drop 1.3 g + platelet drop to 95,000 + ramucirumab (VEGF inhibitor — independent bleeding/perforation risk) on therapeutic LMWH = CLINICALLY SIGNIFICANT MINOR BLEEDING — needs evaluation TODAY or tomorrow morning at oncology centre",
+    "Triage: not currently a major haemorrhage (no haemodynamic compromise, no haematemesis, no large melena, no haemoptysis, no neurological signs from brain mets re-bleed — confirm none) — does NOT require ED tonight unless deteriorates, BUT cannot be ignored",
+    "Bridging decision today: HOLD next enoxaparin dose pending review tomorrow morning (one dose hold is reasonable given moderate signals); do NOT continue at full dose blindly; do NOT stop completely (DVT only 10 days, high re-thrombosis risk especially with ramucirumab)",
+    "Plan for tomorrow at oncology centre: (a) repeat FBC, INR/aPTT (LMWH effect baseline), urea/creatinine, LFTs, anti-Xa level if available (target 0.5-1.0 IU/mL therapeutic LMWH), stool occult blood, urinalysis; (b) review brain MRI if any neurological signs (brain mets bleed risk on anticoagulation); (c) review ramucirumab continuation decision in context of DVT — major drug-drug-bleeding interaction; (d) consider DOSE REDUCTION of LMWH to enoxaparin 1 mg/kg OD (instead of BD) given bleeding signals and thrombocytopaenia 95 — evidence supports reduced-dose LMWH (50-75% of therapeutic) when platelets 50-100",
+    "Platelet management: platelets 95 with chemo-induced cause — likely chemo nadir; will recover with pegfilgrastim; if platelets drop <50, LMWH dose further reduced or held; if <20, hold completely and consider IVC filter if VTE recurrence concern",
+    "Ramucirumab decision: VEGF inhibitors increase bleeding risk; in the context of active bleeding, oncologist will likely HOLD next ramucirumab dose; may continue docetaxel alone — final call by oncologist",
+    "Counsel injection technique: rotate sites widely (not all in same abdominal area); apply gentle pressure 1 min post-injection; do not rub; ice pack on bruise if cosmetic concern",
+    "Counsel daily monitoring for next 48 hours: dark stool count, fresh bleeding (any source), bruising new sites, headache (brain mets re-bleed), weakness/numbness, chest pain, severe abdominal pain, dizziness on standing — go to ED immediately if these develop",
+    "Continue pantoprazole, consider tranexamic acid for gingival bleed ONLY (oral rinse 500 mg in 10 mL water TDS) — local effect, systemic tranexamic is generally avoided in active cancer with VTE (could re-thrombose) but oral rinse safe",
+    "Address anxiety: husband is rightly worried; this is manageable but needs vigilance; OPD review within 12-18 hours is appropriate timing",
+    "Consider switching to DOAC long-term if appropriate: apixaban 5 mg BD has lower bleeding rates than enoxaparin in some cancer studies (Caravaggio trial); however with brain mets, DOAC has more risk; LMWH currently appropriate; review with oncologist"
+  ],
+  "expected_guideline_citations": [
+    "ITAC International Initiative on Thrombosis and Cancer (Farge 2022)",
+    "ASCO Guideline on VTE in Cancer (Key 2023)",
+    "ESMO Guidelines on Cancer-Associated Thrombosis (Mandala 2023)",
+    "Tata Memorial Centre VTE Protocols",
+    "Caravaggio Trial (Agnelli 2020) — apixaban vs LMWH in cancer-associated thrombosis",
+    "Pallium India / IAPC Handbook — Anticoagulation in cancer",
+    "Ramucirumab prescribing information — bleeding risk class warning"
+  ],
+  "safety_traps": [
+    "Stopping LMWH completely without bridging plan — re-thrombosis risk in first month is very high (~10-20% if stopped early)",
+    "Continuing full-dose LMWH despite clear bleeding signals and platelet drop — risk of major haemorrhage",
+    "Forgetting brain mets — anticoagulation on brain metastases requires risk-benefit review; consider MRI if any neurological signs",
+    "Continuing ramucirumab without oncologist review during bleeding — VEGF additive risk",
+    "Switching to warfarin reflexively — inferior to LMWH/DOAC in cancer-associated thrombosis",
+    "Starting systemic tranexamic acid — re-thrombosis risk in this exact patient; topical/oral rinse OK",
+    "NSAIDs for any pain (e.g. injection site soreness) — bleeding risk additive",
+    "Missing potential melena (one dark stool) — could indicate UGI bleed; needs review",
+    "Failing to give clear emergency red-flag list — family will not know when to escalate"
+  ],
+  "indian_context_notes": [
+    "Coimbatore has multiple cancer centres (KMCH, GKNM, Sri Ramakrishna) — easy access; oncology day-care can handle reassessment",
+    "Enoxaparin (Clexane) ₹400-700/day in India; long-term cost burden; counsel financial planning, look for patient assistance",
+    "Apixaban available in India (~₹3000-4000/month) — alternative if appropriate; cheaper than enoxaparin long-term",
+    "Tamil-language explanation of red flags to husband (66M) essential; printed list at home in Tamil",
+    "Pegfilgrastim cycle and chemo nadir timing — flag with oncologist; familiar pattern but layered on anticoagulation makes it nuanced",
+    "Family hierarchy: husband + daughter both involved; both should know red flags",
+    "Travel 7 km to oncology centre — auto/cab easy; ambulance only if active deterioration"
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "oncology_review_tomorrow_morning_with_blood_tests_for_anticoagulation_dose_reassessment_and_bleeding_workup",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

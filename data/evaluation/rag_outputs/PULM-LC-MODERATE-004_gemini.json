@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-MODERATE-004",
+  "language": "en-IN",
+  "asker_query": "Doctor, my wife was started on enoxaparin 10 days back for left leg DVT. Now her gums bleed when brushing, abdomen has bruises at injection sites, one dark stool yesterday, hemoglobin dropped from 11.5 to 10.2. Platelets 95,000. She is on ramucirumab too. Should we stop the injections? Should we go to hospital tonight?",
+  "answer": "It is understandable to be concerned given the new signs of bleeding while your wife is on therapeutic anticoagulation. Ramucirumab is known to increase the risk of bleeding, and the combination with therapeutic LMWH (enoxaparin) requires careful clinical reassessment. While you should not stop the injections without immediate medical consultation, the presence of dark stools (melena) and bruising indicates a potential for significant internal bleeding. You must contact her oncology or palliative care team immediately to review the necessity of continued therapeutic anticoagulation versus prophylactic dosing, especially given her platelet count of 95,000 and the recent drop in hemoglobin.\nPlease arrange for an urgent clinical review today. In the home setting, monitor for \"red flag\" symptoms that necessitate an immediate hospital visit: persistent or heavy bleeding (e.g., bright red blood in stools, coughing up blood, or inability to stop gum bleeding), severe abdominal pain, dizziness, or signs of fainting (orthostatic hypotension). Ensure you keep a log of all bleeding episodes and injection site reactions to show the physician. Do not administer the next dose of enoxaparin until you have spoken with her treating oncologist or palliative physician, as they will need to weigh the risk of recurrent DVT against the risk of life-threatening hemorrhage.\nCaregivers should be educated that nausea and vomiting, which may occur during this period, should be managed with regular, scheduled anti-emetics rather than PRN dosing to ensure consistent control. If she experiences nausea, avoid combining prokinetics like metoclopramide with anti-spasmodics like hyoscine butyl bromide, as these act on opposing pathways and are not advised. If her condition worsens or if she develops signs of intracranial pressure—such as new headaches, confusion, or vision changes—seek emergency care immediately, as dexamethasone adjustments may be required.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:33:53.756877Z",
+  "rag_method": "vector",
+  "elapsed_ms": 5800,
+  "error": null,
+  "provider": "gemini"
+}

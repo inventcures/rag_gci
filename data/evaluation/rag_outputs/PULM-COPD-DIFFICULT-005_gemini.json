@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-005",
+  "language": "en-IN",
+  "asker_query": "Sir, my wife has had swelling legs for months and now both ankles have weeping wounds 4 cm each. They look pink, some yellow slough, no smell, no fever, painful only when we clean. Should we bring her to hospital or can we treat at home? What dressing? Any medicine?",
+  "answer": "⚠️ URGENT: Please seek immediate medical attention.\n\n\nActions:\n1. Go to nearest hospital emergency\n2. Call your doctor\n3. Do not drive yourself\n4. A human caregiver has been notified\n\n👤 Connecting you to a human caregiver as requested.\n\nRequest ID: 1844800aa5aa\nSomeone will be with you shortly.",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:28:54.774579Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4,
+  "error": null,
+  "provider": "gemini"
+}

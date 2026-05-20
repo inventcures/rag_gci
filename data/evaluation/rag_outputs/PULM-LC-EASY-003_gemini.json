@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-EASY-003",
+  "language": "en-IN",
+  "asker_query": "Doctor sahab, papa has lost 3 kg in 3 months, eating 60-70% of normal. No vomiting, no pain, no fever, no diarrhoea. He says food feels heavy and tasteless. He is on sotorasib. We are caterers, we don't know why our food is not appealing to him. What can we do at home?",
+  "answer": "It is understandable that you are concerned about your father’s weight loss, especially given your background in the food industry. In advanced cancer, anorexia is often multifactorial. According to the *Textbook of Palliative Care (Twycross, 2008)*, the first step is to address secondary causes before assuming it is purely due to the cancer cachexia syndrome. Since he reports that food feels \"heavy\" and \"tasteless,\" we should focus on optimizing his intake through small, frequent meals rather than large portions, which can cause early satiety. You may consider adding a prokinetic agent (such as metoclopramide 10 mg before meals) if he experiences gastric stasis, or an antacid/antiflatulent if he has dyspepsia, as these are common contributors to poor appetite in advanced disease.\nAs a practical action plan, I recommend that you and your family shift the focus from \"three full meals\" to \"small and often\" snacks. Since he finds food tasteless, experiment with flavor profiles—sometimes cold or room-temperature foods are better tolerated than hot, aromatic meals that might trigger nausea. As caregivers, your role is to monitor his weight weekly and ensure he is not constipated, as constipation is a frequent, overlooked cause of anorexia. If he remains stable, continue his current medications, but keep a simple log of his daily intake. Time-criticality is low, but please observe him closely for any new symptoms.\nIf you notice \"red flags\"—such as persistent vomiting, inability to keep fluids down, severe abdominal pain, or rapid, unexplained weight loss exceeding 2 kg in a single month—please contact his oncology team immediately for a review of his sotorasib therapy. While mild weight loss is common in advanced lung cancer, any sudden decline or signs of bowel obstruction require urgent clinical assessment. Ensure he maintains good oral hygiene, as a sore or dry mouth can also significantly alter the taste of food.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:33:05.311269Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3355,
+  "error": null,
+  "provider": "gemini"
+}

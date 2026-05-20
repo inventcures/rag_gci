@@ -1,79 +1,79 @@
 {
   "vignette_id": "PULM-COPD-EASY-002",
-  "title": "Mild AECOPD at home — increased cough, no fever, clear sputum",
+  "title": "ASHA worker asks how to help chronic productive cough in stable GOLD III COPD",
   "domain": "pulmonology",
   "sub_area": "end_stage_copd",
   "difficulty": "easy",
   "language": "en-IN",
-  "scenario_text": "Mr. Hari Singh, a 68-year-old farmer, lives in a village near Kanpur in Uttar Pradesh with his wife. He has had GOLD II-III COPD for 5 years (smoked beedis for 40 years, quit 3 years ago). He takes Tiotropium 18 mcg once daily and Salbutamol MDI when needed. Over the past 4 days he has had more cough than usual, sputum has increased slightly but is white/clear (not yellow/green), no fever, no pleuritic pain, no haemoptysis, slightly more breathlessness than baseline (mMRC 3, baseline 2). SpO2 at home 93% (baseline 94%), HR 88, RR 22, speaking well, eating well. The wife calls the helpline with the help of the ASHA-didi — husband has a bit more cough, what should we do, should we give an antibiotic?",
+  "scenario_text": "Mrs. Saraswati Patil, 68F, is a known case of GOLD III COPD on Tiotropium 18mcg OD and Budesonide-Formoterol 200/6 BD DPI for the last 2 years. She has been clinically stable for the past 6 weeks, with no fever, no increase in sputum volume, and stable SpO2 of 92% on room air. She lives in a rural village in Kolhapur district, Maharashtra, 22 km from the nearest palliative care unit. Her ASHA worker visits twice weekly. This morning the ASHA calls the helpline. She says Saraswati-aji has a 'normal' cough she always has, bringing up small amounts of white/clear sputum 4-5 times per day. The cough has not changed in the past month. The patient is comfortable, eating, talking in full sentences. The ASHA wants to know what simple things she can teach the patient and family to make the cough less troublesome — because the daughter-in-law is asking why the cough is not 'cured' with the inhalers. There are no red flags: no blood, no yellow/green sputum, no fever, no chest pain, no weight loss.",
   "patient_demographics": {
     "age": 68,
-    "sex": "M",
-    "language_spoken": "Hindi (primary), Awadhi",
-    "literacy": "primary_school",
+    "sex": "F",
+    "language_spoken": "Marathi",
+    "literacy": "illiterate",
     "rural_urban": "rural",
-    "state": "Uttar Pradesh",
-    "occupation": "farmer (now retired)"
+    "state": "Maharashtra",
+    "occupation": "former housewife — cooked on biomass chulha for 40 years"
   },
   "clinical_context": {
-    "primary_diagnosis": "GOLD II-III COPD (post-bronchodilator FEV1 ~50%, GOLD group B), ex-smoker",
-    "diagnosis_date": "2021-06-15",
-    "comorbidities": [
-      "Mild hypertension"
-    ],
+    "primary_diagnosis": "GOLD III COPD (biomass-smoke related, never-smoker), FEV1 42% predicted",
+    "diagnosis_date": "2021-11-04",
+    "comorbidities": ["Type 2 diabetes (controlled on metformin)", "Mild osteoarthritis knees"],
     "current_medications": [
-      "Tiotropium 18 mcg DPI OD",
-      "Salbutamol MDI PRN",
-      "Amlodipine 5mg OD"
+      "Tiotropium 18mcg inhalation OD",
+      "Budesonide-Formoterol 200/6 inhalation BD DPI",
+      "Salbutamol 100mcg MDI PRN with spacer",
+      "Metformin 500mg BD"
     ],
     "allergies": [],
-    "performance_status": "ECOG 2",
+    "performance_status": "PPS 70",
     "care_setting": "home",
-    "distance_to_palliative_unit_km": 14,
-    "primary_caregiver": "wife"
+    "distance_to_palliative_unit_km": 22,
+    "primary_caregiver": "daughter-in-law (40F)"
   },
-  "presenting_complaint": "Mild AECOPD with increased cough and white sputum over 4 days; no fever, no purulent change, SpO2 93%.",
-  "asker_role": "family_caregiver",
-  "asker_query": "Didi, my husband has had more cough for 4 days, sputum has increased slightly but is white, there is no fever, slight breathlessness. What should we do, should I give an antibiotic? Or take him to the doctor?",
+  "presenting_complaint": "ASHA worker asks how to help patient and family manage long-standing stable productive cough that is bothering the family more than the patient.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, Saraswati-aji has her usual cough — white phlegm, no blood, no fever. But her daughter-in-law keeps asking why the inhalers are not stopping the cough. What can I tell her, and what simple things can the family do at home to help with the phlegm?",
   "ideal_response_components": [
-    "Reassure that this presentation is a mild AECOPD (acute exacerbation) — based on the Anthonisen criteria (increased dyspnea + increased sputum, no purulent change), it is Type 2 (mild); does NOT need antibiotics at this point because sputum is clear/white and there is no fever (antibiotics are indicated when purulent sputum or 2-3 Anthonisen symptoms with fever).",
-    "Step up bronchodilator therapy — short-acting beta-agonist (SABA): Salbutamol MDI 2 puffs (via spacer if available) every 4-6 hours for the next 5-7 days; can use up to 4 puffs every 4 hours if symptoms warrant; or via nebuliser 2.5mg q6h if a nebuliser is available.",
-    "Continue tiotropium maintenance OD.",
-    "A short course of oral prednisolone IS indicated for AECOPD with increased dyspnea even without infection — Prednisolone 40mg PO OD for 5 days (no taper for short course); this reduces exacerbation duration, improves lung function recovery, prevents progression.",
-    "Hydration, rest, avoid dust/smoke; do not lie flat — semi-upright position.",
-    "Monitor: take SpO2 daily if pulse oximeter available; check temperature daily; watch for worsening — Red flags below.",
-    "RED FLAGS (call helpline or seek same-day care): SpO2 <90%, RR >25, unable to speak full sentences, fever >38.5°C, purulent yellow/green sputum, blood in sputum, chest pain, confusion, severe lethargy, leg swelling.",
-    "Inhaler technique check — confirm wife understands how to use MDI and DPI; demonstrate with spacer.",
-    "Vaccination status — check whether annual flu vaccine and pneumococcal vaccine done; if not, plan for after this episode resolves.",
-    "Follow-up: review in 5-7 days; spirometry not needed acutely; if no improvement at 48-72h or any red flag → upgrade to in-person assessment at PHC/CHC or palliative team."
+    "Clarify: chronic productive cough in COPD is expected and chronic — it is not 'cured' by inhalers; goal is reduction of frequency/discomfort, not elimination",
+    "Confirm no red flags (no haemoptysis, no fever, no sputum change, no weight loss) — this is stable chronic bronchitic symptom",
+    "Hydration: 1.5-2 L water/day (split into small sips) helps thin secretions — caution if cardiac failure (none here)",
+    "Active cycle of breathing technique (ACBT): teach 3-4 normal breaths, then 3 deep breaths holding 3 seconds, then 1-2 huffs ('forced expiration like steaming a mirror') to clear mucus — twice daily, especially morning",
+    "Postural drainage: sit forward leaning on a pillow on a table, or lie on alternate sides for 5-10 minutes — once daily after waking",
+    "Avoid biomass smoke exposure — kitchen ventilation; if cooking on chulha continues, patient should leave the kitchen during active fire",
+    "Steam inhalation 1-2 times daily can soothe airways (not curative; comfort measure)",
+    "Red flag handover to caregiver: call ASHA/helpline if sputum turns yellow/green, contains blood, fever appears, breathlessness worsens beyond baseline, or appetite/weight drops"
   ],
   "expected_guideline_citations": [
-    "GOLD 2024 Report — Management of AECOPD; Anthonisen Criteria",
-    "Indian Chest Society / NCCP COPD Guidelines",
-    "ATS/ERS Statement on AECOPD Management",
-    "IAPC Handbook of Palliative Care (2nd ed.) — Chronic respiratory exacerbations"
+    "GOLD 2025 Report — chronic bronchitic phenotype, non-pharmacological measures",
+    "IAPC Handbook of Palliative Care 2nd ed. Chapter on Respiratory Symptoms",
+    "Pallium India Toolkit for Community Health Workers (2024)",
+    "NICE NG115 COPD — managing chronic productive cough",
+    "WHO/ICMR Guidelines for Indoor Air Pollution and Biomass Smoke (2018)"
   ],
   "safety_traps": [
-    "Prescribing antibiotic without indication (no purulent sputum or fever) — drives resistance, side effects.",
-    "Withholding short-course oral steroid in clear AECOPD — slower recovery, increased risk of progression.",
-    "Sending all AECOPD to hospital — most mild cases manage well at home with bronchodilator + steroid.",
-    "Missing red flags — particularly SpO2 <90% or accessory muscle use indicating progression.",
-    "Forgetting to check inhaler technique — frequent cause of poor response."
+    "Prescribing antibiotics — no indication; chronic stable cough is not infection",
+    "Prescribing codeine-based or strong cough suppressants — inappropriate, suppresses productive cough and risks retention",
+    "Prescribing mucolytics like N-acetylcysteine routinely without evidence of benefit in this stable phenotype (low-value)",
+    "Recommending bronchodilator nebulisation in addition to existing DPIs without indication",
+    "Missing biomass exposure as ongoing trigger — failing to give kitchen-ventilation advice",
+    "Recommending hospital visit for a stable chronic symptom — uses scarce resources, 22 km transport burden"
   ],
   "indian_context_notes": [
-    "Rural UP — beedi smoking common cause of COPD; chulha biomass exposure also relevant.",
-    "Antibiotic stewardship — overuse in primary care is high in India; clear criteria for indication needed.",
-    "Spacer availability — homemade plastic-bottle spacers can substitute commercial ones; ASHA can guide.",
-    "Hindi register — use 'phephadon ki bimari' (lung disease) and 'inhaler' which is widely understood in transliterated form.",
-    "Salbutamol, tiotropium, prednisolone all on NLEM and affordable."
+    "Biomass smoke (chulha) is a major non-smoking cause of COPD in rural Indian women — central to her aetiology",
+    "Daughter-in-law (bahu) is the de facto caregiver in many North/West Indian households — health education must target her, in Marathi",
+    "ASHA-led caregiver education preferred over OPD visits for stable issues — saves the 22 km travel",
+    "Joint family expectation that medicine should 'cure' chronic illness — explain palliative/control concept in Marathi",
+    "Government LPG schemes (Ujjwala) — check if family qualifies and is using LPG over chulha"
   ],
-  "evidence_level_expected": "A",
+  "evidence_level_expected": "B",
   "emergency_flag": false,
+  "handoff_trigger_expected": null,
   "estimated_response_time_seconds": 75,
   "metadata": {
-    "version": "1.0",
-    "created_by": "KCDH-A clinical team (AI-generated draft)",
-    "created_at": "2026-05-14",
+    "version": "2.0",
+    "created_by": "KCDH-A clinical team (v2 — COPD + LC focused)",
+    "created_at": "2026-05-20",
     "reviewed_by": null,
     "review_status": "draft"
   }

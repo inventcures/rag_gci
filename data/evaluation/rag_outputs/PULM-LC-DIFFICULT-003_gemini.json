@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-003",
+  "language": "en-IN",
+  "asker_query": "Doctor, my father is wasting — 11 kg in 6 months, BMI 16. He says he cannot eat anything. He is on escitalopram 20 for depression after my mother's death. My uncle in Delhi keeps blaming me — saying I am not feeding him properly, forcing me to give Sustagen, eggs. I have left my job to care for papa. He just wants to die at home. What can we do? Should I force him to eat?",
+  "answer": "It is deeply distressing to witness a loved one lose weight, but please know that in advanced cancer, cachexia is a metabolic process, not a result of \"not feeding\" him enough. According to Twycross (2008), anorexia in advanced cancer is often secondary to factors like fatigue, gastric stasis, or dyspepsia. You should **never force-feed him**, as this causes significant distress and does not reverse the underlying cachexia. Instead, focus on small, frequent meals rather than large ones to manage early satiety. If he experiences dyspepsia or gastric stasis, discuss adding a prokinetic drug (like metoclopramide) with his palliative team to improve comfort. Ensure his mouth is kept clean and moist, as a sore mouth often contributes to poor appetite.\nYour primary role is to provide comfort and companionship, not to act as a nutritionist. Please share this information with your uncle: in advanced lung cancer, the body’s metabolism is altered, and forcing high-calorie supplements like Sustagen or eggs when the patient is nauseated or fatigued can lead to vomiting and increased suffering. If he is transitioning between TKI lines, his appetite may fluctuate significantly. Focus on \"little and often\"—offering small, preferred snacks rather than full meals. If he expresses a desire to remain at home, prioritize his comfort and dignity over caloric intake. You are doing a difficult job; please do not carry the guilt of his weight loss, as it is a clinical symptom of his disease, not a failure of your care.\nMonitor for \"red flags\" that require immediate escalation to your palliative care team: persistent vomiting, inability to swallow liquids, or signs of bowel obstruction (severe abdominal pain or absolute constipation). If his depression worsens—manifesting as complete withdrawal or suicidal ideation—contact his psychiatrist to review his escitalopram dose, as bereavement and physical decline are heavy burdens.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-20T04:31:44.081108Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3736,
+  "error": null,
+  "provider": "gemini"
+}
