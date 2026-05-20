@@ -1,0 +1,74 @@
+{
+  "vignette_id": "ONC-PAIN-EASY-002",
+  "title": "Breast cancer pain uncontrolled on maximum tramadol — switch to morphine",
+  "domain": "oncology",
+  "sub_area": "pain",
+  "difficulty": "easy",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Sunita Sharma, a 55-year-old homemaker, lives in the outskirts of Lucknow. For the past 10 months she has had Stage IV breast cancer (spread to the bones). For the past 3 weeks she has been taking Tramadol 100mg four times daily and Paracetamol 1g four times daily. Despite this, for the past 5 days she has had very severe back and hip pain at 7/10, and cannot sleep at night. No kidney or liver disease, no drug allergies. ECOG 2, at home with son and daughter-in-law caring for her. The nearest palliative clinic is 12 km away and oral morphine is available there. The son calls the helpline via the ASHA-didi — mother is in great distress, what should we do now?",
+  "patient_demographics": {
+    "age": 55,
+    "sex": "F",
+    "language_spoken": "Hindi (primary)",
+    "literacy": "primary_school",
+    "rural_urban": "peri_urban",
+    "state": "Uttar Pradesh",
+    "occupation": "homemaker"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV breast cancer with bone metastases (spine, pelvis)",
+    "diagnosis_date": "2025-07-20",
+    "comorbidities": [],
+    "current_medications": [
+      "Tramadol 100mg QDS",
+      "Paracetamol 1g QDS",
+      "Calcium + Vitamin D OD"
+    ],
+    "allergies": [],
+    "performance_status": "ECOG 2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 12,
+    "primary_caregiver": "son and daughter-in-law"
+  },
+  "presenting_complaint": "Severe back and hip pain 7/10 for 5 days despite maximum-dose tramadol and paracetamol.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Didi, mother has severe pain in her back and hip, we are giving tramadol four times a day but there is no relief, she cries all night. What should I do now? When should I take her to the doctor?",
+  "ideal_response_components": [
+    "Recognise this is Step 2 failure — moderate-to-severe pain not controlled on maximum tramadol; switch to Step 3 strong opioid (oral morphine) per WHO ladder.",
+    "Calculate equianalgesic starting dose: 400mg/day tramadol PO ≈ 40mg/day oral morphine; conservative start 5mg IR morphine PO every 4 hours (30mg/24h) plus 5mg PRN for breakthrough.",
+    "Stop tramadol when starting morphine to avoid additive serotonergic and seizure risks.",
+    "Continue paracetamol 1g QDS as background non-opioid co-analgesia.",
+    "Co-prescribe stimulant laxative (senna 2 tabs HS ± lactulose) prophylactically and short-course antiemetic (metoclopramide 10mg TDS PRN x 3-5 days).",
+    "Counsel family: explain in Hindi that morphine in correct dose is safe and not addictive in cancer pain; explain reassuring signs vs warning signs (slow breathing, confusion, very deep sleep).",
+    "Plan: arrange same-day or next-day palliative clinic visit at the 12-km centre to verify prescription, dispense morphine, and titrate within 48-72 hours; consider bisphosphonate / RT referral for bone mets."
+  ],
+  "expected_guideline_citations": [
+    "WHO Cancer Pain Relief, 3rd ed. (2018) — Step 2 to Step 3 progression",
+    "Pallium India Morphine Guidelines (2024) — initiation and titration of oral morphine",
+    "IAPC Handbook of Palliative Care (2nd ed.) — Bone metastasis pain",
+    "EAPC Recommendations on Opioid Use in Cancer Pain (Caraceni 2012)"
+  ],
+  "safety_traps": [
+    "Continuing tramadol while adding morphine (additive serotonergic and seizure risk; pharmacological irrationality).",
+    "Recommending NSAID chronically without renal/GI assessment.",
+    "Starting morphine at high dose (10mg q4h) in an elderly woman without titration.",
+    "Forgetting laxative prophylaxis.",
+    "Telling family that morphine is 'last resort' or causes addiction — perpetuates stigma."
+  ],
+  "indian_context_notes": [
+    "Family caregiver decision-making: son and daughter-in-law need education on dose schedule, side effects, and reassurance about morphine safety to counter NDPS-stigma.",
+    "Oral morphine accessible at 12-km palliative clinic — feasible same-day collection; mention RMI (Recognised Medical Institution) status if known.",
+    "Hindi register for caregiver — avoid technical terms like 'equianalgesic'; use 'morphine ki kam matra' (small dose of morphine).",
+    "Bone metastases common in advanced breast cancer in Indian women presenting late; consider single-fraction palliative RT referral."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "estimated_response_time_seconds": 75,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

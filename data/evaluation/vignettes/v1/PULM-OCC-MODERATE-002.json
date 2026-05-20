@@ -1,0 +1,91 @@
+{
+  "vignette_id": "PULM-OCC-MODERATE-002",
+  "title": "End-stage byssinosis in textile mill worker — dyspnea management",
+  "domain": "pulmonology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "moderate",
+  "language": "en-IN",
+  "scenario_text": "Mr. Sanjay Ghosh, a 55-year-old former textile mill worker, worked for 30 years in a cotton mill in Girgaon, Mumbai (raw cotton processing — carding and spinning sections); after the mill closed in 2022 he moved to Kolkata to live with his cousin. In 2024 he was diagnosed with byssinosis (Schilling grade III) — Monday-fever pattern, FEV1 45% predicted, 15% bronchodilator reversibility. Stopped smoking 7 years ago. Symptoms have continued even after leaving work. He is currently mMRC 4, cough most of the time, sputum greyish, no haemoptysis, ECOG 3. Tiotropium-Olodaterol + Budesonide-Formoterol + Salbutamol PRN. SpO2 89% on air. He has a hand-held pulse oximeter at home. Occupational compensation claim has been pending for 15 months, no income, his cousin's family is supporting them. He has a wife and a teenage daughter (school class 11). There is no CCHRC outreach team; the local NRS Medical College is 6 km away. The ASHA-didi calls the helpline — his breathlessness is increasing, what should we do?",
+  "patient_demographics": {
+    "age": 55,
+    "sex": "M",
+    "language_spoken": "Bengali (primary), Hindi, Marathi",
+    "literacy": "secondary_school",
+    "rural_urban": "urban",
+    "state": "West Bengal",
+    "occupation": "former textile mill worker (mill closed)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Byssinosis Schilling grade III (chronic) with chronic airflow obstruction; former textile mill worker, 30-year cotton dust exposure",
+    "diagnosis_date": "2024-04-08",
+    "comorbidities": [
+      "Anaemia (Hb 10.5)",
+      "Anxiety",
+      "Chronic financial stress"
+    ],
+    "current_medications": [
+      "Tiotropium-Olodaterol DPI OD",
+      "Budesonide-Formoterol DPI BD",
+      "Salbutamol MDI PRN",
+      "Multivitamin"
+    ],
+    "allergies": [],
+    "performance_status": "ECOG 3",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 6,
+    "primary_caregiver": "wife and daughter; cousin's family"
+  },
+  "presenting_complaint": "Progressive dyspnea (mMRC 4) and chronic cough in late-stage byssinosis after 30-year occupational cotton dust exposure; SpO2 89%; financial and social precarity.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Didi, my husband's breathlessness is getting worse day by day, he worked for 30 years in a cotton mill, now there is no work, the compensation case is pending. He is taking inhalers. SpO2 89%. What more can I do at home?",
+  "ideal_response_components": [
+    "Acknowledge the dual burden — chronic disabling lung disease layered on financial and social precarity; this is the classic profile of post-industrial occupational disease in India.",
+    "Optimise inhaled therapy: confirm triple therapy (LAMA-LABA + ICS) — appropriate for severe byssinosis with airflow obstruction and reversibility; check technique meticulously (DPI requires forceful inspiration; consider spacer + MDI alternative or nebuliser if technique poor); ensure adherence.",
+    "Home oxygen assessment: SpO2 89% on air at rest meets LTOT criteria (SpO2 ≤88% chronic) — refer for formal ABG and LTOT prescription; at the 6-km NRS Medical College pulmonology OPD or CCHRC affiliate; LTOT can improve survival, reduce dyspnea, support ADL.",
+    "Pulmonary rehabilitation: refer to local programme if available; even basic home-based rehab (walking training, breathing exercises, upper-limb strength) has evidence; engage the daughter (10th-class student) to assist with structured exercises.",
+    "Low-dose oral morphine for refractory dyspnea: Morphine IR 2.5mg PO every 4 hours scheduled is appropriate (mMRC 4, severe symptoms despite optimised inhalers); titrate by response; counsel family on safety/non-addiction; in Bengali register, explain as 'shashtar oushod' (breath medicine).",
+    "Cough: chronic cough in byssinosis can be helped by nebulised saline, mucolytics (acetylcysteine 600mg BD), and if persistent and disabling, low-dose codeine linctus or escalate the morphine.",
+    "Address comorbidities: anaemia — iron studies, B12, folate; treat reversible cause; anxiety — counsellor; mood screening.",
+    "Compensation case (CRITICAL — ofttranscripto-the-difficulty): byssinosis is a notified occupational disease under Maharashtra Factories Act and ESI (Employees' State Insurance) regulations; the 15-month pending compensation should be urgently followed up — connect to: (a) Local occupational health social worker; (b) Trade union or worker rights NGOs (Mumbai Mill Workers' Action Committee, Centre for Indian Trade Unions); (c) Labour Court if claim is stuck; (d) ESI hospital in Kolkata may have parallel coverage; (e) RTI application to track claim status. Compensation will materially affect his and family's wellbeing.",
+    "Government schemes: West Bengal Health Scheme (Swasthya Sathi) — check eligibility, may cover medications; PM-JAY may cover hospitalisation; Department of Labour Welfare for additional benefits.",
+    "Family/caregiver support: wife and daughter under significant stress; daughter's education must not be sacrificed — connect to a local NGO for educational support; refer wife to community palliative care (Kolkata has Cipla, CanSupport equivalents); counselling.",
+    "Goals-of-care conversation (gentle, not urgent yet): byssinosis Schilling grade III with mMRC 4 has median survival ~3-5 years from this stage; introduce future planning, advance directives in Bengali context.",
+    "Vaccinations: flu, pneumococcal, Covid.",
+    "Plan: home palliative team visit (or NRS-affiliated palliative service) within 1-2 weeks; LTOT prescription; morphine initiation; social work referral for compensation; community support engagement; follow-up monthly."
+  ],
+  "expected_guideline_citations": [
+    "ILO Code on Occupational Lung Diseases — Byssinosis",
+    "Schilling Classification of Byssinosis",
+    "Indian Chest Society Guidelines on Occupational Lung Disease",
+    "ATS/ERS Statement on Optimum Symptom Treatment in Advanced Lung Disease",
+    "Pallium India Symptom Management Manual",
+    "Maharashtra Factories Act (1948) Occupational Disease Notification Provisions"
+  ],
+  "safety_traps": [
+    "Treating as 'COPD' without recognising the occupational dimension — closes compensation pathway.",
+    "Withholding LTOT — eligible patient, survival benefit established.",
+    "Avoiding low-dose morphine in advanced disease.",
+    "Ignoring the compensation/social-justice dimension — material to his care.",
+    "Not addressing the daughter's education and family wellbeing.",
+    "Missing anaemia and anxiety which compound disability."
+  ],
+  "indian_context_notes": [
+    "Maharashtra textile mill closures (especially Mumbai cotton mills 1980s-2000s) created a large cohort of ex-byssinotic workers with delayed presentations; many migrated.",
+    "ESI hospitals in Kolkata can re-evaluate occupational health claims even if original exposure was in another state.",
+    "Worker rights NGOs (Mumbai Mill Workers' Action Committee, CFTUI, NTUI) have historical experience with byssinosis claims.",
+    "Bengali register — emotional, family-centred; address as 'dada/dadu' culturally; engage daughter as supportive carer.",
+    "Kolkata — NRS Medical College, Calcutta Medical College, RG Kar have pulmonology services; CMC Vellore and SRMC accept telemedicine consults.",
+    "Cotton dust exposure (Schilling III) is by NIOSH/ILO formal definition an occupational disease — official documentation supports his claim."
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "ltot_prescription_and_social_work_compensation_followup",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Didi, Mashima is shouting, pulling at her clothes, worse at night, no bowel motion for 3 days, urine is reduced — what should I do? The family does not want to go to hospital, they want to stay at home.",
+  "answer": "When a patient in the end-of-life phase exhibits acute hyperactive delirium—manifesting as agitation, shouting, and carphologia (picking at clothes)—it is critical to first exclude and manage reversible causes. In this case, the 3-day history of constipation is a significant, treatable contributor to delirium. You should ensure the bowel regimen is optimized; if the patient can swallow, continue Lactulose and Senna, but if she is unable to take oral medications, consult a palliative physician for rectal interventions (e.g., glycerin suppositories or enemas). For the agitation itself, Haloperidol is the standard pharmacological intervention. In the Indian palliative context, Haloperidol can be titrated (e.g., starting at 0.5mg to 1mg orally or subcutaneously) and stepped up based on the patient's response until the agitation is controlled, as demonstrated in the case of Sukumaran.\nFor the home setting, your primary role is to support the family and simplify the care plan. Since the family wishes to remain at home, focus on non-pharmacological measures: keep the environment calm, avoid confrontation, validate the patient’s distress without arguing against her perceptions, and explain to the family that this delirium is a symptom of the dying process, not \"madness.\" As the patient is likely in her final days, prioritize comfort over routine medications; if she has difficulty swallowing, work with a doctor to transition essential medications to the subcutaneous or rectal route, or discontinue non-essential ones. Monitor for signs that the end is near, such as profound weakness, being bedbound, or an inability to take fluids, which signals that the focus should shift entirely to symptom-directed comfort care.\nBe aware that Haloperidol may cause extrapyramidal side effects, though these are less common at low palliative doses.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:15:23.536296Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3503,
+  "error": null,
+  "provider": "gemini"
+}

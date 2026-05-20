@@ -19,19 +19,39 @@ import os
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVAL_DIR = REPO_ROOT / "data" / "evaluation"
 
-# Read-only assets stay in the repo (vignettes, RAG outputs, rubric).
-# Reviews are written, so on hosts with a persistent disk mount, override
-# their location via REVIEW_DATA_DIR (Render disk path, etc.).
-VIGNETTES_DIR = EVAL_DIR / "vignettes"
-RAG_OUTPUTS_DIR = EVAL_DIR / "rag_outputs"
+# Versioning: two vignette sets are kept in subdirectories.
+#   v1 = original 40 (mixed oncology/pulmonology subareas)
+#   v2 = COPD + lung cancer focused (default, public)
+# The dropdown in the UI lets users switch between them; v1 is admin-gated.
+DEFAULT_VERSION = "v2"
+KNOWN_VERSIONS = ["v2", "v1"]
+ADMIN_ONLY_VERSIONS = {"v1"}
+
 RUBRIC_FILE = EVAL_DIR / "rubric.json"
 _PERSIST_DIR = Path(os.environ.get("REVIEW_DATA_DIR", str(EVAL_DIR)))
 REVIEWS_DIR = _PERSIST_DIR / "expert_reviews"
 
 
+def vignettes_dir(version: str) -> Path:
+    return EVAL_DIR / "vignettes" / version
+
+
+def rag_outputs_dir(version: str) -> Path:
+    return EVAL_DIR / "rag_outputs" / version
+
+
+def normalize_version(v: Optional[str]) -> str:
+    """Return a valid version string, defaulting to DEFAULT_VERSION."""
+    if v in KNOWN_VERSIONS:
+        return v
+    return DEFAULT_VERSION
+
+
 def ensure_dirs() -> None:
-    for d in (VIGNETTES_DIR, RAG_OUTPUTS_DIR, REVIEWS_DIR):
-        d.mkdir(parents=True, exist_ok=True)
+    for v in KNOWN_VERSIONS:
+        vignettes_dir(v).mkdir(parents=True, exist_ok=True)
+        rag_outputs_dir(v).mkdir(parents=True, exist_ok=True)
+    REVIEWS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------- Rubric ----------
@@ -226,19 +246,22 @@ def load_rubric() -> dict:
 
 # ---------- Vignettes ----------
 
-def load_vignette(vignette_id: str) -> Optional[dict]:
-    path = VIGNETTES_DIR / f"{vignette_id}.json"
+def load_vignette(vignette_id: str, version: str = DEFAULT_VERSION) -> Optional[dict]:
+    version = normalize_version(version)
+    path = vignettes_dir(version) / f"{vignette_id}.json"
     if not path.exists():
         return None
     with path.open() as f:
         return json.load(f)
 
 
-def list_vignettes() -> list[dict]:
-    if not VIGNETTES_DIR.exists():
+def list_vignettes(version: str = DEFAULT_VERSION) -> list[dict]:
+    version = normalize_version(version)
+    vdir = vignettes_dir(version)
+    if not vdir.exists():
         return []
     out = []
-    for path in sorted(VIGNETTES_DIR.glob("*.json")):
+    for path in sorted(vdir.glob("*.json")):
         if path.name.startswith("_"):
             continue
         try:
@@ -273,17 +296,19 @@ _PROVIDER_LABEL = {
 }
 
 
-def load_rag_output(vignette_id: str) -> Optional[dict]:
+def load_rag_output(vignette_id: str, version: str = DEFAULT_VERSION) -> Optional[dict]:
     """Back-compat: return a single output. Tries new {vid}_{provider}.json
     files first, falls back to the legacy {vid}.json. Returns whatever is
     first in _PROVIDER_ORDER, or None if no output exists."""
-    outputs = load_rag_outputs(vignette_id)
+    outputs = load_rag_outputs(vignette_id, version)
     return outputs[0]["output"] if outputs else None
 
 
-def load_rag_outputs(vignette_id: str) -> list[dict]:
+def load_rag_outputs(vignette_id: str, version: str = DEFAULT_VERSION) -> list[dict]:
     """Return ALL provider outputs for a vignette, sorted by _PROVIDER_ORDER.
     Each entry: {provider, label, output}."""
+    version = normalize_version(version)
+    odir = rag_outputs_dir(version)
     out: list[dict] = []
     seen: set[str] = set()
 
@@ -291,7 +316,7 @@ def load_rag_outputs(vignette_id: str) -> list[dict]:
     # Only surface providers whitelisted in _PROVIDER_ORDER. Files like
     # {vid}_groq.json on disk are preserved as historical baseline but
     # not rendered in the UI.
-    for path in sorted(RAG_OUTPUTS_DIR.glob(f"{vignette_id}_*.json")):
+    for path in sorted(odir.glob(f"{vignette_id}_*.json")):
         suffix = path.stem.removeprefix(f"{vignette_id}_")
         if not suffix:
             continue
@@ -313,7 +338,7 @@ def load_rag_outputs(vignette_id: str) -> list[dict]:
         )
 
     # Legacy unsuffixed file
-    legacy = RAG_OUTPUTS_DIR / f"{vignette_id}.json"
+    legacy = odir / f"{vignette_id}.json"
     if legacy.exists() and "legacy" not in seen:
         try:
             with legacy.open() as f:
@@ -410,6 +435,7 @@ def export_reviews_csv() -> str:
         "reviewer_real_name",
         "reviewer_institution",
         "vignette_id",
+        "vignette_version",
         "submitted_at",
         "overall_score",
         *[f"dim_{k}" for k in dim_keys],
@@ -432,6 +458,7 @@ def export_reviews_csv() -> str:
             "reviewer_real_name": r.get("reviewer_real_name", ""),
             "reviewer_institution": r.get("reviewer_institution", ""),
             "vignette_id": r.get("vignette_id", ""),
+            "vignette_version": r.get("vignette_version", ""),
             "submitted_at": r.get("submitted_at", ""),
             "overall_score": r.get("overall_score", ""),
             "would_recommend_for_clinical_use": r.get("would_recommend_for_clinical_use", ""),

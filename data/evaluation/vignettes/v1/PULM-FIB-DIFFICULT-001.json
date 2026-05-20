@@ -1,0 +1,81 @@
+{
+  "vignette_id": "PULM-FIB-DIFFICULT-001",
+  "title": "End-stage post-COVID lung fibrosis with severe refractory dyspnea on home O2",
+  "domain": "pulmonology",
+  "sub_area": "fibrosis_ild",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mr. Praveen Nair, 55, IT-sector professional from peri-urban Bengaluru, was admitted with severe COVID-19 ARDS in May 2021, requiring 6 weeks of ICU stay including 4 weeks of mechanical ventilation. He survived but developed severe post-COVID pulmonary fibrosis (HRCT shows extensive bilateral fibrosis with traction bronchiectasis, NSIP-like pattern). He has progressed slowly over 4 years; in the last 6 months has deteriorated despite trial of pirfenidone (stopped 3 months ago due to severe nausea and weight loss). Currently on home O2 16h/day (2 L/min), refractory dyspnea (mMRC 4) even at rest with O2; SpO2 89% on O2; 6-MWT not feasible (cannot ambulate beyond bedside commode). He has cachexia (BMI 17), depression diagnosed 2 years ago on sertraline. He has a wife (52), 18-year-old daughter, 22-year-old son; family has discussed lung transplant which was deemed not feasible (age, deconditioning, cost). He has documented preference for home death and refused future ICU. He has been on Morphine SR 10mg BD for the last 8 weeks with modest benefit; still distressed, particularly with anxiety/panic at night. The home palliative care ASHA worker calls the helpline — the wife is exhausted, the patient is suffering, the family is asking 'how much longer' and 'what more can we do'.",
+  "patient_demographics": {
+    "age": 55,
+    "sex": "M",
+    "language_spoken": "Malayalam, Kannada, English, Hindi",
+    "literacy": "post_graduate",
+    "rural_urban": "peri_urban",
+    "state": "Karnataka",
+    "occupation": "former IT professional (on long-term medical disability)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "End-stage post-COVID-19 pulmonary fibrosis (post-ARDS, 4 years), refractory respiratory failure",
+    "diagnosis_date": "2021-08-15",
+    "comorbidities": ["Cachexia (BMI 17)", "Major depression on sertraline", "Anxiety/panic", "Long-term ICU-acquired weakness sequelae"],
+    "current_medications": ["Morphine SR 10mg PO BD", "Morphine IR 2.5mg q4h PRN", "Home O2 2 L/min 16h/day", "Sertraline 100mg OD", "Clonazepam 0.25mg HS", "Pantoprazole 40mg OD", "Multivitamin"],
+    "allergies": [],
+    "performance_status": "ECOG 4 (PPS 30%)",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 10,
+    "primary_caregiver": "wife (with adult children)"
+  },
+  "presenting_complaint": "Refractory dyspnea and anxiety in end-stage post-COVID lung fibrosis; family exhausted; patient suffering; transplant not feasible; preference for home death documented.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, Praveen-sir is suffering — breath very short even with oxygen, anxiety at night, wife is exhausted, family is asking how much longer and what more can we do. He doesn't want hospital. Morphine is helping a little. What more can we do at home?",
+  "ideal_response_components": [
+    "Acknowledge the family's suffering and the wife's exhaustion — caregivers in end-stage ILD are at very high risk of burnout, depression, and complicated grief; her wellbeing is part of the care plan.",
+    "Optimise dyspnea management — escalate within palliative framework: (a) Increase Morphine SR to 15mg BD or 20mg BD; titrate IR PRN dose to 5mg q2-4h PRN; if oral route becomes difficult, transition to subcutaneous morphine via syringe driver (12mg SC/24h ≈ 30mg oral PO/24h); (b) Add scheduled SC/PO lorazepam 0.5mg BD or escalate clonazepam to 0.5mg BD for the anxiety/panic component — refractory dyspnea with anxiety responds well to morphine + benzodiazepine combination; (c) Consider trial of oxygen at slightly higher flow (2.5-3 L/min) titrated to comfort, not number — but counsel that O2 has reached symptomatic ceiling.",
+    "Non-pharmacological measures: hand-held fan to face (high evidence in dyspnea); cool environment; semi-Fowler positioning with multiple pillows; breathing technique reinforcement; gentle music or recorded voice of family for comfort; spiritual practices as he wishes.",
+    "Anticipatory crisis kit at home (essential at this stage): SC Morphine, SC Midazolam (5mg/mL), SC Glycopyrronium (for secretions), SC Haloperidol (for delirium) — pre-filled by palliative team, written instructions for the wife, son, daughter; trained on subcutaneous administration via pre-sited butterfly cannula.",
+    "Trial of oral steroid: Prednisolone 30mg OD for 5-7 days — may identify reversible inflammatory component; AE-IPF/AE-fibrosis can respond modestly; if no clear benefit by day 5, taper off.",
+    "Address depression: continue sertraline; consider escalating to 150mg OD if mood remains poor (subject to bleeding/QT review); add or rotate to mirtazapine 15mg HS for combined anxiolysis + sleep + appetite + antidepressant — particularly useful in cachectic depressed palliative patients.",
+    "Nutrition: cachexia in end-stage fibrosis is mostly disease-driven; small frequent palatable favourite foods; oral nutritional supplements (Ensure, Resource) if tolerated; do not force-feed; consider dexamethasone 4mg OD short course for appetite + dyspnea + mood, with 2-week review.",
+    "Caregiver support — direct intervention: respite care if available (palliative day-care, hired part-time attendant); engage the 18-year-old daughter and 22-year-old son explicitly in caregiving rota so the wife rests; refer the wife to a palliative caregiver support group (Pallium India and Bengaluru NGOs have these); offer counsellor for her; encourage her to sleep, eat regularly; she must not be the only night attendant.",
+    "Family meeting with the home palliative team: address the 'how much longer' question with honesty and compassion — prognosis in end-stage post-COVID fibrosis on home O2 with refractory dyspnea is typically weeks to a few months; reaffirm shared goals (home death, no ICU); discuss what dying may look like; provide written information; allow questions; involve children in age-appropriate way.",
+    "Spiritual / existential support: at 55, with school-age son recently graduated, daughter in college — there is unfinished life; offer counsellor or chaplain; encourage him to record messages, write letters, share blessings with children; this is meaningful work he can still do.",
+    "Plan: home palliative team visit within 48 hours; review medication escalation; train family on anticipatory kit; arrange respite cover for wife; weekly visits ongoing; 24/7 helpline access.",
+    "Document goals, medications, family meeting, anticipatory plan."
+  ],
+  "expected_guideline_citations": [
+    "ATS/ERS Statement on Palliative Care in Advanced Lung Disease",
+    "EAPC Recommendations on Pharmacological Treatment of Refractory Dyspnea (2017)",
+    "Pallium India End-of-Life Care Manual",
+    "IAPC Handbook of Palliative Care (2nd ed.) — End-stage interstitial lung disease",
+    "ERS Statement on Post-COVID Pulmonary Fibrosis (emerging literature)"
+  ],
+  "safety_traps": [
+    "Continuing to push antifibrotic therapy beyond tolerance — adding harm without benefit.",
+    "High-dose oral steroid maintenance without clear benefit (side effects accumulate; cushingoid; mood lability).",
+    "Sending the patient back to ICU at next crisis against his documented preference.",
+    "Neglecting caregiver burnout — the wife's collapse will end home care abruptly.",
+    "Under-dosing morphine because of misplaced concerns about hastening death — at end-stage with proper titration, this is appropriate symptom control.",
+    "Failing to involve adult children — they often become primary support after the wife and benefit from a defined role.",
+    "Not having a written anticipatory crisis kit and protocol — leaves family panicking at the moment."
+  ],
+  "indian_context_notes": [
+    "Post-COVID fibrosis cohort is a substantial Indian phenomenon — 2nd wave delta and ICU survivors; relatively young patients (45-65) with severe sequelae.",
+    "Bengaluru — multiple home palliative care services (Karunashraya, Cipla Palliative Care unit at NIMHANS, Karnataka State Palliative Care); referral pathway active.",
+    "Cost of post-COVID care is borne by patients/family; PM-JAY coverage for chronic care variable.",
+    "Family from Kerala-Karnataka multilingual background — well-educated; can engage with detailed information; ASHA in long-term village/colony relationship.",
+    "Caregiver respite is underdeveloped in India — flag explicitly; engage community/NGOs.",
+    "Post-2018 Supreme Court ruling, written advance directives are appropriate for this educated cohort."
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "home_palliative_team_with_anticipatory_kit_and_caregiver_respite",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

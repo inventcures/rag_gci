@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-PSYCHO-DIFFICULT-001",
+  "language": "en-IN",
+  "asker_query": "Madam, Ayesha-aapa has very bad pain — 8/10, can't sleep, can't eat. Family says morphine is haram, will cause nasha, she will not be able to say Kalima at the time of death. But she is suffering. How should I explain to the family? Should we still try?",
+  "answer": "It is deeply distressing to see Ayesha-aapa in such pain, but please know that morphine is the gold standard for managing severe cancer pain when step-2 medicines like tramadol are no longer effective. To address the family’s concerns, it is essential to explain that the primary goal of morphine in palliative care is to relieve suffering so that the patient can be comfortable and present with their loved ones, not to cause intoxication or \"nasha.\" In the context of terminal illness, the use of medicine to alleviate unbearable pain is widely accepted as a compassionate necessity. You can reassure the family that when morphine is titrated correctly for pain, it does not prevent a patient from being conscious or performing their spiritual duties; rather, it removes the distraction of agony, allowing for peace and focus. Given her eGFR of 40, morphine should be started cautiously at a low dose, and it is mandatory to prescribe a laxative alongside it, as constipation does not resolve with tolerance.\nFor your practical action plan, initiate a conversation with the family by validating their fears before introducing the clinical necessity. As a caregiver or health worker, your role is to act as a bridge between the clinical team and the family’s values. If the family remains hesitant, involve a palliative care physician or a trusted community leader who can speak to the ethical and religious permissibility of pain relief. Clinically, because she is currently on tramadol with minimal benefit, transitioning to oral morphine is the logical next step. Ensure the family understands that this is a titration process: we start low and adjust based on her relief. You must monitor her closely for side effects like nausea and sedation, and ensure she has a regular bowel regimen, as constipation is a persistent side effect of morphine that does not improve over time.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:17:44.249982Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3470,
+  "error": null,
+  "provider": "gemini"
+}

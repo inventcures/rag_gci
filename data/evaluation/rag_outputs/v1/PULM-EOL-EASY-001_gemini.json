@@ -1,0 +1,16 @@
+{
+  "vignette_id": "PULM-EOL-EASY-001",
+  "language": "en-IN",
+  "asker_query": "Madam, aunty's breathing has become very noisy — gurgling sound — for the last few hours. She herself looks peaceful, eyes closed, not in distress. Daughter-in-law is alarmed, thinks she is choking. What to do — give some medicine, suction, position?",
+  "answer": "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!\n\n\nActions:\n1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:19:35.919166Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4,
+  "error": null,
+  "provider": "gemini"
+}

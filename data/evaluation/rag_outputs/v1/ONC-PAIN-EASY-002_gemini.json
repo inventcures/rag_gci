@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-PAIN-EASY-002",
+  "language": "en-IN",
+  "asker_query": "Didi, mother has severe pain in her back and hip, we are giving tramadol four times a day but there is no relief, she cries all night. What should I do now? When should I take her to the doctor?",
+  "answer": "It is distressing to see your mother in such pain, but please know that this does not mean her condition is hopeless or that she will become addicted to stronger medicine. According to the WHO Pain Ladder, when pain is severe and not controlled by Step 2 medications like Tramadol, it is time to move to Step 3, which involves strong opioids like oral Morphine. For a patient with normal kidney function, the usual starting dose of oral Morphine is 5–10 mg given every 4 hours. To ensure she gets restful sleep, the night dose is often doubled. It is essential that these medications are given \"by the clock\" (at regular intervals) rather than only when the pain becomes unbearable (SOS), as this keeps the pain from returning.\nTo manage this at home, you should contact her palliative care team or physician immediately to discuss transitioning to Morphine. In the Indian context, ensure you have a valid prescription to comply with the NDPS Act for opioid access. You must keep a simple diary of her pain levels and the times she takes her medication to help the doctor adjust the dose during your first review, which should occur within 2 days of starting the new medication. If she experiences breakthrough pain between her scheduled doses, ask the doctor about providing a \"rescue dose\" of morphine. Please remember that constipation is a common side effect of opioids that does not go away with time, so discuss a regular laxative regimen with her doctor as well.\nYou should seek urgent medical attention if you notice \"red flag\" symptoms, such as sudden weakness or numbness in her legs, difficulty passing urine or stool, or if she becomes excessively drowsy and difficult to wake. While nausea and sedation may occur when starting morphine, these often settle within a few days. Continue to provide emotional support and involve the family in her care; sometimes, adding adjuvant medications (like anti-anxiety drugs or anti-inflammatories, if appropriate) can further improve her comfort.",
+  "sources": [
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:17:19.336041Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3383,
+  "error": null,
+  "provider": "gemini"
+}

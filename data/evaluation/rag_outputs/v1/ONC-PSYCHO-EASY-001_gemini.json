@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-PSYCHO-EASY-001",
+  "language": "en-IN",
+  "asker_query": "Sister, the family does not want my mother to be told it is cancer — they think she will lose hope. But now she is directly asking me, 'is it cancer, tell me truth'. What do I do? Can we keep hiding? Or do we tell her?",
+  "answer": "When a patient directly asks, \"Do I have cancer?\", it is a critical moment that requires a gentle, honest, and patient-centered approach. You should not lie to the patient, as this often creates a \"conspiracy of silence\" that hinders trust and prevents the patient from preparing for their future. Instead, first explore what the patient already understands by the word \"cancer.\" Many patients fear that a cancer diagnosis equates to an immediate, agonizing death. You can reassure her that this is not the case, as modern palliative care and treatments are highly effective at managing pain and other distressing symptoms. By validating her right to information, you can offer hope by focusing on what *can* be done to maintain her quality of life and support her through the upcoming chemotherapy.\nIn your setting, the goal is to move the family from a position of protective silence to one of open, mutual support. Start by meeting with the family to explain that you are on their side and share their goal of protecting her, but explain that withholding the truth often causes unnecessary anxiety and prevents the patient from making informed decisions. Ask for their permission to facilitate a conversation with the patient, or at the very least, ask for conditional permission to assess what she already knows. If the family remains hesitant, remind them that the patient has a right to her own medical information. Whenever possible, arrange a joint interview with the patient, family, and the healthcare team. This prevents collusion and allows everyone to be on the same page, ensuring the patient feels supported rather than isolated.\nIf the patient continues to ask for the truth, share information in small, digestible chunks to avoid overwhelming her. Always assess her wishes for further information at each step.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:17:54.645009Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4392,
+  "error": null,
+  "provider": "gemini"
+}

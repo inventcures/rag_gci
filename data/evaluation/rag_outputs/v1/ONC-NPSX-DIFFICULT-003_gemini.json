@@ -1,0 +1,16 @@
+{
+  "vignette_id": "ONC-NPSX-DIFFICULT-003",
+  "language": "en-IN",
+  "asker_query": "Madam, mother is having severe difficulty breathing, we are giving oxygen, we are giving morphine, but it is still not enough, she is very anxious. What should we do, should we increase the dose?",
+  "answer": "⚡ Please consult a doctor as soon as possible.\n\n\nActions:\n1. Schedule doctor appointment\n2. Monitor symptoms\n3. Rest and stay hydrated\n4. Contact if symptoms worsen\n\n💙 I understand you're going through a difficult time. Let me connect you with someone who can provide emotional support.\n\nRequest ID: 0525abac9b3a\nA counselor will reach out within 10 minutes.",
+  "sources": [],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:16:27.068732Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4,
+  "error": null,
+  "provider": "gemini"
+}

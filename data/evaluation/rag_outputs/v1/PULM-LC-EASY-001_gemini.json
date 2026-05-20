@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-LC-EASY-001",
+  "language": "en-IN",
+  "asker_query": "Doctor, I have lung cancer, on osimertinib, last scan was good, stable. I have a small occasional cough — nothing major. What can I do for that? What symptoms should I watch out for and report? Any general advice for my health?",
+  "answer": "It is encouraging to hear that your disease is stable on osimertinib. For an occasional, mild cough in the context of advanced lung cancer, the first step is to ensure there are no \"correctable\" contributors. Common, manageable causes include acid reflux, post-nasal drip, or mild respiratory infections. If the cough is dry and bothersome, non-drug measures are often the most effective starting point: practice sitting upright rather than lying flat, as this improves lung expansion, and consider steam inhalation to soothe the airways. If the cough persists or interferes with your sleep, a physician can evaluate you for specific treatments like bronchodilators or, if appropriate, targeted medications to suppress the cough reflex.\nIn your setting, your primary role is to monitor for changes that signal a need for medical intervention. While you are currently stable, you should contact your palliative care team or oncologist immediately if you experience \"red flag\" symptoms: sudden worsening of breathlessness at rest, coughing up significant amounts of blood (hemoptysis), or signs of a chest infection such as high fever and yellow/green sputum. Additionally, be aware that breathlessness can sometimes be linked to conditions like anemia or fluid buildup (ascites or pleural effusion), which may not always show up on a standard chest X-ray but require clinical assessment. Keep a simple log of your symptoms—noting when the cough occurs and if it is associated with exertion—to share during your routine follow-up visits.\nRegarding your general wellbeing, focus on maintaining your nutritional intake and gentle activity, as cachexia and muscle weakness can contribute to respiratory fatigue. If you experience a sudden, severe respiratory emergency, such as massive airway obstruction or bleeding, this is a critical situation requiring immediate medical attention.",
+  "sources": [
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:20:43.119285Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3768,
+  "error": null,
+  "provider": "gemini"
+}

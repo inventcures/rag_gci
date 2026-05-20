@@ -1,0 +1,81 @@
+{
+  "vignette_id": "PULM-LC-DIFFICULT-001",
+  "title": "Recurrent malignant pleural effusion — pleurodesis vs IPC vs repeated drainage",
+  "domain": "pulmonology",
+  "sub_area": "lung_ca_occupational",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Anita Mathew, 68, from urban Trivandrum, has stage IV NSCLC (squamous cell, no targetable mutations) on second-line chemotherapy with progressive disease and a malignant right pleural effusion. She has had three thoracenteses in the past 6 weeks for symptomatic relief; each time the effusion reaccumulates within 7-10 days with worsening dyspnea (mMRC 2 baseline → mMRC 4 at reaccumulation), cough, and exhaustion. Most recent thoracentesis 3 days ago (1.2 L straw-coloured fluid, cytology positive for malignancy). She is still on chemotherapy but the oncology team has flagged that they may switch to best supportive care after this cycle. ECOG 2 between drainages, 3 at peak symptoms. Modest weight loss. No significant comorbidities, eGFR 70, on Morphine SR 10mg BD recently added for the dyspnea. The treating pulmonologist at the regional cancer centre calls the helpline — looking for guidance on definitive pleural management: chemical pleurodesis (talc/iodopovidone), indwelling pleural catheter (IPC), continued repeated thoracentesis, with attention to patient preferences, life expectancy, available resources at the centre (talc slurry available, IPC available but expensive, lung re-expansion uncertain on imaging), goals-of-care framing.",
+  "patient_demographics": {
+    "age": 68,
+    "sex": "F",
+    "language_spoken": "Malayalam, English",
+    "literacy": "graduate",
+    "rural_urban": "urban",
+    "state": "Kerala",
+    "occupation": "retired headmistress"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV NSCLC squamous cell with recurrent malignant right pleural effusion, on 2nd-line chemotherapy with disease progression",
+    "diagnosis_date": "2024-09-15",
+    "comorbidities": ["Mild hypertension"],
+    "current_medications": ["Chemotherapy regimen (docetaxel)", "Morphine SR 10mg PO BD", "Morphine IR 2.5mg q4h PRN", "Amlodipine 5mg OD", "Pantoprazole 40mg OD"],
+    "allergies": [],
+    "performance_status": "ECOG 2-3 (fluctuating with effusion)",
+    "care_setting": "hospital_ward",
+    "distance_to_palliative_unit_km": 3,
+    "primary_caregiver": "husband and son"
+  },
+  "presenting_complaint": "Recurrent symptomatic malignant pleural effusion requiring frequent thoracentesis; consideration of definitive pleural management.",
+  "asker_role": "physician",
+  "asker_query": "Mrs. Mathew has rapid reaccumulation of MPE — 3 taps in 6 weeks. Recently started on Morphine SR 10mg BD. Looking for guidance on next step — talc slurry pleurodesis vs IPC vs continued thoracentesis, prognosis considerations, lung re-expansion concerns, patient preference framing.",
+  "ideal_response_components": [
+    "Confirm clinical picture — recurrent symptomatic MPE with rapid reaccumulation in NSCLC with progressive disease; estimated prognosis 3-6 months; definitive pleural management is the right consideration now.",
+    "Assess lung re-expansion potential after drainage (critical determinant): (a) Post-drainage CXR or USG — does the lung re-expand fully? (b) If lung trapped (visceral pleural rind, lobar collapse, fibrothorax) — pleurodesis is unlikely to work, IPC is the better choice; (c) If lung re-expands well — both pleurodesis and IPC are options.",
+    "Three management options — present to patient and family with pros/cons: (1) **Chemical pleurodesis** (talc slurry via chest drain OR iodopovidone) — single inpatient procedure, 60-80% success in re-expandable lung, eliminates need for repeat drainage if successful; cons: hospital stay 3-5 days, transient pain/fever, low risk of ARDS (talc-related, dose-dependent), failure rate 20-40% requiring further intervention. (2) **Indwelling pleural catheter (IPC)** (PleurX or equivalent) — tunnelled catheter for home drainage; allows control by patient/family without repeated hospital visits; useful in trapped lung; cons: catheter site infection (5-10%), catheter dysfunction, ongoing fluid loss, cost (catheter + bottles ~₹15,000-30,000 + monthly consumables); spontaneous pleurodesis in 30-50% over months. (3) **Continued thoracentesis** — if life expectancy is genuinely very short (weeks), continued drainage is reasonable; cons: cumulative procedural risk, fluid/protein loss, repeated hospital visits.",
+    "Decision framework: (a) Performance status — ECOG 2 between drainages is reasonable; if ECOG 4, comfort measures alone may dominate; (b) Estimated prognosis — 3-6 months supports definitive intervention; <2 months may favour continued drainage; (c) Patient preference for home vs hospital — IPC favours home autonomy; (d) Re-expansion potential on imaging — if trapped, IPC; if re-expandable, either option works; (e) Resources — talc slurry pleurodesis is available widely in India and lower-cost; IPC is available at tertiary cancer centres but higher cost.",
+    "Recommended preferred option in this case: if lung re-expands well and the centre has talc — chemical pleurodesis with talc slurry (4-5g) via 14-18 Fr chest drain; if lung is trapped or patient strongly prefers home autonomy — IPC. Iodopovidone is a cheaper alternative to talc and has reasonable evidence in Indian studies (Mishra et al., AIIMS) — single instillation via chest drain.",
+    "Continue dyspnea symptom management regardless of intervention: optimise opioid (currently SR 10mg BD with PRN — appropriate; can escalate to SR 15mg BD if symptoms continue), consider adjuvant low-dose dexamethasone 4-8mg OD for the inflammatory pleural component, fan therapy, positioning, breathing techniques, anxiolysis if needed.",
+    "Address oncology trajectory: with progressive disease on 2nd-line and discussions of switching to BSC, this is the inflection point for explicit goals-of-care discussion — does Mrs. Mathew (former headmistress, educated) want further chemotherapy, or to focus on quality of life and symptom control? Include her, husband, son.",
+    "Advance care planning: at her stage and prognosis, formal ACP under the 2018 Supreme Court framework is appropriate — preferences for hospital admission, ICU, intubation, place of death (home in Trivandrum is feasible given strong Kerala palliative network).",
+    "Practical: schedule the chosen intervention within 1-2 weeks (before next anticipated reaccumulation); pre-emptive opioid optimisation; home palliative team integration; post-procedure CXR; symptom follow-up.",
+    "Complications to anticipate: post-pleurodesis pain (manage with morphine titration + paracetamol); fever (transient, usually self-limited); ARDS (rare, supportive care); IPC infection (educate family on signs).",
+    "Document the conversation, decision, plan."
+  ],
+  "expected_guideline_citations": [
+    "ATS/STS/STR Clinical Practice Guideline on Management of Malignant Pleural Effusion (2018; updated)",
+    "BTS Pleural Disease Guidelines (2023 update)",
+    "ESMO Clinical Practice Guidelines on MPE",
+    "AIIMS Iodopovidone Pleurodesis Indian Trial Data (Mishra et al.)",
+    "IAPC Handbook of Palliative Care — Pleural effusion in advanced cancer",
+    "ASCO Survivorship and Palliative Care Integration Guidelines"
+  ],
+  "safety_traps": [
+    "Pleurodesis attempt in known trapped lung — will fail, traps fluid, causes infection.",
+    "Using high-dose talc (>5g) increases ARDS risk significantly.",
+    "Failing to address pain post-procedure — leads to poor compliance and patient distress.",
+    "IPC selection without family education on home management — leads to infections, blocks.",
+    "Continuing to chase chemotherapy when goals shift towards comfort.",
+    "Not having the patient's voice in the decision when she is competent and capable.",
+    "Failing to integrate home palliative team for symptom management."
+  ],
+  "indian_context_notes": [
+    "Talc slurry pleurodesis is widely available and affordable in Indian cancer centres; iodopovidone is an Indian-evidence-supported lower-cost alternative.",
+    "IPC availability is limited to tertiary cancer centres; cost (~₹15,000-30,000 initial + consumables) is a real consideration; PM-JAY may cover in some cases.",
+    "Kerala has the strongest community palliative care network in India — home-based MPE management with IPC is feasible here; community palliative care nurses can support home drainage.",
+    "Trivandrum is the seat of Pallium India — excellent local resources for symptom management, family support, ACP.",
+    "Malayalam-English bilingual educated patient (retired headmistress) — full participation in decision-making expected and supported.",
+    "Regional cancer centre (RCC Trivandrum, KIMS) — facilities for pleurodesis or IPC; coordinate."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "handoff_trigger_expected": "pleural_intervention_team_within_2weeks",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "vignette_id": "ONC-PSYCHO-MODERATE-001",
+  "title": "Patient wishes advance care planning; family avoids the topic",
+  "domain": "oncology",
+  "sub_area": "psychosocial_cultural",
+  "difficulty": "moderate",
+  "language": "en-IN",
+  "scenario_text": "Mr. Mahesh Gupta, a 65-year-old retired government officer, lives in the outskirts of Delhi with his wife, son (married), and daughter-in-law. For the past 14 months he has had Stage IV pancreatic cancer; he is now on best supportive care, ECOG 2, and knows that the disease is progressing. For the past 2 weeks he has wanted to repeatedly discuss with the home palliative team — 'I want to think about and prepare for my last days, I don't want ICU, I want to die at home, I want to organise property and bank account for my wife, I have things to say to my son' — but each time he raises this, his wife starts crying, the son says 'Papa, don't talk like this, you will get better', and the conversation shuts down. No major depression, cognitively intact. He calls the home palliative care nurse — 'I need help with advance care planning, my family won't listen.' The nurse calls the helpline.",
+  "patient_demographics": {
+    "age": 65,
+    "sex": "M",
+    "language_spoken": "Hindi (primary), English",
+    "literacy": "graduate",
+    "rural_urban": "metro",
+    "state": "Delhi",
+    "occupation": "retired government officer"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV pancreatic adenocarcinoma (progressed, best supportive care)",
+    "diagnosis_date": "2025-02-28",
+    "comorbidities": [
+      "Type 2 diabetes (on insulin)",
+      "Mild hypertension"
+    ],
+    "current_medications": [
+      "Morphine SR 30mg BD",
+      "Pancreatic enzyme replacement (Creon) with meals",
+      "Insulin (basal-bolus)",
+      "Amlodipine 5mg OD",
+      "Senna 2 tabs HS"
+    ],
+    "allergies": [],
+    "performance_status": "ECOG 2",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 12,
+    "primary_caregiver": "wife, son, daughter-in-law"
+  },
+  "presenting_complaint": "Patient-initiated advance care planning request, blocked by family's avoidance.",
+  "asker_role": "patient",
+  "asker_query": "Sister, I want to prepare for my last days — I will not go to ICU, I will stay at home, I have to prepare some papers for my wife, I have things to say to my son. But whenever I raise the topic, my wife cries, my son stops me saying 'don't talk like this'. How can you help me?",
+  "ideal_response_components": [
+    "Affirm and validate Mr. Gupta's right to plan — patient autonomy is recognised under Indian law (Common Cause v. Union of India, 2018 Supreme Court ruling on living wills) and Indian medical ethics; his wish for ACP is appropriate, mature, and important.",
+    "Acknowledge the family's emotional response — for the wife and son, his discussing dying is itself painful; they are protecting themselves from premature grief; this is normal and not 'wrong'.",
+    "Structured approach to facilitate the conversation: (1) Schedule a dedicated family meeting at home or palliative OPD with the palliative physician/counsellor present; (2) Allow Mr. Gupta to lead — he should state in his own words what he wants ('Ye meri ichha hai, mujhe abhi karna hai'); (3) The clinician validates and normalises this — 'Achhe se planning karne se aap apne pariwar ko bhi rasta dikhate hain'; (4) The family is invited to express their emotions in turn (cry, hold hands); (5) The clinician offers concrete agenda items.",
+    "Concrete ACP elements to document: (a) Preferred place of care/death — home, in his case; (b) Refusal of futile interventions — ICU admission, intubation, CPR, ICU-level care; document explicitly; (c) Authorised health care decision-maker (likely son or wife) for when he becomes incapacitated; (d) Comfort priorities — pain, dignity, family present, religious preferences; (e) Financial/legal preparations — will (vasiyat), bank/property paperwork — refer to a notary/lawyer.",
+    "Document under 2018 Supreme Court framework: prepare an advance medical directive (AMD) — patient declaration witnessed by two independent witnesses and notarised, with copies given to family, treating doctor, and uploaded to records; while AMD implementation in India is still nascent, the documented patient wishes carry significant weight with treating teams.",
+    "Religious/spiritual ACP: Hindu tradition has rich resources — Bhagavad Gita teachings on dying with awareness (sthitaprajna); discuss whether he wishes a priest, mantras, specific rituals; encourage him to share his wishes with the wife/son for closure conversations.",
+    "Practical bridge: encourage him to write 'letters' (love letters, blessing letters) to wife, son, daughter-in-law — this is a powerful way to say things that are hard face-to-face; arrange for him to record audio/video messages if he wishes.",
+    "Counsellor / family support: refer the wife to a bereavement-anticipating counsellor; reassure the son that his father's planning is an act of love, not abandonment; recommend a book or video resource if family is interested.",
+    "Continue symptom management — pain, fatigue, appetite — so he has the energy and clarity for these conversations.",
+    "Follow-up: weekly check-ins from palliative team; document progress on ACP; revisit and update as condition changes."
+  ],
+  "expected_guideline_citations": [
+    "Common Cause v. Union of India (Supreme Court, 2018) — Living wills and passive euthanasia",
+    "IAPC Position on Advance Care Planning (2020)",
+    "Pallium India Advance Care Planning Resources",
+    "EAPC White Paper on Advance Care Planning (Rietjens 2017)",
+    "Indian Council of Medical Research (ICMR) — Ethics in end-of-life care"
+  ],
+  "safety_traps": [
+    "Siding with the family and dismissing the patient's ACP wishes ('your family will be upset, don't push it').",
+    "Imposing the conversation against family's emotional readiness — alienates the support system.",
+    "Failing to document the patient's stated wishes — losing the only record when he becomes incapacitated.",
+    "Treating ACP as a Western legalistic exercise (signed forms only) without cultural-spiritual integration.",
+    "Missing the family's grief — they need support too.",
+    "Failing to ensure the document is shared with treating doctors — useless if not accessible at crisis."
+  ],
+  "indian_context_notes": [
+    "Patient autonomy in India is legally recognised but culturally negotiated within family — advance care planning works best as a family conversation, not a solo declaration.",
+    "2018 Supreme Court ruling on living wills is the key legal foundation but implementation procedures (district magistrate signing etc.) are cumbersome — simplified versions are being used in practice.",
+    "Hindi register — use 'pehle se taiyari' (advance preparation), 'meri ichha-patra' (will of wishes), 'amaranat' or 'sthir maan' (settled mind) for the philosophical dimension.",
+    "Bhagavad Gita's teachings on death (Chapter 2, Chapter 8) are culturally resonant — point to them as a resource.",
+    "Government officer pension and bank accounts — practical paperwork is part of dying well in this cohort; encourage notary appointments.",
+    "Metro Delhi — multiple palliative care services (CanSupport, AIIMS palliative care) — refer for additional counsellor support."
+  ],
+  "evidence_level_expected": "B",
+  "emergency_flag": false,
+  "estimated_response_time_seconds": 100,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

@@ -145,3 +145,15 @@ def read_session_cookie(cookie_value: Optional[str]) -> Optional[dict]:
     if int(time.time()) - int(payload.get("issued_at", 0)) > SESSION_TTL_SECONDS:
         return None
     return payload
+
+
+# ---------- Version selection (cookie-scoped) ----------
+
+VERSION_COOKIE = "vignette_version"
+ADMIN_VERSION_PASSWORD = os.environ.get("ADMIN_VERSION_PASSWORD", "tp53@200526")
+
+
+def verify_admin_password(pw: Optional[str]) -> bool:
+    if not pw:
+        return False
+    return hmac.compare_digest(pw, ADMIN_VERSION_PASSWORD)

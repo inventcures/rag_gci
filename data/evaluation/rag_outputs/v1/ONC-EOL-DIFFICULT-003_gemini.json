@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-003",
+  "language": "en-IN",
+  "asker_query": "Didi, my mother's mouth does not open even 10 millimetres, she cannot swallow tablets, she has refused NG tube, the pain is severe, she cries all night. How can we reduce her pain? Which medicine and how should it be given?",
+  "answer": "It is distressing to see your mother in such pain, but please know that there are effective ways to manage this even when she cannot swallow. For severe, persistent pain in advanced oral cancer, we must address both the background nociceptive pain and the neuropathic (nerve-related) component. Since oral intake is not possible, you should consult a palliative care physician immediately to initiate **subcutaneous (SC) or intravenous (IV) morphine**. Morphine is the gold standard for severe cancer pain; in a home setting, a trained nurse or doctor can set up a subcutaneous infusion or intermittent injections. For the neuropathic component (the burning/shooting pain), medications like gabapentin or amitriptyline are often added, but these must be titrated carefully under medical supervision. Because she has severe trismus and cannot swallow, oral medications are not appropriate, and you should avoid forcing tablets, as this risks choking.\nIn the Indian context, access to strong opioids like morphine is facilitated under the NDPS Act; please ensure you are working with a palliative care center (such as Pallium India or a local hospice) that is registered as a \"Recognized Medical Institution\" (RMI) to ensure a steady supply. Your immediate action plan is to contact a local palliative care team for a home visit. They can assess if a subcutaneous cannula can be placed, which allows for pain medication to be delivered without needing her to swallow. If she is experiencing breathlessness or panic alongside her pain, low-dose morphine is also the most appropriate first-line management to provide relief. Do not attempt to use home remedies or crushed pills in the mouth, as the wound is likely sensitive and prone to infection.\nMonitor her closely for signs of toxicity or worsening distress.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:15:39.759579Z",
+  "rag_method": "vector",
+  "elapsed_ms": 4198,
+  "error": null,
+  "provider": "gemini"
+}

@@ -53,6 +53,20 @@ def require_user(request: Request) -> dict:
     return user
 
 
+def active_version(request: Request) -> str:
+    return data.normalize_version(request.cookies.get(auth.VERSION_COOKIE))
+
+
+def base_context(request: Request, user: Optional[dict]) -> dict:
+    return {
+        "request": request,
+        "user": user,
+        "active_version": active_version(request),
+        "available_versions": data.KNOWN_VERSIONS,
+        "admin_only_versions": list(data.ADMIN_ONLY_VERSIONS),
+    }
+
+
 @app.get("/", include_in_schema=False)
 def root(request: Request):
     if current_user(request):
@@ -62,10 +76,35 @@ def root(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: Optional[str] = None):
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request, "users": auth.list_users(), "error": error, "user": None},
+    ctx = base_context(request, None)
+    ctx.update({"users": auth.list_users(), "error": error})
+    return templates.TemplateResponse("login.html", ctx)
+
+
+@app.post("/admin/set-version")
+def set_version(
+    request: Request,
+    version: str = Form(...),
+    password: Optional[str] = Form(None),
+    next: Optional[str] = Form(None),
+):
+    """Switch the active vignette set. Admin-only versions require password."""
+    if version not in data.KNOWN_VERSIONS:
+        return RedirectResponse(next or "/dashboard", status_code=303)
+    if version in data.ADMIN_ONLY_VERSIONS and not auth.verify_admin_password(password):
+        target = next or "/dashboard"
+        sep = "&" if "?" in target else "?"
+        return RedirectResponse(f"{target}{sep}version_error=Invalid+admin+password", status_code=303)
+    resp = RedirectResponse(next or "/dashboard", status_code=303)
+    resp.set_cookie(
+        auth.VERSION_COOKIE,
+        version,
+        httponly=False,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+        path="/",
     )
+    return resp
 
 
 @app.post("/login")
@@ -97,12 +136,13 @@ def logout():
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, filter: str = "all"):
+def dashboard(request: Request, filter: str = "all", version_error: Optional[str] = None):
     user = current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
 
-    vignettes = data.list_vignettes()
+    version = active_version(request)
+    vignettes = data.list_vignettes(version)
     all_reviews = data.list_reviews()
     by_v: dict[str, list[dict]] = {}
     for r in all_reviews:
@@ -137,22 +177,22 @@ def dashboard(request: Request, filter: str = "all"):
     elif filter == "mine":
         rows = [r for r in rows if r["status"] == "reviewed_by_you"]
 
-    return templates.TemplateResponse(
-        "dashboard.html",
+    ctx = base_context(request, user)
+    ctx.update(
         {
-            "request": request,
-            "user": user,
             "vignettes": rows,
             "filter": filter,
             "total": len(vignettes),
+            "version_error": version_error,
             "n_mine": sum(1 for r in rows if r["status"] == "reviewed_by_you")
             if filter != "all"
             else sum(1 for v in vignettes if any(
                 rv["reviewer_id"] == user["user_id"] and rv["vignette_id"] == v["vignette_id"]
                 for rv in all_reviews
             )),
-        },
+        }
     )
+    return templates.TemplateResponse("dashboard.html", ctx)
 
 
 @app.get("/review/{vignette_id}", response_class=HTMLResponse)
@@ -161,10 +201,11 @@ def review_page(request: Request, vignette_id: str):
     if not user:
         return RedirectResponse("/login", status_code=303)
 
-    vignette = data.load_vignette(vignette_id)
+    version = active_version(request)
+    vignette = data.load_vignette(vignette_id, version)
     if not vignette:
         raise HTTPException(404, f"Vignette {vignette_id} not found")
-    rag_outputs = data.load_rag_outputs(vignette_id)
+    rag_outputs = data.load_rag_outputs(vignette_id, version)
     if not rag_outputs:
         rag_outputs = [{
             "provider": "unknown",
@@ -181,23 +222,22 @@ def review_page(request: Request, vignette_id: str):
     rubric = data.load_rubric()
     existing = data.review_by(user["user_id"], vignette_id)
 
-    all_v = data.list_vignettes()
+    all_v = data.list_vignettes(version)
     idx = next((i for i, v in enumerate(all_v) if v["vignette_id"] == vignette_id), -1)
     position = f"{idx + 1} of {len(all_v)}" if idx >= 0 else f"? of {len(all_v)}"
 
-    return templates.TemplateResponse(
-        "review.html",
+    ctx = base_context(request, user)
+    ctx.update(
         {
-            "request": request,
-            "user": user,
             "vignette": vignette,
-            "rag_output": rag_output,        # back-compat (first variant)
-            "rag_outputs": rag_outputs,      # NEW: all provider variants
+            "rag_output": rag_output,
+            "rag_outputs": rag_outputs,
             "rubric": rubric,
             "existing": existing,
             "position": position,
-        },
+        }
     )
+    return templates.TemplateResponse("review.html", ctx)
 
 
 @app.post("/review/{vignette_id}")
@@ -206,7 +246,8 @@ async def submit_review(request: Request, vignette_id: str):
     if not user:
         return RedirectResponse("/login", status_code=303)
 
-    vignette = data.load_vignette(vignette_id)
+    version = active_version(request)
+    vignette = data.load_vignette(vignette_id, version)
     if not vignette:
         raise HTTPException(404, f"Vignette {vignette_id} not found")
 
@@ -267,6 +308,7 @@ async def submit_review(request: Request, vignette_id: str):
         "reviewer_real_name": reviewer_real_name,
         "reviewer_institution": reviewer_institution,
         "vignette_id": vignette_id,
+        "vignette_version": version,
         "dimension_scores": dimension_scores,
         "sub_item_scores": sub_item_scores,
         "overall_score": overall_score,
@@ -286,8 +328,9 @@ def progress_view(request: Request):
     user = current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
+    version = active_version(request)
     reviewers = auth.list_users()
-    vignettes = data.list_vignettes()
+    vignettes = data.list_vignettes(version)
     matrix = data.progress_matrix(reviewers, vignettes)
 
     per_reviewer_totals = {
@@ -298,18 +341,17 @@ def progress_view(request: Request):
         v["vignette_id"]: sum(1 for r in reviewers if matrix[r["user_id"]][v["vignette_id"]])
         for v in vignettes
     }
-    return templates.TemplateResponse(
-        "progress.html",
+    ctx = base_context(request, user)
+    ctx.update(
         {
-            "request": request,
-            "user": user,
             "reviewers": reviewers,
             "vignettes": vignettes,
             "matrix": matrix,
             "per_reviewer_totals": per_reviewer_totals,
             "per_vignette_totals": per_vignette_totals,
-        },
+        }
     )
+    return templates.TemplateResponse("progress.html", ctx)
 
 
 @app.get("/export.csv")
@@ -327,4 +369,9 @@ def export_csv(request: Request):
 
 @app.get("/healthz", include_in_schema=False)
 def healthz():
-    return {"status": "ok", "reviewers": len(auth.list_users()), "vignettes": len(data.list_vignettes())}
+    return {
+        "status": "ok",
+        "reviewers": len(auth.list_users()),
+        "vignettes": {v: len(data.list_vignettes(v)) for v in data.KNOWN_VERSIONS},
+        "default_version": data.DEFAULT_VERSION,
+    }

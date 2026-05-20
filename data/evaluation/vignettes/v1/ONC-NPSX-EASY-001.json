@@ -1,0 +1,70 @@
+{
+  "vignette_id": "ONC-NPSX-EASY-001",
+  "title": "Mild chemo-induced nausea day 2 post-cisplatin",
+  "domain": "oncology",
+  "sub_area": "non_pain_symptoms",
+  "difficulty": "easy",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Sarita Pawar, a 65-year-old woman from peri-urban Pune, has Stage III ovarian cancer and is on first-line cisplatin-paclitaxel chemotherapy (cycle 2, day 2). She received standard pre-chemotherapy antiemetic prophylaxis (ondansetron 16mg IV + dexamethasone 12mg IV + aprepitant 125mg PO on day 1) at the day-care unit yesterday. Today (day 2) she reports mild nausea (2-3/10) with no vomiting, has eaten light idli for breakfast, and tolerated tea. No abdominal pain, no diarrhoea, no signs of dehydration, normal urine output. She has no significant comorbidities, eGFR 80, ECOG 1. She is at home; her son (engineer, English-speaking) lives with her. The visiting ASHA worker has come for routine post-chemo home assessment and calls the helpline because the patient is not sure whether to take her routine ondansetron tablet at home and which antiemetic schedule to follow today and tomorrow.",
+  "patient_demographics": {
+    "age": 65,
+    "sex": "F",
+    "language_spoken": "Marathi (primary), Hindi, basic English",
+    "literacy": "secondary_school",
+    "rural_urban": "peri_urban",
+    "state": "Maharashtra",
+    "occupation": "retired bank clerk"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage III ovarian cancer (post-debulking, on adjuvant chemotherapy)",
+    "diagnosis_date": "2026-03-01",
+    "comorbidities": ["Mild hypertension"],
+    "current_medications": ["Cisplatin-paclitaxel (cycle 2)", "Ondansetron 8mg PO BD home supply", "Dexamethasone 4mg PO BD x days 2-3 (home supply)", "Amlodipine 5mg OD", "Multivitamin"],
+    "allergies": [],
+    "performance_status": "ECOG 1",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 14,
+    "primary_caregiver": "son"
+  },
+  "presenting_complaint": "Mild nausea 2-3/10 on day 2 post-cisplatin without vomiting; tolerating oral fluids.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, aunty had chemotherapy yesterday — cisplatin. Today she feels slight nausea, no vomiting, she ate a little. Should she take the ondansetron tablet now? For how many days? Anything else to give?",
+  "ideal_response_components": [
+    "Reassure that mild day-2 nausea after cisplatin is expected and that current oral tolerance is a good sign.",
+    "Continue scheduled antiemetic prophylaxis as prescribed: ondansetron 8mg PO every 12 hours on days 2-3 (highly emetogenic regimen), even if nausea is mild — prophylaxis, not 'as needed', is more effective.",
+    "Continue dexamethasone 4mg PO BD on days 2-3 as supplied (part of standard HEC antiemetic regimen).",
+    "Add metoclopramide 10mg PO TDS PRN as breakthrough antiemetic if nausea worsens or any vomiting; alternative is domperidone 10mg PO TDS PRN.",
+    "Non-pharmacological measures: small frequent bland meals (khichdi, curd-rice, biscuits), avoid strong smells, ginger tea, plenty of clear fluids (ORS, coconut water, dal water) to prevent dehydration.",
+    "Side-effect monitoring: ondansetron can cause constipation and headache; counsel on these; ensure bowel movement at least daily.",
+    "Red flags to call helpline same day: persistent vomiting >24h, inability to keep fluids down, dark/scanty urine, severe abdominal pain, confusion, fever >38°C (neutropenic sepsis risk on chemo).",
+    "Next cycle: discuss with oncologist about adding olanzapine 5mg OD x 4 days or NK1 antagonist intensification if symptoms cluster."
+  ],
+  "expected_guideline_citations": [
+    "MASCC/ESMO Antiemetic Guidelines (2023) — highly emetogenic chemotherapy (HEC)",
+    "ASCO Antiemetic Guideline (2020 update)",
+    "IAPC Handbook of Palliative Care (2nd ed.) — Nausea and vomiting",
+    "Pallium India Symptom Management Manual"
+  ],
+  "safety_traps": [
+    "Stopping scheduled antiemetics because 'nausea is mild' — prophylaxis is more effective than treatment.",
+    "Recommending metoclopramide as a substitute for ondansetron in HEC (not equivalent first-line for cisplatin).",
+    "Missing dehydration risk if vomiting starts.",
+    "Forgetting to flag neutropenic fever as a red-flag for any post-chemo patient.",
+    "Adding more dexamethasone without checking the existing schedule (steroid stacking)."
+  ],
+  "indian_context_notes": [
+    "Day-care chemotherapy with home oral antiemetics is the standard Indian pattern — ASHA needs simple schedule.",
+    "ORS, coconut water, dal-water are culturally familiar rehydration fluids; better adherence than commercial drinks.",
+    "Ondansetron is on NLEM and widely available; aprepitant/olanzapine intensification is more variable by centre."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "estimated_response_time_seconds": 60,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

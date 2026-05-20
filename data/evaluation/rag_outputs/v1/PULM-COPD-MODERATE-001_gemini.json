@@ -1,0 +1,47 @@
+{
+  "vignette_id": "PULM-COPD-MODERATE-001",
+  "language": "en-IN",
+  "asker_query": "Madam, grandfather's breathlessness has been increasing for two weeks, he cannot walk from bed to the toilet. No fever, no increase in sputum. Oxygen is given 16 hours a day. What should we do now? Can we increase the O2?",
+  "answer": "In managing progressive breathlessness for a patient with GOLD IV COPD, the first step is to recognize that investigations like X-rays may appear normal even in severe distress, as breathlessness is a subjective experience often decoupled from physiological markers. According to the *Indian Primer of Palliative Care*, you must first systematically screen for and correct reversible contributors. While you are already using home oxygen, increasing the flow rate without medical supervision can be risky in COPD patients due to the risk of CO2 retention. Instead, focus on pharmacological management: if the patient is already on maximal inhaler therapy (Tiotropium-Olodaterol and Budesonide-Formoterol), the addition of low-dose oral morphine is the gold standard for refractory breathlessness in palliative care. A typical starting dose is 2.5 mg to 5 mg of immediate-release morphine orally, administered every 4 to 6 hours as needed. This helps reduce the \"air hunger\" sensation by modulating the respiratory drive and reducing anxiety.\nFor your practical action plan, the caregiver should prioritize non-pharmacological interventions immediately: ensure the patient is in an upright, forward-leaning position (tripod position) and use a handheld fan to blow cool air across the face, which is highly effective in relieving dyspnea. Since the patient is housebound, the family should contact a local palliative care team or a physician trained in the NDPS Act regulations to obtain a prescription for oral morphine, as this is a controlled substance in India. Do not arbitrarily increase the oxygen flow beyond the prescribed 2 L/min without a blood gas analysis or physician order, as this may worsen his condition. If the patient develops confusion, extreme drowsiness, or a bluish tint to the lips (cyanosis), these are red flags indicating hypercapnia or severe hypoxia; in such cases, immediate escalation to the nearest hospital emergency department is required.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:19:01.469846Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3940,
+  "error": null,
+  "provider": "gemini"
+}

@@ -1,0 +1,47 @@
+{
+  "vignette_id": "ONC-EOL-DIFFICULT-004",
+  "language": "en-IN",
+  "asker_query": "Madam, mother has terrible itching all over her body, no sleep at night, she has scratched until the skin has broken, jaundice is severe. What medicine can we give? Should we attempt PTBD again?",
+  "answer": "For the management of intractable cholestatic pruritus in advanced gallbladder cancer, the primary goal is symptomatic relief. While ursodeoxycholic acid is already in use, you may consider adding cholestyramine, which is specifically indicated for cholestasis-related pruritus. If these measures are insufficient, second-line pharmacological options include paroxetine or mirtazapine, which have shown benefit in managing refractory itch. Regarding your mother’s severe jaundice and the question of repeat PTBD (Percutaneous Transhepatic Biliary Drainage), this decision requires a careful assessment of the risks versus benefits by her oncology team, as repeat invasive procedures in advanced-stage disease may not always provide the intended relief and can carry significant morbidity.\nIn the home setting, focus on skin integrity and comfort. Keep her fingernails short to prevent further excoriation and secondary infection of the broken skin. For wound care, if the skin is broken or foul-smelling, maintain hygiene with gentle cleansing. If there is evidence of infection, consult your palliative team regarding the use of topical metronidazole, which can be applied as a gargle or powdered tablet in gauze to manage odor and local bacterial load. Ensure the family caregiver monitors for signs of delirium (such as confusion or irrelevant speech), as this can occur in advanced disease; if this occurs, notify your palliative care provider immediately to adjust medications like morphine or other sedating agents.\nMonitor closely for \"red flags\" that require urgent medical escalation: sudden onset of high fever, signs of ascending cholangitis (increased pain, worsening jaundice, or confusion), or severe, unmanageable agitation. While pruritus is distressing, it is not typically a medical emergency unless accompanied by these signs of infection or acute obstruction.",
+  "sources": [
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    }
+  ],
+  "evidence_level": "C",
+  "emergency_level": "none",
+  "confidence": 0.0,
+  "validation": null,
+  "generated_at": "2026-05-19T05:15:49.406551Z",
+  "rag_method": "vector",
+  "elapsed_ms": 3643,
+  "error": null,
+  "provider": "gemini"
+}

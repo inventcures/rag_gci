@@ -1,0 +1,86 @@
+{
+  "vignette_id": "PULM-COPD-DIFFICULT-003",
+  "title": "AECOPD at home in remote village — 60 km from hospital, declining over 2 days",
+  "domain": "pulmonology",
+  "sub_area": "end_stage_copd",
+  "difficulty": "difficult",
+  "language": "en-IN",
+  "scenario_text": "Mr. Abul Hossain, a 65-year-old tea-garden worker, lives with his family in a very remote village in Cachar district. He has had GOLD III COPD for 8 years (FEV1 ~42% predicted 2 years ago; not retested). Smoker + biomass smoke + occupational dust exposure. Over the past 2 days: fever 38.5°C, increased cough, yellow-green and increased volume of sputum, increasing breathlessness (mMRC baseline 2 → now 4), difficulty sleeping at night, can speak only in short sentences. SpO2 87% (no oxygen at home), HR 110, RR 26, sweating on forehead, but not confused, able to drink water. Current medications: Tiotropium DPI OD, Salbutamol MDI PRN. No home oxygen. The CCHRC palliative team does not have regular outreach here; the nearest PHC is 15 km, district hospital 60 km, ambulance available but the road is bad due to rain and the day is ending. The son (25 years, school-pass) calls the helpline with the help of the ASHA-didi — father's condition is worsening, what should we do, should we take him to hospital?",
+  "patient_demographics": {
+    "age": 65,
+    "sex": "M",
+    "language_spoken": "Bengali (primary), Assamese, Sylheti",
+    "literacy": "primary_school",
+    "rural_urban": "rural",
+    "state": "Assam",
+    "occupation": "tea-garden worker (active, light duties)"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "GOLD III COPD with current moderate-severe AECOPD with suspected bacterial bronchitis",
+    "diagnosis_date": "2018-11-22",
+    "comorbidities": [
+      "Active smoker (10 beedi/day; trying to reduce)",
+      "Chronic anaemia"
+    ],
+    "current_medications": [
+      "Tiotropium 18 mcg DPI OD",
+      "Salbutamol MDI PRN"
+    ],
+    "allergies": [],
+    "performance_status": "ECOG 2 (baseline)",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 60,
+    "primary_caregiver": "wife and son"
+  },
+  "presenting_complaint": "Moderate-severe AECOPD with fever, purulent sputum, SpO2 87%, in a remote village 60 km from hospital, decision needed on home vs transfer.",
+  "asker_role": "family_caregiver",
+  "asker_query": "Didi, father has had fever for 2 days, cough, yellow-green sputum, increasing breathlessness, no oxygen at home, SpO2 87%. The hospital is 60 km away, road is bad. What should we do, should we take him to hospital?",
+  "ideal_response_components": [
+    "Stratify severity — this is moderate-to-severe AECOPD by Anthonisen criteria (three cardinal symptoms: increased dyspnea + increased sputum + purulent sputum) PLUS fever, SpO2 87%, accessory muscle use suggested, baseline ECOG 2. This is the patient profile for whom inpatient management has best evidence — BUT goals and feasibility must be considered.",
+    "Decision-making framework — share with the family, do not decide alone: (a) Transfer to district hospital (60 km, bad roads, evening — risky journey but treatable disease, patient is otherwise reasonable baseline, transfer is technically appropriate); (b) Home-based intensive management with clear escalation triggers if transfer is genuinely impossible or refused; (c) Discuss with the family who decides — what does Mr. Hossain himself want?",
+    "If TRANSFER IS THE PLAN (preferred given severity and baseline good functional status): start medications NOW before transfer: (a) Salbutamol 2.5mg nebulised via PHC nebuliser if reachable, or MDI 4-8 puffs every 20 min x 3 doses with spacer; (b) Prednisolone 40mg PO stat; (c) Antibiotic — Amoxicillin-clavulanate 625mg PO stat (first-line for AECOPD with purulent sputum, fever) OR azithromycin 500mg if penicillin-allergic; (d) Paracetamol for fever; (e) Coordinate ambulance — district hospital has O2 and NIV capability. Time matters.",
+    "If TRANSFER IS NOT FEASIBLE (genuine logistical impossibility — bad roads, night, family refuses): home-based intensive management: (a) Bring O2 cylinder from PHC if possible — give 1-2 L/min via nasal cannula to target SpO2 88-92%; (b) Frequent nebulised salbutamol-ipratropium 2.5/0.5mg q4h if nebuliser available, otherwise MDI + spacer 4 puffs q4h; (c) Prednisolone 40mg PO OD x 5 days; (d) Amoxicillin-clavulanate 625mg PO TDS x 7 days; (e) Paracetamol for fever; (f) Hydration; (g) Upright positioning; (h) Pulse oximeter monitoring 4-hourly.",
+    "Red flags requiring urgent escalation (transfer must happen): SpO2 <85% despite O2, RR >30, drowsiness or confusion, inability to speak any words, central cyanosis, haemodynamic instability — call ambulance immediately at any time.",
+    "Recognise the limits of home care — if patient does not improve in 24-48 hours despite home treatment, transfer is needed; the family should plan how (daylight ambulance run, PHC referral letter, money for hospital costs).",
+    "Smoking cessation conversation at the appropriate moment — this exacerbation is partly driven by ongoing smoking; offer brief intervention; nicotine replacement is on NLEM and very low cost.",
+    "Long-term plan after recovery: spirometry repeat, escalation of inhaler therapy (add LABA-ICS — Budesonide-Formoterol — given exacerbation history; consider triple therapy), home O2 assessment (if SpO2 chronically <88% on air at rest), pulmonary rehab access at CCHRC, vaccinations (flu, pneumococcal).",
+    "Family/community plan: CCHRC outreach to this village should be flagged — coordination with the helpline team; consider whether the PHC can stock a small emergency AECOPD kit (salbutamol nebuliser, prednisolone, amoxiclav) for similar future presentations.",
+    "Cultural sensitivity: Bengali Muslim family — incorporate any wishes around prayer, ablution, family presence; in case of further deterioration, religious-spiritual support is part of care.",
+    "Document the conversation, the decision made, the medications started; coordinate with PHC/district hospital."
+  ],
+  "expected_guideline_citations": [
+    "GOLD 2024 Report — AECOPD severity stratification, antibiotic indications",
+    "Indian Chest Society / NCCP COPD Guidelines — AECOPD",
+    "ATS/ERS Statement on AECOPD Management",
+    "Anthonisen NR et al. — Antibiotic therapy in exacerbations of COPD (Ann Intern Med 1987)",
+    "IAPC Handbook of Palliative Care — Frontline resource-limited acute care"
+  ],
+  "safety_traps": [
+    "Treating this as a 'mild' AECOPD because the family is hesitant to transfer — SpO2 87% with fever and purulent sputum is moderate-severe.",
+    "Withholding antibiotic when criteria (purulent sputum, fever) are clearly met.",
+    "High-flow oxygen without monitoring (can cause CO2 retention).",
+    "Forcing transfer against patient's documented preference if his preference is to stay — but make sure preference is informed, not based on lack of awareness.",
+    "Delaying decision-making — every hour matters in moderate-severe AECOPD.",
+    "Not having a clear red-flag escalation plan — leaves family stuck if patient worsens at night."
+  ],
+  "indian_context_notes": [
+    "Remote villages in Cachar / North-East India — long travel times, monsoon roads, evening transport limits are real constraints.",
+    "PHC 15 km may have nebuliser, basic O2 cylinder, and prednisolone — coordinate use; ANM may be able to deliver to home.",
+    "CCHRC outreach model — palliative team visits should ideally cover these villages; this case is a flag.",
+    "Tea-garden worker demographic — Bengali-speaking labour migration history; family social capital often limited.",
+    "Bengali Muslim family — confirm preferences for end-of-life if condition deteriorates further; halal medications generally non-issue; ablution and prayer continuation important.",
+    "Antibiotic stewardship — amoxiclav and azithromycin are NLEM and affordable; resistance patterns variable, but first-line is appropriate.",
+    "Affordability check: ambulance cost ₹1500-3000 for 60 km; hospitalisation may be covered under Assam state insurance (CHIRAYU) or PM-JAY — verify."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": true,
+  "handoff_trigger_expected": "ambulance_transfer_to_district_hospital_if_feasible",
+  "estimated_response_time_seconds": 120,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}

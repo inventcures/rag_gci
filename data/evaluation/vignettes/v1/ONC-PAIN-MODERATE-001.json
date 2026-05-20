@@ -1,0 +1,75 @@
+{
+  "vignette_id": "ONC-PAIN-MODERATE-001",
+  "title": "Neuropathic pain in advanced GI cancer — adjuvant initiation",
+  "domain": "oncology",
+  "sub_area": "pain",
+  "difficulty": "moderate",
+  "language": "en-IN",
+  "scenario_text": "Mrs. Kanakavalli, 70 years old, lives in a village in Viluppuram district. She was diagnosed with advanced pancreatic cancer (Stage IV pancreatic adenocarcinoma) 8 months ago. She is currently taking Morphine SR 30mg twice daily and Paracetamol 1g four times daily. Over the past 2 weeks she reports burning, lancinating pain along the T10 dermatome region, with pain on even normal clothes touching the skin (allodynia). Pain intensity 6/10. Renal function is normal (eGFR 75). No other medications, no allergies. ECOG 3. The village ASHA worker visits the home and calls the helpline — morphine is not responding, what should we do?",
+  "patient_demographics": {
+    "age": 70,
+    "sex": "F",
+    "language_spoken": "Tamil (primary)",
+    "literacy": "primary_school",
+    "rural_urban": "rural",
+    "state": "Tamil Nadu",
+    "occupation": "retired agricultural labourer"
+  },
+  "clinical_context": {
+    "primary_diagnosis": "Stage IV pancreatic adenocarcinoma with retroperitoneal nodal disease and presumed coeliac plexus involvement",
+    "diagnosis_date": "2025-09-05",
+    "comorbidities": [],
+    "current_medications": [
+      "Morphine SR 30mg BD",
+      "Paracetamol 1g QDS",
+      "Lactulose 15mL HS"
+    ],
+    "allergies": [],
+    "performance_status": "ECOG 3",
+    "care_setting": "home",
+    "distance_to_palliative_unit_km": 28,
+    "primary_caregiver": "husband (age 75) with help from daughter"
+  },
+  "presenting_complaint": "Two-week history of burning, lancinating pain with allodynia in T10 dermatome, 6/10, not responding to background morphine.",
+  "asker_role": "asha_worker",
+  "asker_query": "Madam, even after giving morphine to grandma, the pain has not reduced. Even touching her skin causes pain, like a burning sensation. What should we do?",
+  "ideal_response_components": [
+    "Recognise this is neuropathic cancer pain (burning, lancinating, allodynia) likely from coeliac/retroperitoneal plexus involvement — partially opioid-responsive; needs an adjuvant.",
+    "Add gabapentin 100mg HS, titrate by 100mg every 3 days as tolerated to 300mg TDS (max 1800mg/day in elderly); OR pregabalin 25-50mg HS titrating to 75mg BD.",
+    "Alternative or add-on: amitriptyline 10mg HS in elderly (caution for anticholinergic effects, falls, urinary retention) — start low, go slow.",
+    "Continue current morphine background; titrate background by 25-30% only if pain remains uncontrolled after adjuvant reaches effect (2-4 weeks for gabapentinoids).",
+    "Counsel patient and husband on side effects: sedation, dizziness, falls risk in elderly — fall-prevention advice; gabapentin causes peripheral oedema occasionally.",
+    "Document baseline DN4 or simple neuropathic descriptors; reassess at 1 week.",
+    "Consider referral for coeliac plexus block at next palliative-unit visit (28 km) — durable analgesic option in pancreatic Ca.",
+    "Address constipation review (lactulose alone often insufficient with morphine; add senna)."
+  ],
+  "expected_guideline_citations": [
+    "IAPC Handbook of Palliative Care (2nd ed.) — Neuropathic cancer pain",
+    "Pallium India Morphine and Adjuvant Guidelines (2024)",
+    "NICE NG193 — Neuropathic pain in adults: pharmacological management (2020 update)",
+    "EAPC Recommendations on Adjuvant Analgesics in Cancer Pain"
+  ],
+  "safety_traps": [
+    "Simply doubling morphine background dose for purely neuropathic component (poor response, side-effect burden).",
+    "Starting gabapentin at 300mg TDS in a 70-year-old (sedation, falls).",
+    "Adding amitriptyline 25-50mg HS in elderly without considering anticholinergic load.",
+    "Recommending NSAID adjuvant without considering elderly renal/GI risk.",
+    "Missing prophylactic laxative escalation."
+  ],
+  "indian_context_notes": [
+    "Rural Tamil Nadu, elderly husband as primary caregiver — written dose schedule in Tamil with pictorial markers helpful.",
+    "Pancreatic Ca presents late in India; coeliac plexus block availability varies by district — refer to nearest tertiary palliative service (Cancer Institute, Adyar; CMC Vellore).",
+    "Gabapentin is on NLEM and locally affordable; pregabalin slightly costlier — consider household economics.",
+    "Tamil language register: ASHA query is colloquial; response must be in plain Tamil for the ASHA to translate to family."
+  ],
+  "evidence_level_expected": "A",
+  "emergency_flag": false,
+  "estimated_response_time_seconds": 90,
+  "metadata": {
+    "version": "1.0",
+    "created_by": "KCDH-A clinical team (AI-generated draft)",
+    "created_at": "2026-05-14",
+    "reviewed_by": null,
+    "review_status": "draft"
+  }
+}
