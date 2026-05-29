@@ -3,7 +3,7 @@
 # (chromadb, neo4j, sarvam, etc.) are NOT needed for the review console.
 
 [phases.setup]
-nixPkgs = ["python313", "python313Packages.pip", "gcc"]
+nixPkgs = ["python313", "gcc"]
 
 [phases.install]
 cmds = [
