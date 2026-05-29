@@ -405,6 +405,49 @@ def save_review(review: dict) -> dict:
 
 # ---------- Progress matrix ----------
 
+def per_reviewer_summary() -> dict[str, dict]:
+    """Aggregate review counts per reviewer_id, split by vignette_version.
+
+    Returns a dict keyed by reviewer_id; missing reviewers must be filled in
+    by the caller (e.g. so all 6 doctors appear even with zero reviews).
+    """
+    summary: dict[str, dict] = {}
+    for r in list_reviews():
+        uid = r.get("reviewer_id") or "?"
+        s = summary.setdefault(
+            uid,
+            {
+                "reviewer_id": uid,
+                "reviewer_name": r.get("reviewer_name") or uid,
+                "real_name": "",
+                "institution": "",
+                "by_version": {v: 0 for v in KNOWN_VERSIONS},
+                "total": 0,
+                "score_sum": 0,
+                "score_n": 0,
+                "last_submitted_at": "",
+            },
+        )
+        s["total"] += 1
+        v = r.get("vignette_version") or DEFAULT_VERSION
+        s["by_version"][v] = s["by_version"].get(v, 0) + 1
+        if r.get("reviewer_real_name"):
+            s["real_name"] = r["reviewer_real_name"]
+        if r.get("reviewer_institution"):
+            s["institution"] = r["reviewer_institution"]
+        try:
+            s["score_sum"] += int(r.get("overall_score", 0))
+            s["score_n"] += 1
+        except (TypeError, ValueError):
+            pass
+        sa = r.get("submitted_at") or ""
+        if sa > s["last_submitted_at"]:
+            s["last_submitted_at"] = sa
+    for s in summary.values():
+        s["avg_overall"] = round(s["score_sum"] / s["score_n"], 2) if s["score_n"] else None
+    return summary
+
+
 def progress_matrix(reviewers: list[dict], vignettes: list[dict]) -> dict[str, Any]:
     all_reviews = list_reviews()
     matrix: dict[str, dict[str, Optional[dict]]] = {

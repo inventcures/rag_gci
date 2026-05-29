@@ -157,3 +157,36 @@ def verify_admin_password(pw: Optional[str]) -> bool:
     if not pw:
         return False
     return hmac.compare_digest(pw, ADMIN_VERSION_PASSWORD)
+
+
+# ---------- Admin session (separate from per-doctor PIN login) ----------
+
+ADMIN_SESSION_COOKIE = "admin_session"
+
+
+def make_admin_cookie() -> str:
+    payload = {"admin": True, "issued_at": int(time.time())}
+    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    body = _b64e(raw)
+    sig = hmac.new(_secret(), body.encode("ascii"), hashlib.sha256).digest()
+    return f"{body}.{_b64e(sig)}"
+
+
+def read_admin_cookie(cookie_value: Optional[str]) -> bool:
+    if not cookie_value or "." not in cookie_value:
+        return False
+    body, sig = cookie_value.split(".", 1)
+    expected = hmac.new(_secret(), body.encode("ascii"), hashlib.sha256).digest()
+    try:
+        provided = _b64d(sig)
+    except (ValueError, base64.binascii.Error):
+        return False
+    if not hmac.compare_digest(expected, provided):
+        return False
+    try:
+        payload = json.loads(_b64d(body))
+    except (ValueError, json.JSONDecodeError):
+        return False
+    if int(time.time()) - int(payload.get("issued_at", 0)) > SESSION_TTL_SECONDS:
+        return False
+    return bool(payload.get("admin"))

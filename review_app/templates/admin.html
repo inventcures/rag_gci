@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Admin — Review Completion{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Admin · Reviewer Completion</h3>
+    <small class="text-muted">
+      {{ grand_total }} / {{ grand_target }} reviews submitted across {{ rows|length }} doctors and {{ versions|length }} vignette sets
+    </small>
+  </div>
+  <div>
+    <a href="/admin/export-all.csv" class="btn btn-success">Download all reviews (CSV)</a>
+    <a href="/admin/logout" class="btn btn-outline-secondary ms-2">Admin logout</a>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Doctor</th>
+            <th>Real name</th>
+            <th>Institution</th>
+            {% for v in versions %}
+              <th class="text-center">{{ v }}<br><small class="text-muted">/{{ per_version_total[v] }}</small></th>
+            {% endfor %}
+            <th class="text-center">Total</th>
+            <th class="text-center">Avg score</th>
+            <th>Last submission (UTC)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td><strong>{{ r.reviewer_name }}</strong></td>
+            <td>{{ r.real_name or "—" }}</td>
+            <td>{{ r.institution or "—" }}</td>
+            {% for v in versions %}
+              {% set done = r.by_version.get(v, 0) %}
+              {% set total = per_version_total[v] %}
+              <td class="text-center">
+                {% if done == 0 %}
+                  <span class="text-muted">0 / {{ total }}</span>
+                {% elif done >= total %}
+                  <span class="badge bg-success">{{ done }} / {{ total }}</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">{{ done }} / {{ total }}</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+            <td class="text-center"><strong>{{ r.total }}</strong></td>
+            <td class="text-center">{{ "%.2f"|format(r.avg_overall) if r.avg_overall is not none else "—" }}</td>
+            <td><small>{{ r.last_submitted_at or "—" }}</small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<p class="text-muted small">
+  CSV columns: reviewer, doctor real name + institution, vignette ID + version, six dimension Likert scores,
+  25 binary sub-items, overall 0–10, clinical-use recommendation, committee flag, free-text comments &amp; corrections.
+</p>
+{% endblock %}

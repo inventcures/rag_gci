@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Admin Login — Review Console{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card mt-5">
+      <div class="card-body">
+        <h4 class="card-title mb-3">Admin Login</h4>
+        {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+        <form method="post" action="/admin/login">
+          <div class="mb-3">
+            <label class="form-label">Admin password</label>
+            <input name="password" type="password" class="form-control" autocomplete="off" required />
+          </div>
+          <button type="submit" class="btn btn-dark w-100">Sign in</button>
+        </form>
+      </div>
+    </div>
+    <p class="text-muted small mt-3 text-center">
+      <a href="/login">← back to reviewer login</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

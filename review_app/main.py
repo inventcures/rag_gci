@@ -367,6 +367,93 @@ def export_csv(request: Request):
     )
 
 
+# ---------- Admin ----------
+
+
+def is_admin(request: Request) -> bool:
+    return auth.read_admin_cookie(request.cookies.get(auth.ADMIN_SESSION_COOKIE))
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(request: Request, error: Optional[str] = None):
+    user = current_user(request)
+    if not is_admin(request):
+        ctx = base_context(request, user)
+        ctx["error"] = error
+        return templates.TemplateResponse("admin_login.html", ctx)
+
+    reviewers = auth.list_users()
+    summary_map = data.per_reviewer_summary()
+    per_version_total = {v: len(data.list_vignettes(v)) for v in data.KNOWN_VERSIONS}
+
+    rows = []
+    for u in reviewers:
+        s = summary_map.get(
+            u["user_id"],
+            {
+                "reviewer_id": u["user_id"],
+                "reviewer_name": u["name"],
+                "real_name": "",
+                "institution": "",
+                "by_version": {v: 0 for v in data.KNOWN_VERSIONS},
+                "total": 0,
+                "avg_overall": None,
+                "last_submitted_at": "",
+            },
+        )
+        s["reviewer_name"] = u["name"]
+        rows.append(s)
+
+    grand_total = sum(r["total"] for r in rows)
+    grand_target = sum(per_version_total.values()) * len(reviewers)
+
+    ctx = base_context(request, user)
+    ctx.update(
+        {
+            "rows": rows,
+            "versions": data.KNOWN_VERSIONS,
+            "per_version_total": per_version_total,
+            "grand_total": grand_total,
+            "grand_target": grand_target,
+        }
+    )
+    return templates.TemplateResponse("admin.html", ctx)
+
+
+@app.post("/admin/login")
+def admin_login(password: str = Form(...)):
+    if not auth.verify_admin_password(password):
+        return RedirectResponse("/admin?error=Invalid+admin+password", status_code=303)
+    resp = RedirectResponse("/admin", status_code=303)
+    resp.set_cookie(
+        auth.ADMIN_SESSION_COOKIE,
+        auth.make_admin_cookie(),
+        httponly=True,
+        samesite="lax",
+        max_age=auth.SESSION_TTL_SECONDS,
+        path="/",
+    )
+    return resp
+
+
+@app.get("/admin/logout")
+def admin_logout():
+    resp = RedirectResponse("/admin", status_code=303)
+    resp.delete_cookie(auth.ADMIN_SESSION_COOKIE, path="/")
+    return resp
+
+
+@app.get("/admin/export-all.csv")
+def admin_export_all(request: Request):
+    if not is_admin(request):
+        return RedirectResponse("/admin", status_code=303)
+    return Response(
+        content=data.export_reviews_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="all_reviews_all_doctors.csv"'},
+    )
+
+
 @app.get("/healthz", include_in_schema=False)
 def healthz():
     return {
