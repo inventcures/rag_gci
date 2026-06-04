@@ -83,6 +83,13 @@
 </div>
 
 <h5 class="mt-4 mb-2">Rubric grid — all doctors side by side</h5>
+<p class="small text-muted mb-2">
+  Legend:
+  <span class="badge bg-success">Yes</span>
+  <span class="badge bg-danger">No</span>
+  <span class="badge bg-warning text-dark">N/A</span> reviewer submitted the case but left this item blank ·
+  <span class="text-muted fst-italic">no review</span> reviewer has not yet submitted this case
+</p>
 
 <div class="table-responsive">
   <table class="table table-sm table-bordered align-middle" style="font-size: 0.9rem">
@@ -112,7 +119,11 @@
           {% for u in reviewers %}
             {% set r = reviews_by_reviewer.get(u.user_id) %}
             <td class="text-center">
-              {% if r %}<strong>{{ r.dimension_scores.get(dim.key, "—") }}</strong>{% else %}<span class="text-muted">—</span>{% endif %}
+              {% if r %}
+                {% set ls = r.dimension_scores.get(dim.key) %}
+                {% if ls is none or ls == "" %}<span class="badge bg-warning text-dark">N/A</span>
+                {% else %}<strong>{{ ls }}</strong>{% endif %}
+              {% else %}<span class="text-muted small fst-italic">no review</span>{% endif %}
             </td>
           {% endfor %}
         </tr>
@@ -124,12 +135,12 @@
             {% if r %}
               {% set val = (r.sub_item_scores or {}).get(sub.key) %}
               <td class="text-center">
-                {% if val is sameas true %}<span class="badge bg-success">Y</span>
-                {% elif val is sameas false %}<span class="badge bg-danger">N</span>
-                {% else %}<span class="text-muted">—</span>{% endif %}
+                {% if val is sameas true %}<span class="badge bg-success">Yes</span>
+                {% elif val is sameas false %}<span class="badge bg-danger">No</span>
+                {% else %}<span class="badge bg-warning text-dark" title="Reviewer submitted the case but left this sub-item blank">N/A</span>{% endif %}
               </td>
             {% else %}
-              <td class="text-center text-muted">—</td>
+              <td class="text-center"><span class="text-muted small fst-italic" title="Reviewer has not submitted this case yet">no review</span></td>
             {% endif %}
           {% endfor %}
         </tr>
@@ -140,14 +151,14 @@
         <th>Overall score (0–10)</th>
         {% for u in reviewers %}
           {% set r = reviews_by_reviewer.get(u.user_id) %}
-          <th class="text-center">{% if r %}{{ r.overall_score }}{% else %}—{% endif %}</th>
+          <th class="text-center">{% if r %}{{ r.overall_score }}{% else %}<span class="text-muted small fst-italic fw-normal">no review</span>{% endif %}</th>
         {% endfor %}
       </tr>
       <tr>
         <td>Recommend for clinical use</td>
         {% for u in reviewers %}
           {% set r = reviews_by_reviewer.get(u.user_id) %}
-          <td class="text-center small">{% if r %}{{ r.would_recommend_for_clinical_use }}{% else %}—{% endif %}</td>
+          <td class="text-center small">{% if r %}{{ r.would_recommend_for_clinical_use }}{% else %}<span class="text-muted fst-italic">no review</span>{% endif %}</td>
         {% endfor %}
       </tr>
       <tr>
@@ -157,7 +168,7 @@
           <td class="text-center">
             {% if r and r.flag_for_committee_review %}<span class="badge bg-danger">YES</span>
             {% elif r %}<span class="text-muted">no</span>
-            {% else %}<span class="text-muted">—</span>{% endif %}
+            {% else %}<span class="text-muted small fst-italic">no review</span>{% endif %}
           </td>
         {% endfor %}
       </tr>
@@ -168,8 +179,8 @@
           <td>
             {% if r %}
               {% for t in (r.tags or []) %}<span class="badge bg-light text-dark me-1 mb-1">{{ t }}</span>{% endfor %}
-              {% if not r.tags %}<span class="text-muted small">—</span>{% endif %}
-            {% else %}<span class="text-muted">—</span>{% endif %}
+              {% if not r.tags %}<span class="badge bg-warning text-dark">N/A</span>{% endif %}
+            {% else %}<span class="text-muted small fst-italic">no review</span>{% endif %}
           </td>
         {% endfor %}
       </tr>
@@ -177,14 +188,14 @@
         <td>Institution</td>
         {% for u in reviewers %}
           {% set r = reviews_by_reviewer.get(u.user_id) %}
-          <td class="small">{% if r %}{{ r.reviewer_institution or "—" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="small">{% if r %}{{ r.reviewer_institution or "—" }}{% else %}<span class="text-muted fst-italic">no review</span>{% endif %}</td>
         {% endfor %}
       </tr>
       <tr>
         <td>Submitted at (UTC)</td>
         {% for u in reviewers %}
           {% set r = reviews_by_reviewer.get(u.user_id) %}
-          <td class="small">{% if r %}{{ r.submitted_at }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="small">{% if r %}{{ r.submitted_at }}{% else %}<span class="text-muted fst-italic">no review</span>{% endif %}</td>
         {% endfor %}
       </tr>
     </tbody>
