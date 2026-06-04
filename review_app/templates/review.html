@@ -147,6 +147,18 @@
                          title="{{ dim.anchors[n|string] }}">{{ n }}</label>
                 {% endfor %}
               </div>
+              <div class="d-flex justify-content-between text-muted small mt-1" style="gap: 0.5rem">
+                <span><strong>1</strong> = {{ dim.anchors["1"] }}</span>
+                <span class="text-end"><strong>5</strong> = {{ dim.anchors["5"] }}</span>
+              </div>
+              <details class="small text-muted mt-1">
+                <summary>Show all 5 anchors</summary>
+                <ul class="mb-0 ps-3">
+                  {% for n in [1, 2, 3, 4, 5] %}
+                    <li><strong>{{ n }}</strong> — {{ dim.anchors[n|string] }}</li>
+                  {% endfor %}
+                </ul>
+              </details>
 
               <details class="mt-2">
                 <summary class="small text-muted">Sub-items ({{ dim.sub_items|length }})</summary>
