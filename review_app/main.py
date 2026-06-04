@@ -454,6 +454,78 @@ def admin_export_all(request: Request):
     )
 
 
+@app.get("/admin/cases", response_class=HTMLResponse)
+def admin_cases(request: Request):
+    if not is_admin(request):
+        return RedirectResponse("/admin", status_code=303)
+    user = current_user(request)
+    version = active_version(request)
+    reviewers = auth.list_users()
+    vignettes = data.list_vignettes(version)
+
+    by_vid: dict[str, dict[str, dict]] = {}
+    for r in data.list_reviews():
+        if (r.get("vignette_version") or data.DEFAULT_VERSION) != version:
+            continue
+        by_vid.setdefault(r["vignette_id"], {})[r["reviewer_id"]] = r
+
+    rows = []
+    for v in vignettes:
+        per = by_vid.get(v["vignette_id"], {})
+        rows.append(
+            {
+                **v,
+                "per_reviewer": {u["user_id"]: per.get(u["user_id"]) for u in reviewers},
+                "n_done": len(per),
+            }
+        )
+
+    ctx = base_context(request, user)
+    ctx.update({"rows": rows, "reviewers": reviewers, "n_reviewers": len(reviewers)})
+    return templates.TemplateResponse("admin_cases.html", ctx)
+
+
+@app.get("/admin/case/{vignette_id}", response_class=HTMLResponse)
+def admin_case_detail(request: Request, vignette_id: str):
+    if not is_admin(request):
+        return RedirectResponse("/admin", status_code=303)
+    user = current_user(request)
+    version = active_version(request)
+    vignette = data.load_vignette(vignette_id, version)
+    if not vignette:
+        raise HTTPException(404, f"Vignette {vignette_id} not found in {version}")
+    rag_outputs = data.load_rag_outputs(vignette_id, version)
+    rubric = data.load_rubric()
+    reviewers = auth.list_users()
+    reviews_by_reviewer = {
+        r["reviewer_id"]: r
+        for r in data.reviews_for_vignette(vignette_id)
+        if (r.get("vignette_version") or data.DEFAULT_VERSION) == version
+    }
+
+    all_v = data.list_vignettes(version)
+    idx = next((i for i, v in enumerate(all_v) if v["vignette_id"] == vignette_id), -1)
+    prev_vid = all_v[idx - 1]["vignette_id"] if idx > 0 else None
+    next_vid = all_v[idx + 1]["vignette_id"] if 0 <= idx < len(all_v) - 1 else None
+
+    ctx = base_context(request, user)
+    ctx.update(
+        {
+            "vignette": vignette,
+            "vignette_json": json.dumps(vignette, indent=2, ensure_ascii=False),
+            "rag_outputs": rag_outputs,
+            "rubric": rubric,
+            "reviewers": reviewers,
+            "reviews_by_reviewer": reviews_by_reviewer,
+            "n_done": len(reviews_by_reviewer),
+            "position": f"{idx + 1} of {len(all_v)}" if idx >= 0 else "?",
+            "prev_vid": prev_vid,
+            "next_vid": next_vid,
+        }
+    )
+    return templates.TemplateResponse("admin_case_detail.html", ctx)
+
+
 @app.get("/healthz", include_in_schema=False)
 def healthz():
     return {

@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ vignette.vignette_id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-0">
+      <code>{{ vignette.vignette_id }}</code>
+      <small class="text-muted">— {{ vignette.title }}</small>
+    </h4>
+    <small class="text-muted">
+      {{ active_version }} · {{ position }} · {{ n_done }} / {{ reviewers|length }} reviews submitted
+    </small>
+  </div>
+  <div>
+    {% if prev_vid %}<a class="btn btn-sm btn-outline-secondary" href="/admin/case/{{ prev_vid }}">← Prev</a>{% endif %}
+    <a class="btn btn-sm btn-outline-secondary" href="/admin/cases">All cases</a>
+    {% if next_vid %}<a class="btn btn-sm btn-outline-secondary" href="/admin/case/{{ next_vid }}">Next →</a>{% endif %}
+  </div>
+</div>
+
+<div class="accordion mb-3" id="caseDetail">
+
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vignetteBody">
+        Vignette · {{ vignette.domain }} / {{ vignette.sub_area }} / {{ vignette.difficulty }}
+      </button>
+    </h2>
+    <div id="vignetteBody" class="accordion-collapse collapse">
+      <div class="accordion-body">
+        <div class="row g-3">
+          <div class="col-md-7">
+            <p><strong>Scenario:</strong> {{ vignette.scenario_text }}</p>
+            <p><strong>Asker ({{ vignette.asker_role }}):</strong> "{{ vignette.asker_query }}"</p>
+            {% if vignette.ideal_response_components %}
+              <p class="mb-1"><strong>Ideal response components:</strong></p>
+              <ul class="small mb-2">
+                {% for c in vignette.ideal_response_components %}<li>{{ c }}</li>{% endfor %}
+              </ul>
+            {% endif %}
+            {% if vignette.safety_traps %}
+              <p class="mb-1"><strong>Safety traps:</strong></p>
+              <ul class="small mb-2">
+                {% for c in vignette.safety_traps %}<li>{{ c }}</li>{% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+          <div class="col-md-5">
+            <details>
+              <summary class="text-muted small">Raw vignette JSON</summary>
+              <pre class="small bg-light p-2" style="max-height: 320px; overflow:auto">{{ vignette_json }}</pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% for entry in rag_outputs %}
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button collapsed" type="button"
+              data-bs-toggle="collapse" data-bs-target="#rag{{ loop.index }}">
+        RAG output · {{ entry.label }}
+      </button>
+    </h2>
+    <div id="rag{{ loop.index }}" class="accordion-collapse collapse">
+      <div class="accordion-body">
+        <div style="white-space: pre-wrap">{{ entry.output.answer }}</div>
+        {% if entry.output.sources %}
+          <hr class="my-2"/>
+          <p class="small text-muted mb-1">Sources:</p>
+          <ul class="small mb-0">
+            {% for s in entry.output.sources %}<li>{{ s }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+<h5 class="mt-4 mb-2">Rubric grid — all doctors side by side</h5>
+
+<div class="table-responsive">
+  <table class="table table-sm table-bordered align-middle" style="font-size: 0.9rem">
+    <thead class="table-light sticky-top">
+      <tr>
+        <th style="min-width: 320px">Rubric item</th>
+        {% for u in reviewers %}
+          {% set r = reviews_by_reviewer.get(u.user_id) %}
+          <th class="text-center" style="min-width: 110px">
+            {{ u.name }}
+            {% if r %}
+              <div class="small text-muted fw-normal">{{ r.reviewer_real_name or "—" }}</div>
+            {% else %}
+              <div class="small text-danger fw-normal">no review</div>
+            {% endif %}
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for dim in rubric.dimensions %}
+        <tr class="table-secondary">
+          <th colspan="{{ reviewers|length + 1 }}">{{ dim.label }} <small class="text-muted fw-normal">— {{ dim.description }}</small></th>
+        </tr>
+        <tr>
+          <td><em>Likert score (1–5)</em></td>
+          {% for u in reviewers %}
+            {% set r = reviews_by_reviewer.get(u.user_id) %}
+            <td class="text-center">
+              {% if r %}<strong>{{ r.dimension_scores.get(dim.key, "—") }}</strong>{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% for sub in dim.sub_items %}
+        <tr>
+          <td class="ps-4"><small>{{ sub.key }} · {{ sub.label }}</small></td>
+          {% for u in reviewers %}
+            {% set r = reviews_by_reviewer.get(u.user_id) %}
+            {% if r %}
+              {% set val = (r.sub_item_scores or {}).get(sub.key) %}
+              <td class="text-center">
+                {% if val is sameas true %}<span class="badge bg-success">Y</span>
+                {% elif val is sameas false %}<span class="badge bg-danger">N</span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            {% else %}
+              <td class="text-center text-muted">—</td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      {% endfor %}
+
+      <tr class="table-warning">
+        <th>Overall score (0–10)</th>
+        {% for u in reviewers %}
+          {% set r = reviews_by_reviewer.get(u.user_id) %}
+          <th class="text-center">{% if r %}{{ r.overall_score }}{% else %}—{% endif %}</th>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td>Recommend for clinical use</td>
+        {% for u in reviewers %}
+          {% set r = reviews_by_reviewer.get(u.user_id) %}
+          <td class="text-center small">{% if r %}{{ r.would_recommend_for_clinical_use }}{% else %}—{% endif %}</td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td>Flagged for committee</td>
+        {% for u in reviewers %}
+          {% set r = reviews_by_reviewer.get(u.user_id) %}
+          <td class="text-center">
+            {% if r and r.flag_for_committee_review %}<span class="badge bg-danger">YES</span>
+            {% elif r %}<span class="text-muted">no</span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td>Tags</td>
+        {% for u in reviewers %}
+          {% set r = reviews_by_reviewer.get(u.user_id) %}
+          <td>
+            {% if r %}
+              {% for t in (r.tags or []) %}<span class="badge bg-light text-dark me-1 mb-1">{{ t }}</span>{% endfor %}
+              {% if not r.tags %}<span class="text-muted small">—</span>{% endif %}
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td>Institution</td>
+        {% for u in reviewers %}
+          {% set r = reviews_by_reviewer.get(u.user_id) %}
+          <td class="small">{% if r %}{{ r.reviewer_institution or "—" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td>Submitted at (UTC)</td>
+        {% for u in reviewers %}
+          {% set r = reviews_by_reviewer.get(u.user_id) %}
+          <td class="small">{% if r %}{{ r.submitted_at }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h5 class="mt-4 mb-2">Comments &amp; corrections</h5>
+<div class="row g-3">
+  {% for u in reviewers %}
+    {% set r = reviews_by_reviewer.get(u.user_id) %}
+    <div class="col-md-6 col-lg-4">
+      <div class="card h-100">
+        <div class="card-header py-2">
+          <strong>{{ u.name }}</strong>
+          {% if r %}<span class="text-muted small">· {{ r.reviewer_real_name or "—" }}</span>{% endif %}
+        </div>
+        <div class="card-body py-2">
+          {% if r %}
+            <p class="small mb-1"><strong>Comments:</strong></p>
+            <div class="small mb-2" style="white-space: pre-wrap">{{ r.comments or "—" }}</div>
+            {% if r.corrections %}
+              <p class="small mb-1"><strong>Suggested corrections:</strong></p>
+              <div class="small" style="white-space: pre-wrap">{{ r.corrections }}</div>
+            {% endif %}
+          {% else %}
+            <span class="text-muted small">No review submitted yet.</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

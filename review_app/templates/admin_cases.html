@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Admin · Cases — {{ active_version }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Cases <small class="text-muted">({{ active_version }})</small></h3>
+    <small class="text-muted">{{ rows|length }} vignettes · {{ n_reviewers }} doctors · click a row for full per-doctor rubric grid</small>
+  </div>
+  <div>
+    <a href="/admin" class="btn btn-outline-secondary">← Admin home</a>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-sm table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Vignette</th>
+        <th>Title</th>
+        <th>Difficulty</th>
+        {% for u in reviewers %}<th class="text-center">{{ u.name }}</th>{% endfor %}
+        <th class="text-center">Done</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a href="/admin/case/{{ r.vignette_id }}"><code>{{ r.vignette_id }}</code></a></td>
+        <td><a class="text-decoration-none" href="/admin/case/{{ r.vignette_id }}">{{ r.title }}</a></td>
+        <td><span class="badge bg-light text-dark">{{ r.difficulty }}</span></td>
+        {% for u in reviewers %}
+          {% set rv = r.per_reviewer[u.user_id] %}
+          <td class="text-center">
+            {% if rv %}
+              <span class="badge bg-success" title="overall {{ rv.overall_score }}/10">{{ rv.overall_score }}</span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+        {% endfor %}
+        <td class="text-center"><strong>{{ r.n_done }} / {{ n_reviewers }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
