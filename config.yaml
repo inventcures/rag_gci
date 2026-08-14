@@ -222,13 +222,15 @@ sarvam:
   api_key: ${SARVAM_API_KEY}
   base_url: "https://api.sarvam.ai"
 
-  # STT (Saaras v3) - 22 Indian languages
+  # STT (Saaras) - 22 Indian languages
   stt:
-    model: "saaras:v3"  # or "saaras:flash" for lower latency
-    mode: "formal"  # formal, code-mixed, spoken-form
+    model: "saaras:v3"  # saaras:v4 (latest, Epoch 2026) | saaras:flash (low latency)
+    mode: "transcribe"  # transcribe, translate, verbatim, translit, codemix
     with_timestamps: true
 
-  # TTS (Bulbul v3) - 11 Indian languages, 30+ voices
+  # TTS (Bulbul) - 11 Indian languages, 30+ voices
+  # bulbul:v4 (Epoch 2026) is supported in code and auto-falls back to v3
+  # until Sarvam enables the v4 API tag
   tts:
     model: "bulbul:v3"
     default_voice: "meera"  # Hindi female (warm, empathetic)

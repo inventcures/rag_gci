@@ -2,8 +2,8 @@
 Sarvam AI API Client for Palli Sahayak Voice AI Helpline
 
 Handles:
-- Speech-to-Text (Saaras v3): 22 Indian languages
-- Text-to-Speech (Bulbul v3): 11 Indian languages, 30+ voices
+- Speech-to-Text (Saaras v3/v4): 22 Indian languages
+- Text-to-Speech (Bulbul v3, v4-ready): 11 Indian languages, 30+ voices
 - Translation: 22 language pairs
 - Batch STT: Files up to 1 hour with diarization
 
@@ -17,6 +17,8 @@ import logging
 import aiohttp
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+
+from .config import get_stt_model, get_tts_model, TTS_FALLBACK_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -89,22 +91,26 @@ class SarvamClient:
         self,
         audio_data: bytes,
         language: str = "hi-IN",
-        model: str = "saaras:v3",
-        mode: str = "formal",
+        model: Optional[str] = None,
+        mode: Optional[str] = None,
         with_timestamps: bool = True,
     ) -> SarvamSTTResult:
         """
-        Convert speech to text using Saaras v3.
+        Convert speech to text using Saaras.
 
         Args:
             audio_data: Audio bytes (WAV, MP3, FLAC, OGG, WebM)
             language: BCP-47 language code (e.g. "hi-IN")
-            model: "saaras:v3" (accurate) or "saaras:flash" (fast)
-            mode: "formal", "code-mixed", or "spoken-form"
+            model: "saaras:v3", "saaras:v4" (latest), or "saaras:flash".
+                   Defaults to SARVAM_STT_MODEL env or saaras:v3.
+            mode: Output format: "transcribe" (default when omitted),
+                  "translate", "verbatim", "translit", or "codemix"
             with_timestamps: Include word-level timestamps
         """
         if not self.is_available():
             return SarvamSTTResult(success=False, error="Sarvam API key not configured")
+
+        model = model or get_stt_model()
 
         try:
             form_data = aiohttp.FormData()
@@ -115,7 +121,8 @@ class SarvamClient:
             )
             form_data.add_field("language_code", language)
             form_data.add_field("model", model)
-            form_data.add_field("mode", mode)
+            if mode:
+                form_data.add_field("mode", mode)
             form_data.add_field("with_timestamps", str(with_timestamps).lower())
 
             async with aiohttp.ClientSession() as session:
@@ -151,7 +158,7 @@ class SarvamClient:
         text: str,
         language: str = "hi-IN",
         voice: str = "priya",
-        model: str = "bulbul:v3",
+        model: Optional[str] = None,
         pace: float = 1.0,
         pitch: int = 0,
         loudness: float = 1.5,
@@ -159,68 +166,111 @@ class SarvamClient:
         enable_preprocessing: bool = True,
     ) -> SarvamTTSResult:
         """
-        Convert text to speech using Bulbul v3.
+        Convert text to speech using Bulbul.
 
         Args:
             text: Text to synthesize
             language: BCP-47 language code
-            voice: Speaker name (e.g. "meera", "amol")
-            model: TTS model name
+            voice: Speaker name (e.g. "priya", "karun")
+            model: "bulbul:v3" or "bulbul:v4" (latest). Defaults to
+                   SARVAM_TTS_MODEL env or bulbul:v3. If the API does not
+                   yet accept the requested tag (bulbul:v4 is announced but
+                   not live as of Aug 2026), the call automatically retries
+                   once with bulbul:v3.
             pace: Speech rate 0.5-2.0 (lower = slower, good for elderly)
-            pitch: Pitch adjustment -10 to 10
-            loudness: Volume 0.5-3.0
+            pitch: Pitch adjustment -10 to 10 (bulbul:v2 and older only)
+            loudness: Volume 0.5-3.0 (bulbul:v2 and older only)
             sample_rate: Output sample rate (8000-48000)
             enable_preprocessing: Normalize numbers/dates/abbreviations
         """
         if not self.is_available():
             return SarvamTTSResult(success=False, error="Sarvam API key not configured")
 
+        model = model or get_tts_model()
+
         try:
-            payload = {
-                "inputs": [text],
-                "target_language_code": language,
-                "speaker": voice,
-                "model": model,
-                "pace": pace,
-                "sample_rate": sample_rate,
-                "enable_preprocessing": enable_preprocessing,
-            }
-            # Bulbul v3 dropped support for pitch/loudness; only include
-            # them for older models (v1/v2) when explicitly non-default.
-            if "v3" not in model:
-                payload["pitch"] = pitch
-                payload["loudness"] = loudness
-
-            headers = {**self.headers, "Content-Type": "application/json"}
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.base_url}/text-to-speech",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    data = await response.json()
-
-                    if response.status == 200:
-                        audios = data.get("audios", [])
-                        audio_b64 = audios[0] if audios else ""
-                        return SarvamTTSResult(
-                            success=True,
-                            audio_base64=audio_b64,
-                            sample_rate=sample_rate,
-                        )
-                    else:
-                        error_msg = data.get("error", data.get("message", f"HTTP {response.status}"))
-                        logger.error(f"Sarvam TTS failed: {error_msg}")
-                        return SarvamTTSResult(success=False, error=error_msg)
-
+            return await self._tts_request(
+                text, language, voice, model, pace, pitch, loudness,
+                sample_rate, enable_preprocessing, allow_fallback=True,
+            )
         except aiohttp.ClientError as e:
             logger.error(f"Network error in Sarvam TTS: {e}")
             return SarvamTTSResult(success=False, error=f"Network error: {e}")
         except Exception as e:
             logger.error(f"Sarvam TTS failed: {e}")
             return SarvamTTSResult(success=False, error=str(e))
+
+    async def _tts_request(
+        self,
+        text: str,
+        language: str,
+        voice: str,
+        model: str,
+        pace: float,
+        pitch: int,
+        loudness: float,
+        sample_rate: int,
+        enable_preprocessing: bool,
+        allow_fallback: bool,
+    ) -> SarvamTTSResult:
+        payload = {
+            "inputs": [text],
+            "target_language_code": language,
+            "speaker": voice,
+            "model": model,
+            "pace": pace,
+            "sample_rate": sample_rate,
+            "enable_preprocessing": enable_preprocessing,
+        }
+        # Bulbul v3 dropped support for pitch/loudness (and v4 follows);
+        # only include them for the older v1/v2 models.
+        if "v1" in model or "v2" in model:
+            payload["pitch"] = pitch
+            payload["loudness"] = loudness
+
+        headers = {**self.headers, "Content-Type": "application/json"}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.base_url}/text-to-speech",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as response:
+                data = await response.json()
+
+                if response.status == 200:
+                    audios = data.get("audios", [])
+                    audio_b64 = audios[0] if audios else ""
+                    return SarvamTTSResult(
+                        success=True,
+                        audio_base64=audio_b64,
+                        sample_rate=sample_rate,
+                    )
+
+                error_msg = data.get("error", data.get("message", f"HTTP {response.status}"))
+
+                # Requested model tag not (yet) accepted by the API —
+                # e.g. bulbul:v4 before Sarvam enables it. Retry on the
+                # stable fallback so speech keeps working.
+                if (
+                    allow_fallback
+                    and response.status == 400
+                    and model != TTS_FALLBACK_MODEL
+                    and "model" in str(error_msg).lower()
+                ):
+                    logger.warning(
+                        f"Sarvam TTS model '{model}' rejected by API "
+                        f"({error_msg}); falling back to {TTS_FALLBACK_MODEL}"
+                    )
+                    return await self._tts_request(
+                        text, language, voice, TTS_FALLBACK_MODEL, pace,
+                        pitch, loudness, sample_rate, enable_preprocessing,
+                        allow_fallback=False,
+                    )
+
+                logger.error(f"Sarvam TTS failed: {error_msg}")
+                return SarvamTTSResult(success=False, error=error_msg)
 
     async def translate(
         self,
@@ -283,7 +333,7 @@ class SarvamClient:
         self,
         file_url: str,
         language: str = "hi-IN",
-        model: str = "saaras:v3",
+        model: Optional[str] = None,
         with_diarization: bool = False,
         num_speakers: int = 2,
     ) -> Dict[str, Any]:
@@ -307,7 +357,7 @@ class SarvamClient:
             payload = {
                 "url": file_url,
                 "language_code": language,
-                "model": model,
+                "model": model or get_stt_model(),
                 "with_diarization": with_diarization,
                 "num_speakers": num_speakers,
             }
@@ -343,8 +393,8 @@ class SarvamClient:
             payload = {
                 "inputs": ["test"],
                 "target_language_code": "en-IN",
-                "speaker": "sita",
-                "model": "bulbul:v3",
+                "speaker": "priya",
+                "model": TTS_FALLBACK_MODEL,
             }
             async with aiohttp.ClientSession() as session:
                 async with session.post(

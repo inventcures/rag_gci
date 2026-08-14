@@ -578,7 +578,12 @@ class VoiceRouter:
         Uses Sarvam Saaras v3 for STT (22 Indian languages) and
         Bulbul v3 for TTS (11 Indian languages, 30+ voices).
         """
-        from sarvam_integration.config import sarvam_language_code, get_default_voice
+        from sarvam_integration.config import (
+            sarvam_language_code,
+            get_default_voice,
+            get_stt_model,
+            get_tts_model,
+        )
 
         session_id = f"sarvam_{user_id or 'anonymous'}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         sarvam_lang = sarvam_language_code(language)
@@ -600,8 +605,8 @@ class VoiceRouter:
             message="Sarvam AI voice session ready",
             metadata={
                 "pipeline": "Sarvam STT → RAG → LLM → Sarvam TTS",
-                "stt_provider": "sarvam_saaras_v3",
-                "tts_provider": "sarvam_bulbul_v3",
+                "stt_provider": f"sarvam_{get_stt_model().replace(':', '_')}",
+                "tts_provider": f"sarvam_{get_tts_model().replace(':', '_')}",
                 "stt_language": sarvam_lang,
                 "tts_voice": voice,
                 "language": language,

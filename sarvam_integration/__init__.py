@@ -12,11 +12,15 @@ Documentation: https://docs.sarvam.ai/api-reference-docs/introduction
 from .client import SarvamClient, SarvamSTTResult, SarvamTTSResult, SarvamTranslateResult
 from .config import (
     get_sarvam_config_from_env,
+    get_stt_model,
+    get_tts_model,
     SARVAM_SYSTEM_PROMPT,
     SARVAM_LANGUAGE_CONFIGS,
     SARVAM_VOICE_MAP,
     SARVAM_STT_LANGUAGES,
     SARVAM_TTS_LANGUAGES,
+    SARVAM_STT_MODELS,
+    SARVAM_TTS_MODELS,
 )
 from .streaming import SarvamStreamingClient
 from .webhooks import SarvamWebhookHandler, SarvamCallRecord
@@ -28,6 +32,10 @@ __all__ = [
     "SarvamTranslateResult",
     "SarvamStreamingClient",
     "get_sarvam_config_from_env",
+    "get_stt_model",
+    "get_tts_model",
+    "SARVAM_STT_MODELS",
+    "SARVAM_TTS_MODELS",
     "SARVAM_SYSTEM_PROMPT",
     "SARVAM_LANGUAGE_CONFIGS",
     "SARVAM_VOICE_MAP",

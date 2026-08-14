@@ -14,6 +14,8 @@ from typing import Dict, Any, Optional, Callable, Awaitable
 from datetime import datetime
 from dataclasses import dataclass, field
 
+from .config import get_stt_model
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,7 @@ class SarvamCallRecord:
     duration_seconds: int = 0
     transcript: str = ""
     language: str = "hi-IN"
-    stt_model: str = "saaras:v3"
+    stt_model: str = field(default_factory=lambda: get_stt_model())
     tts_voice: str = "meera"
     status: str = "in_progress"
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -100,7 +102,7 @@ class SarvamWebhookHandler:
             session_id=session_id,
             started_at=datetime.now(),
             language=data.get("language", "hi-IN"),
-            stt_model=data.get("stt_model", "saaras:v3"),
+            stt_model=data.get("stt_model", get_stt_model()),
             tts_voice=data.get("tts_voice", "meera"),
             status="in_progress",
         )

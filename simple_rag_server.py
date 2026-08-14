@@ -6091,12 +6091,13 @@ def main():
             })
 
         try:
+            from sarvam_integration import get_stt_model, get_tts_model
             healthy = await sarvam_client.health_check()
             return JSONResponse({
                 "status": "healthy" if healthy else "degraded",
                 "provider": "sarvam_ai",
-                "stt_model": "saaras:v3",
-                "tts_model": "bulbul:v3",
+                "stt_model": get_stt_model(),
+                "tts_model": get_tts_model(),
                 "stt_languages": len(SARVAM_STT_LANGUAGES),
                 "tts_languages": len(SARVAM_TTS_LANGUAGES),
             })
@@ -6118,13 +6119,15 @@ def main():
     @app.post("/api/sarvam/stt")
     async def sarvam_stt_endpoint(request: Request):
         """
-        Speech-to-text using Sarvam Saaras v3.
+        Speech-to-text using Sarvam Saaras.
 
         Accepts multipart/form-data with:
         - file: Audio file (WAV, MP3, FLAC, OGG, WebM)
         - language: BCP-47 language code (e.g. "hi-IN"), default "hi-IN"
-        - model: "saaras:v3" or "saaras:flash", default "saaras:v3"
-        - mode: "formal", "code-mixed", or "spoken-form", default "formal"
+        - model: "saaras:v3", "saaras:v4", or "saaras:flash"
+          (default: SARVAM_STT_MODEL env or saaras:v3)
+        - mode: "transcribe", "translate", "verbatim", "translit", or
+          "codemix" (optional; API default is transcribe)
         """
         if not sarvam_enabled or not sarvam_client:
             return JSONResponse(
@@ -6140,8 +6143,8 @@ def main():
 
             audio_data = await audio_file.read()
             language = form.get("language", "hi-IN")
-            model = form.get("model", "saaras:v3")
-            mode = form.get("mode", "formal")
+            model = form.get("model") or None
+            mode = form.get("mode") or None
 
             result = await sarvam_client.speech_to_text(
                 audio_data=audio_data,

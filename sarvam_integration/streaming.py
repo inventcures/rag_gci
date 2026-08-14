@@ -17,6 +17,7 @@ import aiohttp
 from typing import Optional, AsyncIterator, AsyncGenerator
 
 from .client import SarvamSTTResult, SARVAM_API_BASE
+from .config import get_stt_model
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ class SarvamStreamingClient:
         self,
         audio_chunks: AsyncIterator[bytes],
         language: str = "hi-IN",
-        model: str = "saaras:v3",
+        model: Optional[str] = None,
     ) -> AsyncGenerator[SarvamSTTResult, None]:
         """
         Stream audio for real-time transcription.
@@ -67,12 +68,14 @@ class SarvamStreamingClient:
         Args:
             audio_chunks: Async iterator of PCM16 audio bytes
             language: BCP-47 language code
-            model: STT model ("saaras:v3" or "saaras:flash")
+            model: STT model ("saaras:v3", "saaras:v4", or "saaras:flash").
+                   Defaults to SARVAM_STT_MODEL env or saaras:v3.
         """
         if not self.is_available():
             yield SarvamSTTResult(success=False, error="Sarvam API key not configured")
             return
 
+        model = model or get_stt_model()
         ws_url = f"{SARVAM_WS_STT}?language_code={language}&model={model}"
         headers = {"api-subscription-key": self.api_key}
 
