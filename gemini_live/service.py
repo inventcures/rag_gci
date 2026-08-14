@@ -464,6 +464,40 @@ class GeminiLiveError(Exception):
     pass
 
 
+# Live API tool through which the model retrieves RAG context BEFORE
+# answering. Function calling on Live models is synchronous: the model
+# does not generate its (audio) response until the tool result is sent,
+# which guarantees the spoken answer is grounded in the knowledge base
+# rather than world knowledge alone.
+RAG_TOOL_NAME = "search_medical_knowledge"
+
+RAG_TOOL = types.Tool(
+    function_declarations=[
+        types.FunctionDeclaration(
+            name=RAG_TOOL_NAME,
+            description=(
+                "Search the verified palliative-care knowledge base for "
+                "evidence-based guidance. MUST be called before answering "
+                "any health, symptom, medication, or care question."
+            ),
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "query": types.Schema(
+                        type=types.Type.STRING,
+                        description=(
+                            "The user's health question, rephrased as a "
+                            "concise English search query"
+                        ),
+                    )
+                },
+                required=["query"],
+            ),
+        )
+    ]
+)
+
+
 class GeminiLiveService:
     """
     Main service for Gemini Live API integration.
@@ -582,6 +616,12 @@ class GeminiLiveService:
         )
 
         base_instruction = f"""You are a compassionate palliative care assistant helping patients and caregivers with healthcare queries.
+
+MANDATORY KNOWLEDGE BASE GROUNDING:
+- For EVERY health, symptom, medication, side-effect, or care question, you MUST first call the {RAG_TOOL_NAME} tool with a concise English version of the question, and base your answer on what it returns.
+- Never answer a medical question from your own general knowledge alone. If the tool returns no relevant information, say so, give only general comfort guidance, and advise consulting their doctor.
+- When the tool returns sources, mention them naturally (e.g. "according to our palliative care guidelines").
+- Only greetings, thanks, and small talk may be answered without the tool.
 
 IMPORTANT GUIDELINES:
 1. Be warm, empathetic, and supportive in all interactions
@@ -745,6 +785,11 @@ CONVERSATION STYLE:
             system_instruction=types.Content(
                 parts=[types.Part(text=full_instruction)]
             ),
+            # RAG grounding tool: the model must fetch knowledge-base
+            # context before generating its (audio) answer
+            tools=[RAG_TOOL] if (
+                self.rag_pipeline and self.config.rag_context_enabled
+            ) else None,
             # VAD tuning for barge-in quality and latency:
             # - LOW start sensitivity + 100ms prefix padding: speech must be
             #   clear and sustained to open the mic, so ambient noise does not
@@ -990,6 +1035,14 @@ class GeminiLiveSession:
         self.voice = voice
         self.model = model or service.model
         self.is_translation = is_translation_model(self.model)
+
+        # RAG grounding via Live API function calling: the model calls the
+        # search tool and waits for its result before generating the answer
+        self._rag_tool_enabled = bool(
+            service.rag_pipeline
+            and service.config.rag_context_enabled
+            and not self.is_translation
+        )
 
         # Session state
         self.is_active = False
@@ -1251,6 +1304,13 @@ class GeminiLiveSession:
                             # Clear pending transcription on interrupt
                             self._pending_transcription.clear()
 
+                    # Tool call: the model is waiting on the RAG result and
+                    # will not answer until we respond
+                    if message.tool_call:
+                        asyncio.create_task(
+                            self._handle_tool_call(message.tool_call)
+                        )
+
                     # Handle go_away
                     if message.go_away:
                         logger.warning(f"Session {self.session_id} go_away received")
@@ -1267,6 +1327,70 @@ class GeminiLiveSession:
             except Exception as e:
                 logger.error(f"Receive loop error: {e}")
                 break
+
+    async def _handle_tool_call(self, tool_call) -> None:
+        """
+        Serve the model's RAG tool call.
+
+        The Live model calls search_medical_knowledge and waits for this
+        response before generating its audio answer, so whatever we return
+        here directly grounds the spoken reply.
+        """
+        for fc in tool_call.function_calls or []:
+            if fc.name != RAG_TOOL_NAME:
+                logger.warning(f"Unknown tool call: {fc.name}")
+                continue
+
+            query = (fc.args or {}).get("query", "")
+            logger.info(f"🔧 RAG TOOL CALL: {query[:100]!r} (session {self.session_id[:30]})")
+
+            result_text = await self._run_rag_query(query)
+
+            await self._session.send_tool_response(
+                function_responses=[
+                    types.FunctionResponse(
+                        id=fc.id,
+                        name=fc.name,
+                        response={"result": result_text},
+                    )
+                ]
+            )
+            logger.info(f"✅ RAG TOOL RESPONSE sent ({len(result_text)} chars)")
+
+    async def _run_rag_query(self, query: str) -> str:
+        """Run the RAG pipeline and format the result for the model."""
+        no_info = (
+            "No relevant information found in the knowledge base. Give only "
+            "general comfort guidance and advise consulting their doctor."
+        )
+        if not query or not self.service.rag_pipeline:
+            return no_info
+
+        try:
+            result = await self.service.rag_pipeline.query(
+                question=query,
+                conversation_id=self.session_id,
+                user_id=self.session_id,
+                top_k=self.service.config.rag_top_k,
+            )
+        except Exception as e:
+            logger.error(f"RAG tool query failed: {e}")
+            return no_info
+
+        if result.get("status") != "success" or not result.get("answer"):
+            return no_info
+
+        sources = ", ".join(
+            s.get("filename", "Unknown")[:40] for s in result.get("sources", [])[:3]
+        )
+        answer = result["answer"]
+        logger.info(f"📚 RAG grounding: {len(answer)} chars, sources: {sources}")
+        return (
+            f"Verified palliative-care knowledge base result:\n{answer}\n\n"
+            f"Sources: {sources or 'knowledge base'}\n"
+            "Base your spoken answer on this information and mention the "
+            "sources naturally."
+        )
 
     async def _query_rag_and_inject(self) -> None:
         """Query RAG pipeline with user transcription and inject context."""
@@ -1390,6 +1514,13 @@ Please prioritize their safety and provide clear, calm guidance.
                     return
 
                 logger.info(f"⏭️ SKIPPING RAG - {reason}: \"{query_text[:50]}{'...' if len(query_text) > 50 else ''}\"")
+                return
+
+            # With tool grounding, RAG context reaches the model BEFORE it
+            # answers (via search_medical_knowledge); this post-turn
+            # injection would arrive after the reply and is skipped
+            if self._rag_tool_enabled:
+                logger.debug("RAG handled via tool call - skipping post-turn injection")
                 return
 
             self._last_rag_query = query_text
