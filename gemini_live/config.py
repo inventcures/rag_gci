@@ -123,6 +123,68 @@ LANGUAGE_CODE_MAP: Dict[str, str] = {
     "as": "as-IN",
 }
 
+# Live API models selectable from the web app.
+# "assistant" models run the full palliative-care assistant (RAG, safety,
+# system instruction). "translator" models are speech-to-speech interpreters:
+# no system instruction, no text input, no RAG injection.
+SUPPORTED_MODELS: Dict[str, Dict[str, object]] = {
+    "gemini-live-2.5-flash-preview-native-audio-09-2025": {
+        "label": "Gemini 2.5 Flash Native Audio",
+        "description": "Stable conversational model with native audio",
+        "kind": "assistant",
+        "supports_rag": True,
+    },
+    "gemini-3.1-flash-live-preview": {
+        "label": "Gemini 3.1 Flash Live",
+        "description": "Latest low-latency conversational model (90+ languages)",
+        "kind": "assistant",
+        "supports_rag": True,
+    },
+    "gemini-3.5-live-translate-preview": {
+        "label": "Gemini 3.5 Live Translate",
+        "description": "Real-time speech-to-speech translation into the selected language",
+        "kind": "translator",
+        "supports_rag": False,
+    },
+}
+
+
+def get_model_info(model: str) -> Dict[str, object]:
+    """Get registry metadata for a model (empty dict if unknown)."""
+    return SUPPORTED_MODELS.get(model, {})
+
+
+def is_translation_model(model: str) -> bool:
+    """True if the model is a speech-to-speech translator (no assistant features)."""
+    return get_model_info(model).get("kind") == "translator"
+
+
+def model_supports_rag(model: str) -> bool:
+    """True if RAG context can be injected into sessions of this model.
+
+    Unknown models (legacy IDs, env overrides) are treated as assistants.
+    """
+    return bool(get_model_info(model).get("supports_rag", True))
+
+
+def model_uses_auto_language(model: str) -> bool:
+    """True for models that auto-detect language and reject language_code.
+
+    Native-audio 2.5 models and all Gemini 3.x live models auto-detect the
+    spoken language; passing BCP-47 codes like 'en-IN' is rejected.
+    """
+    return "native-audio" in (model or "") or (model or "").startswith("gemini-3")
+
+
+def model_uses_realtime_text(model: str) -> bool:
+    """True for models where mid-conversation text must use send_realtime_input.
+
+    Gemini 3.x live models only accept send_client_content for seeding initial
+    context; after the first model turn, text must go via send_realtime_input.
+    """
+    return (model or "").startswith("gemini-3")
+
+
 # Available Voice Options (Gemini Live prebuilt voices)
 VOICE_OPTIONS: Dict[str, Dict[str, str]] = {
     "Aoede": {

@@ -26,9 +26,14 @@ from .config import (
     GeminiLiveConfig,
     get_config,
     SUPPORTED_LANGUAGES,
+    SUPPORTED_MODELS,
     VOICE_OPTIONS,
     DEFAULT_VOICE,
     INPUT_SAMPLE_RATE,
+    is_translation_model,
+    model_supports_rag,
+    model_uses_auto_language,
+    model_uses_realtime_text,
 )
 
 # Voice safety wrapper
@@ -565,16 +570,15 @@ class GeminiLiveService:
         Returns:
             Complete system instruction string
         """
-        language_instructions = {
-            "en-IN": "Respond in Indian English with a warm, empathetic tone.",
-            "hi-IN": "हिंदी में जवाब दें। गर्मजोशी और सहानुभूति के साथ बात करें।",
-            "mr-IN": "मराठीत उत्तर द्या. सहानुभूती आणि काळजी घेणारा स्वर वापरा.",
-            "ta-IN": "தமிழில் பதிலளிக்கவும். அன்பான மற்றும் பரிவான தொனியில் பேசுங்கள்."
-        }
-
-        lang_instruction = language_instructions.get(
-            language,
-            language_instructions["en-IN"]
+        # Auto-detect mode: mirror whatever language the user speaks (English,
+        # Hindi, Marathi, Tamil, Bengali, Telugu, Kannada, Malayalam, Gujarati,
+        # Assamese, or code-mixed). Native-audio handles this natively.
+        lang_instruction = (
+            "Detect the language the user speaks (Indian English, Hindi, Marathi, "
+            "Tamil, Bengali, Telugu, Kannada, Malayalam, Gujarati, Assamese, or "
+            "code-mixed) and respond in the SAME language with a warm, empathetic, "
+            "culturally-appropriate Indian tone. If the user switches language "
+            "mid-conversation, follow them."
         )
 
         base_instruction = f"""You are a compassionate palliative care assistant helping patients and caregivers with healthcare queries.
@@ -608,12 +612,34 @@ CONVERSATION STYLE:
 
         return base_instruction
 
+    def resolve_model(self, model: Optional[str]) -> str:
+        """
+        Resolve a requested model ID to a usable one.
+
+        Args:
+            model: Requested model ID (or None for the service default)
+
+        Returns:
+            Validated model ID
+        """
+        if not model:
+            return self.model
+
+        if model != self.model and model not in SUPPORTED_MODELS:
+            logger.warning(
+                f"Unknown model '{model}', falling back to {self.model}"
+            )
+            return self.model
+
+        return model
+
     async def create_session(
         self,
         session_id: str,
         language: str = "en-IN",
         voice: str = "Aoede",
-        system_instruction: Optional[str] = None
+        system_instruction: Optional[str] = None,
+        model: Optional[str] = None
     ) -> "GeminiLiveSession":
         """
         Create a new Gemini Live session.
@@ -623,6 +649,9 @@ CONVERSATION STYLE:
             language: Language code (en-IN, hi-IN, mr-IN, ta-IN)
             voice: Voice name (Aoede, Puck, Kore, etc.)
             system_instruction: Custom system prompt to append
+            model: Live model ID (default from config). Translator models
+                   (e.g. gemini-3.5-live-translate-preview) translate speech
+                   into `language` instead of acting as an assistant.
 
         Returns:
             GeminiLiveSession object
@@ -635,6 +664,8 @@ CONVERSATION STYLE:
                 "GenAI client not initialized. "
                 "Check credentials (GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT)."
             )
+
+        model = self.resolve_model(model)
 
         # Validate language
         if language not in SUPPORTED_LANGUAGES:
@@ -650,26 +681,12 @@ CONVERSATION STYLE:
             )
             voice = DEFAULT_VOICE
 
-        # Build system instruction
-        full_instruction = self._build_system_instruction(
-            language, system_instruction
-        )
-
-        # Build configuration
-        config = types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=voice
-                    )
-                ),
-                language_code=language
-            ),
-            system_instruction=types.Content(
-                parts=[types.Part(text=full_instruction)]
-            ),
-        )
+        if is_translation_model(model):
+            config = self._build_translation_config(language)
+        else:
+            config = self._build_assistant_config(
+                model, language, voice, system_instruction
+            )
 
         # Add transcription if enabled
         if self.config.transcription_enabled:
@@ -682,7 +699,8 @@ CONVERSATION STYLE:
             session_id=session_id,
             config=config,
             language=language,
-            voice=voice
+            voice=voice,
+            model=model
         )
 
         # Store in active sessions
@@ -690,10 +708,95 @@ CONVERSATION STYLE:
 
         logger.info(
             f"Created Gemini Live session: {session_id} "
-            f"(language={language}, voice={voice})"
+            f"(model={model}, language={language}, voice={voice})"
         )
 
         return session
+
+    def _build_assistant_config(
+        self,
+        model: str,
+        language: str,
+        voice: str,
+        system_instruction: Optional[str]
+    ) -> types.LiveConnectConfig:
+        """Build LiveConnectConfig for conversational assistant models."""
+        full_instruction = self._build_system_instruction(
+            language, system_instruction
+        )
+
+        # Native-audio 2.5 models and Gemini 3.x live models auto-detect
+        # language and reject several BCP-47 codes we use (e.g. 'en-IN').
+        # Omit language_code for those — the system instruction already
+        # steers the reply language.
+        speech_config = types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                    voice_name=voice
+                )
+            ),
+        )
+        if not model_uses_auto_language(model):
+            speech_config.language_code = language
+
+        config = types.LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            speech_config=speech_config,
+            system_instruction=types.Content(
+                parts=[types.Part(text=full_instruction)]
+            ),
+            # VAD tuning for barge-in quality and latency:
+            # - LOW start sensitivity + 100ms prefix padding: speech must be
+            #   clear and sustained to open the mic, so ambient noise does not
+            #   interrupt the assistant mid-sentence
+            # - HIGH end sensitivity + 600ms silence window: end of the user's
+            #   turn is detected sooner, so responses start faster
+            realtime_input_config=types.RealtimeInputConfig(
+                automatic_activity_detection=types.AutomaticActivityDetection(
+                    start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_LOW,
+                    end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
+                    prefix_padding_ms=100,
+                    silence_duration_ms=600,
+                )
+            ),
+        )
+
+        # Gemini 3.x live models support thinking; pin to MINIMAL (the
+        # lowest-latency setting) so voice replies start as fast as possible
+        if model_uses_realtime_text(model):
+            config.thinking_config = types.ThinkingConfig(
+                thinking_level=types.ThinkingLevel.MINIMAL
+            )
+
+        return config
+
+    def _build_translation_config(
+        self,
+        language: str
+    ) -> types.LiveConnectConfig:
+        """
+        Build LiveConnectConfig for speech-to-speech translator models.
+
+        Translator models take no system instruction or voice config; the
+        source language is auto-detected and output is translated into the
+        session language.
+        """
+        if not hasattr(types, "TranslationConfig"):
+            raise GeminiLiveError(
+                "This google-genai SDK version does not support translation "
+                "models. Upgrade with: pip install -U google-genai"
+            )
+
+        # TranslationConfig expects a bare BCP-47 primary tag (e.g. 'hi')
+        target_language = language.split("-")[0]
+
+        return types.LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            translation_config=types.TranslationConfig(
+                target_language_code=target_language,
+                echo_target_language=True,
+            ),
+        )
 
     async def inject_rag_context(
         self,
@@ -809,6 +912,7 @@ When using specific information from this context, mention the source.
             "client_initialized": self.client is not None,
             "project_id": self._mask_project_id(),
             "model": self.model,
+            "supported_models": list(SUPPORTED_MODELS.keys()),
             "active_sessions": len(self.active_sessions),
             "supported_languages": self.config.supported_languages,
             "rag_enabled": self.config.rag_context_enabled,
@@ -833,13 +937,40 @@ class GeminiLiveSession:
     TURN_COMPLETE = b"__TURN_COMPLETE__"
     INTERRUPTED = b"__INTERRUPTED__"
 
+    # Explicit interruption commands, matched on whole words of the live
+    # input transcription while the model is speaking. These make "stop"
+    # style barge-ins deterministic instead of relying on VAD alone.
+    STOP_PHRASES: Set[str] = {
+        # English
+        "stop", "pause", "wait", "please stop", "please pause", "stop it",
+        "stop talking", "be quiet", "hold on", "one moment", "enough",
+        # Hindi / Hinglish
+        "ruko", "rukiye", "bas", "bas karo", "chup", "रुको", "रुकिए",
+        "बस", "बस करो", "चुप", "एक मिनट", "ठहरो",
+        # Marathi
+        "थांबा", "थांब", "पुरे", "शांत",
+        # Tamil
+        "நிறுத்து", "நிறுத்துங்கள்", "பொறு", "போதும்",
+        # Telugu
+        "ఆపు", "ఆపండి", "చాలు",
+        # Bengali
+        "থামো", "থামুন", "যথেষ্ট",
+        # Kannada
+        "ನಿಲ್ಲಿಸಿ", "ಸಾಕು",
+        # Malayalam
+        "നിർത്തൂ", "മതി",
+        # Gujarati
+        "રોકો", "બસ",
+    }
+
     def __init__(
         self,
         service: GeminiLiveService,
         session_id: str,
         config: types.LiveConnectConfig,
         language: str = "en-IN",
-        voice: str = "Aoede"
+        voice: str = "Aoede",
+        model: Optional[str] = None
     ):
         """
         Initialize session.
@@ -850,12 +981,15 @@ class GeminiLiveSession:
             config: LiveConnectConfig for the session
             language: Session language
             voice: Voice name
+            model: Live model ID for this session (default: service model)
         """
         self.service = service
         self.session_id = session_id
         self.config = config
         self.language = language
         self.voice = voice
+        self.model = model or service.model
+        self.is_translation = is_translation_model(self.model)
 
         # Session state
         self.is_active = False
@@ -877,6 +1011,15 @@ class GeminiLiveSession:
         self._pending_transcription: List[str] = []  # Accumulate transcription for RAG query
         self._rag_query_in_progress = False
         self._last_rag_query = ""  # Avoid duplicate queries
+
+        # Gemini 3.x rejects send_client_content after the first model turn;
+        # mid-conversation text must then go via send_realtime_input
+        self._model_turn_seen = False
+
+        # Barge-in state: transcription fragments seen while the model is
+        # actively speaking, checked against STOP_PHRASES
+        self._model_speaking = False
+        self._speech_window: List[str] = []
 
         # Metadata
         self.created_at = datetime.now()
@@ -923,7 +1066,7 @@ class GeminiLiveSession:
         """
         try:
             async with self.service.client.aio.live.connect(
-                model=self.service.model,
+                model=self.model,
                 config=self.config
             ) as session:
                 self._session = session
@@ -945,6 +1088,63 @@ class GeminiLiveSession:
             self.is_connected = False
             self.is_active = False
             self._running = False
+
+    def _is_stop_command(self, fragment: str) -> bool:
+        """
+        Check whether the user just spoke an explicit stop command.
+
+        Only evaluated while the model is speaking, over a short rolling
+        window of transcription fragments (fragments may split words, e.g.
+        "please " + "stop"). Whole-word matching keeps ambient noise or
+        words containing a phrase (e.g. "nonstop") from triggering.
+        """
+        if not self._model_speaking:
+            return False
+
+        self._speech_window.append(fragment)
+        # A stop command is short; keep only the most recent fragments
+        if len(self._speech_window) > 6:
+            self._speech_window = self._speech_window[-6:]
+
+        window = "".join(self._speech_window).lower()
+        window = re.sub(r"[^\w\sऀ-෿]", " ", window)
+        words = window.split()
+        if not words:
+            return False
+
+        # Check the last few words as 1- and 2-word candidates
+        tail = words[-4:]
+        candidates = set(tail)
+        candidates.update(
+            f"{tail[i]} {tail[i + 1]}" for i in range(len(tail) - 1)
+        )
+        return bool(candidates & self.STOP_PHRASES)
+
+    async def _send_text_now(self, text: str, turn_complete: bool = True) -> None:
+        """
+        Send text to Gemini using the API the model accepts.
+
+        Gemini 3.x live models reject send_client_content after the first
+        model turn; text must then go via send_realtime_input. Translator
+        models do not accept text input at all.
+        """
+        if self.is_translation:
+            logger.warning(
+                f"Session {self.session_id}: translator model does not "
+                f"accept text input, dropping message"
+            )
+            return
+
+        if model_uses_realtime_text(self.model) and self._model_turn_seen:
+            await self._session.send_realtime_input(text=text)
+        else:
+            await self._session.send_client_content(
+                turns=[types.Content(
+                    role="user",
+                    parts=[types.Part(text=text)]
+                )],
+                turn_complete=turn_complete
+            )
 
     async def _send_loop(self) -> None:
         """Send audio from input queue to Gemini."""
@@ -970,13 +1170,7 @@ class GeminiLiveSession:
                         )
                     )
                 elif isinstance(data, dict) and "text" in data:
-                    await self._session.send_client_content(
-                        turns=[types.Content(
-                            role="user",
-                            parts=[types.Part(text=data["text"])]
-                        )],
-                        turn_complete=True
-                    )
+                    await self._send_text_now(data["text"], turn_complete=True)
 
                 self.last_activity = datetime.now()
 
@@ -1001,8 +1195,10 @@ class GeminiLiveSession:
 
                         # Model turn (audio output)
                         if content.model_turn:
+                            self._model_turn_seen = True
                             for part in content.model_turn.parts:
                                 if part.inline_data:
+                                    self._model_speaking = True
                                     await self._audio_out_queue.put(part.inline_data.data)
 
                         # Input transcription - accumulate for RAG query
@@ -1012,15 +1208,35 @@ class GeminiLiveSession:
                                 self.transcription_buffer.append(text)
                                 self._pending_transcription.append(text)
                                 logger.debug(f"User transcription: {text}")
+                                # Translator models never send turn_complete,
+                                # so relay transcription fragments immediately
+                                if self.is_translation:
+                                    await self._audio_out_queue.put(
+                                        {"role": "user", "text": text, "partial": True}
+                                    )
+                                elif self._is_stop_command(text):
+                                    logger.info(
+                                        f"🛑 Stop phrase detected while model "
+                                        f"speaking: {text!r}"
+                                    )
+                                    self._model_speaking = False
+                                    self._speech_window.clear()
+                                    await self._audio_out_queue.put(self.INTERRUPTED)
 
                         # Output transcription
                         if content.output_transcription:
                             text = content.output_transcription.text
                             if text:
                                 self.response_buffer.append(text)
+                                if self.is_translation:
+                                    await self._audio_out_queue.put(
+                                        {"role": "assistant", "text": text, "partial": True}
+                                    )
 
                         # Turn complete - trigger RAG query with accumulated transcription
                         if content.turn_complete:
+                            self._model_speaking = False
+                            self._speech_window.clear()
                             await self._audio_out_queue.put(self.TURN_COMPLETE)
 
                             # Query RAG with user's transcription
@@ -1029,6 +1245,8 @@ class GeminiLiveSession:
 
                         # Interrupted
                         if content.interrupted:
+                            self._model_speaking = False
+                            self._speech_window.clear()
                             await self._audio_out_queue.put(self.INTERRUPTED)
                             # Clear pending transcription on interrupt
                             self._pending_transcription.clear()
@@ -1052,6 +1270,12 @@ class GeminiLiveSession:
 
     async def _query_rag_and_inject(self) -> None:
         """Query RAG pipeline with user transcription and inject context."""
+        if self.is_translation or not model_supports_rag(self.model):
+            # Translator models only translate speech; they accept no text
+            # input, so RAG/safety/decline injection cannot apply
+            self._pending_transcription.clear()
+            return
+
         if not self.service.rag_pipeline:
             logger.debug("No RAG pipeline configured, skipping context injection")
             self._pending_transcription.clear()
@@ -1116,13 +1340,7 @@ The user may need immediate medical attention or human assistance.
 Please prioritize their safety and provide clear, calm guidance.
 [END SAFETY ALERT]"""
                         
-                        await self._session.send_client_content(
-                            turns=[types.Content(
-                                role="user",
-                                parts=[types.Part(text=safety_message)]
-                            )],
-                            turn_complete=False
-                        )
+                        await self._send_text_now(safety_message, turn_complete=False)
                         
                         # Handle escalation actions
                         await safety_wrapper.handle_voice_escalation(
@@ -1150,13 +1368,7 @@ Please prioritize their safety and provide clear, calm guidance.
                     decline_instruction = self.service.query_classifier.get_decline_instruction(
                         self.language, query_text
                     )
-                    await self._session.send_client_content(
-                        turns=[types.Content(
-                            role="user",
-                            parts=[types.Part(text=decline_instruction)]
-                        )],
-                        turn_complete=False
-                    )
+                    await self._send_text_now(decline_instruction, turn_complete=False)
                     logger.info(f"📢 Injected decline instruction for out-of-scope query (language: {self.language})")
                 return
 
@@ -1173,13 +1385,7 @@ Please prioritize their safety and provide clear, calm guidance.
                         decline_instruction = self.service.query_classifier.get_decline_instruction(
                             self.language, query_text
                         )
-                        await self._session.send_client_content(
-                            turns=[types.Content(
-                                role="user",
-                                parts=[types.Part(text=decline_instruction)]
-                            )],
-                            turn_complete=False
-                        )
+                        await self._send_text_now(decline_instruction, turn_complete=False)
                         logger.info(f"📢 Injected redirect for low-relevance query (language: {self.language})")
                     return
 
@@ -1228,13 +1434,7 @@ Please use this information to provide an accurate, grounded response. Mention t
 
             # Inject context into the session
             if self._session and self._running:
-                await self._session.send_client_content(
-                    turns=[types.Content(
-                        role="user",
-                        parts=[types.Part(text=context_message)]
-                    )],
-                    turn_complete=False  # Don't mark as complete - let model continue
-                )
+                await self._send_text_now(context_message, turn_complete=False)
 
                 logger.info(f"✅ RAG CONTEXT INJECTED")
                 logger.info(f"📚 Sources: {source_names}")
@@ -1373,6 +1573,8 @@ Please use this information to provide an accurate, grounded response. Mention t
             "session_id": self.session_id,
             "language": self.language,
             "voice": self.voice,
+            "model": self.model,
+            "is_translation": self.is_translation,
             "is_active": self.is_active,
             "is_connected": self.is_connected,
             "created_at": self.created_at.isoformat(),

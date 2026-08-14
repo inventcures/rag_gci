@@ -5109,7 +5109,8 @@ def main():
                         await websocket.send_json({
                             "type": "transcription",
                             "role": response.get("role", "assistant"),
-                            "text": response["text"]
+                            "text": response["text"],
+                            "partial": response.get("partial", False)
                         })
 
         except WebSocketDisconnect:
@@ -5137,6 +5138,8 @@ def main():
         - Server sends binary audio responses (Int16 PCM, 24kHz, mono)
         - Server sends JSON transcription/status messages
         - Client can send {"type": "set_language", "language": "hi-IN"} to switch language
+        - Client can send {"type": "set_model", "model": "gemini-3.1-flash-live-preview"}
+          to switch the Live model (takes effect on next start_audio)
         """
         await websocket.accept()
 
@@ -5151,6 +5154,7 @@ def main():
 
         session = None
         language = "en-IN"
+        model = None
         user_id = f"web_{datetime.now().timestamp()}_{id(websocket)}"
         response_task = None
 
@@ -5169,13 +5173,15 @@ def main():
                         if msg_type == "config":
                             # Initial configuration
                             language = message.get("language", "en-IN")
+                            model = message.get("model") or model
                             user_id = message.get("user_id", user_id)
-                            logger.info(f"Config received: user={user_id}, language={language}")
+                            logger.info(f"Config received: user={user_id}, language={language}, model={model or 'default'}")
 
                             await websocket.send_json({
                                 "type": "config_ack",
                                 "user_id": user_id,
-                                "language": language
+                                "language": language,
+                                "model": model
                             })
 
                         elif msg_type == "start_audio":
@@ -5186,7 +5192,8 @@ def main():
                                 session = await gemini_session_manager.get_or_create_session(
                                     user_id=user_id,
                                     language=language,
-                                    voice="Aoede"  # Warm, empathetic voice for healthcare
+                                    voice="Aoede",  # Warm, empathetic voice for healthcare
+                                    model=model
                                 )
 
                                 await websocket.send_json({
@@ -5225,6 +5232,23 @@ def main():
                                     "type": "language_changed",
                                     "language": language
                                 })
+
+                        elif msg_type == "set_model":
+                            # Switch Live model - requires new session
+                            new_model = message.get("model") or None
+                            if new_model != model:
+                                logger.info(f"Switching model from {model or 'default'} to {new_model or 'default'} for {user_id}")
+                                model = new_model
+
+                                # Close existing session; recreated on next start_audio
+                                if session:
+                                    await gemini_session_manager.close_session(user_id)
+                                    session = None
+
+                            await websocket.send_json({
+                                "type": "model_changed",
+                                "model": model
+                            })
 
                         elif msg_type == "text":
                             # Text message (for hybrid mode)
@@ -5285,6 +5309,29 @@ def main():
                     logger.info(f"Session closed for {user_id}")
                 except Exception as e:
                     logger.error(f"Error closing session for {user_id}: {e}")
+
+    @app.get("/api/voice/models")
+    async def voice_models():
+        """List Gemini Live models selectable from the voice web app."""
+        if not GEMINI_LIVE_AVAILABLE:
+            return {"enabled": False, "default": None, "models": []}
+
+        from gemini_live import SUPPORTED_MODELS
+        gemini_config = get_gemini_config()
+
+        return {
+            "enabled": gemini_live_enabled,
+            "default": gemini_config.model,
+            "models": [
+                {
+                    "id": model_id,
+                    "label": info["label"],
+                    "description": info["description"],
+                    "kind": info["kind"],
+                }
+                for model_id, info in SUPPORTED_MODELS.items()
+            ],
+        }
 
     @app.get("/")
     async def root():

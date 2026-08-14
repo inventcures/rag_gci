@@ -96,6 +96,45 @@
             background: var(--danger);
         }
 
+        /* Model Selector */
+        .model-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .model-selector label {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .model-selector select {
+            padding: 0.5rem 0.75rem;
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            background: var(--white);
+            color: var(--text);
+            font-size: 0.875rem;
+            font-family: inherit;
+            cursor: pointer;
+            max-width: 100%;
+        }
+
+        .model-selector select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(74, 144, 164, 0.3);
+        }
+
+        .model-hint {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-align: center;
+            width: 100%;
+        }
+
         /* Language Selector */
         .language-selector {
             display: flex;
@@ -408,6 +447,18 @@
             <span id="connectionText">Initializing...</span>
         </div>
 
+        <!-- Model Selector -->
+        <div class="model-selector">
+            <label for="modelSelect">AI Model</label>
+            <select id="modelSelect" aria-label="Gemini Live model selection">
+                <option value="" selected>Server default</option>
+                <option value="gemini-live-2.5-flash-preview-native-audio-09-2025">Gemini 2.5 Flash Native Audio</option>
+                <option value="gemini-3.1-flash-live-preview">Gemini 3.1 Flash Live (latest)</option>
+                <option value="gemini-3.5-live-translate-preview">Gemini 3.5 Live Translate</option>
+            </select>
+            <div class="model-hint" id="modelHint"></div>
+        </div>
+
         <!-- Language Selector -->
         <nav class="language-selector" aria-label="Language selection">
             <button class="lang-btn active" data-lang="en-IN" aria-pressed="true" aria-label="English">
@@ -501,11 +552,15 @@
         const langBtns = document.querySelectorAll('.lang-btn');
         const connectionStatus = document.getElementById('connectionStatus');
         const connectionText = document.getElementById('connectionText');
+        const modelSelect = document.getElementById('modelSelect');
+        const modelHint = document.getElementById('modelHint');
 
         // State
         let isRecording = false;
         let geminiClient = null;
         let currentLanguage = 'en-IN';
+        let currentModel = '';
+        let modelCatalog = {};
 
         // Language-specific welcome messages
         const welcomeMessages = {
@@ -521,6 +576,44 @@
             'as-IN': "নমস্কাৰ! মই আপোনাৰ পেলিয়েটিভ কেয়াৰ ভইচ এছিষ্টেণ্ট। আজি মই আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?"
         };
 
+        // Load available models from the server and populate the selector
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/voice/models');
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (!data.models || data.models.length === 0) return;
+
+                modelSelect.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Server default';
+                modelSelect.appendChild(defaultOption);
+
+                data.models.forEach(model => {
+                    modelCatalog[model.id] = model;
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.label;
+                    modelSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.warn('Could not load model list, using built-in options:', error);
+            }
+        }
+
+        function updateModelHint(modelId) {
+            const model = modelCatalog[modelId];
+            if (model && model.kind === 'translator') {
+                modelHint.textContent = 'Translation mode: speak in any language and hear it in the selected language.';
+            } else if (model) {
+                modelHint.textContent = model.description || '';
+            } else {
+                modelHint.textContent = '';
+            }
+        }
+
         // Initialize Gemini client
         async function init() {
             try {
@@ -532,14 +625,17 @@
                 geminiClient = new GeminiLiveClient({
                     serverUrl: wsUrl,
                     language: currentLanguage,
+                    model: currentModel || null,
                     onAudioReceived: handleAudioResponse,
                     onTranscription: handleTranscription,
                     onError: handleError,
                     onStatusChange: updateStatus,
-                    onConnectionChange: updateConnectionStatus
+                    onConnectionChange: updateConnectionStatus,
+                    onModelChange: handleModelChanged
                 });
 
                 await geminiClient.initialize();
+                geminiClient.bargeInGateEnabled = !isTranslatorModel(currentModel);
                 updateConnectionStatus('connected');
                 updateStatus('Tap the microphone to speak');
 
@@ -594,6 +690,32 @@
             });
         });
 
+        function isTranslatorModel(modelId) {
+            const model = modelCatalog[modelId];
+            return !!(model && model.kind === 'translator');
+        }
+
+        // Model selection
+        modelSelect.addEventListener('change', () => {
+            currentModel = modelSelect.value;
+            updateModelHint(currentModel);
+
+            if (geminiClient) {
+                geminiClient.setModel(currentModel || null);
+                // Translation mode must hear continuous speech; the barge-in
+                // noise gate only applies to assistant models
+                geminiClient.bargeInGateEnabled = !isTranslatorModel(currentModel);
+            }
+
+            const model = modelCatalog[currentModel];
+            const label = model ? model.label : (currentModel || 'server default');
+            addMessage(`AI model switched to ${label}. It will be used for your next question.`, 'system');
+        });
+
+        function handleModelChanged(modelId) {
+            console.log('Server confirmed model:', modelId || 'default');
+        }
+
         // Record button handler
         recordBtn.addEventListener('click', async () => {
             if (recordBtn.disabled) return;
@@ -604,7 +726,9 @@
                 }
 
                 if (!isRecording) {
-                    // Start recording
+                    // Start recording - new utterance gets fresh transcript bubbles
+                    partialBubbles.user = null;
+                    partialBubbles.assistant = null;
                     await geminiClient.startRecording();
                     isRecording = true;
                     recordBtn.classList.add('recording');
@@ -652,13 +776,36 @@
 
         // Handle transcription messages
         function handleTranscription(data) {
-            const { type, text } = data;
+            const { type, text, partial } = data;
 
-            if (type === 'user' && text) {
-                addMessage(text, 'user');
-            } else if (type === 'assistant' && text) {
-                addMessage(text, 'assistant');
+            if (!text || (type !== 'user' && type !== 'assistant')) {
+                return;
             }
+
+            // Partial fragments (translation mode) extend the latest bubble
+            // for the same speaker instead of creating a new one each word
+            if (partial) {
+                appendToMessage(text, type);
+            } else {
+                addMessage(text, type);
+            }
+        }
+
+        // Open bubbles receiving partial fragments, one per speaker.
+        // Fragments arrive interleaved (user speech / translated output),
+        // so each role keeps extending its own bubble
+        const partialBubbles = { user: null, assistant: null };
+
+        function appendToMessage(text, role) {
+            const bubble = partialBubbles[role];
+
+            if (bubble && bubble.isConnected) {
+                const timestamp = bubble.querySelector('.timestamp');
+                bubble.insertBefore(document.createTextNode(text), timestamp);
+            } else {
+                partialBubbles[role] = addMessage(text, role);
+            }
+            conversation.scrollTop = conversation.scrollHeight;
         }
 
         // Add message to conversation
@@ -678,6 +825,7 @@
 
             conversation.appendChild(msg);
             conversation.scrollTop = conversation.scrollHeight;
+            return msg;
         }
 
         // Handle errors
@@ -718,6 +866,7 @@
 
         // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
+            loadModels().catch(console.error);
             init().catch(console.error);
         });
 

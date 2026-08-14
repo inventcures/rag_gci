@@ -19,15 +19,18 @@ class GeminiLiveClient {
      * @param {Object} options - Configuration options
      * @param {string} options.serverUrl - WebSocket server URL
      * @param {string} [options.language='en-IN'] - Initial language code
+     * @param {string} [options.model] - Gemini Live model ID (server default if omitted)
      * @param {Function} [options.onAudioReceived] - Callback for audio responses
      * @param {Function} [options.onTranscription] - Callback for transcription updates
      * @param {Function} [options.onError] - Callback for errors
      * @param {Function} [options.onStatusChange] - Callback for status updates
      * @param {Function} [options.onConnectionChange] - Callback for connection state changes
+     * @param {Function} [options.onModelChange] - Callback when server confirms a model switch
      */
     constructor(options) {
         this.serverUrl = options.serverUrl;
         this.language = options.language || 'en-IN';
+        this.model = options.model || null;
 
         // Callbacks
         this.onAudioReceived = options.onAudioReceived || (() => {});
@@ -35,6 +38,7 @@ class GeminiLiveClient {
         this.onError = options.onError || console.error;
         this.onStatusChange = options.onStatusChange || (() => {});
         this.onConnectionChange = options.onConnectionChange || (() => {});
+        this.onModelChange = options.onModelChange || (() => {});
 
         // Internal state
         this.ws = null;
@@ -45,10 +49,16 @@ class GeminiLiveClient {
         this.isInitialized = false;
         this.isRecording = false;
 
-        // Audio playback
+        // Audio playback (scheduled, gapless)
         this.audioQueue = [];
         this.isPlaying = false;
         this.playbackContext = null;
+        this.nextPlayTime = 0;
+        this.activeSources = new Set();
+
+        // Barge-in noise gate (suppresses ambient noise while the
+        // assistant speaks; disabled for translation mode)
+        this.bargeInGateEnabled = true;
 
         // Reconnection settings
         this.reconnectAttempts = 0;
@@ -58,7 +68,7 @@ class GeminiLiveClient {
         // Audio settings
         this.inputSampleRate = 16000;  // Gemini input requirement
         this.outputSampleRate = 24000; // Gemini output format
-        this.bufferSize = 4096;
+        this.bufferSize = 1024;        // 64ms capture chunks for low latency
     }
 
     /**
@@ -129,6 +139,7 @@ class GeminiLiveClient {
                     this.ws.send(JSON.stringify({
                         type: 'config',
                         language: this.language,
+                        model: this.model,
                         user_id: this.getUserId()
                     }));
 
@@ -316,12 +327,22 @@ class GeminiLiveClient {
                 case 'transcription':
                     this.onTranscription({
                         type: message.role,
-                        text: message.text
+                        text: message.text,
+                        partial: message.partial || false
                     });
                     break;
 
                 case 'turn_complete':
-                    this.onStatusChange('Tap to speak');
+                    if (!this.isPlaying) {
+                        this.onStatusChange('Tap to speak');
+                    }
+                    break;
+
+                case 'interrupted':
+                    // User barged in - cut playback instantly instead of
+                    // draining the queued audio
+                    this.stopPlayback();
+                    this.onStatusChange('Listening...');
                     break;
 
                 case 'session_created':
@@ -337,6 +358,11 @@ class GeminiLiveClient {
                     console.log('RAG context injected:', message.chars, 'characters');
                     break;
 
+                case 'model_changed':
+                    console.log('Model changed:', message.model || 'default');
+                    this.onModelChange(message.model);
+                    break;
+
                 default:
                     console.log('Unknown message type:', message.type);
             }
@@ -346,27 +372,35 @@ class GeminiLiveClient {
     }
 
     /**
-     * Play queued audio responses
+     * Play queued audio responses.
+     *
+     * Chunks are scheduled back-to-back on the AudioContext clock instead
+     * of awaiting each chunk's end, which removes inter-chunk gaps and lets
+     * playback start as soon as the first chunk arrives.
      */
     async playNextAudio() {
-        if (this.isPlaying || this.audioQueue.length === 0) {
+        if (this.audioQueue.length === 0) {
             return;
         }
-
-        this.isPlaying = true;
-        this.onStatusChange('Speaking...');
 
         try {
             // Create playback context at output sample rate
             if (!this.playbackContext || this.playbackContext.state === 'closed') {
                 this.playbackContext = new (window.AudioContext || window.webkitAudioContext)({
-                    sampleRate: this.outputSampleRate
+                    sampleRate: this.outputSampleRate,
+                    latencyHint: 'interactive'
                 });
             }
 
             // Resume if suspended
             if (this.playbackContext.state === 'suspended') {
                 await this.playbackContext.resume();
+            }
+
+            if (!this.isPlaying) {
+                this.isPlaying = true;
+                this.onStatusChange('Speaking...');
+                this.setMicGate(true);
             }
 
             while (this.audioQueue.length > 0) {
@@ -388,24 +422,71 @@ class GeminiLiveClient {
                 );
                 buffer.getChannelData(0).set(float32Data);
 
-                // Create and play source
+                // Schedule seamlessly after the previous chunk
                 const source = this.playbackContext.createBufferSource();
                 source.buffer = buffer;
                 source.connect(this.playbackContext.destination);
-                source.start();
 
-                // Wait for this chunk to finish
-                await new Promise(resolve => {
-                    source.onended = resolve;
-                });
+                const startAt = Math.max(
+                    this.playbackContext.currentTime,
+                    this.nextPlayTime
+                );
+                source.start(startAt);
+                this.nextPlayTime = startAt + buffer.duration;
+
+                this.activeSources.add(source);
+                source.onended = () => {
+                    this.activeSources.delete(source);
+                    if (this.activeSources.size === 0 && this.audioQueue.length === 0) {
+                        this.isPlaying = false;
+                        this.setMicGate(false);
+                        this.onStatusChange('Tap to speak');
+                    }
+                };
             }
 
         } catch (error) {
             console.error('Audio playback error:', error);
             this.onError(error);
-        } finally {
             this.isPlaying = false;
-            this.onStatusChange('Tap to speak');
+            this.setMicGate(false);
+        }
+    }
+
+    /**
+     * Immediately stop playback and drop any queued audio.
+     * Used when the user barges in and the server confirms the interruption.
+     */
+    stopPlayback() {
+        this.audioQueue = [];
+
+        for (const source of this.activeSources) {
+            try {
+                source.stop();
+            } catch (e) {
+                // Source may have already ended
+            }
+        }
+        this.activeSources.clear();
+
+        this.nextPlayTime = 0;
+        this.isPlaying = false;
+        this.setMicGate(false);
+    }
+
+    /**
+     * Enable/disable the mic noise gate in the audio worklet.
+     * Active only while the assistant is speaking, and only for
+     * assistant models (translation mode hears everything).
+     * @param {boolean} enabled - Whether the gate should be active
+     */
+    setMicGate(enabled) {
+        if (!this.bargeInGateEnabled) {
+            enabled = false;
+        }
+
+        if (this.workletNode && this.workletNode.port) {
+            this.workletNode.port.postMessage({ type: 'setGate', enabled });
         }
     }
 
@@ -420,6 +501,23 @@ class GeminiLiveClient {
             this.ws.send(JSON.stringify({
                 type: 'set_language',
                 language: language
+            }));
+        }
+    }
+
+    /**
+     * Set the Gemini Live model (e.g., 'gemini-3.1-flash-live-preview').
+     * The server closes the current session; the new model is used from
+     * the next recording onward.
+     * @param {string|null} model - Model ID, or null for the server default
+     */
+    setModel(model) {
+        this.model = model || null;
+
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'set_model',
+                model: this.model
             }));
         }
     }
@@ -455,6 +553,8 @@ class GeminiLiveClient {
      */
     disconnect() {
         this.isRecording = false;
+
+        this.stopPlayback();
 
         // Stop audio capture
         if (this.workletNode) {
@@ -505,6 +605,7 @@ class GeminiLiveClient {
             isPlaying: this.isPlaying,
             isConnected: this.ws?.readyState === WebSocket.OPEN,
             language: this.language,
+            model: this.model,
             audioQueueLength: this.audioQueue.length
         };
     }

@@ -39,6 +39,7 @@ twilio>=8.10.3
 # Voice AI Integration
 aiohttp>=3.9.0  # For Bolna API client
 websockets>=12.0  # For Gemini Live WebSocket
+google-genai>=2.18.0  # Live API: TranslationConfig, thinking_level, VAD tuning
 retell-sdk>=4.0.0  # For Retell.AI Custom LLM integration
 
 # Knowledge Graph

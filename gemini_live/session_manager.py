@@ -35,6 +35,7 @@ class SessionInfo:
     last_activity: datetime
     language: str
     voice: str
+    model: str = ""
     resumption_handle: Optional[str] = None
 
     def is_expired(self, timeout: timedelta) -> bool:
@@ -52,6 +53,7 @@ class SessionInfo:
             "user_id": self.user_id,
             "language": self.language,
             "voice": self.voice,
+            "model": self.model,
             "created_at": self.created_at.isoformat(),
             "last_activity": self.last_activity.isoformat(),
             "is_active": self.session.is_active if self.session else False,
@@ -162,7 +164,8 @@ class SessionManager:
         self,
         user_id: str,
         language: str = "en-IN",
-        voice: str = "Aoede"
+        voice: str = "Aoede",
+        model: Optional[str] = None
     ) -> GeminiLiveSession:
         """
         Get existing session or create new one for user.
@@ -174,6 +177,8 @@ class SessionManager:
             user_id: Unique identifier for the user
             language: Language code (en-IN, hi-IN, mr-IN, ta-IN)
             voice: Voice name (Aoede, Puck, Kore, etc.)
+            model: Live model ID (default from config). If it differs from
+                   the user's existing session, that session is replaced.
 
         Returns:
             GeminiLiveSession ready for use
@@ -181,24 +186,29 @@ class SessionManager:
         Raises:
             GeminiLiveError: If session creation fails
         """
+        requested_model = self.service.resolve_model(model)
+
         # Check for existing valid session
         if user_id in self.user_sessions:
             session_id = self.user_sessions[user_id]
             if session_id in self.sessions:
                 session_info = self.sessions[session_id]
 
-                # Check if still valid
+                # Check if still valid and running the requested model
                 if not session_info.is_expired(self.timeout):
-                    if session_info.session.is_active:
+                    if (
+                        session_info.session.is_active
+                        and session_info.model == requested_model
+                    ):
                         session_info.update_activity()
                         logger.debug(
                             f"Reusing existing session {session_id} for user {user_id}"
                         )
                         return session_info.session
 
-                # Session expired or inactive, close it
+                # Session expired, inactive, or on a different model - close it
                 logger.info(
-                    f"Existing session {session_id} expired/inactive, "
+                    f"Existing session {session_id} expired/inactive/model-changed, "
                     f"creating new session for user {user_id}"
                 )
                 await self._close_session_by_id(session_id)
@@ -210,7 +220,8 @@ class SessionManager:
             session = await self.service.create_session(
                 session_id=session_id,
                 language=language,
-                voice=voice
+                voice=voice,
+                model=requested_model
             )
 
             # Connect the session
@@ -225,7 +236,8 @@ class SessionManager:
                 created_at=now,
                 last_activity=now,
                 language=language,
-                voice=voice
+                voice=voice,
+                model=session.model
             )
 
             self.sessions[session_id] = session_info
@@ -233,7 +245,7 @@ class SessionManager:
 
             logger.info(
                 f"Created new session {session_id} for user {user_id} "
-                f"(language={language}, voice={voice})"
+                f"(model={session.model}, language={language}, voice={voice})"
             )
 
             return session
@@ -439,12 +451,14 @@ class SessionManager:
         Returns:
             New GeminiLiveSession with updated language
         """
-        # Get current voice if not specified
+        # Keep current voice and model unless overridden
         voice = new_voice
-        if not voice and user_id in self.user_sessions:
+        model = None
+        if user_id in self.user_sessions:
             session_id = self.user_sessions[user_id]
             if session_id in self.sessions:
-                voice = self.sessions[session_id].voice
+                voice = voice or self.sessions[session_id].voice
+                model = self.sessions[session_id].model
 
         voice = voice or "Aoede"
 
@@ -455,5 +469,6 @@ class SessionManager:
         return await self.get_or_create_session(
             user_id=user_id,
             language=new_language,
-            voice=voice
+            voice=voice,
+            model=model
         )
