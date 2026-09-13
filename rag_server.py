@@ -125,6 +125,10 @@ class RAGPipeline:
     async def query(self, question: str, conversation_id: Optional[str] = None, 
                    user_id: Optional[str] = None) -> Dict[str, Any]:
         """Query the RAG pipeline"""
+        from clinical_governance.api import legacy_query_guard
+        governed = legacy_query_guard()
+        if governed is not None:
+            return governed
         try:
             # Use Kotaemon's reasoning pipeline
             response = await self.reasoning.run(
@@ -469,6 +473,8 @@ class WhatsAppBot:
         """Create FastAPI app for WhatsApp webhook"""
         
         app = FastAPI(title="WhatsApp RAG Bot")
+        from clinical_governance.api import install_governance
+        install_governance(app)
         
         app.add_middleware(
             CORSMiddleware,

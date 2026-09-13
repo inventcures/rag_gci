@@ -1203,6 +1203,10 @@ class SimpleRAGPipeline:
     async def query(self, question: str, conversation_id: Optional[str] = None, 
                    user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en") -> Dict[str, Any]:
         """Query the RAG pipeline with safety enhancements"""
+        from clinical_governance.api import legacy_query_guard
+        governed = legacy_query_guard()
+        if governed is not None:
+            return governed
         try:
             # =================================================================
             # SAFETY ENHANCEMENTS: Pre-processing checks
@@ -4776,6 +4780,8 @@ def main():
     
     # Create FastAPI app
     app = FastAPI(title="Simple RAG Server with WhatsApp Bot")
+    from clinical_governance.api import install_governance
+    install_governance(app)
     
     app.add_middleware(
         CORSMiddleware,

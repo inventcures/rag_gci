@@ -1,0 +1,6 @@
+# Versions exercised by the local synthetic regression suite.
+fastapi==0.115.9
+pydantic==2.13.4
+uvicorn==0.34.2
+PyYAML==6.0.2
+PyMuPDF==1.28.2

@@ -113,6 +113,8 @@ class RAGApplication:
             description="Complete RAG pipeline with admin UI and WhatsApp integration",
             version="1.0.0"
         )
+        from clinical_governance.api import install_governance
+        install_governance(app)
         
         # Add CORS
         app.add_middleware(

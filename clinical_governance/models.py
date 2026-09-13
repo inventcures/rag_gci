@@ -78,7 +78,9 @@ class EvidenceAnchor(StrictModel):
     excerpt: str = Field(min_length=1, max_length=20000)
     page: Optional[int] = Field(default=None, ge=1)
     block_id: Optional[str] = None
-    role: Literal["passage", "table_cell", "header", "footnote", "algorithm", "exception"] = "passage"
+    role: Literal[
+        "passage", "table_cell", "header", "footnote", "algorithm", "exception"
+    ] = "passage"
 
     @model_validator(mode="after")
     def ordered(self):
@@ -90,7 +92,9 @@ class EvidenceAnchor(StrictModel):
 class Condition(StrictModel):
     """Bounded boolean expression; a missing fact never implies permission."""
 
-    op: Literal["all", "any", "not", "eq", "ne", "lt", "lte", "gt", "gte", "in", "not_in"]
+    op: Literal[
+        "all", "any", "not", "eq", "ne", "lt", "lte", "gt", "gte", "in", "not_in"
+    ]
     field: Optional[str] = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,79}$")
     value: Any = None
     children: List["Condition"] = Field(default_factory=list, max_length=30)
@@ -106,7 +110,9 @@ class Condition(StrictModel):
             if not self.field or self.children or self.value is None:
                 raise ValueError("A comparison needs a field and explicit value")
             values = self.value if isinstance(self.value, list) else [self.value]
-            if self.op in ("in", "not_in") and (not isinstance(self.value, list) or not values):
+            if self.op in ("in", "not_in") and (
+                not isinstance(self.value, list) or not values
+            ):
                 raise ValueError("Membership requires a nonempty list")
             if self.op not in ("in", "not_in") and isinstance(self.value, list):
                 raise ValueError("Scalar comparison requires a scalar")
@@ -115,7 +121,10 @@ class Condition(StrictModel):
                     raise ValueError("Only scalar values are supported")
                 if isinstance(value, float) and not math.isfinite(value):
                     raise ValueError("Nonfinite values are not supported")
-            if self.op in ("lt", "lte", "gt", "gte") and type(self.value) not in (int, float):
+            if self.op in ("lt", "lte", "gt", "gte") and type(self.value) not in (
+                int,
+                float,
+            ):
                 raise ValueError("Ordered comparison requires a number")
         return self
 
@@ -125,7 +134,9 @@ def condition_fields(condition: Condition, depth: int = 0) -> set[str]:
         raise GovernanceError("condition_too_deep", 422)
     if condition.field:
         return {condition.field}
-    return set().union(*(condition_fields(child, depth + 1) for child in condition.children))
+    return set().union(
+        *(condition_fields(child, depth + 1) for child in condition.children)
+    )
 
 
 def equal(left: Any, right: Any) -> bool:
@@ -146,8 +157,12 @@ def applicability(condition: Condition, context: Dict[str, Any]) -> Dict[str, An
             if node.op == "not":
                 return (None if values[0] is None else not values[0]), missing
             if node.op == "all":
-                return (False if False in values else None if None in values else True), missing
-            return (True if True in values else None if None in values else False), missing
+                return (
+                    False if False in values else None if None in values else True
+                ), missing
+            return (
+                True if True in values else None if None in values else False
+            ), missing
         actual = context.get(node.field)
         if actual is None or type(actual) not in (str, bool, int, float):
             return None, {node.field}
@@ -156,14 +171,28 @@ def applicability(condition: Condition, context: Dict[str, Any]) -> Dict[str, An
         if node.op in ("lt", "lte", "gt", "gte"):
             if type(actual) not in (int, float):
                 return None, {node.field}
-            return {"lt": actual < node.value, "lte": actual <= node.value,
-                    "gt": actual > node.value, "gte": actual >= node.value}[node.op], set()
-        matched = any(equal(actual, value) for value in node.value) if node.op in ("in", "not_in") else equal(actual, node.value)
+            return {
+                "lt": actual < node.value,
+                "lte": actual <= node.value,
+                "gt": actual > node.value,
+                "gte": actual >= node.value,
+            }[node.op], set()
+        matched = (
+            any(equal(actual, value) for value in node.value)
+            if node.op in ("in", "not_in")
+            else equal(actual, node.value)
+        )
         return (not matched if node.op in ("ne", "not_in") else matched), set()
 
     applies, missing = evaluate(condition)
-    return {"status": "unknown" if applies is None else "applies" if applies else "does_not_apply",
-            "missing_variables": sorted(missing)}
+    return {
+        "status": "unknown"
+        if applies is None
+        else "applies"
+        if applies
+        else "does_not_apply",
+        "missing_variables": sorted(missing),
+    }
 
 
 class RecommendationDraft(StrictModel):
@@ -185,8 +214,12 @@ class RecommendationDraft(StrictModel):
     def validate_draft(self):
         condition_fields(self.condition)
         timestamp(self.valid_until)
-        if any(not re.fullmatch(r"[a-z]{2,3}(?:-[A-Z]{2})?", key) or not text.strip() or len(text) > 10000
-               for key, text in self.explanations.items()):
+        if any(
+            not re.fullmatch(r"[a-z]{2,3}(?:-[A-Z]{2})?", key)
+            or not text.strip()
+            or len(text) > 10000
+            for key, text in self.explanations.items()
+        ):
             raise ValueError("Invalid language or explanation")
         if not any(keyword.strip() for keyword in self.keywords):
             raise ValueError("Search keywords required")
@@ -194,7 +227,9 @@ class RecommendationDraft(StrictModel):
 
 
 class ReviewPolicy(StrictModel):
-    mode: Literal["off", "sampled", "user_requested", "policy_triggered", "required"] = "off"
+    mode: Literal[
+        "off", "sampled", "user_requested", "policy_triggered", "required"
+    ] = "off"
     sample_percent: int = Field(default=10, ge=0, le=100)
     trigger_high_risk: bool = True
     retain_request_seconds: int = Field(default=0, ge=0, le=86400 * 30)
@@ -202,11 +237,20 @@ class ReviewPolicy(StrictModel):
 
 
 def unicode_offsets(text: str, start: int, end: int) -> Dict[str, List[int]]:
-    if type(start) is not int or type(end) is not int or not 0 <= start < end <= len(text):
+    if (
+        type(start) is not int
+        or type(end) is not int
+        or not 0 <= start < end <= len(text)
+    ):
         raise GovernanceError("invalid_codepoint_interval", 422)
-    return {"codepoints": [start, end],
-            "utf8": [len(text[:start].encode("utf-8")), len(text[:end].encode("utf-8"))],
-            "utf16": [len(text[:start].encode("utf-16-le")) // 2, len(text[:end].encode("utf-16-le")) // 2]}
+    return {
+        "codepoints": [start, end],
+        "utf8": [len(text[:start].encode("utf-8")), len(text[:end].encode("utf-8"))],
+        "utf16": [
+            len(text[:start].encode("utf-16-le")) // 2,
+            len(text[:end].encode("utf-16-le")) // 2,
+        ],
+    }
 
 
 def terms(text: str) -> set[str]:
