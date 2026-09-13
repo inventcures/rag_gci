@@ -1,0 +1,10 @@
+# Implementation observations
+
+- Existing remote is https://github.com/inventcures/rag_gci.git. HEAD and origin/main matched at start.
+- The working tree includes an unrelated admin-port fix plus generated and potentially private artifacts. Do not use `git add .` or commit these.
+- The current Gemini Live code already has tool calling before health responses; earlier manuscript observations are stale for this implementation.
+- System Python lacks FastAPI. Select an isolated/test runtime after dependency inspection rather than modifying the running environment.
+- Existing `venv/bin/python` is Python 3.13 with FastAPI 0.115.9, Pydantic 2.13.4, pytest 8.3.5, httpx 0.28.1 and PyMuPDF 1.28.2. Tests use this interpreter and temporary databases only.
+- Existing mobile self-registration supplies its own role; do not trust it for clinical publication authority. Use a separate operator-provisioned governance principal mapping.
+- Pinned KL4A OKF bundle spec was read from official source at commit f66495923ebaea05bfe08f947caeb6510b8b1aea. Root OKF version is 0.2, profile 0.2.0, canonical source/knowledge/evidence Markdown uses sopkb fields. Adapter must preserve unknown fields and never inherit upstream approval.
+- Initial implementation: immutable source bytes and recommendation versions, publication approval identity, strict current revision/review/source/release eligibility, explicit no-match/unknown, five configurable request-review modes, consent-based short-lived payload storage and minimized HMAC audit. 31 software tests pass; no human clinical approval or clinical validity is claimed.
