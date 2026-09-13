@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import os
 from pathlib import Path
+import re
 import secrets
 import tempfile
 
@@ -13,6 +14,15 @@ import uvicorn
 from .api import GovernanceRuntime, create_app
 from .models import Actor
 from .store import GovernanceStore
+
+
+def demo_access_token(access_code=None):
+    """An explicit short code is permitted only for the localhost demo."""
+    if access_code is None:
+        return secrets.token_urlsafe(32)
+    if not re.fullmatch(r"[0-9]{4,12}", access_code):
+        raise ValueError("The local demo access code must contain 4 to 12 digits")
+    return access_code
 
 
 def seed_demo(store, actor):
@@ -82,11 +92,22 @@ def main():
         action="store_true",
         help="Local synthetic proposals with no clinical approval",
     )
+    parser.add_argument(
+        "--demo-access-code",
+        help="Use a 4-to-12-digit code for the localhost synthetic demo only",
+    )
     args = parser.parse_args()
+    if args.demo_access_code is not None and not args.demo:
+        parser.error(
+            "--demo-access-code requires --demo; production credentials are unchanged"
+        )
     runtime = None
     if args.demo:
         directory = Path(tempfile.mkdtemp(prefix="palli-governance-demo-"))
-        token = secrets.token_urlsafe(32)
+        try:
+            token = demo_access_token(args.demo_access_code)
+        except ValueError as error:
+            parser.error(str(error))
         token_path = directory / "access-token.txt"
         fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w") as stream:
