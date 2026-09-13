@@ -147,13 +147,14 @@ class GovernanceStore:
         return {"id": row["id"], "revision": row["revision"], "kind": row["kind"], "hash": row["hash"], **payload}
 
     def _list(self, db, actor, kind):
-        rows = db.execute("SELECT o.id FROM objects o JOIN heads h USING(tenant,id,revision) WHERE o.tenant=? AND o.kind=? ORDER BY o.id", (actor.tenant, kind))
+        rows = db.execute("SELECT o.id FROM objects o JOIN heads h USING(tenant,id,revision) WHERE o.tenant=? AND o.kind=? ORDER BY o.rowid", (actor.tenant, kind))
         return [self._get(db, actor, row[0], kind) for row in rows]
 
     def _latest_review(self, db, actor, item):
         matches = [review for review in self._list(db, actor, "review")
                    if review["target_id"] == item["id"] and review["target_revision"] == item["revision"]]
-        return max(matches, key=lambda review: (review["at"], review["id"])) if matches else None
+        # Database insertion order, not wall clock, determines the latest decision.
+        return matches[-1] if matches else None
 
     def _revoked(self, db, actor, id_):
         return any(row["target_id"] == id_ for row in self._list(db, actor, "revocation"))
@@ -262,6 +263,9 @@ class GovernanceStore:
         return result
 
     def _dispatch(self, db, actor, operation, data):
+        if operation == "import_bundle":
+            from .imports import import_bundle
+            return import_bundle(self, db, actor, data)
         if operation == "source":
             actor.require("editor", "clinician")
             rights = Rights.model_validate(data["rights"])
@@ -436,7 +440,7 @@ class GovernanceStore:
             return result, {"delivery_id": result["id"], "answer_id": answer["id"], "status": result["status"], "basis": result["basis"]}
         if operation == "snapshot":
             actor.require("editor", "clinician", "publisher", "auditor", "operator")
-            kinds = ("source", "recommendation", "review", "release", "revocation", "conflict", "request_review", "validation")
+            kinds = ("source", "recommendation", "review", "release", "revocation", "conflict", "request_review", "validation", "import_candidate", "kl4a_import")
             objects = []
             for kind in kinds:
                 for item in self._list(db, actor, kind):
@@ -558,7 +562,7 @@ class GovernanceStore:
 
     def _review_status(self, db, actor, retrieval):
         reviews = [review for review in self._list(db, actor, "request_review") if review["retrieval_id"] == retrieval["id"] and review["retrieval_hash"] == retrieval["hash"]]
-        return max(reviews, key=lambda row: (row["at"], row["id"]))["decision"] if reviews else "pending" if retrieval["review_required"] else "not_required"
+        return reviews[-1]["decision"] if reviews else "pending" if retrieval["review_required"] else "not_required"
 
     def _retrieval_view(self, db, actor, retrieval):
         review_status = self._review_status(db, actor, retrieval)
