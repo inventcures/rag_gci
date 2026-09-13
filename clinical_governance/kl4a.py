@@ -177,6 +177,11 @@ def inspect_bundle(content: bytes) -> Dict[str, Any]:
             and not path.startswith(("sources/normalized/", "sources/originals/"))
         ):
             documents[path] = frontmatter(value)
+            require(
+                isinstance(documents[path]["frontmatter"].get("sopkb", {}), dict),
+                "sopkb_mapping_required",
+                422,
+            )
     sources = {}
     for path, document in documents.items():
         if document["frontmatter"].get("type") != "SOP Source":

@@ -61,12 +61,15 @@ class Rights(StrictModel):
     authorization_reference: str = Field(min_length=1, max_length=500)
     purposes: List[str] = Field(min_length=1, max_length=20)
     external_processing: bool = False
+    processors: List[str] = Field(default_factory=list, max_length=30)
     redistribution: bool = False
     valid_until: str
 
     @model_validator(mode="after")
     def validate_expiry(self):
         timestamp(self.valid_until)
+        if self.external_processing and not self.processors:
+            raise ValueError("External processing requires named permitted processors")
         return self
 
 

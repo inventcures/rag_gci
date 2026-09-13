@@ -286,7 +286,13 @@ def dispatch_budget(store, db, actor, operation, data):
         }
     if operation == "budget_status":
         actor.require("operator", "billing", "requester", "clinician")
-        session = store._session(db, actor, data["session_id"])
+        session = store._get(db, actor, data["session_id"], "session")
+        require(
+            session["owner"] == actor.id
+            or bool(actor.roles.intersection({"operator", "billing", "clinician"})),
+            "session_owner_required",
+            403,
+        )
         policy = _policy(store, db, actor)
         period = datetime.now(timezone.utc).strftime("%Y-%m")
         usage = _usage(store, db, actor, period, session["id"])

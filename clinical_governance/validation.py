@@ -78,9 +78,12 @@ def dispatch_validation(store, db, actor, operation, data):
             "usability_reviewer",
         )
         release = store._get(db, actor, data["release_id"], "release")
-        reasons = (
-            ["release_revoked"] if store._revoked(db, actor, release["id"]) else []
-        )
+        reasons = []
+        for purpose in release["purposes"]:
+            try:
+                store._release(db, actor, release["id"], purpose)
+            except GovernanceError as error:
+                reasons.append(error.code)
         for member in release["members"]:
             item = store._get(
                 db, actor, member["id"], "recommendation", member["revision"]

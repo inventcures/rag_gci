@@ -95,6 +95,15 @@ def test_bad_offsets_are_not_repaired_silently():
         inspect_bundle(make_zip(files))
 
 
+def test_bad_sopkb_shape_is_rejected_as_data_error():
+    files = bundle_files()
+    files["knowledge/item.md"] = (
+        "---\ntype: SOP Knowledge Piece\nsopkb: 3\n---\nInvalid metadata."
+    )
+    with pytest.raises(GovernanceError, match="sopkb_mapping_required"):
+        inspect_bundle(make_zip(files))
+
+
 def test_text_preserves_combining_marks_and_original_bytes():
     original = "योजना\r\ne\u0301 and é".encode()
     parsed = ingest_text(original)

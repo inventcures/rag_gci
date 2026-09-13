@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import time
 from typing import Any, Dict, Optional
 import uuid
 
@@ -368,6 +369,7 @@ class GovernanceStore:
     def execute(self, actor: Actor, operation: str, data: Dict[str, Any]):
         """Never return a governed result if its audit transaction cannot commit."""
         require(bool(actor.id) and bool(actor.tenant), "principal_required", 401)
+        started = time.perf_counter()
         error = None
         try:
             with self._connection() as db:
@@ -392,11 +394,26 @@ class GovernanceStore:
                         db,
                         actor,
                         operation + ".denied",
-                        {"reason": error.code, "roles": sorted(actor.roles)},
+                        {
+                            "reason": error.code,
+                            "roles": sorted(actor.roles),
+                            "elapsed_to_audit_ms": round(
+                                (time.perf_counter() - started) * 1000, 3
+                            ),
+                        },
                     )
                 else:
                     seq = self._audit(
-                        db, actor, operation, {"roles": sorted(actor.roles), **detail}
+                        db,
+                        actor,
+                        operation,
+                        {
+                            "roles": sorted(actor.roles),
+                            **detail,
+                            "elapsed_to_audit_ms": round(
+                                (time.perf_counter() - started) * 1000, 3
+                            ),
+                        },
                     )
                     result = {**result, "audit_sequence": seq}
         except sqlite3.Error:
@@ -1046,6 +1063,10 @@ class GovernanceStore:
             from .validation import dispatch_validation
 
             return dispatch_validation(self, db, actor, operation, data)
+        if operation.startswith("provider_"):
+            from .paid import dispatch_provider
+
+            return dispatch_provider(self, db, actor, operation, data)
         raise GovernanceError("unknown_operation", 404)
 
     def _needs_review(self, policy, request_id, selected, requested=False):
@@ -1264,6 +1285,16 @@ class GovernanceStore:
         )
 
     def _retrieval_view(self, db, actor, retrieval):
+        try:
+            self._revalidate(db, actor, retrieval)
+        except GovernanceError as error:
+            return {
+                **retrieval,
+                "selected": [],
+                "status": "stale",
+                "review_status": "stale",
+                "stale_reason": error.code,
+            }
         review_status = self._review_status(db, actor, retrieval)
         visible = review_status in ("approved", "not_required")
         return {

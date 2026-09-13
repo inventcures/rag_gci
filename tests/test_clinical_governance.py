@@ -243,6 +243,52 @@ def test_numeric_boolean_and_missing_negation():
     )
 
 
+def test_high_risk_policy_cannot_be_downgraded_by_request(store, actors, released):
+    high_risk = draft(released[0])
+    high_risk["high_risk"] = True
+    item = store.execute(
+        actors["clinical"],
+        "edit",
+        {"id": released[1]["id"], "expected_revision": 1, "draft": high_risk},
+    )
+    approve(store, actors["clinical"], item)
+    release = publish(store, actors["clinical"], item)
+    session = store.execute(
+        actors["user"],
+        "session",
+        {"release_id": release["id"], "purpose": "information"},
+    )
+    store.execute(
+        actors["clinical"],
+        "policy",
+        {"expected_revision": 0, "policy": {"mode": "policy_triggered"}},
+    )
+    result = retrieve(
+        store,
+        actors,
+        (released[0], item, release, session),
+        request_review=False,
+        review_mode="off",
+        high_risk=False,
+    )
+    assert result["status"] == "pending_review"
+
+
+def test_zero_sampling_and_user_review_opt_in(store, actors, released):
+    store.execute(
+        actors["clinical"],
+        "policy",
+        {"expected_revision": 0, "policy": {"mode": "sampled", "sample_percent": 0}},
+    )
+    assert retrieve(store, actors, released)["status"] == "evidence"
+    assert (
+        retrieve(
+            store, actors, released, request_id="explicit-review", request_review=True
+        )["status"]
+        == "pending_review"
+    )
+
+
 @pytest.mark.parametrize(
     "mode", ["required", "sampled", "user_requested", "policy_triggered"]
 )
