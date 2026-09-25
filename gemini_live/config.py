@@ -128,6 +128,18 @@ LANGUAGE_CODE_MAP: Dict[str, str] = {
 # system instruction). "translator" models are speech-to-speech interpreters:
 # no system instruction, no text input, no RAG injection.
 SUPPORTED_MODELS: Dict[str, Dict[str, object]] = {
+    "gemini-3.8-live": {
+        "label": "Gemini 3.8 Live",
+        "description": "Current low-latency audio-to-audio model for realtime voice agents",
+        "kind": "assistant",
+        "supports_rag": True,
+    },
+    "gemini-3.8-live-extended-thinking": {
+        "label": "Gemini 3.8 Live Extended Thinking",
+        "description": "Higher-reasoning audio-to-audio model for complex live interactions",
+        "kind": "assistant",
+        "supports_rag": True,
+    },
     "gemini-live-2.5-flash-preview-native-audio-09-2025": {
         "label": "Gemini 2.5 Flash Native Audio",
         "description": "Stable conversational model with native audio",
@@ -185,6 +197,11 @@ def model_uses_realtime_text(model: str) -> bool:
     return (model or "").startswith("gemini-3")
 
 
+def model_supports_thinking(model: str) -> bool:
+    """Return whether a Live model accepts an explicit thinking config."""
+    return model == "gemini-3.8-live-extended-thinking"
+
+
 # Available Voice Options (Gemini Live prebuilt voices)
 VOICE_OPTIONS: Dict[str, Dict[str, str]] = {
     "Aoede": {
@@ -238,7 +255,7 @@ class GeminiLiveConfig:
     api_key: Optional[str] = None
 
     # Model settings
-    model: str = "gemini-live-2.5-flash-preview-native-audio-09-2025"
+    model: str = "gemini-3.8-live"
 
     # Voice settings
     default_voice: str = DEFAULT_VOICE

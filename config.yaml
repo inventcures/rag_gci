@@ -111,7 +111,7 @@ gemini_live:
   enabled: true  # Enabled for voice AI
   project_id: ${GOOGLE_CLOUD_PROJECT}
   location: ${VERTEX_AI_LOCATION}  # MUST be us-central1 or other US/EU region!
-  model: "gemini-live-2.5-flash-native-audio"  # GA model (Dec 2024)
+  model: "gemini-3.8-live"  # Current low-latency Live model for the core voice agent
 
   # Voice settings
   default_voice: "Aoede"  # Warm, empathetic voice for healthcare

@@ -32,6 +32,7 @@ from .config import (
     INPUT_SAMPLE_RATE,
     is_translation_model,
     model_supports_rag,
+    model_supports_thinking,
     model_uses_auto_language,
     model_uses_realtime_text,
 )
@@ -465,10 +466,8 @@ class GeminiLiveError(Exception):
 
 
 # Live API tool through which the model retrieves RAG context BEFORE
-# answering. Function calling on Live models is synchronous: the model
-# does not generate its (audio) response until the tool result is sent,
-# which guarantees the spoken answer is grounded in the knowledge base
-# rather than world knowledge alone.
+# answering. The standard Gemini 3.8 Live path uses an explicitly blocking
+# tool so the spoken medical answer cannot begin before grounding returns.
 RAG_TOOL_NAME = "search_medical_knowledge"
 
 RAG_TOOL = types.Tool(
@@ -493,6 +492,34 @@ RAG_TOOL = types.Tool(
                 },
                 required=["query"],
             ),
+            behavior="BLOCKING",
+        )
+    ]
+)
+
+RAG_TOOL_ASYNC = types.Tool(
+    function_declarations=[
+        types.FunctionDeclaration(
+            name=RAG_TOOL_NAME,
+            description=(
+                "Search the verified palliative-care knowledge base for "
+                "evidence-based guidance. MUST be called before answering "
+                "any health, symptom, medication, or care question."
+            ),
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "query": types.Schema(
+                        type=types.Type.STRING,
+                        description=(
+                            "The user's health question, rephrased as a "
+                            "concise English search query"
+                        ),
+                    )
+                },
+                required=["query"],
+            ),
+            behavior="NON_BLOCKING",
         )
     ]
 )
@@ -787,7 +814,7 @@ CONVERSATION STYLE:
             ),
             # RAG grounding tool: the model must fetch knowledge-base
             # context before generating its (audio) answer
-            tools=[RAG_TOOL] if (
+            tools=[RAG_TOOL_ASYNC if model_supports_thinking(model) else RAG_TOOL] if (
                 self.rag_pipeline and self.config.rag_context_enabled
             ) else None,
             # VAD tuning for barge-in quality and latency:
@@ -806,9 +833,9 @@ CONVERSATION STYLE:
             ),
         )
 
-        # Gemini 3.x live models support thinking; pin to MINIMAL (the
-        # lowest-latency setting) so voice replies start as fast as possible
-        if model_uses_realtime_text(model):
+        # Only Gemini 3.8 Live Extended Thinking accepts an explicit thinking
+        # configuration. Standard Gemini 3.8 Live rejects this field.
+        if model_supports_thinking(model):
             config.thinking_config = types.ThinkingConfig(
                 thinking_level=types.ThinkingLevel.MINIMAL
             )
