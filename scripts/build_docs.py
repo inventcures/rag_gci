@@ -62,7 +62,14 @@ def module_facts() -> List[Dict]:
     for child in sorted(ROOT.iterdir()):
         if not child.is_dir() or child.name in SKIP_DIRS or child.name.startswith("."):
             continue
-        py = list(child.glob("*.py"))
+        # Sorted, because glob order follows the filesystem, not the alphabet.
+        #
+        # The first module carrying a docstring supplies this directory's "purpose",
+        # so an unsorted glob made the generated page depend on the order the
+        # filesystem happened to return entries in. A fresh clone on CI picked
+        # service.py where the developer machine picked audio_handler.py, so the
+        # staleness gate reported drift that did not exist.
+        py = sorted(child.glob("*.py"), key=lambda f: f.name)
         if not py:
             continue
         lines = 0
