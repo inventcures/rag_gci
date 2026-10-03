@@ -36,13 +36,15 @@ jobs:
       - name: Install dependencies
         # requirements.txt minus the two entries that cannot be installed.
         #
-        # ktem and kotaemon are 404 on PyPI because they ship with the vendored
-        # kotaemon-main tree. Rather than hand-maintaining a second list that drifts,
+        # Three entries cannot be installed: ktem and kotaemon are 404 on PyPI
+        # because they ship with the vendored kotaemon-main tree, and
+        # whisper-openai>=20231117 names a version that was never published, so only
+        # 1.0.0 resolves. Rather than hand-maintaining a second list that drifts,
         # the impossible entries are filtered out of the real one, so a dependency
         # added for a new feature reaches CI without anyone remembering to add it
         # twice.
         run: |
-          grep -vE '^(ktem|kotaemon)\s*$' requirements.txt > /tmp/req.txt
+          grep -vE '^(ktem|kotaemon)\s*$|^whisper-openai' requirements.txt > /tmp/req.txt
           echo "filtered requirements:"; wc -l < /tmp/req.txt
           pip install -r /tmp/req.txt
 
