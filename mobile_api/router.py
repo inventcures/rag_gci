@@ -32,6 +32,7 @@ from mobile_api.dependencies import get_rag_pipeline, get_safety_manager, get_me
 from evaluation.sus_collector import SusCollector
 from evaluation.vignette_manager import VignetteManager
 from evaluation.interaction_logger import MobileInteractionLogger
+from study_logging import get_study_logger
 from evaluation.exporter import EvaluationExporter
 from offline.cache_builder import CacheBundleBuilder
 from sync.delta_tracker import DeltaTracker
@@ -45,6 +46,13 @@ _pin_auth = PinAuthenticator()
 _sus_collector = SusCollector()
 _vignette_manager = VignetteManager()
 _interaction_logger = MobileInteractionLogger()
+
+# The system log the EVAH grant and study protocol 7.8 depend on. The
+# evaluation InteractionLogger above only receives rows a client chooses to
+# push to /evaluation/logs; this one is written by the server on the query path
+# itself, so adoption, safety and language metrics cannot depend on client
+# cooperation.
+_study_logger = get_study_logger()
 _evaluation_exporter = EvaluationExporter()
 
 
@@ -142,17 +150,34 @@ async def mobile_query(
     rag_pipeline=Depends(get_rag_pipeline),
     safety_manager=Depends(get_safety_manager),
 ):
+    t0 = time.perf_counter()
     result = await rag_pipeline.query(
         query_text=request.query,
         user_id=user.user_id,
         language=request.language,
     )
+    rag_ms = (time.perf_counter() - t0) * 1000
 
     safety_result = safety_manager.process_response(
         query=request.query,
         response=result.answer,
         sources=result.sources,
         language=request.language,
+    )
+
+    await _study_logger.record(
+        user_id=user.user_id,
+        site_id=user.site_id,
+        care_role=user.role,
+        query=request.query,
+        response=safety_result.response,
+        language=request.language,
+        channel="mobile",
+        stage_latency_ms={"rag": rag_ms},
+        total_latency_ms=(time.perf_counter() - t0) * 1000,
+        rag_method=getattr(result, "rag_method", "") or "",
+        sources=result.sources,
+        safety_result=safety_result,
     )
 
     return MobileQueryResponse(
@@ -176,20 +201,35 @@ async def voice_query(
 ):
     audio_bytes = await audio.read()
 
+    # Per-stage timing feeds the grant's latency monitoring and the
+    # Android spec's sub-13-second interaction budget.
+    stage_ms: dict = {}
+    t0 = time.perf_counter()
+
     try:
         from sarvam_integration import SarvamClient
         sarvam = SarvamClient()
         stt_result = await sarvam.speech_to_text(audio_bytes, language)
         transcript = stt_result.transcript
+        stage_ms["stt"] = (time.perf_counter() - t0) * 1000
     except Exception as e:
         logger.error(f"STT failed: {e}")
+        stage_ms["stt"] = (time.perf_counter() - t0) * 1000
+        await _study_logger.record(
+            user_id=user.user_id, site_id=user.site_id, care_role=user.role,
+            query="", response="", language=language, channel="voice",
+            stage_latency_ms=stage_ms, total_latency_ms=(time.perf_counter() - t0) * 1000,
+            error=f"stt_failed: {e}",
+        )
         raise HTTPException(status_code=500, detail="Speech-to-text processing failed")
 
+    t1 = time.perf_counter()
     result = await rag_pipeline.query(
         query_text=transcript,
         user_id=user.user_id,
         language=language,
     )
+    stage_ms["rag"] = (time.perf_counter() - t1) * 1000
 
     safety_result = safety_manager.process_response(
         query=transcript,
@@ -198,12 +238,32 @@ async def voice_query(
         language=language,
     )
 
+    t2 = time.perf_counter()
     audio_base64 = None
     try:
         tts_result = await sarvam.text_to_speech(safety_result.response, language)
         audio_base64 = tts_result.audio_base64
     except Exception as e:
         logger.warning(f"TTS failed, returning text-only: {e}")
+    stage_ms["tts"] = (time.perf_counter() - t2) * 1000
+
+    await _study_logger.record(
+        user_id=user.user_id,
+        site_id=user.site_id,
+        care_role=user.role,
+        query=transcript,
+        response=safety_result.response,
+        language=language,
+        channel="voice",
+        stage_latency_ms=stage_ms,
+        total_latency_ms=(time.perf_counter() - t0) * 1000,
+        rag_method=getattr(result, "rag_method", "") or "",
+        sources=result.sources,
+        safety_result=safety_result,
+        provider="sarvam",
+        stt_model="saaras-v3",
+        tts_model="bulbul-v3",
+    )
 
     return VoiceQueryResponse(
         transcript=transcript,

@@ -3,7 +3,7 @@
 # Study source documents (grant application and study protocol PDFs).
 # These are large binaries and are governed as study records, not as source.
 # They are distributed through the study team's own channel, not via git.
-evah_android-app/
+evah_study_docs/
 
 # Python bytecode
 __pycache__/
@@ -20,3 +20,9 @@ venv/
 
 # Alternate build output directory (regenerated per run).
 out_gemini3.1_ag_23feb2026_0257ist/
+# Analytics and supervision artifacts, regenerated per run.
+data/analytics/
+data/expert_samples/
+data/metrics/
+data/study/logs/
+data/study/drift/

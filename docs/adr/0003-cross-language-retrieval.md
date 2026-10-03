@@ -8,8 +8,56 @@ Removing the translation hop also removes an LLM round-trip from every query, wh
 
 ## Consequences
 
-- `data/chroma_db` must be reindexed. At 263 chunks this takes minutes on CPU; `rebuild_embeddings.py` and `force_rebuild_embeddings.py` already exist.
-- Note that three sources currently disagree about the embedding model — `config.yaml:20` says `all-MiniLM-L6-v2`, `simple_rag_server.py:817` tries `google/embeddinggemma-300m`, and the live collection says `bge-small-en-v1.5`. All three are English-only.
-- Self-hosted rather than managed, because the study protocol (§7.5, §7.8) requires a versioned knowledge-base snapshot and an immutable release identifier. A managed RAG index cannot be pinned to a commit.
-- Frozen corpus vectors are ~263 KB at int8 with bge-m3's 1024 dimensions, so shipping them to the Android client is free. The open question is query embedding on-device, which needs the model itself and is bounded by the 2 GB / 2G target devices in §3.1 and §3.3.
-- The embedding model choice must be settled empirically against the real corpus. Neither vendor aggregate claims — Gemini Embedding 2's "over 100 languages", or any bge-m3 benchmark — speaks to these eleven languages with this clinical vocabulary.
+- `data/chroma_db` must be reindexed with **bge-m3**, chosen by measurement rather
+  than by vendor claim. See `evaluation/retrieval_eval/` and the decision below.
+- Reindexing 263 chunks takes ~295 s on CPU; query encoding is ~104 ms, both
+  comfortably inside the 13-second voice interaction budget.
+- The three conflicting claims about the current embedding model are now resolved
+  by reading the live collection rather than the config: `config.yaml:20` says
+  `all-MiniLM-L6-v2`, `simple_rag_server.py:817` tries `google/embeddinggemma-300m`,
+  and the live index is `BAAI/bge-small-en-v1.5`. All three are English-only.
+- Self-hosted rather than managed, because the study protocol (§7.5, §7.8) requires
+  a versioned knowledge-base snapshot and an immutable release identifier. A managed
+  RAG index cannot be pinned to a commit.
+- Frozen corpus vectors are ~263 KB at int8 with bge-m3's 1024 dimensions, so shipping
+  them to the Android client is free. The open question is query embedding on-device,
+  which needs the model itself and is bounded by the 2 GB / 2G target devices.
+- Punjabi was the weakest supported language in the evaluation at 0.78 hit@5, the only
+  language below 0.89. On a 99-query evaluation that is noise-level, but it is the
+  language to watch.
+
+## Measured result: bge-m3 over LaBSE
+
+`evaluation/retrieval_eval/run_eval.py` runs 9 clinical probes across all 11
+supported languages against the real 263-chunk corpus, with gold anchored to
+specific chunk indices so that a model cannot score well by retrieving a
+thematically adjacent passage.
+
+| | bge-m3 | LaBSE | bge-small-en-v1.5 (current) |
+|---|---|---|---|
+| mean hit@5 | **0.96** | 0.72 | 0.09 |
+| hit@1 | **0.73** | 0.32 | 0.07 |
+| MRR@10 | **0.84** | 0.49 | 0.08 |
+| dimensions | 1024 | 471 | 384 |
+| parameters | 568M | 471M | 33M |
+| reindex, 263 chunks on CPU | 295 s | 91 s | 30 s |
+| query latency | 104 ms | 54 ms | 12 ms |
+
+The decisive number is the third column. The model the live index was built with
+scores **0.00 on every one of the ten Indic languages** while scoring 1.00 on
+English. That is the silent failure described above, measured rather than argued:
+a Marathi query retrieves none of its gold passages and returns confident,
+ungrounded palliative advice.
+
+LaBSE was expected to win on its home turf, having been tuned on 22 Indian
+languages. It lost, and lost worst on the languages it claims: Kannada 0.56 and
+Malayalam 0.56 against bge-m3's 1.00 and 0.89. The tuning claim did not survive
+contact with clinical palliative vocabulary.
+
+This evaluation is sufficient to choose a model and not sufficient to publish.
+Ninety-nine queries is a small sample; the translations were authored by the
+engineering team rather than reviewed by native speakers; and gold labels are
+engineering judgement. Protocol §7.7 requires the release record to name the
+actual retriever and embedding model with evidence, so the probe set should be
+reviewed by a native speaker per language before the study build. The harness is
+in place for that re-run.

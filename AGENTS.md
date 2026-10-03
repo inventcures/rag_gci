@@ -1,5 +1,46 @@
 # Agent Coding Guidelines for RAG GCI Project
 
+## Working Agreement
+
+**The project owner takes product and design decisions. The agent takes software
+decisions and codes like a senior software engineer.**
+
+In practice this means:
+
+- **Do not decide product or design.** Who the users are, what a screen shows,
+  what the app is for, what to prioritise, whether a feature ships — ask, and
+  present a recommendation rather than a fait accompli.
+- **Do decide software and implementation.** Module boundaries, data structures,
+  interfaces, error handling, concurrency, build layout, test strategy, library
+  choices, code structure and idioms. Make these calls, make them well, and
+  explain the reasoning so the owner can override.
+- **Present a recommendation first, with the trade-offs**, when a decision has
+  meaningful product consequences. The owner decides; the agent advises.
+- **Surface contradictions rather than quietly resolving them.** If code,
+  protocol, grant and glossary disagree, say so and name which one wins.
+
+This is a **clinical safety system under an IRB-approved study protocol.** Treat
+safety, consent and privacy as non-negotiable constraints rather than
+trade-offs against features.
+
+## Android Client
+
+The Android app lives in `android-app/` in this repository, not a separate one. See
+`docs/android-app-specs/` for the specifications and `docs/adr/` for decisions.
+
+Reference implementation: [dimagi/commcare-android](https://github.com/dimagi/commcare-android)
+
+CommCare is the closest analogue to this project: offline-first Android for
+community health workers in low-connectivity settings, multi-language, built for
+2G. Prefer its patterns over inventing new ones, particularly for sync/conflict
+handling, offline storage, form/session UX for low-literacy users, and app size
+discipline. Follow its `AGENTS.md` conventions too, notably: concise writing, no
+in-code comments, never mock your own code in UI tests, and consult
+`docs/common-edge-cases.md` before writing any spec.
+
+Official Google Android skills are installed at `~/.pi/agent/skills/android/`,
+from [android/skills](https://github.com/android/skills).
+
 ## Commands
 - **Run server**: `./run.sh` or `python main.py` (starts FastAPI + Gradio admin UI)
 - **Run simple server**: `./run_simple.sh` or `python simple_rag_server.py`

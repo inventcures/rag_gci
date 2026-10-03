@@ -1,0 +1,158 @@
+# Study Release Record
+#
+# Protocol section 7.8: before activation, record the study release name, the
+# source-code commit and any local patch, the actual model and provider
+# identifiers, the speech models, prompt versions, retrieval settings, the
+# knowledge-source snapshot, the enabled languages, the interface, the fallback
+# policy, review approvals and the deployment time. Store that identifier with
+# every interaction.
+#
+# This file is the human-readable half of that record. It is deliberately NOT
+# self-updating: the point is to describe the system that was approved, not the
+# system that happened to be running. If the live system stops matching this
+# file, study_release.py warns loudly, keeps serving, and persists the drift so
+# that the analysis can count how many interactions ran on an unapproved build.
+
+release_name: "unassigned-dev"
+status: draft                # draft | activated | retired
+
+# --- Provenance -------------------------------------------------------------
+source:
+  commit: "83f7c9660fa5bba94908b9176e18f69abaf91453"
+  local_patch: null          # set when the build differs from the commit
+  prompt_version: "unversioned"   # PROMPTS.md does not exist yet; see notes
+
+# --- Models -----------------------------------------------------------------
+models:
+  llm:
+    provider: "gemini"
+    model: "gemini-3.5-flash"
+    region: "asia-south1"          # Mumbai. Verified available (ADR 0007).
+    override_env: "GENAI_LLM_PROVIDER / GENAI_GEMINI_MODEL / VERTEX_AI_LOCATION"
+    # Chosen over Gemini 3.8 Flash: 3.8, 3.7 and 3.6 have no Asia-Pacific
+    # availability at all. 3.5 Flash is the newest model available in India.
+    # The previously configured gemini-3.1-flash-lite is also unavailable in
+    # Asia-Pacific, so inference was not India-resident before this decision.
+    verified_asia_pacific: ["asia-south1", "asia-southeast1", "asia-northeast1", "australia-southeast1"]
+  voice_primary:
+    provider: "gemini_live"
+    model: "gemini-3.8-live"
+    region: "not-asia-south1"
+    # No Indian region offers the Live API. Verified regions: us-south1,
+    # europe-west9, me-central2, southamerica-east1, asia-northeast3.
+    # Raw voice audio leaves India on this path (ADR 0007).
+    residency_deviation: true
+  voice_fallback:
+    provider: "sarvam"
+    stt_model: "saaras-v3"
+    tts_model: "bulbul-v3"
+    region: "india"
+    trigger: "first-token timeout or per-turn stall"
+    # Automatic fallback on session failure or stall. Not operator-toggleable.
+  query_translation:
+    provider: "groq"
+    model: "llama-3.1-8b-instant"
+    # KNOWN DEFECT (ADR 0003): this path still calls Groq while the RAG LLM moved
+    # to Gemini. Without GROQ_API_KEY it returns status "error", which
+    # simple_rag_server.py:1261 silently treats as "search the original query",
+    # embedding untranslated Indic text with an English model. Record it so the
+    # defect is visible in the release rather than discovered in the analysis.
+    status: "defective"
+  embedding:
+    model: "BAAI/bge-m3"
+    dimensions: 1024
+    source: "evaluation/retrieval_eval/results.json"
+    # Chosen by measurement: mean hit@5 0.96, against 0.72 for LaBSE and 0.09
+    # for the previous English-only bge-small-en-v1.5, which scored 0.00 on
+    # every one of the ten Indic languages (ADR 0003).
+    measured_mean_hit_at_5: 0.960
+    self_hosted: true
+    multilingual: true
+  speech:
+    stt:
+      provider: "sarvam"
+      model: "saaras-v3"
+      languages: 22
+    tts:
+      provider: "sarvam"
+      model: "bulbul-v3"
+      languages: 11
+      speaker_default: "priya"   # v3 uses language-agnostic speakers
+
+# --- Knowledge source -------------------------------------------------------
+knowledge:
+  collection: "documents"
+  chunk_count: 263
+  source_documents: 3
+  # The corpus is three PDFs: the NPPC Handbook for Community Health Workers
+  # (106 chunks), the Neurosurgery home-care guidebook (122) and the Pallium
+  # India opioid compilation (35). The Pallium document is entirely table of
+  # contents, so 35 of 263 chunks carry no clinical content.
+  snapshot_sha256: null        # populated once data/documents/ holds the sources
+  embedding_dimension: 1024     # bge-m3; live index is still 384 until reindexed
+  # OPEN: 263 chunks is thin for eleven languages and three user groups. Worth
+  # confirming this is the intended knowledge base before optimising retrieval.
+
+# --- Retrieval --------------------------------------------------------------
+retrieval:
+  vector_store: "chromadb"
+  persist_directory: "./data/chroma_db"
+  distance: "l2"
+  chunk_size_chars: 1000
+  reranking: true
+  rag_method: "vector"
+  # The grant describes GraphRAG and Neo4j contributing through Reciprocal Rank
+  # Fusion. On main, vector retrieval is the only method on the query path.
+  fusion: "rrf-described-not-on-query-path"
+
+# --- Language ---------------------------------------------------------------
+enabled_languages:
+  # ADR 0002: eleven, bounded by TTS capability rather than ASR capability.
+  # The grant proposes 22. The eleven below are the languages the app can both
+  # hear and speak; the remaining eleven STT languages would produce a
+  # Speech-Language Mismatch and are therefore not enabled.
+  - hi-IN
+  - bn-IN
+  - kn-IN
+  - ml-IN
+  - mr-IN
+  - od-IN
+  - pa-IN
+  - ta-IN
+  - te-IN
+  - gu-IN
+  - en-IN
+
+language_policy:
+  tts_fallback_to_hindi: false   # ADR 0002: never silently substitute Hindi
+  mismatch_behaviour: "answer in English or text, never substitute"
+
+# --- Safety -----------------------------------------------------------------
+safety:
+  dosage_restriction: true
+  dosage_boundary: "dose"        # ADR 0004
+  dosage_redaction: "sentence"
+  emergency_detection_languages: ["en", "hi", "bn", "ta", "gu"]
+
+# --- Interface --------------------------------------------------------------
+interface:
+  mobile_api_base: "/api/mobile/v1"
+  offline_cache_bundle: false
+
+# --- Approvals --------------------------------------------------------------
+# Protocol 7.7: the clinical and technical leads must approve the complete route
+# before any participant uses it. Neither has signed; this release is not
+# activated and must not be used with participants.
+approvals:
+  clinical_lead:
+    name: null
+    approved_at: null
+  technical_lead:
+    name: null
+    approved_at: null
+
+deployment:
+  activated_at: null
+  # Protocol 7.1: "An approved study release identifier has not yet been
+  # established." This file is the first attempt at establishing one.
+  notes: "Draft. Not for participant use until approvals are signed and section 7.7 checks pass."

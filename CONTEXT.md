@@ -22,8 +22,10 @@ sharing a device with their Family Caregiver.
 _Avoid_: client, user, case
 
 **Care Role**:
-The capability tier a person registers under — ASHA Worker, Family Caregiver, or Patient.
-Determines which clinical detail the app may disclose and which records they may read.
+The capability tier a person registers under — ASHA Worker, Family Caregiver, or
+Patient. It attributes every interaction for analysis and stratification, and shapes
+what the app emphasises. It is **not** an access boundary: household members share one
+Household Record (ADR 0006).
 _Avoid_: permission, access level, account type
 
 **Registration**:
@@ -86,3 +88,47 @@ The rule that a life-threatening Emergency takes precedence over the Dose Bounda
 a CRITICAL alert may invoke it; a HIGH alert such as "severe pain" may not, or a routine
 dose question phrased as severe pain would bypass the restriction entirely.
 _Avoid_: safety bypass, guard exemption
+
+## Household
+
+**Household Record**:
+The single shared record of a home's care situation, readable by every Care Role in
+that home. A role switch changes what the app surfaces first and how it frames
+answers; it does not partition the record.
+_Avoid_: shared profile, family record, care record
+
+**Active Role**:
+The Care Role currently driving the app, shown as a persistent icon so that whoever is
+holding the phone can see at a glance whose view they are seeing and whose voice the
+app answers in. Switching it is deliberate and always visible; it is a framing choice,
+not a privacy control.
+_Avoid_: current user, logged-in-as, persona
+
+## Connectivity
+
+**Offline State**:
+The condition in which Palli Sahayak has no connectivity. It shows local history and
+the cached answer bundle, and does not answer new questions. The microphone control
+remains visible but disabled with a plain-language explanation, rather than hidden or
+failing silently.
+_Avoid_: degraded mode, fallback, disconnected state
+
+**Cached Answer Bundle**:
+The small set of anticipated question-and-answer pairs downloaded to the device for
+offline use. Not a retrieval index: it answers only what it was built to answer.
+_Avoid_: offline cache, cache bundle, downloaded corpus
+
+**Local History**:
+Interactions stored on the device and readable while Offline. A Redacted Answer in
+history must render distinctly from an Answer, so a refusal saved weeks earlier is
+never mistaken for clinical advice.
+_Avoid_: chat history, conversation log
+
+## Retrieval
+
+**Unsupported Answer**:
+A substantive response returned with no retrieved source, meaning the text was
+generated without grounding. This is the operational proxy the system log reports
+where the grant asks for a hallucination rate; it is not a hallucination measure,
+and the reported figure requires clinician adjudication.
+_Avoid_: hallucination, ungrounded response

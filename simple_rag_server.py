@@ -5013,6 +5013,33 @@ def main():
                 app.include_router(mobile_router)
                 logger.info("Mobile API v1 enabled at /api/mobile/v1/")
 
+                # Study release record (protocol 7.8). Emits the release banner
+                # and, if the running system no longer matches the approved
+                # record, logs a loud RELEASE DRIFT block and persists it. Serving
+                # deliberately continues: bricking the service at four sites
+                # during a supervised home visit is the worse failure.
+                try:
+                    from study_release import get_study_release
+                    _release = get_study_release()
+                    _drift = _release.verify_on_startup(logger)
+                    if _drift and not _release.approvals_complete:
+                        logger.error(
+                            "Study release %s has UNSIGNED approvals AND is drifting. "
+                            "No participant may use this build until 7.7 checks pass.",
+                            _release.release_id,
+                        )
+                except Exception:
+                    logger.exception("Study release verification failed")
+
+                # Read-only study audit dashboard, mounted separately from the
+                # participant-facing API so access can be controlled on its own.
+                try:
+                    from study_dashboard import router as study_dashboard_router
+                    app.include_router(study_dashboard_router, prefix="/admin/study")
+                    logger.info("Study audit dashboard enabled at /admin/study")
+                except Exception:
+                    logger.exception("Study dashboard unavailable")
+
                 # Context-1, Memory Agents, and Meta Agent initialization
                 try:
                     from context1_integration import Context1Config, Context1RetrievalAgent, QueryComplexityClassifier
