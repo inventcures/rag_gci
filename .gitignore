@@ -26,3 +26,11 @@ data/expert_samples/
 data/metrics/
 data/study/logs/
 data/study/drift/
+
+# Voice provider selection and its audit trail.
+# Runtime state, not source. Both are recreated on first change, and the audit
+# trail is study evidence that should be exported at the end of the study rather
+# than committed as it accumulates. A smoke test once wrote two fabricated
+# entries into it, which is the reason this is called out.
+data/study/voice_provider.json
+data/study/voice_provider_audit.jsonl
