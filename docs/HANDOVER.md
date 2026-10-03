@@ -2,7 +2,8 @@
 
 **Purpose:** paste this into a fresh session after context compaction to resume work
 without re-deriving anything.
-**Written:** 4 October 2026, at ~57% context.
+**Written:** 4 October 2026. Updated at the end of the T4 build.
+**Commit at update:** `303081d` on `main`, clean and pushed.
 **Repo:** `/home/tp53/showmethecode/rag_gci` · branch `main` · remote `inventcures/rag_gci`
 
 ---
@@ -87,9 +88,9 @@ writing ADR-0008 if they warrant one):
 ```bash
 T1  Retrieval — bge-m3 end to end                      ✅ COMPLETE  8/8
 T2  Project and contract seam                          ✅ COMPLETE  5/5
-T3  Walking skeleton + client safety core              🔶 PARTIAL  (safety done, data layer scaffolded only)
-T4  Voice — push-to-talk, then real-time               ⬜ not started
-T5  Voice resilience — fallback + admin override       ⬜
+T3  Walking skeleton + client safety core              ✅ COMPLETE
+T4  Voice — push-to-talk, then real-time               ✅ COMPLETE
+T5  Voice resilience — fallback + admin override       🔶 arbitration, override, audit done; Gemini transport outstanding
 T6  Language, household and roles                      ⬜
 T7  Offline — history, state, cached bundle            ⬜
 T8  Accessibility contract + release gate              ⬜
@@ -112,72 +113,86 @@ T8  Accessibility contract + release gate              ⬜
 - Comparison resolves `$ref` into `components` — without that, component-level renames pass
   silently.
 
-### T3 — safety foundation done, rest outstanding
-**Done:** `:core:safety` (pure Kotlin, no Android) — `DoseDetector`, `Redactor`,
-`DoseBoundary`, `EmergencyDetector`, `DeferralCopy`. **23 tests, 0 failures.**
+### T3 — complete
 
-**Built since that snapshot:**
-- `core:data` — Room entities, both DAOs, database, text scrubber, repository,
-  `AskViewModel`, `ServiceLocator`
+**Done.** The Android client runs end to end. A typed question returns a grounded
+answer, the safety invariants hold on that first answer, and the interaction is
+recorded.
+
+- `:core:safety` — `DoseDetector`, `Redactor`, `DoseBoundary`, `EmergencyDetector`,
+  `DeferralCopy`. 23 tests.
+- `:core:data` — Room entities and DAOs, `PalliDatabase`, `TextScrubber`,
+  `PalliSahayakRepository`, `AskViewModel`, `ServiceLocator`.
+- `:core:api` — Kotlin client generated from the contract.
 - `app` — `AskScreen` with the three answer kinds rendered distinctly, `AppRoot`,
   `MainActivity`. Debug APK builds at 10.6 MB.
+- **All six Robolectric tests are green.** 35 Kotlin tests pass.
 
-**Outstanding:**
-- Robolectric test: written but **6 tests fail**, see below.
+### T4 — complete
 
-**Three real defects found and fixed**
+Voice works end to end, and voice obeys the same safety rules as text.
 
-1. **Moshi could not deserialise the generated data classes.** Without
-   `KotlinJsonAdapterFactory` its reflective adapter cannot read Kotlin default
-   parameter values, so every request failed and fell into the offline branch with
-   no error anywhere. Against a live server the app would have looked like a
-   connectivity problem rather than a serialisation one. Fixed in `ServiceLocator`
-   and in the test's own Retrofit.
+- **Push-to-talk** — 16-bit PCM at 16 kHz mono, press-and-hold mic, spoken and
+  readable answer, replay, and a stop control that shows while audio plays.
+- **`/api/mobile/v1/ws/voice`** — session, grounding through the same pipeline, and
+  the same `SafetyEnhancementsManager` as the text route.
+- **`voice_session.py`** — transcript and answer in one exchange. The client cannot
+  know what the user said, so a separate transcript round trip buys nothing.
+- **`voice_router.py`** — Live by default with Sarvam fallback. Arbitration is pure
+  and tested apart from any provider.
+- **`voice_provider.py`** — the admin override. Requires an actor and a reason, and is
+  audited with the previous value.
+- **Dashboard** — a voice panel showing the selected provider, whether Live is
+  reachable, and the fallback rate.
 
-2. **`AskViewModel` was untestable by construction.** `viewModelScope` is pinned to
-   `Dispatchers.Main.immediate` and does not run under Robolectric whatever Main is
-   set to. It now takes an injectable `CoroutineScope`, nullable with a fallback,
-   because a default argument cannot reference an extension property of the object
-   being constructed.
+**Still not connected:** `gemini_live/service.py` has no `stream_audio` method, so
+`LiveVoiceProvider` has nothing to call. That adapter is the last mile of real-time
+voice. Everything either side of it is built and tested.
 
-3. **`InteractionEntity`'s comment was false.** It claimed the app pseudonymises
-   participant ids the way the server does. It does not, and should not.
-   `mobile_api/router.py:70` shows registration issues `uuid.uuid4()`, so the device
-   never receives a raw identifier and there is nothing to hash. The code was right
-   and the comment was wrong. Corrected, and the test now asserts the real
-   invariant.
+### T5 — substance done, transport outstanding
 
-**Still outstanding: 4 of 6 Robolectric tests red.** All four show an empty answer.
+Arbitration, fallback rate, operator override and audit trail are ADR 0007's actual
+requirement, and all exist. What is missing is the Gemini Live transport, which is
+the same gap as T4's last bullet.
 
-**What is ruled out.** A throwaway test called the API directly with the same
-MockWebServer, the same Retrofit config and the same generated model, and it passed.
-So Moshi, the converter, the generated classes, the URL resolution and the JSON shape
-are all fine. The earlier "Moshi cannot deserialise" hypothesis was wrong, though the
-`KotlinJsonAdapterFactory` added while chasing it is still correct to have.
+## Findings that were expensive to learn
 
-**What remains.** The repository takes its `catch (Exception)` branch. Attempts to
-drive it have all failed to resume:
+**The cause of the red Robolectric tests was Room, not the network.** Room's suspend
+DAO methods dispatch to its transaction executor, and under Robolectric that executor
+never resumes the continuation, so the repository hung inside `insert()`. The tests
+were reporting an incomplete repository as a safety failure. Fixed with a direct
+executor in the test database, and by stubbing the API so only the network is faked.
 
-- `Dispatchers.setMain(StandardTestDispatcher())`: `runTest` owns a separate scheduler,
-  so `advanceUntilIdle` drains the wrong queue.
-- `UnconfinedTestDispatcher`: launches eagerly but OkHttp's real I/O resumes on
-  neither scheduler.
-- Passing the `TestScope` itself: closest, still not resuming.
+**Three diagnoses on the way were wrong, and the pattern repeats.** I blamed Moshi,
+then the network, then believed Robolectric had swallowed the instrumentation. Each
+was wrong. A throwaway test proved Moshi fine; replacing the server proved the network
+fine; and `android.util.Log` is swallowed by Robolectric, so `println` is required when
+instrumenting. Guessing costs more than measuring.
 
-**The likely cause** is that Retrofit's suspend call parks on OkHttp's dispatcher, and
-Robolectric's main looper is not being pumped, so the continuation never resumes.
-Two things worth trying next, in order:
+**A reporting bug the tests caught.** `SafetyResult` has no `answer_kind` field, so a
+`getattr` fallback reported every voice answer as `ANSWER` regardless of what the
+guard did. The safety layer was working while the reporting claimed otherwise, which
+would have under-reported every refusal. Voice now derives the kind from
+`dosage_blocked`.
 
-1. `Robolectric.flushForegroundThreadScheduler()` or `shadowOf(Looper.getMainLooper()).idle()`
-   after `submit()`.
-2. Drop MockWebServer and hand `PalliSahayakRepository` a stub `PalliSahayakApi` whose
-   methods return immediately. That keeps the repository, the Room database, the Dose
-   Boundary and the ViewModel real, and fakes only the network boundary, which is
-   exactly the rule this suite is supposed to follow. It also removes the real-I/O
-   problem entirely rather than working around it.
+**A comment that lied about the code.** `InteractionEntity` claimed the app
+pseudonymises participant ids the way the server does. It does not, and should not:
+`mobile_api/router.py:70` shows registration issues `uuid4()`, so the device never
+receives a raw identifier. The code was right and the comment was wrong.
 
-Option 2 is likely the right answer and is not a cop-out: the boundary being faked is
-the boundary the test is meant to fake.
+**A dashboard number that meant nothing.** `get_voice_router` was added by a patch
+whose anchor lived in another file, so it never existed, and the fallback counter
+returned zero forever. It now raises when no router is registered, and the panel says
+"no traffic yet" rather than "0 percent fallback".
+
+**Fabricated audit entries, from my own smoke test.** Testing the admin endpoints
+wrote two entries into the voice provider audit trail under a real person's name,
+describing an incident that never happened. A study audit trail with invented
+entries is worse than an empty one. Both files are now gitignored as runtime state.
+
+**All five documentation diagrams failed to render twice** before I checked, for
+reasons unrelated to the diagrams: a missing headless Chrome, then a sandbox
+restriction. A diagram that silently fails looks deliberate. Render them.
 
 ## 6. Tickets still to be written (if `.scratch/` is lost)
 
@@ -301,6 +316,8 @@ deployment never called Gemini.
 **F. Nothing was ever wired to anything.** `RealtimeMetrics` (four-stage latency),
 `UsageAnalytics`, `clinical_validation.ExpertSampler` (5/50/100) and `interaction_logs/`
 were all written and called by nothing. The grant's entire analytic plan depended on them.
+**Now resolved:** all four are wired through `study_logging.py` and feed
+`/admin/study`. Listed here because it was the pattern, not because it is open.
 
 ### Do-not-repeat list
 
@@ -357,56 +374,60 @@ reading. This is the pattern worth preserving.
 ## 9. Test state — real numbers
 
 ```
-649 passed, 2 failed        (pytest now completes; previously it aborted at collection)
-23 Kotlin safety tests, 0 failures
+Python  686 passed, 2 failed
+Kotlin   35 passed, 0 failed
+APK builds 10.6 MB · both contract gates green · 29 REST routes plus /ws/voice
 ```
 
-Both Python failures are in `test_voice_safety_integration.py`
-(`test_voice_optimization`, `test_retell_integration`) and **predate this work** —
+The 2 Python failures are `test_voice_optimization` and `test_retell_integration` in
+`tests/test_voice_safety_integration.py`. They predate this work;
 `voice_safety_wrapper.py` last changed in `f1b4823`.
 
-I previously reported "105 tests green" — that was **my 6 suites only**, never a full run.
-Do not quote a number that was not measured.
+I previously quoted "105 tests green", which was only my own suites and never a full
+run, because collection aborted. Do not quote a number that was not measured.
 
-Baseline fixes in `b93ec19`: `pytest-asyncio` installed, `asyncio_mode = auto`,
-`tests/conftest.py` skips modules whose optional dependency is absent, and a run that
-collects nothing now says so and fails.
+## 10. What is next
 
----
+**The one real gap: `gemini_live/service.py` has no `stream_audio` method.**
+`LiveVoiceProvider` calls it, so the Live path cannot serve a turn yet. Everything
+either side is built and tested. It also needs `google-genai` installed, which is
+absent here. That adapter is the last mile of T4 and T5.
 
-## 10. Immediate next steps
+Then, in order:
 
-**Agreed plan:** build the repository in T4 using Room, letting it absorb T3's data-layer
-sub-task, rather than doing T3-then-T4 as separate passes over the same code. Confirmed by
-the user.
+- **T6** language, household and roles. Everything it needs exists.
+- **T7** offline history, state and cached bundle. The server bundle route and the
+  twenty questions per language are already done.
+- **T8** accessibility contract and the release gate. The gate cannot pass until §7.7
+  evidence exists.
 
-1. Room `InteractionEntity` — **SI-5 lives here**: participant id, care role, locale,
-   connectivity, bundle-vs-live, voice path used, release id, safety outcome.
-2. DAO + database, then repository over the generated Retrofit client.
-3. Robolectric test through the real stack (mock only network/clock/hardware; **never our own
-   code** — CommCare's rule).
-4. Commit; write a fresh handover.
-5. Then T4's push-to-talk slice: record → `POST /query/voice` → TTS playback.
+**Not started, and it needs you:** MkDocs Material via GitHub Actions for
+private-safe auto-updating docs. Requires Pages and Actions enabled on the repo,
+which I cannot do from here. The generated HTML is at `docs/site/index.html`;
+rebuild it with `python3 scripts/build_docs.py`.
 
-The `:core:data` module is scaffolded and wired into `settings.gradle.kts`, with Room and
-KSP dependencies declared. **Nothing has been written in it yet** and it has not been
-compiled — expect dependency-resolution to need attention on first build.
+**Still open from earlier, unchanged:**
 
----
+- `STUDY_LOG_SALT` is unset, so participant ids are not linkable across restarts.
+  Sustained adoption is unmeasurable without it.
+- The Gemini API key is in `.env` and in the session transcript on disk. Rotate it.
+- Residency needs written confirmation from Google. A selected region is not itself
+  evidence, and their documentation warns that endpoints do not guarantee it.
 
 ## 11. Working practices worth keeping
 
-- **Check the expected test count, not the exit code.** Two separate false greens this
-  session (JUnit 4 import; pytest collecting nothing).
-- **Run the real corpus.** The eval harness running zero vignettes looked identical to
-  running eighty.
-- **Prove a guard fails.** A contract check that cannot fail is decoration. Injected drift
-  to prove both gates.
-- **Prefer one source over two copies.** The Kannada divergence existed because detector and
-  test each held a string.
-- **Look up the real value; do not quote the comment.** `config.yaml` said the Live API was
-  US/EU only — true but stale; Google's current table showed Seoul too, and that Gemini
-  3.8/3.7/3.6 Flash have **no** Asia-Pacific availability at all, which is why the RAG LLM is
-  3.5 Flash.
-- **Diff against HEAD when editing Indic text.** Two corruptions caught this way.
-- **Commit per ticket and push.** Every ticket lands green, so history doubles as a demo log.
+- **Check the expected test count, not the exit code.** Two false greens: a JUnit 4
+  import that produced a passing build with zero tests run, and a pytest run
+  reporting success while collecting nothing.
+- **Run the real corpus.** The evaluation harness running zero vignettes looked
+  identical to running eighty.
+- **Prove a guard fails.** A check that cannot fail is decoration. Both contract gates
+  were verified with injected drift.
+- **Render the diagrams.** All five failed twice before I checked.
+- **One source, never two copies.** The Kannada phrase diverged by one codepoint
+  because detector and test each held a string.
+- **Do not smoke-test against a persistent audit trail.** It fabricated entries under
+  a real name.
+- **Instrument with `println`, not `Log`, under Robolectric.**
+- **Commit per logical chunk.** Every commit lands green.
+
