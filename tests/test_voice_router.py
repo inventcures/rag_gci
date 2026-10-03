@@ -12,7 +12,9 @@ as carefully as the decision itself.
 import asyncio
 import os
 import sys
+import types
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -36,21 +38,31 @@ def make_turn(text="Morphine is a strong opioid."):
 
 
 class FakeHandler:
-    """Stands in for the real handler so routing is testable without a pipeline."""
+    """
+    Stands in for the real handler so routing is testable without a pipeline.
+
+    The signatures match `SupportsAudioTurns` exactly, including the optional
+    `voice_path`. A fake that accepted less than the real thing let a protocol
+    mismatch sit unnoticed, which is the same failure as the pipeline kwargs: the
+    stand-in being more forgiving than the code it stands in for.
+    """
 
     def __init__(self, turn=None, delay=0.0):
         self.turn = turn if turn is not None else make_turn()
         self.delay = delay
         self.calls = 0
+        self.voice_paths = []
 
-    async def handle_audio(self, session, audio):
+    async def handle_audio(self, session, audio, voice_path: str = "live"):
         self.calls += 1
+        self.voice_paths.append(voice_path)
         if self.delay:
             await asyncio.sleep(self.delay)
         return self.turn
 
     async def handle(self, session, transcript, voice_path="live", **kw):
         self.calls += 1
+        self.voice_paths.append(voice_path)
         return self.turn
 
 
@@ -103,17 +115,43 @@ class RoutingWhenLiveIsHealthy(unittest.TestCase):
         self.session = VoiceSession()
 
     def test_a_healthy_live_turn_does_not_fall_back(self):
-        router = vr.VoiceRouter(self.handler, live_service_factory=lambda s: FakeLive())
-        outcome = asyncio.run(router.route(self.session, b"\x00"))
-        # google-genai is not installed here, so the router correctly falls back.
-        # The point under test is that the *decision* is not made on connect.
-        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
-        self.assertEqual(self.handler.calls, 1)
+        """
+        Availability is forced rather than inherited.
+
+        An earlier version of this test asserted the fallback and passed only
+        because google-genai happened to be absent on the machine. It therefore
+        tested the environment, not the decision, and it passed while proving the
+        opposite of what its name claimed. The probe is patched so the test holds
+        whether or not the SDK is installed.
+        """
+        live = vr.LiveAvailability(available=True)
+        with unittest.mock.patch.object(vr.LiveAvailability, "probe", return_value=live):
+            router = vr.VoiceRouter(self.handler, live_service_factory=lambda s: FakeLive())
+            outcome = asyncio.run(router.route(self.session, b"\x00"))
+        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_LIVE)
+        # Sarvam must not have been touched at all when Live answered.
+        self.assertEqual(self.handler.calls, 0)
 
     def test_a_live_session_that_connects_then_goes_quiet_falls_back(self):
-        # The case a connection check would miss. The SDK is absent here so the
-        # router short-circuits, which is why the arbitration decision itself is
-        # pinned separately in test_voice_session.FallbackClassification.
+        """
+        The case a connection check would miss.
+
+        A socket that opens is not evidence of a healthy turn, so a Live provider
+        that yields a first token and then stalls must fall back rather than leave
+        the user mid-sentence.
+        """
+        stalling = FakeLive(first_token_delay=9.0, final=False)
+        live = vr.LiveAvailability(available=True)
+        with unittest.mock.patch.object(vr.LiveAvailability, "probe", return_value=live):
+            router = vr.VoiceRouter(
+                self.handler, live_service_factory=lambda s: stalling
+            )
+            outcome = asyncio.run(router.route(self.session, b"\x00"))
+        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
+        self.assertEqual(self.handler.calls, 1)
+        self.assertIsNotNone(outcome.turn.fallback_reason)
+
+    def test_classification_is_pinned_independently(self):
         from voice_session import classify_fallback
 
         self.assertEqual(classify_fallback(9.0, 9.0), "first_token_timeout")
@@ -153,14 +191,34 @@ class Reporting(unittest.TestCase):
 
 class Availability(unittest.TestCase):
     def test_absence_is_reported_not_raised(self):
-        # google-genai is not installed, so probe must return a reason rather
-        # than raise, because the study build has to work without it.
-        result = vr.LiveAvailability.probe()
+        """
+        The study build must work without the SDK, so absence has to produce a
+        reason rather than an exception.
+
+        Absence is simulated by putting None in sys.modules, which makes the import
+        raise. Asserting the real environment instead would make this test pass for
+        the wrong reason on a machine with the SDK and fail on one without.
+        """
+        with unittest.mock.patch.dict(sys.modules, {"google.genai": None}):
+            result = vr.LiveAvailability.probe()
         self.assertFalse(result.available)
         # Unavailable always carries a reason, otherwise the fallback would be
         # unexplained in the study log.
         self.assertIsNotNone(result.reason)
         self.assertIn("live_sdk_unavailable", result.reason or "")
+
+    def test_presence_is_reported_without_a_reason(self):
+        """
+        The mirror of the case above, so neither branch depends on the host.
+        """
+        with unittest.mock.patch.dict(
+            sys.modules, {"google.genai": types.ModuleType("google.genai")}
+        ):
+            result = vr.LiveAvailability.probe()
+        # Whether the service imports is a property of this repository, not of the
+        # test, so only the reason-free shape is asserted when it is reachable.
+        if result.available:
+            self.assertIsNone(result.reason)
 
 
 if __name__ == "__main__":

@@ -28,6 +28,17 @@ CHUNK_BYTES = 4096
 MAX_INPUT_SECONDS = 6
 RECEIVE_TIMEOUT = 30
 
+# Not a pytest module. These are manual probes that open a real billed Live session
+# and need both credentials and a prepared PCM file at /tmp/test_hi_16k.pcm, so they
+# cannot run in CI and must never be collected as if they could. They are run by
+# hand with `python tests/test_new_live_models.py`.
+#
+# Collection previously failed on the missing `service` argument, which pytest read
+# as a fixture request. That stayed invisible while google-genai was absent, because
+# the module failed to import before collection reached it. Installing the
+# dependency exposed it, which is the useful part of the failure.
+__test__ = False
+
 
 async def collect_responses(session, timeout: float) -> dict:
     """Drain session output until turn completes or timeout."""

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "palli-sahayak"
+version = "0.1.0"
+description = "Voice-first clinical decision support for frontline health workers in India"
+requires-python = ">=3.10"
+
+# Additively installs the root-level modules and the top-level packages, so that
+# `import voice_session` resolves through the installation rather than through the
+# `sys.path.insert` the tests perform at runtime.
+#
+# That runtime path hack is invisible to every static analyser. It is why pyright
+# reported the imports as unresolved while `python -m pytest` passed 703 tests on
+# the very same files. Installing the project makes both agree, and it is also what
+# a deployment needs, since `simple_rag_server.py` imports these modules too.
+#
+# Additive on purpose. A hard `include = [...]` list would hide any module added
+# later, which is the same failure mode as a test that only asserts what it knows.
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = [
+    "analytics*", "android_app*", "auth*", "bolna_integration*", "clinical_validation*",
+    "evaluation*", "gemini_live*", "graphrag_integration*", "integrations*", "knowledge_graph*",
+    "memory_agents*", "meta_agent*", "mobile_api*", "offline*", "pageindex_integration*",
+    "personalization*", "retell_integration*", "review_app*", "sarvam_integration*",
+    "scripts*", "sync*", "web_client*",
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.json", "*.txt", "*.md"]
+
+# Runtime dependencies are deliberately NOT declared here.
+# requirements.txt lists `ktem` and `kotaemon`, which are 404 on PyPI because
+# they ship with the vendored kotaemon-main tree. Declaring that file here made
+# every build of this project fail at the dependency-resolution step.
