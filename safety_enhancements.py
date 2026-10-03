@@ -1167,6 +1167,29 @@ class HandoffRequest:
         }
 
 
+# Articles and the fillers that join a request to its subject words.
+_HANDBOFF_NOISE = re.compile(
+    r"\b(a|an|the|to|want|wants|would like|please|can i|i want to)\b"
+)
+
+
+def _match_without_articles(keyword: str, query_lower: str) -> bool:
+    """
+    Match a handoff keyword ignoring articles and politeness fillers.
+
+    Someone asking for help says "can I speak to a doctor", not "speak to doctor".
+    Exact substring matching rejected the first and accepted only the second.
+    """
+
+    def normalise(text: str) -> str:
+        return " ".join(_HANDBOFF_NOISE.sub(" ", text.lower()).split())
+
+    needle = normalise(keyword)
+    if not needle:
+        return False
+    return needle in normalise(query_lower)
+
+
 class HumanHandoffSystem:
     """
     Manages warm handoffs to human caregivers/nurses.
@@ -1263,10 +1286,19 @@ class HumanHandoffSystem:
     def check_handoff_needed(self, query: str, ai_confidence: float = 1.0) -> Optional[HandoffReason]:
         """Check if handoff is needed based on query"""
         query_lower = query.lower()
-        
+
         for reason, config in self.HANDOFF_TRIGGERS.items():
             for keyword in config["keywords"]:
                 if keyword in query_lower:
+                    return reason
+                # Articles are dropped from both sides before retrying.
+                #
+                # Plain substring matching missed the most natural phrasing of every
+                # one of these requests. "speak to doctor" is not a substring of
+                # "I want to speak to a doctor", so a participant explicitly asking
+                # for a human was answered by the bot instead of being routed to
+                # one. The keywords are the vocabulary, not the grammar.
+                if _match_without_articles(keyword, query_lower):
                     return reason
         
         # Check AI uncertainty

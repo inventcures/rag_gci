@@ -397,9 +397,21 @@ This is an emergency. Please call 108 immediately for an ambulance.
             else:
                 voice_response = truncated + "."
         
-        # Add evidence badge if confidence is low
-        # (For voice, we only mention if it's important)
-        
+        # A character budget as well as a word budget.
+        #
+        # Word counting alone does not bound duration. A single long token is one
+        # word, so it passes any word limit intact: "A" * 3000 is one word and would
+        # be read out as 3000 characters of nothing. Speech synthesis has no way to
+        # pronounce that within the stated time, and the caller's duration promise
+        # is already broken.
+        max_chars = int(max_duration_seconds * 12)
+        if len(voice_response) > max_chars:
+            voice_response = voice_response[:max_chars].rstrip()
+            # Never end mid-word, which is audible as a stumble.
+            if " " in voice_response:
+                voice_response = voice_response.rsplit(" ", 1)[0]
+            voice_response = voice_response.rstrip(",;: ") + "."
+
         return voice_response
     
     def _clean_for_voice(self, text: str) -> str:
