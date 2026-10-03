@@ -19,9 +19,11 @@ Usage:
 """
 
 import argparse
+import ast
 import html
 import json
 import re
+import logging
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -31,6 +33,8 @@ from typing import Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "site"
+
+logger = logging.getLogger(__name__)
 
 SKIP_DIRS = {
     ".git", "kotaemon-main", "__pycache__", "cache", "out", "data",
@@ -86,22 +90,50 @@ def module_facts() -> List[Dict]:
 
 
 def mobile_routes() -> List[Dict]:
-    """The mobile API surface, read from the router rather than from docs."""
-    sys.path.insert(0, str(ROOT))
+    """
+    The mobile API surface, read from the router source.
+
+    Parsed with ast rather than imported. Importing worked, and then the staleness
+    gate failed in CI while passing locally, because a smaller set of installed
+    packages changed what the import produced. A gate whose answer depends on the
+    environment cannot be trusted to report drift, which is the only job it has.
+
+    Reading the decorators directly needs no dependencies at all, so the generated
+    page is identical everywhere.
+    """
+    router = ROOT / "mobile_api" / "router.py"
+    if not router.exists():
+        return []
+
     try:
-        import mobile_api.router as router_module
-    except Exception as exc:
-        return [{"path": "(unavailable)", "methods": "?", "error": str(exc)}]
+        tree = ast.parse(router.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as exc:
+        logger.warning("Could not read the mobile router: %s", exc)
+        return []
+
+    http = {"get", "post", "put", "patch", "delete"}
     out = []
-    for route in router_module.mobile_router.routes:
-        path = getattr(route, "path", "")
-        if not path:
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        methods = getattr(route, "methods", None)
-        # WebSocket routes carry no methods attribute and are still part of the
-        # surface, so they are labelled rather than dropped.
-        label = ",".join(sorted(methods)) if methods else "WS"
-        out.append({"path": path, "methods": label})
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            func = decorator.func
+            # @mobile_router.get("/path") or @mobile_router.websocket("/path")
+            if not isinstance(func, ast.Attribute) or not func.attr.isidentifier():
+                continue
+            if not (func.attr in http or func.attr == "websocket"):
+                continue
+            if not decorator.args or not isinstance(decorator.args[0], ast.Constant):
+                continue
+            path = decorator.args[0].value
+            if not isinstance(path, str):
+                continue
+            out.append({
+                "path": path,
+                "methods": "WS" if func.attr == "websocket" else func.attr.upper(),
+            })
     out.sort(key=lambda r: r["path"])
     return out
 

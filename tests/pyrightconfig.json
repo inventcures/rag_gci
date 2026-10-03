@@ -1,0 +1,16 @@
+{
+  "$comment": [
+    "The root pyrightconfig.json declares extraPaths: [\".\"] relative to the",
+    "repository root. Some servers, including the one used by the pi-lens check,",
+    "take the test file's own directory as their root and never read the root",
+    "config, so \"extraPaths\" resolves to tests/ and every project import is",
+    "reported unresolved. Standalone pyright reads the root config and reports",
+    "zero errors, and the modules import correctly at runtime.",
+    "",
+    "Declaring the parent here fixes the file's own directory case without",
+    "repeating anything the root config already says."
+  ],
+  "include": ["."],
+  "extraPaths": [".."],
+  "reportMissingImports": "error"
+}
