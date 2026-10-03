@@ -149,11 +149,14 @@ Voice works end to end, and voice obeys the same safety rules as text.
 `LiveVoiceProvider` has nothing to call. That adapter is the last mile of real-time
 voice. Everything either side of it is built and tested.
 
-### T5 — substance done, transport outstanding
+### T5 — complete in code, blocked on one dependency
 
-Arbitration, fallback rate, operator override and audit trail are ADR 0007's actual
-requirement, and all exist. What is missing is the Gemini Live transport, which is
-the same gap as T4's last bullet.
+Arbitration, fallback rate, operator override and audit trail all exist. They are
+now also **connected**, which they were not before. See the findings below.
+
+Remaining: `google-genai` is not installed, so `LiveAvailability.probe()` correctly
+reports Live unavailable and every turn falls back to Sarvam. Installing it needs a
+decision (see section 10).
 
 ## Findings that were expensive to learn
 
@@ -189,6 +192,41 @@ returned zero forever. It now raises when no router is registered, and the panel
 wrote two entries into the voice provider audit trail under a real person's name,
 describing an incident that never happened. A study audit trail with invented
 entries is worse than an empty one. Both files are now gitignored as runtime state.
+
+**The voice router was dead code.** `set_voice_router` had no callers,
+`LiveVoiceProvider` was constructed nowhere, and `handle_audio` was reachable only
+from a provider nothing built. The Android app's real voice route, `POST
+/query/voice`, transcribed with Sarvam directly, hardcoded its own grounding and
+safety, and never consulted the router. The socket route read a transcript from the
+client, which cannot hear itself. So every field turn bypassed arbitration, never
+saw an operator override, and reported `voice_path=live` while using Sarvam
+throughout. Both routes now go through `VoiceRouter`.
+
+**Both voice routes would have returned HTTP 500 on every turn.** They called
+`rag_pipeline.query` with keywords the real pipeline does not accept: `language` on
+the socket path, and `language` plus `query_text` on the REST path. The real
+signature is `(question, conversation_id, user_id, top_k, source_language)`. The REST
+route then read `result.answer` off what is a `Dict`. Every test passed because the
+fakes accepted `**kw`, so they were more forgiving than the code they stood in for.
+`FakeRag` now mirrors the real signature and a guard test fails the build if the two
+drift apart again.
+
+**The docs reference was stale the moment it was written.** It embedded the commit
+hash it was generated from, so its own staleness gate could never pass. The gate now
+excludes build time and commit from the comparison, and is tested in both
+directions.
+
+**A build directory outside `.gitignore`.** The first MkDocs build wrote an untracked
+`site/` at the repository root. A committed copy of built docs is how a stale page
+becomes permanent.
+
+**The repository is public.** Verified: `gh repo view` reports `visibility: PUBLIC`.
+Checked before assuming: `uploads/` has no tracked files, `data/study/` holds only
+the release manifest, `.env` was never committed, and a scan of all history for
+credential-shaped strings found nothing. So there is no PHI or secret exposure
+today. The live risk is forward-looking, which is why CI now runs gitleaks. Whether
+the protocol and grant documents should be published at all is a study decision,
+not an engineering one.
 
 **All five documentation diagrams failed to render twice** before I checked, for
 reasons unrelated to the diagrams: a missing headless Chrome, then a sandbox
@@ -388,13 +426,28 @@ run, because collection aborted. Do not quote a number that was not measured.
 
 ## 10. What is next
 
-**The one real gap: `gemini_live/service.py` has no `stream_audio` method.**
-`LiveVoiceProvider` calls it, so the Live path cannot serve a turn yet. Everything
-either side is built and tested. It also needs `google-genai` installed, which is
-absent here. That adapter is the last mile of T4 and T5.
+**The one real gap: `google-genai` is not installed.** `voice_live_adapter.py` now
+provides the `stream_audio` method the router was calling all along, and both voice
+routes are wired to it. Without the SDK the availability probe correctly reports
+Live unavailable and every turn falls back to Sarvam, which works and is
+India-resident.
+
+Installing it needs a decision, and the answer is a venv rather than
+`--break-system-packages`. This machine is PEP 668 managed and `ensurepip` is
+absent, so `python -m venv` fails outright; `uv` works and was used to validate the
+docs build. Recommended: create `android-app`-adjacent `.venv` with `uv`, add
+`google-genai` to `requirements.txt`, and document the one-line bootstrap.
+
+Live is currently used as a transcription upgrade, with the answer still produced by
+`VoiceTurnHandler`, so the dose boundary keeps one implementation. The cost is
+Live's latency advantage. True duplex with barge-in needs a protocol change on
+`/ws/voice` rather than an adapter, and belongs in a later ticket.
 
 Then, in order:
 
+- **Add a voice-route integration test.** The unit tests cover the adapter, the
+  router and the handler separately. Nothing yet drives a real audio frame through
+  the endpoint end to end. That gap is how the kwargs bug survived.
 - **T6** language, household and roles. Everything it needs exists.
 - **T7** offline history, state and cached bundle. The server bundle route and the
   twenty questions per language are already done.
