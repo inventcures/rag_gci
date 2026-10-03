@@ -1,7 +1,16 @@
 import time
 import uuid
 import logging
-from fastapi import APIRouter, Depends, UploadFile, File, Query, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import JSONResponse
 from typing import Optional
 
@@ -32,7 +41,16 @@ from mobile_api.dependencies import get_rag_pipeline, get_safety_manager, get_me
 from evaluation.sus_collector import SusCollector
 from evaluation.vignette_manager import VignetteManager
 from evaluation.interaction_logger import MobileInteractionLogger
+import json
+
 from study_logging import get_study_logger
+from voice_session import (
+    VOICE_PATH_LIVE,
+    VoiceSession,
+    VoiceTurnHandler,
+    error_frame,
+    turn_frame,
+)
 from evaluation.exporter import EvaluationExporter
 from offline.cache_builder import CacheBundleBuilder
 from sync.delta_tracker import DeltaTracker
@@ -698,3 +716,111 @@ async def submit_feedback(
     except Exception as e:
         logger.error(f"Feedback submission failed: {e}")
         return FeedbackResponse(status="accepted_with_error")
+
+
+# -- Real-time voice ---------------------------------------------------------
+
+
+@mobile_router.websocket("/ws/voice")
+async def websocket_voice(
+    websocket: WebSocket,
+    language: str = Query("en-IN"),
+):
+    """
+    Real-time voice conversation.
+
+    The connection carries one session. Each stop frame ends a turn, which is
+    grounded through the same pipeline the text route uses and then passed
+    through the same safety boundary. Nothing about this route may produce an
+    answer the text route would have withheld.
+
+    A dropped connection is ordinary in these sites and is not an error worth
+    logging loudly; a turn that fails to record is, because it leaves a gap in the
+    study's evidence.
+    """
+    await websocket.accept()
+
+    session = VoiceSession(language=language)
+    handler = VoiceTurnHandler(
+        rag_pipeline=get_rag_pipeline(),
+        safety_manager=get_safety_manager(),
+        study_logger=_study_logger,
+        synthesise=_synthesise_voice,
+    )
+
+    try:
+        await websocket.send_text(
+            json.dumps({
+                "type": "ready",
+                "session_id": session.session_id,
+                "voice_path": VOICE_PATH_LIVE,
+                "language": session.language,
+            })
+        )
+
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                frame = json.loads(raw)
+            except json.JSONDecodeError:
+                await websocket.send_text(error_frame("Malformed frame."))
+                continue
+
+            kind = frame.get("type")
+
+            if kind == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+                continue
+
+            if kind == "start":
+                # The client may correct the language after connecting, since
+                # registration knows it and the connection may not.
+                session.language = frame.get("language") or session.language
+                continue
+
+            if kind == "interrupt":
+                # The user cut in. The next stop frame starts a fresh turn, so
+                # nothing is carried over from a half-heard answer.
+                session.interrupted = True
+                continue
+
+            if kind != "stop":
+                await websocket.send_text(error_frame(f"Unknown frame type: {kind!r}"))
+                continue
+
+            session.interrupted = False
+            transcript = (frame.get("transcript") or "").strip()
+            if not transcript:
+                # Transcription happens on the provider side. A stop with no
+                # transcript is a tap rather than a question, and sending it would
+                # record an empty substantive interaction.
+                await websocket.send_text(
+                    error_frame("No transcript in this turn.")
+                )
+                continue
+
+            turn = await handler.handle(session, transcript)
+            await websocket.send_text(turn_frame(turn, session.release_id))
+
+    except WebSocketDisconnect:
+        logger.info("Voice session %s disconnected", session.session_id)
+    except Exception:
+        logger.exception("Voice session %s failed", session.session_id)
+        try:
+            await websocket.send_text(error_frame("The voice session failed."))
+        except Exception:
+            pass
+
+
+async def _synthesise_voice(text: str, language: str):
+    """Turn an answer into audio, or None when synthesis is unavailable."""
+    try:
+        from sarvam_integration import SarvamClient
+
+        result = await SarvamClient().text_to_speech(text, language)
+        return result.audio_base64
+    except Exception:
+        # A spoken answer missing is a degraded turn, not a failed one. The text
+        # is already on screen and already safety filtered.
+        logger.warning("Voice synthesis unavailable for %s", language)
+        return None
