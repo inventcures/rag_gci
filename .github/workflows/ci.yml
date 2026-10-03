@@ -97,7 +97,25 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - name: Install the Android SDK explicitly
+        # Not android-actions/setup-android. That action validates the version of the
+        # sdkmanager preinstalled on the runner image and aborts with "Wrong version
+        # in preinstalled sdkmanager" when it disagrees. Pinning the command line
+        # tools removes the dependency on whatever the image happens to ship.
+        env:
+          ANDROID_CMDLINE_VERSION: "11076708"
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL -o /tmp/cmdline-tools.zip \
+            "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_VERSION}_latest.zip"
+          rm -rf /tmp/cmdline-tools
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
+          mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --list_installed
 
       - name: Unit tests, contract drift and generated client
         working-directory: android-app
