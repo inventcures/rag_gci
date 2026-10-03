@@ -30,3 +30,4 @@ rootProject.name = "palli-sahayak-android"
 include(":app")
 include(":core:api")
 include(":core:safety")
+include(":core:data")

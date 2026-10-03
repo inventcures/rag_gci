@@ -20,6 +20,8 @@ androidxJunit = "1.2.1"
 truth = "1.4.4"
 mockwebserver = "4.12.0"
 openapiGenerator = "7.10.0"
+room = "2.6.1"
+ksp = "2.0.21-1.0.28"
 # Kotlin 2.0 moved the Compose compiler out of the Kotlin plugin and into its own
 # Gradle plugin. Applying compose without it fails the build.
 composeCompiler = "2.0.21"
@@ -43,6 +45,10 @@ moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.re
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 
+room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version = "1.11.3" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
@@ -57,3 +63,4 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "composeCompiler" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
