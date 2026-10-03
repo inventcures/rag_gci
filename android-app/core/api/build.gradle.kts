@@ -74,8 +74,27 @@ val verifyApiContract by tasks.registering(Exec::class) {
     isIgnoreExitValue = false
 }
 
+// The client is generated from the contract, so a contract update that is not
+// followed by a regeneration would leave the client describing an older API.
+// Gating both halves means the pair cannot diverge.
+val verifyGeneratedClient by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when the committed Kotlin client is stale relative to the contract."
+
+    val script = rootProject.layout.projectDirectory
+        .file("../scripts/generate_kotlin_client.py").asFile
+    val contract = apiContractDir.file("openapi.json")
+
+    inputs.file(contract).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(script).withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.upToDateWhen { false }
+
+    commandLine("python3", script.absolutePath, "--check")
+    isIgnoreExitValue = false
+}
+
 tasks.named("check") {
-    dependsOn(verifyApiContract)
+    dependsOn(verifyApiContract, verifyGeneratedClient)
 }
 
 tasks.withType<Test>().configureEach {
