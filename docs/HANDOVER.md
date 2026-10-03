@@ -426,21 +426,54 @@ run, because collection aborted. Do not quote a number that was not measured.
 
 ## 10. What is next
 
-**The one real gap: `google-genai` is not installed.** `voice_live_adapter.py` now
-provides the `stream_audio` method the router was calling all along, and both voice
-routes are wired to it. Without the SDK the availability probe correctly reports
-Live unavailable and every turn falls back to Sarvam, which works and is
-India-resident.
+### `requirements.txt` has never been installable
 
-Installing it needs a decision, and the answer is a venv rather than
-`--break-system-packages`. This machine is PEP 668 managed and `ensurepip` is
-absent, so `python -m venv` fails outright; `uv` works and was used to validate the
-docs build. Recommended: create `android-app`-adjacent `.venv` with `uv`, add
-`google-genai` to `requirements.txt`, and document the one-line bootstrap.
+`requirements.txt` lists `ktem` and `kotaemon`. **Both are 404 on PyPI**, because
+they ship with the vendored `kotaemon-main` tree rather than being published. Any
+attempt to install that file fails at dependency resolution.
 
-Live is currently used as a transcription upgrade, with the answer still produced by
-`VoiceTurnHandler`, so the dose boundary keeps one implementation. The cost is
-Live's latency advantage. True duplex with barge-in needs a protocol change on
+This is the root cause of the environment drift, and nothing surfaced it. The
+consequences ran for a long time:
+
+- `google-genai>=2.18.0` was declared but never installed, so
+  `LiveAvailability.probe()` reported the Gemini Live path unavailable and every
+  voice turn silently fell back to Sarvam.
+- Two tests passed **because** the SDK was missing, one of them asserting the
+  opposite of what its name claimed.
+
+`pyproject.toml` deliberately does **not** read `requirements.txt` for its
+dependencies, and the reason is recorded in a comment there. Do not reintroduce
+that link, or every build of this project fails.
+
+The fix for the file itself is a decision, not a guess: either vendor those two
+packages properly, or split them into a `requirements-local.txt` that installs only
+where `kotaemon-main` is present.
+
+### Environment as it now stands
+
+```bash
+uv venv .venv --python 3.12 --system-site-packages
+uv pip install --python .venv/bin/python google-genai pyyaml setuptools
+```
+
+`uv` rather than `python -m venv`: this machine is PEP 668 managed and `ensurepip`
+is absent, so `python -m venv` fails outright and its first error line is useless.
+An early attempt reported `rc=0` while installing nothing, because a pipe to `tail`
+masked pip's exit code.
+
+A `.pth` file in the venv puts the repository root on `sys.path`, so project modules
+resolve from any directory. Editable installs were tried first and rejected:
+setuptools discovery across 44 root modules and 27 packages failed with a build
+error. The reason is recorded in `pyproject.toml`.
+
+Current state: `google-genai` 2.28.0 installed, `LiveAvailability` reports
+available, **703 passed, 2 pre-existing failures, 0 errors**.
+
+### Live is a transcription upgrade, not a second answer generator
+
+The answer is still produced by `VoiceTurnHandler`, so the dose boundary keeps one
+implementation. The cost is Live's latency advantage, which is a real trade and is
+stated in the module docstring. True duplex with barge-in needs a protocol change on
 `/ws/voice` rather than an adapter, and belongs in a later ticket.
 
 Then, in order:
@@ -448,19 +481,29 @@ Then, in order:
 - **Add a voice-route integration test.** The unit tests cover the adapter, the
   router and the handler separately. Nothing yet drives a real audio frame through
   the endpoint end to end. That gap is how the kwargs bug survived.
+- **Fix the type checker server, not the repo.** pi-lens's pyright reports root-level
+  imports as unresolved while standalone `pyright` reports zero errors on the same
+  file. The repo config is correct; pi-lens does not load `pyrightconfig.json`, and
+  `extraPaths` resolves relative to the config file, so nothing in the repo can fix
+  it. Verified after a full `refreshRunners: all`.
 - **T6** language, household and roles. Everything it needs exists.
 - **T7** offline history, state and cached bundle. The server bundle route and the
   twenty questions per language are already done.
 - **T8** accessibility contract and the release gate. The gate cannot pass until §7.7
   evidence exists.
 
-**Not started, and it needs you:** MkDocs Material via GitHub Actions for
-private-safe auto-updating docs. Requires Pages and Actions enabled on the repo,
-which I cannot do from here. The generated HTML is at `docs/site/index.html`;
-rebuild it with `python3 scripts/build_docs.py`.
+**Done since the last handover:** MkDocs Material publishing to GitHub Pages, CI
+covering the Python suite, Android unit tests, both contract gates, the docs
+staleness gate and a gitleaks secret scan. Actions are pinned to commit SHAs. The
+site builds with `--strict` and all five diagrams render.
 
-**Still open from earlier, unchanged:**
+**Still needs you, and I cannot do it from here:**
 
+- **The repository is public.** No PHI or secret exposure today, verified by scanning
+  all history and confirming `uploads/` holds no tracked files. Whether the protocol
+  and grant documents should be published at all is a study decision, not an
+  engineering one, and worth reviewing before this goes further.
+- **Enable Pages and Actions on the repo**, or the docs workflow will not run.
 - `STUDY_LOG_SALT` is unset, so participant ids are not linkable across restarts.
   Sustained adoption is unmeasurable without it.
 - The Gemini API key is in `.env` and in the session transcript on disk. Rotate it.
