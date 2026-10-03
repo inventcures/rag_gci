@@ -35,7 +35,8 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.coroutines.android)
 
-    testImplementation(libs.junit)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.truth)
     testImplementation(libs.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
