@@ -1,0 +1,2360 @@
+{
+  "components": {
+    "schemas": {
+      "AddCareTeamMemberRequest": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
+          },
+          "primary_contact": {
+            "default": false,
+            "title": "Primary Contact",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "role"
+        ],
+        "title": "AddCareTeamMemberRequest",
+        "type": "object"
+      },
+      "AuthResponse": {
+        "properties": {
+          "expires_at": {
+            "title": "Expires At",
+            "type": "number"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "token",
+          "expires_at",
+          "refresh_token"
+        ],
+        "title": "AuthResponse",
+        "type": "object"
+      },
+      "Body_voice_query_api_mobile_v1_query_voice_post": {
+        "properties": {
+          "audio": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Audio",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audio"
+        ],
+        "title": "Body_voice_query_api_mobile_v1_query_voice_post",
+        "type": "object"
+      },
+      "CacheBundleResponse": {
+        "properties": {
+          "emergency_keywords": {
+            "additionalProperties": true,
+            "title": "Emergency Keywords",
+            "type": "object"
+          },
+          "evidence_badge_metadata": {
+            "additionalProperties": true,
+            "title": "Evidence Badge Metadata",
+            "type": "object"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "number"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "queries": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Queries",
+            "type": "array"
+          },
+          "treatments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Treatments",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "language",
+          "generated_at",
+          "queries",
+          "treatments",
+          "emergency_keywords",
+          "evidence_badge_metadata"
+        ],
+        "title": "CacheBundleResponse",
+        "type": "object"
+      },
+      "CreateObservationRequest": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "entity_name": {
+            "title": "Entity Name",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "value_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Text"
+          }
+        },
+        "required": [
+          "patient_id",
+          "category",
+          "entity_name"
+        ],
+        "title": "CreateObservationRequest",
+        "type": "object"
+      },
+      "CreateReminderRequest": {
+        "properties": {
+          "dosage": {
+            "title": "Dosage",
+            "type": "string"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "medication_name": {
+            "title": "Medication Name",
+            "type": "string"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "scheduled_time": {
+            "title": "Scheduled Time",
+            "type": "number"
+          }
+        },
+        "required": [
+          "patient_id",
+          "medication_name",
+          "dosage",
+          "scheduled_time",
+          "language"
+        ],
+        "title": "CreateReminderRequest",
+        "type": "object"
+      },
+      "DeviceRegistrationRequest": {
+        "properties": {
+          "abha_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abha Id"
+          },
+          "digital_literacy_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digital Literacy Score"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "phone_hash": {
+            "title": "Phone Hash",
+            "type": "string"
+          },
+          "pin": {
+            "maxLength": 6,
+            "minLength": 4,
+            "title": "Pin",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "phone_hash",
+          "role",
+          "language",
+          "site_id",
+          "pin"
+        ],
+        "title": "DeviceRegistrationRequest",
+        "type": "object"
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "positive": {
+            "title": "Positive",
+            "type": "boolean"
+          },
+          "query_id": {
+            "title": "Query Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query_id",
+          "positive"
+        ],
+        "title": "FeedbackRequest",
+        "type": "object"
+      },
+      "FeedbackResponse": {
+        "properties": {
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FeedbackResponse",
+        "type": "object"
+      },
+      "FhirImportRequest": {
+        "properties": {
+          "bundle": {
+            "additionalProperties": true,
+            "title": "Bundle",
+            "type": "object"
+          }
+        },
+        "required": [
+          "bundle"
+        ],
+        "title": "FhirImportRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InteractionLogBatch": {
+        "properties": {
+          "batch_timestamp": {
+            "title": "Batch Timestamp",
+            "type": "number"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "logs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Logs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "logs",
+          "device_id",
+          "batch_timestamp"
+        ],
+        "title": "InteractionLogBatch",
+        "type": "object"
+      },
+      "InteractionLogResponse": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "status"
+        ],
+        "title": "InteractionLogResponse",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "pin": {
+            "title": "Pin",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "pin"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "MobileQueryRequest": {
+        "properties": {
+          "include_context": {
+            "default": true,
+            "title": "Include Context",
+            "type": "boolean"
+          },
+          "language": {
+            "default": "en-IN",
+            "title": "Language",
+            "type": "string"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "query": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "MobileQueryRequest",
+        "type": "object"
+      },
+      "MobileQueryResponse": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "disclaimer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disclaimer"
+          },
+          "emergency_level": {
+            "title": "Emergency Level",
+            "type": "string"
+          },
+          "evidence_level": {
+            "title": "Evidence Level",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "validation_status": {
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer",
+          "sources",
+          "evidence_level",
+          "emergency_level",
+          "confidence",
+          "validation_status"
+        ],
+        "title": "MobileQueryResponse",
+        "type": "object"
+      },
+      "ObservationResponse": {
+        "properties": {
+          "observation_id": {
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "status"
+        ],
+        "title": "ObservationResponse",
+        "type": "object"
+      },
+      "PatientDetailResponse": {
+        "properties": {
+          "care_team": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Care Team",
+            "type": "array"
+          },
+          "last_updated": {
+            "title": "Last Updated",
+            "type": "number"
+          },
+          "medication_reminders": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Medication Reminders",
+            "type": "array"
+          },
+          "observations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Observations",
+            "type": "array"
+          },
+          "patient": {
+            "additionalProperties": true,
+            "title": "Patient",
+            "type": "object"
+          }
+        },
+        "required": [
+          "patient",
+          "observations",
+          "care_team",
+          "medication_reminders",
+          "last_updated"
+        ],
+        "title": "PatientDetailResponse",
+        "type": "object"
+      },
+      "PatientInsightsResponse": {
+        "properties": {
+          "insights": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Insights",
+            "type": "array"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "patient_id",
+          "insights",
+          "total"
+        ],
+        "title": "PatientInsightsResponse",
+        "type": "object"
+      },
+      "PatientMemoryQueryRequest": {
+        "properties": {
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "PatientMemoryQueryRequest",
+        "type": "object"
+      },
+      "PatientMemoryQueryResponse": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "cited_insight_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cited Insight Ids",
+            "type": "array"
+          },
+          "cited_memory_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cited Memory Ids",
+            "type": "array"
+          },
+          "insights_used": {
+            "title": "Insights Used",
+            "type": "integer"
+          },
+          "raw_memories_used": {
+            "title": "Raw Memories Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "answer",
+          "cited_memory_ids",
+          "cited_insight_ids",
+          "raw_memories_used",
+          "insights_used"
+        ],
+        "title": "PatientMemoryQueryResponse",
+        "type": "object"
+      },
+      "ReminderResponse": {
+        "properties": {
+          "reminder_id": {
+            "title": "Reminder Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reminder_id",
+          "status"
+        ],
+        "title": "ReminderResponse",
+        "type": "object"
+      },
+      "SusSubmissionRequest": {
+        "properties": {
+          "completed_at": {
+            "title": "Completed At",
+            "type": "number"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "scores": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "minItems": 10,
+            "title": "Scores",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scores",
+          "site_id",
+          "language",
+          "completed_at"
+        ],
+        "title": "SusSubmissionRequest",
+        "type": "object"
+      },
+      "SusSubmissionResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submission_id": {
+            "title": "Submission Id",
+            "type": "string"
+          },
+          "sus_score": {
+            "title": "Sus Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "submission_id",
+          "sus_score",
+          "status"
+        ],
+        "title": "SusSubmissionResponse",
+        "type": "object"
+      },
+      "SyncPullResponse": {
+        "properties": {
+          "care_team_members": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Care Team Members",
+            "type": "array"
+          },
+          "medication_reminders": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Medication Reminders",
+            "type": "array"
+          },
+          "observations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Observations",
+            "type": "array"
+          },
+          "patients": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Patients",
+            "type": "array"
+          },
+          "query_cache_updates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Query Cache Updates",
+            "type": "array"
+          },
+          "server_timestamp": {
+            "title": "Server Timestamp",
+            "type": "number"
+          },
+          "vignette_assignments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Vignette Assignments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "patients",
+          "observations",
+          "care_team_members",
+          "medication_reminders",
+          "query_cache_updates",
+          "vignette_assignments",
+          "server_timestamp"
+        ],
+        "title": "SyncPullResponse",
+        "type": "object"
+      },
+      "SyncPushRequest": {
+        "properties": {
+          "device_timestamp": {
+            "title": "Device Timestamp",
+            "type": "number"
+          },
+          "interaction_logs": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": [],
+            "title": "Interaction Logs"
+          },
+          "medication_reminders": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": [],
+            "title": "Medication Reminders"
+          },
+          "observations": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": [],
+            "title": "Observations"
+          },
+          "vignette_responses": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": [],
+            "title": "Vignette Responses"
+          }
+        },
+        "required": [
+          "device_timestamp"
+        ],
+        "title": "SyncPushRequest",
+        "type": "object"
+      },
+      "SyncPushResponse": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "conflicts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted",
+          "rejected",
+          "conflicts"
+        ],
+        "title": "SyncPushResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VignetteSubmissionRequest": {
+        "properties": {
+          "completed_at": {
+            "title": "Completed At",
+            "type": "number"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "response_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Text"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "number"
+          },
+          "vignette_id": {
+            "title": "Vignette Id",
+            "type": "string"
+          },
+          "with_tool": {
+            "title": "With Tool",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vignette_id",
+          "with_tool",
+          "started_at",
+          "completed_at"
+        ],
+        "title": "VignetteSubmissionRequest",
+        "type": "object"
+      },
+      "VignetteSubmissionResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submission_id": {
+            "title": "Submission Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submission_id",
+          "status"
+        ],
+        "title": "VignetteSubmissionResponse",
+        "type": "object"
+      },
+      "VoiceQueryResponse": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "audio_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Base64"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "disclaimer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disclaimer"
+          },
+          "emergency_level": {
+            "title": "Emergency Level",
+            "type": "string"
+          },
+          "evidence_level": {
+            "title": "Evidence Level",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          },
+          "validation_status": {
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer",
+          "sources",
+          "evidence_level",
+          "emergency_level",
+          "confidence",
+          "validation_status",
+          "transcript"
+        ],
+        "title": "VoiceQueryResponse",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Mobile API for the Palli Sahayak Android client. The Kotlin client is generated from this schema; the committed copy is the contract.",
+    "title": "Palli Sahayak Mobile API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/mobile/v1/auth/login": {
+      "post": {
+        "operationId": "login_api_mobile_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/auth/refresh": {
+      "post": {
+        "operationId": "refresh_token_api_mobile_v1_auth_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Refresh Token",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/auth/register": {
+      "post": {
+        "operationId": "register_device_api_mobile_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Device",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/cache/bundle": {
+      "get": {
+        "operationId": "get_cache_bundle_api_mobile_v1_cache_bundle_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "title": "Language",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheBundleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Cache Bundle",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/careteam/{patient_id}": {
+      "get": {
+        "operationId": "get_care_team_api_mobile_v1_careteam__patient_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Care Team",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/careteam/{patient_id}/add": {
+      "post": {
+        "operationId": "add_care_team_member_api_mobile_v1_careteam__patient_id__add_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCareTeamMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Care Team Member",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/evaluation/export": {
+      "get": {
+        "operationId": "export_evaluation_data_api_mobile_v1_evaluation_export_get",
+        "parameters": [
+          {
+            "description": "Export format: csv or json",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format: csv or json",
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Evaluation Data",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/evaluation/logs": {
+      "post": {
+        "operationId": "submit_interaction_logs_api_mobile_v1_evaluation_logs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InteractionLogBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionLogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Interaction Logs",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/evaluation/sus": {
+      "post": {
+        "operationId": "submit_sus_api_mobile_v1_evaluation_sus_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SusSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SusSubmissionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Sus",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/evaluation/vignette": {
+      "post": {
+        "operationId": "submit_vignette_response_api_mobile_v1_evaluation_vignette_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VignetteSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VignetteSubmissionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Vignette Response",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/evaluation/vignettes": {
+      "get": {
+        "operationId": "get_assigned_vignettes_api_mobile_v1_evaluation_vignettes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Assigned Vignettes",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/feedback": {
+      "post": {
+        "operationId": "submit_feedback_api_mobile_v1_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Feedback",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/fhir/export/{patient_id}": {
+      "get": {
+        "operationId": "export_fhir_api_mobile_v1_fhir_export__patient_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Fhir",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/fhir/import": {
+      "post": {
+        "operationId": "import_fhir_api_mobile_v1_fhir_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FhirImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Import Fhir",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/health": {
+      "get": {
+        "operationId": "mobile_health_api_mobile_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mobile Health",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/medication/adherence/{patient_id}": {
+      "get": {
+        "operationId": "get_adherence_api_mobile_v1_medication_adherence__patient_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Adherence",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/medication/reminder": {
+      "post": {
+        "operationId": "create_reminder_api_mobile_v1_medication_reminder_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Reminder",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/medication/reminders": {
+      "get": {
+        "operationId": "get_reminders_api_mobile_v1_medication_reminders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Reminders",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/observation": {
+      "post": {
+        "operationId": "create_observation_api_mobile_v1_observation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateObservationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Observation",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/patient/{patient_id}": {
+      "get": {
+        "operationId": "get_patient_api_mobile_v1_patient__patient_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Patient",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/patient/{patient_id}/insights": {
+      "get": {
+        "operationId": "get_patient_insights_api_mobile_v1_patient__patient_id__insights_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientInsightsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Patient Insights",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/patient/{patient_id}/query-memory": {
+      "post": {
+        "operationId": "query_patient_memory_api_mobile_v1_patient__patient_id__query_memory_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientMemoryQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientMemoryQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Query Patient Memory",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/patients": {
+      "get": {
+        "operationId": "list_patients_api_mobile_v1_patients_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Patients",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/query": {
+      "post": {
+        "operationId": "mobile_query_api_mobile_v1_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobileQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mobile Query",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/query/voice": {
+      "post": {
+        "operationId": "voice_query_api_mobile_v1_query_voice_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "title": "Language",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_voice_query_api_mobile_v1_query_voice_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Voice Query",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/sync/pull": {
+      "post": {
+        "operationId": "sync_pull_api_mobile_v1_sync_pull_post",
+        "parameters": [
+          {
+            "description": "Unix timestamp of last successful sync",
+            "in": "query",
+            "name": "last_sync_at",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp of last successful sync",
+              "title": "Last Sync At",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPullResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Pull",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/sync/push": {
+      "post": {
+        "operationId": "sync_push_api_mobile_v1_sync_push_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncPushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPushResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Push",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
+    "/api/mobile/v1/sync/status": {
+      "get": {
+        "operationId": "sync_status_api_mobile_v1_sync_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Status",
+        "tags": [
+          "mobile"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local machine configuration: SDK path and JDK differ per machine and must
+# never be committed, or the build breaks for everyone else.
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Captures and signing material
+captures/
+*.jks
+*.keystore
