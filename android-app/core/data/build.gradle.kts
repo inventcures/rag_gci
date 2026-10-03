@@ -43,6 +43,13 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    // Retrofit and OkHttp are declared as `implementation` in :core:api, so they
+    // are not on this module's compile classpath. Declared here rather than
+    // widening the api dependency, which would leak them to every consumer.
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.moshi)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
     // ViewModel and viewModelScope. lifecycle-runtime alone does not bring them,
     // so the ViewModel would not compile without this.
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
