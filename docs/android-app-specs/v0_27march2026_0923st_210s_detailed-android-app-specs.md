@@ -1,12 +1,41 @@
 # Palli Sahayak Android App: Detailed Technical Specification
 
-**Version**: 0.1.0
-**Date**: 27 March 2026
+**Version**: 0.2.0 (amended)
+**Date**: 27 March 2026, amended 3 October 2026
 **Authors**: Ashish Makani, Dr. Anurag Agrawal (PI), KCDH-A Team
 **Status**: Draft — Pre-Implementation Spec
 **Companion Document**: `v50_20260327_0947ist_210s__changes-to-existing-rag_gci-codebase_detailed-specs.md` (backend changes)
 **Informing Document**: `v4_proposal_draft.pdf` (EVAH Pathway A Proposal)
 **Reference**: [DeepWiki: rag_gci Architecture](https://deepwiki.com/inventcures/rag_gci)
+**Decisions**: `docs/adr/0001`–`0007`, `CONTEXT.md`
+
+> **Amendment note.** Version 0.2.0 reconciles this specification against seven
+> architecture decision records taken during design review. Where the two
+> disagree, the ADR governs and this document has been corrected. The specific
+> sections changed are listed in the amendment record immediately below. Sections
+> not listed are unchanged from 0.1.0 and remain as written.
+
+## Amendment Record (0.1.0 → 0.2.0)
+
+| ADR | Section | What changed and why |
+|----|---------|----------------------|
+| 0001 | §3.1, §12 | Care Role is recorded on every interaction but is **not** an access boundary. Cross-household ownership checks are required; within-household separation is not. |
+| 0002 | §10.4, §10.5 | Language list reduced to the eleven that TTS supports. Removed `tu-IN`. Added `mr/od/pa/gu`. Replaced the deprecated `meera` voice map. Hindi fallback **forbidden**. |
+| 0003 | §5.2, §7 | Retrieval is cross-language via bge-m3 (1024-dim, self-hosted). Query translation is a fallback, not the default. Measured hit@5 0.96 vs 0.09 for the previous English-only index. |
+| 0004 | §7, §8, §9, §10.5 | New **Dose Boundary** safety invariant, with sentence-level redaction, Deferral copy, and an Emergency Override ordering rule. Client emergency severity must not bypass it. |
+| 0005 | §11 | Offline is a cached answer bundle plus local history. On-device embeddings are ruled out. Offline affordance is a disabled control that explains itself. |
+| 0006 | §3.1, §9 | One Household Record, shared. Active Role is a persistent icon, a framing choice, never a privacy control. |
+| 0007 | §1.4, §5.2, §10 | Real-time voice is Gemini 3.8 Live with an automatic Sarvam fallback. RAG LLM is Gemini 3.5 Flash pinned to `asia-south1`. |
+
+### Corrections that were factually wrong in 0.1.0
+
+Three items in 0.1.0 were not merely outdated but would have shipped defects.
+
+**§10.4 listed `tu-IN` (Tulu) as a supported language.** Tulu is not a Sarvam language at all; the spec's own comment concedes it "maps to Kannada". It is removed.
+
+**§10.4 omitted `mr-IN`, `od-IN`, `pa-IN` and `gu-IN`**, all of which Sarvam TTS supports, while listing four languages the app cannot speak. The list is rebuilt from `sarvam_integration/config.py` rather than from memory.
+
+**§10.5 returned `EmergencyLevel.CRITICAL` for any keyword match**, including `"severe pain"`. On the server that phrase is HIGH severity, and only CRITICAL may invoke the Emergency Override (ADR 0004). The client as specified would have bypassed the dose restriction on the single most common phrasing of a dose question. Severity must be preserved, not collapsed.
 
 ---
 
@@ -69,6 +98,11 @@ The Android app:
 | PIN-based auth, not passwords | Validated by mSakhi for low-literacy ASHA workers; device sharing is common |
 | Evidence badges on every response | Five-pillar safety framework is non-negotiable |
 | Evaluation-instrumented from day one | Every interaction generates data for RE-AIM analysis |
+| Say what you cannot do | The Dose Boundary (ADR 0004) refuses specific dosages and says why, rather than hedging or silently omitting |
+| An emergency outranks a style rule | Only a CRITICAL alert may override the Dose Boundary; a HIGH one may not |
+| One household, one record | Care Role frames the view; it is never a privacy boundary (ADR 0006) |
+| Never answer in a language the user did not choose | No Hindi substitution; say plainly that a language is unsupported (ADR 0002) |
+| Show the state, do not imply it | The Active Role icon, the Offline State and a Redacted Answer are all visible rather than implied |
 
 ---
 
@@ -352,25 +386,30 @@ User taps microphone
         ▼
 AudioRecorder captures PCM (16kHz, 16-bit, mono)
         │
-        ├── [ONLINE] ──► POST /api/mobile/v1/query/voice
+        ├── [ONLINE, LIVE OK] ──► WSS /ws/voice ──► Gemini 3.8 Live
+        │                              │
+        │                              ▼
+        │                        tool call back to /api/mobile/v1/query
+        │                              │
+        ├── [ONLINE, LIVE DOWN] ──► POST /api/mobile/v1/query/voice
         │                     │
         │                     ▼
-        │               Sarvam STT (Saaras v3)
+        │               Sarvam STT (Saaras v3)      [India-resident]
         │                     │
         │                     ▼
         │               SimpleRAGPipeline.query()
-        │                 ├── ChromaDB vector search
-        │                 ├── Neo4j graph traversal
-        │                 └── GraphRAG community search
+        │                 └── ChromaDB + bge-m3 cross-language search
+        │                     (ADR 0003: no query translation on the default path)
         │                     │
         │                     ▼
-        │               ClinicalValidator.validate()
+        │               Gemini 3.5 Flash @ asia-south1   [India-resident]
         │                     │
         │                     ▼
         │               SafetyEnhancementsManager
+        │                 ├── Dose Boundary → Redacted Answer or Deferral (ADR 0004)
+        │                 ├── Emergency detection, severity preserved (SI-4)
         │                 ├── Evidence badge
-        │                 ├── Emergency detection
-        │                 └── Expert sampling
+        │                 └── Expert sampling (5% / 50% / 100%)
         │                     │
         │                     ▼
         │               Response JSON + TTS audio (base64)
@@ -672,6 +711,46 @@ core-ui ──► core-model, core-common
 ---
 
 ## 7. Data Layer
+
+### 7.0 Safety Invariants (normative)
+
+These are constraints, not suggestions. A change that violates one does not merge.
+
+**SI-1 — The Dose Boundary.** Palli Sahayak never states a specific dose,
+strength, titration step, escalation schedule, interaction judgement, or start/stop
+decision for any medicine (ADR 0004). The boundary is drawn at the dose, not at the
+OTC/prescription distinction: a dose is a dose however it was purchased, and OTC is
+not a safety property for a cohort with advanced kidney and liver disease.
+
+**SI-2 — Redacted Answer, not silent omission.** Crossing the Dose Boundary removes
+the dose-bearing sentences and keeps the remainder, so a general question about a
+medicine does not lose its useful half. If too little survives to be useful, the
+whole answer becomes a Deferral. A Redacted Answer is **not** an Answer and must
+never be rendered, logged or counted as one.
+
+**SI-3 — Deferral never promises a person.** Deferral copy names concrete next steps
+and, where relevant, the 108 emergency number. It must not state or imply that a
+clinician has been contacted or will make contact, because no notification path
+exists. Protocol §7.6 forbids implying a transfer succeeded before receipt is
+confirmed.
+
+**SI-4 — Emergency Override is CRITICAL only.** A CRITICAL alert outranks the Dose
+Boundary and passes the response through untouched. A HIGH alert does not, and this
+distinction must survive to the client: `EmergencyKeywordDetector` (§10.5) returns
+severity, never a flat CRITICAL. Collapsing severity is how the restriction gets
+silently disabled by the phrase "severe pain".
+
+**SI-5 — Release provenance on every interaction.** Each interaction carries the
+study release identifier (ADR and protocol §7.8). A response served while the running
+system does not match the approved release is still recorded, marked as drifted, so
+that interactions on an unapproved build can be counted and excluded later.
+
+**SI-6 — No Hindi substitution.** Never answer in a language the user did not
+choose. State plainly that a language is unsupported (ADR 0002).
+
+**SI-7 — Care Role is not an access boundary.** Within a household, everyone reads
+the same Household Record (ADR 0006). Cross-household ownership checks **are**
+required on every patient-scoped endpoint.
 
 ### 7.1 Room Database
 
@@ -1433,9 +1512,12 @@ sealed class VoiceStreamEvent {
 }
 ```
 
-### 10.2 ServerVoiceEngine (Primary — Online)
+### 10.2 ServerVoiceEngine (Fallback — Live Unavailable)
 
-Calls Sarvam AI via the backend's mobile API:
+Turn-based Sarvam path via the backend's mobile API. This is the automatic
+fallback for §10.2a and the primary path whenever the device is offline. It is
+India-resident, and it is the path the study must still work on, so it cannot
+be treated as a degraded mode.
 
 ```kotlin
 class ServerVoiceEngine @Inject constructor(
@@ -1444,7 +1526,10 @@ class ServerVoiceEngine @Inject constructor(
 ) : VoiceEngine {
 
     override suspend fun speechToText(audio: ByteArray, language: String): Result<String> {
-        val bcp47 = languageMapper.toBcp47(language) // "ta" -> "ta-IN"
+        // toBcp47 returns null for an unsupported language. Never coerce to
+        // English or Hindi: surface it (ADR 0002).
+        val bcp47 = languageMapper.toBcp47(language)
+            ?: return Result.Error(UnsupportedLanguageException(language))
         val response = apiService.voiceQuery(
             audio = audio.toRequestBody("audio/wav".toMediaType()),
             language = bcp47,
@@ -1461,6 +1546,73 @@ class ServerVoiceEngine @Inject constructor(
     }
 }
 ```
+
+### 10.2a LiveVoiceEngine (Primary — Online, Real-Time)
+
+Real-time conversational voice is the primary interaction (ADR 0007). It connects
+over WebSocket to our own backend, which proxies the Gemini Live API session.
+
+```
+App ──WSS──► /ws/voice ──► GeminiLiveService ──► Gemini 3.8 Live (us-south1 / europe-west9 / asia-northeast3 / ...)
+                        └──► RAG grounding via mandatory tool call back to /api/mobile/v1/query
+```
+
+No Indian region offers the Live API. Raw voice audio therefore leaves India on this
+path, while the language model (Gemini 3.5 Flash pinned to `asia-south1`), the
+embeddings (bge-m3, self-hosted) and the knowledge base (ChromaDB, local) all remain
+in-country. This is the precise residency position, and it is narrower than the
+grant's blanket claim; see ADR 0007 before restating it externally.
+
+```kotlin
+class LiveVoiceEngine @Inject constructor(
+    private val socket: VoiceSocket,
+    private val releaseId: StudyReleaseId,
+) : VoiceEngine {
+    override suspend fun streamVoiceQuery(audio: ByteArray, language: String): Flow<VoiceStreamEvent> =
+        socket.openSession(releaseId = releaseId, language = language)
+            .flatMapConcat { session ->
+                flow {
+                    emit(VoiceStreamEvent.TranscriptUpdate("", false))
+                    session.sendAudio(audio)
+                    session.events.collect { emit(it.toVoiceStreamEvent()) }
+                }
+            }
+            .catch { emit(VoiceStreamEvent.Error(it.message ?: "live session failed")) }
+}
+```
+
+**Fallback is automatic and health-based (ADR 0007).** Detection must cover a
+first-token timeout and a per-turn stall, not merely a failed connection: a Live
+session that connects and then goes quiet mid-answer is worse than one that never
+connects, because the user is left mid-sentence. On fallback the app switches to the
+Sarvam path below, which is turn-based and cannot barge in, so **the UI must indicate
+which mode is active** — a user who interrupts a Sarvam response will otherwise
+conclude the app has frozen.
+
+**Backend-admin override.** The **backend administrator** can force the Sarvam path
+for the whole deployment, for operational reasons: Gemini Live quota exhaustion, a
+site network that cannot reach the Live endpoint, cost, or a suspected provider
+incident. Site coordinators and field staff do **not** have this right.
+
+The control is **server-side only**. It lives in backend configuration and is
+mutated through an authenticated admin endpoint. The Android client has no control
+that can change it at all, so the switch cannot be flipped from a phone in the
+field — which removes the main risk that an operational override quietly becomes
+the permanent residency position.
+
+Two requirements keep it accountable:
+
+1. **The provider that answered is recorded on every interaction** — already
+   required above. The analysis reports how often each path ran.
+2. **Changing the override writes an attributed audit record** — admin identity,
+   timestamp, previous value, new value, and a required free-text reason — to
+   `data/study/logs/`, which is append-only.
+
+The audit view at `/admin/study` reports interactions per provider path, so a
+deployment running permanently on the fallback is visible rather than inferred.
+
+**Recommended default remains Live**, with Sarvam as the automatic fallback. The
+override is for incidents, not for normal operation.
 
 ### 10.3 OnDeviceVoiceEngine (Fallback — Offline)
 
@@ -1499,60 +1651,125 @@ class OnDeviceVoiceEngine @Inject constructor(
 
 ### 10.4 Language Mapping
 
-Matches `sarvam_integration/config.py` language code mappings:
+Rebuilt from `sarvam_integration/config.py` rather than from the 0.1.0 draft. The
+supported set is the **eleven** languages the app can both hear and speak, bounded
+by TTS capability rather than ASR capability (ADR 0002). Sarvam transcribes 22
+languages but synthesises only 11; enabling an ASR-only language produces a
+Speech-Language Mismatch, which is a defect for Patient use rather than a graceful
+degradation.
 
 ```kotlin
 object LanguageMapper {
+    // The eleven Supported Languages (ADR 0002).
+    private val supported = setOf(
+        "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN",
+        "od-IN", "pa-IN", "ta-IN", "te-IN", "gu-IN", "en-IN",
+    )
+
     private val codeMap = mapOf(
-        "ta" to "ta-IN",      // Tamil
-        "te" to "te-IN",      // Telugu
-        "kn" to "kn-IN",      // Kannada
-        "ml" to "ml-IN",      // Malayalam
-        "bn" to "bn-IN",      // Bengali
-        "as" to "as-IN",      // Assamese
-        "hi" to "hi-IN",      // Hindi
-        "en" to "en-IN",      // English (India)
-        "tu" to "tu-IN",      // Tulu (mapped to Kannada for STT/TTS)
+        "hi" to "hi-IN", "bn" to "bn-IN", "kn" to "kn-IN", "ml" to "ml-IN",
+        "mr" to "mr-IN", "od" to "od-IN", "pa" to "pa-IN", "ta" to "ta-IN",
+        "te" to "te-IN", "gu" to "gu-IN", "en" to "en-IN",
+        // Tulu is deliberately absent: it is not a Sarvam language. Tulu
+        // speakers use Kannada, and Kannada is supported.
+        //
+        // The 11 ASR-only languages (as, brx, doi, gom, ks, kok, mai, mni, ne,
+        // sa, sd) are deliberately absent. They can be transcribed but not spoken
+        // back, so they must never be selected.
     )
 
-    // Sarvam TTS voice mapping (matching config.py SARVAM_VOICE_MAP)
+    // Bulbul v3 uses language-agnostic speakers. The 0.1.0 map requested "meera"
+    // for every language, which config.py records as deprecated.
     private val voiceMap = mapOf(
-        "hi-IN" to "meera",   // Female Hindi voice
-        "ta-IN" to "meera",   // Female Tamil voice
-        "bn-IN" to "meera",   // Female Bengali voice
-        "kn-IN" to "meera",   // Female Kannada voice
-        "en-IN" to "meera",   // Female English voice
-        "ml-IN" to "meera",   // Female Malayalam voice
-        "te-IN" to "meera",   // Female Telugu voice
+        "hi-IN" to "priya", "bn-IN" to "priya", "kn-IN" to "priya",
+        "ml-IN" to "priya", "mr-IN" to "priya", "od-IN" to "priya",
+        "pa-IN" to "priya", "ta-IN" to "priya", "te-IN" to "priya",
+        "gu-IN" to "priya", "en-IN" to "priya",
     )
 
-    fun toBcp47(shortCode: String): String = codeMap[shortCode] ?: "en-IN"
-    fun getVoice(bcp47: String): String = voiceMap[bcp47] ?: "meera"
+    fun isSupported(bcp47: String): Boolean = supported.contains(bcp47)
+
+    /** Returns null rather than substituting. See the no-fallback rule below. */
+    fun toBcp47(shortCode: String): String? = codeMap[shortCode]
+
+    fun getVoice(bcp47: String): String = voiceMap[bcp47] ?: "priya"
 }
 ```
+
+**No Hindi fallback.** Both the 0.1.0 draft and the grant describe falling back to
+Hindi for unsupported languages. That is prohibited here (ADR 0002): silently
+answering a Malayalam question in Hindi teaches a patient that they do not
+understand, which is worse than saying plainly that the language is not yet
+supported. A language switch requires the user's understanding and agreement, so
+`toBcp47` returns null and the caller must handle it rather than coerce it.
 
 ### 10.5 Emergency Keyword Detection (Local)
 
-Runs on-device before any server call, matching `safety_enhancements.py` emergency patterns:
+Runs on-device before any server call, matching the patterns in
+`safety_enhancements.py`. Severity must be preserved end to end, because ADR 0004's
+Emergency Override is granted **only to a CRITICAL alert**. A HIGH alert such as
+"severe pain" must not disable the Dose Boundary, or the restriction is bypassed by
+the most common phrasing of a dose question.
 
 ```kotlin
 class EmergencyKeywordDetector {
-    private val emergencyPatterns = mapOf(
-        "en" to listOf("bleeding", "unconscious", "not breathing", "chest pain", "seizure", "suicide", "severe pain"),
-        "hi" to listOf("खून बह रहा", "बेहोश", "सांस नहीं", "छाती में दर्द", "दौरा", "तेज दर्द"),
-        "ta" to listOf("இரத்தப்போக்கு", "மயக்கம்", "மூச்சு விடவில்லை", "நெஞ்சு வலி"),
-        "bn" to listOf("রক্তপাত", "অচেতন", "শ্বাস নেই", "বুকে ব্যথা"),
-        "kn" to listOf("ರಕ್ತಸ್ರಾವ", "ಪ್ರಜ್ಞೆ ತಪ್ಪಿದ", "ಉಸಿರಾಟ ಇಲ್ಲ"),
+    private data class Pattern(val term: String, val level: EmergencyLevel)
+
+    private val emergencyPatterns: Map<String, List<Pattern>> = mapOf(
+        "en" to listOf(
+            Pattern("bleeding", EmergencyLevel.HIGH),
+            Pattern("unconscious", EmergencyLevel.CRITICAL),
+            Pattern("not breathing", EmergencyLevel.CRITICAL),
+            Pattern("chest pain", EmergencyLevel.HIGH),
+            Pattern("seizure", EmergencyLevel.CRITICAL),
+            Pattern("suicide", EmergencyLevel.CRITICAL),
+            // HIGH, not CRITICAL. "Severe pain" must not override the Dose Boundary.
+            Pattern("severe pain", EmergencyLevel.HIGH),
+        ),
+        "hi" to listOf(
+            Pattern("खून बह रहा", EmergencyLevel.HIGH),
+            Pattern("बेहोश", EmergencyLevel.CRITICAL),
+            Pattern("सांस नहीं", EmergencyLevel.CRITICAL),
+            Pattern("छाती में दर्द", EmergencyLevel.HIGH),
+            Pattern("दौरा", EmergencyLevel.CRITICAL),
+            Pattern("तेज दर्द", EmergencyLevel.HIGH),
+        ),
+        "ta" to listOf(
+            Pattern("இரத்தப்போக்கு", EmergencyLevel.HIGH),
+            Pattern("மயக்கம்", EmergencyLevel.CRITICAL),
+            Pattern("மூச்சு விடவில்லை", EmergencyLevel.CRITICAL),
+            Pattern("நெஞ்சு வலி", EmergencyLevel.HIGH),
+        ),
+        "bn" to listOf(
+            Pattern("রক্তপাত", EmergencyLevel.HIGH),
+            Pattern("অচেতন", EmergencyLevel.CRITICAL),
+            Pattern("শ্বাস নেই", EmergencyLevel.CRITICAL),
+            Pattern("বুকে ব্যথা", EmergencyLevel.HIGH),
+        ),
+        "kn" to listOf(
+            Pattern("ರಕ್ತಸ್ರಾವ", EmergencyLevel.HIGH),
+            Pattern("ಪ್ರಜ್ಞೆ ತಪ್ಪಿದ", EmergencyLevel.CRITICAL),
+            Pattern("ಉಸಿರಾಟ ಇಲ್ಲ", EmergencyLevel.CRITICAL),
+        ),
     )
 
+    /** Returns the highest matched severity. Never collapses to a flat CRITICAL. */
     fun detect(transcript: String, language: String): EmergencyLevel {
         val normalized = transcript.lowercase().trim()
         val patterns = emergencyPatterns[language] ?: emergencyPatterns["en"]!!
-        val matched = patterns.any { normalized.contains(it) }
-        return if (matched) EmergencyLevel.CRITICAL else EmergencyLevel.NONE
+        return patterns
+            .filter { normalized.contains(it.term) }
+            .maxByOrNull { it.level.severity }
+            ?.level
+            ?: EmergencyLevel.NONE
     }
 }
 ```
+
+Emergency detection is defined server-side in English, Hindi, Bengali, Tamil and
+Gujarati only. A Marathi or Kannada query does **not** fire the server-side
+detector, which makes this client-side detector load-bearing for Patient safety
+rather than an optimisation.
 
 ### 10.6 Audio Recording
 
@@ -1604,6 +1821,19 @@ class AudioRecorder {
 ## 11. Offline-First Architecture
 
 ### 11.1 Cache Strategy
+
+Offline is a **Cached Answer Bundle** plus Local History, not a local retrieval
+index (ADR 0005). On-device query embedding is ruled out: bge-m3 is 568M
+parameters, roughly 600 MB int8, which is 7 to 27 hours of download on a 2G link
+and 600 MB to 1 GB resident on the 2 GB reference device. Frozen corpus vectors
+alone are only 263 KB, but without the encoder they cannot be searched, so they
+are not a solution.
+
+When offline the app shows Local History and the Cached Answer Bundle, and answers
+nothing new. The microphone stays **visible but disabled** with a plain-language
+explanation, rather than hidden or failing silently: a control that explains itself
+teaches the reason, where a transient banner gets scrolled past and leaves the user
+unsure whether the tap registered.
 
 | Data Type | Cache Location | TTL | Refresh Strategy |
 |-----------|---------------|-----|------------------|
@@ -2245,6 +2475,14 @@ android {
 | FHIR SDK (dynamic feature) | 5MB (on demand) |
 | App code + resources | 3MB |
 | **Total** | **~23MB** (under 25MB target) |
+
+The 25 MB figure is a **self-imposed design target** derived from the field
+constraint of 2G connectivity at CCHRC Silchar (§3.1) and the 2 GB Redmi 10A
+reference device (§3.3). It is not a platform limit; Google Play permits roughly
+200 MB. The target exists because download time does, and it must not be used as
+the reason for rejecting a feature: raising the ceiling to 500 MB does not make a
+2G download viable. CommCare is the reference here for holding a large APK on a
+low-end device.
 
 ---
 
