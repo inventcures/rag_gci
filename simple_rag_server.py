@@ -767,6 +767,9 @@ class SimpleRAGPipeline:
         self.vector_db = None
         self.index_drift = None
         self.retrieval_available = False
+        # How often the translation fallback fired. The rate is the evidence that
+        # cross-language retrieval is working; a high rate would mean it is not.
+        self.translation_fallback_count = 0
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.translation_model = "llama-3.1-8b-instant"  # Model for query translation (still Groq)
@@ -1289,16 +1292,39 @@ class SimpleRAGPipeline:
             except Exception as e:
                 logger.warning(f"Could not get vector DB count: {e}")
             
-            # Translate query to English if needed for better embedding matching
-            query_for_search = question  # Default to original question
-            if source_language != "en":
-                logger.info(f"Translating {source_language} query to English for embedding")
-                translation_result = await self.translate_query_to_english(question, source_language)
+            # Cross-language retrieval is the default (ADR 0003). The query is
+            # embedded as written and searched against the multilingual index.
+            # Translation is a fallback for weak evidence, never the default path.
+            #
+            # Translating first was correct while the index was English-only and
+            # necessary for anything Indic. It is now a wasted LLM round-trip on
+            # every query, it discards the better signal when it succeeds, and it
+            # reintroduces a Groq dependency that the release record flags as
+            # defective.
+            query_for_search = question
+            if source_language != "en" and self._cross_language_retrieval_is_weak(question):
+                logger.info(
+                    "Cross-language retrieval looks weak for %s; retrying in English",
+                    source_language,
+                )
+                translation_result = await self.translate_query_to_english(
+                    question, source_language
+                )
                 if translation_result["status"] in ["success", "fallback"]:
                     query_for_search = translation_result["translated_query"]
-                    logger.info(f"Using translated query for search: '{query_for_search}'")
+                    logger.info(
+                        "Translation fallback used for: '%s'", query_for_search
+                    )
+                    self.translation_fallback_count += 1
                 else:
-                    logger.warning(f"Query translation failed, using original: {translation_result.get('error', 'Unknown error')}")
+                    logger.warning(
+                        "Query translation failed, using original: %s",
+                        translation_result.get("error", "Unknown error"),
+                    )
+            elif source_language != "en":
+                logger.debug(
+                    "Cross-language retrieval sufficient; no translation needed"
+                )
             
             # =================================================================
             # RETRIEVAL: Route based on --rag-method (vector/pageindex/hybrid)
@@ -1787,6 +1813,38 @@ ANSWER (2-3 paragraphs):"""
             logger.error(f"Error generating answer: {e}")
             return f"Error generating answer: {str(e)}"
     
+    # Distance beyond which a retrieved context is not considered evidence.
+    # Matches the threshold the retrieval path already applies to filter contexts,
+    # so the fallback uses a signal the retriever already produces rather than a
+    # newly invented one.
+    CROSS_LANGUAGE_FALLBACK_DISTANCE = 1.5
+
+    def _cross_language_retrieval_is_weak(self, question: str) -> bool:
+        """
+        Probe whether searching the query as written is likely to fail.
+
+        Runs a single top-1 query and compares its distance against the same
+        threshold the retrieval path uses to decide relevance. One extra vector
+        search over a few hundred chunks is cheap; translating is an LLM call.
+
+        Returns True only when a translation is worth attempting. Any inability
+        to probe is treated as "not weak", because defaulting to translating would
+        put the cost back on every query.
+        """
+        if self.vector_db is None:
+            return False
+        try:
+            probe = self.vector_db.query(query_texts=[question], n_results=1)
+            distances = (probe.get("distances") or [[]])[0]
+        except Exception:
+            logger.debug("Cross-language probe failed; assuming retrieval is fine")
+            return False
+
+        if not distances:
+            # Nothing matched at all, which is the clearest possible weak signal.
+            return True
+        return float(distances[0]) > self.CROSS_LANGUAGE_FALLBACK_DISTANCE
+
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> tuple:
         """Generate an answer with citations.
 
