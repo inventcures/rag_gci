@@ -34,16 +34,17 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        # Deliberately not requirements.txt. That file lists ktem and kotaemon,
-        # which are 404 on PyPI because they ship with the vendored kotaemon-main
-        # tree, so installing it fails outright. An earlier version fell back to a
-        # three-package list and then failed at import instead, which is a worse
-        # error to read. These are the packages the suite actually imports; the
-        # optional integrations are guarded by tests/conftest.py and skip cleanly.
+        # requirements.txt minus the two entries that cannot be installed.
+        #
+        # ktem and kotaemon are 404 on PyPI because they ship with the vendored
+        # kotaemon-main tree. Rather than hand-maintaining a second list that drifts,
+        # the impossible entries are filtered out of the real one, so a dependency
+        # added for a new feature reaches CI without anyone remembering to add it
+        # twice.
         run: |
-          pip install pytest fastapi "uvicorn[standard]" pydantic python-multipart \
-                      httpx pyyaml PyJWT python-dotenv requests websockets \
-                      aiohttp numpy pytest-asyncio
+          grep -vE '^(ktem|kotaemon)\s*$' requirements.txt > /tmp/req.txt
+          echo "filtered requirements:"; wc -l < /tmp/req.txt
+          pip install -r /tmp/req.txt
 
       - name: Run the suite
         # The count is asserted, not just the exit code. Twice in this project a run
