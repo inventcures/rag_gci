@@ -63,8 +63,16 @@ def kotlin_type(schema: Dict[str, Any], root: Dict[str, Any], depth: int = 0) ->
         return f"List<{kotlin_type(schema.get('items') or {}, root, depth + 1)}>"
     if kind == "object" or (kind is None and "properties" in schema):
         return "Map<String, Any?>"
+    # FastAPI emits Optional[str] as anyOf [string, null], which fell through to
+    # Any? and produced untyped generated fields. Collapse it to the real type.
+    if kind is None and schema.get("anyOf"):
+        variants = [v for v in schema["anyOf"] if v.get("type") != "null"]
+        nullable = len(variants) != len(schema["anyOf"])
+        if len(variants) == 1:
+            inner = kotlin_type(variants[0], root, depth + 1)
+            return f"{inner}?" if nullable else inner
+
     if kind == "string":
-        fmt = schema.get("format")
         return "String"
     if kind == "integer":
         return "Long"
@@ -130,12 +138,14 @@ def emit_data_class(name: str, schema: Dict[str, Any], root: Dict[str, Any]) -> 
         if field in required:
             declaration = f"val {name_of(field)}: {kotlin_type_name},"
         else:
-            # An optional field that is not given a default may be absent from the
-            # response, so its type has to admit null. Without this the emitted
-            # data class does not compile.
-            declaration = (
-                f"val {name_of(field)}: {kotlin_type_name}? = null,"
+            # An optional field may be absent from the response, so its type has to
+            # admit null. kotlin_type already returns a nullable type for
+            # anyOf-with-null, so only add the ? when it is not already there.
+            nullable_type = (
+                kotlin_type_name if kotlin_type_name.endswith("?")
+                else f"{kotlin_type_name}?"
             )
+            declaration = f"val {name_of(field)}: {nullable_type} = null,"
         fields.append(f'    @Json(name = "{field}") {declaration}')
 
     # Trailing commas are valid in Kotlin and keep diffs small when fields are added.

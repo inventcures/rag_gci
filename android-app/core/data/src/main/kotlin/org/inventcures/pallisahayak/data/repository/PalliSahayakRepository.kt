@@ -1,8 +1,11 @@
 package org.inventcures.pallisahayak.data.repository
 
 import android.util.Log
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.inventcures.pallisahayak.api.generated.MobileQueryRequest
 import org.inventcures.pallisahayak.api.generated.MobileQueryResponse
+import org.inventcures.pallisahayak.api.generated.VoiceQueryResponse
 import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
 import org.inventcures.pallisahayak.data.local.CachedAnswerEntity
 import org.inventcures.pallisahayak.data.local.InteractionDao
@@ -21,8 +24,14 @@ import java.util.UUID
  * depend on Retrofit, a database or a network being present.
  */
 sealed interface AnswerSource {
-    /** The server answered. */
+    /** The server answered a text query. */
     data class Live(val response: MobileQueryResponse) : AnswerSource
+
+    /** The server answered a spoken query, and supplied audio to play. */
+    data class LiveVoice(
+        val transcript: String?,
+        val audioBase64: String?,
+    ) : AnswerSource
 
     /** The Cached Answer Bundle answered, and which version. */
     data class Bundle(val answer: CachedAnswerEntity) : AnswerSource
@@ -37,6 +46,12 @@ data class AnsweredQuestion(
     val emergency: EmergencySeverity,
     val source: AnswerSource,
     val sourceCount: Int,
+    /**
+     * The question as transcribed, which is not always the question as asked.
+     * Recorded separately from the answer because protocol 4.1 counts
+     * interactions by what was asked.
+     */
+    val transcript: String = "",
 )
 
 /** Who is using the phone right now, and which study release they are on. */
@@ -70,6 +85,61 @@ class PalliSahayakRepository(
 ) {
 
     /**
+     * Ask a spoken question and play the answer aloud.
+     *
+     * Voice is not a separate safety path. The audio goes to the server, the
+     * server returns the same JSON shape as the text route, and the returned text
+     * goes through the identical Dose Boundary. A route that bypassed the filter
+     * would be exactly the hole ADR 0004 is written to close.
+     *
+     * Returns the answer so the screen can also show it, because a spoken answer
+     * a worker wants to re-read is not re-readable.
+     */
+    suspend fun askByVoice(
+        audio: ByteArray,
+        session: SessionContext,
+    ): AnsweredQuestion? {
+        val requested = session.copy(voicePath = VOICE_PATH_LIVE, isOffline = false)
+
+        val answered = try {
+            val response = api.voiceQuery(
+                language = session.language,
+                audio = audio.toRequestBody(AUDIO_MEDIA_TYPE),
+            )
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val safety = doseBoundary.apply(
+                    // The transcript is what the safety detector must judge,
+                    // since it is what the user actually said.
+                    response = body.answer,
+                    language = session.language,
+                    transcript = body.transcript,
+                )
+                AnsweredQuestion(
+                    text = safety.text,
+                    kind = safety.kind,
+                    emergency = safety.emergency,
+                    source = AnswerSource.LiveVoice(body.transcript, body.audio_base64),
+                    sourceCount = body.sources?.size ?: 0,
+                )
+            } else {
+                null
+            }
+        } catch (error: Exception) {
+            Log.w(TAG, "voice query failed", error)
+            null
+        } ?: run {
+            record("", AnsweredQuestion("", AnswerKind.DEFERRAL,
+                emergencyDetector.detect(null, session.language),
+                AnswerSource.Unavailable, 0), requested)
+            return null
+        }
+
+        record(answered.transcript ?: "", answered, requested)
+        return answered
+    }
+
+    /**
      * Ask a question and record what happened.
      *
      * The safety boundary runs on the response regardless of whether the server
@@ -77,8 +147,12 @@ class PalliSahayakRepository(
      * that deliberately: a route that ever bypassed the server filter must not be
      * able to put a dose on screen. ADR 0004 calls this defence in depth.
      */
-    private companion object {
-        const val TAG = "PalliRepo"
+    companion object {
+        private const val TAG = "PalliRepo"
+        const val VOICE_PATH_LIVE = "live"
+        const val VOICE_PATH_FALLBACK = "fallback"
+        const val VOICE_PATH_CACHE = "cache"
+        private val AUDIO_MEDIA_TYPE = "audio/wav".toMediaType()
     }
 
     suspend fun ask(question: String, session: SessionContext): AnsweredQuestion {

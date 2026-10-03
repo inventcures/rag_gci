@@ -43,7 +43,7 @@ data class LoginRequest(
 data class MobileQueryRequest(
     @Json(name = "include_context") val include_context: Boolean? = null,
     @Json(name = "language") val language: String? = null,
-    @Json(name = "patient_id") val patient_id: Any?? = null,
+    @Json(name = "patient_id") val patient_id: String? = null,
     @Json(name = "query") val query: String,
 )
 
@@ -54,7 +54,7 @@ data class MobileQueryRequest(
 data class MobileQueryResponse(
     @Json(name = "answer") val answer: String,
     @Json(name = "confidence") val confidence: Double,
-    @Json(name = "disclaimer") val disclaimer: Any?? = null,
+    @Json(name = "disclaimer") val disclaimer: String? = null,
     @Json(name = "emergency_level") val emergency_level: String,
     @Json(name = "evidence_level") val evidence_level: String,
     @Json(name = "sources") val sources: List<Map<String, Any?>>,
@@ -67,9 +67,9 @@ data class MobileQueryResponse(
  */
 data class VoiceQueryResponse(
     @Json(name = "answer") val answer: String,
-    @Json(name = "audio_base64") val audio_base64: Any?? = null,
+    @Json(name = "audio_base64") val audio_base64: String? = null,
     @Json(name = "confidence") val confidence: Double,
-    @Json(name = "disclaimer") val disclaimer: Any?? = null,
+    @Json(name = "disclaimer") val disclaimer: String? = null,
     @Json(name = "emergency_level") val emergency_level: String,
     @Json(name = "evidence_level") val evidence_level: String,
     @Json(name = "sources") val sources: List<Map<String, Any?>>,
