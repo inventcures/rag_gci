@@ -518,3 +518,25 @@ User Query ──┬──► GraphRAG (Global/Local/DRIFT)
                            ▼
                      LLM Response
 ```
+
+## Debugging standard
+
+Standing instruction from the project owner. It outranks habit and it outranks
+comfort.
+
+**Be persistent in the face of bugs and tricky issues that have no simple fix.**
+Do not stop, do not hand back an unresolved problem, and do not describe a
+workaround as if it were the fix. A root cause is found or proved unreachable, with
+evidence. Where a problem resists, keep going: read the tool's own source, run a
+controlled experiment, instrument the boundary, and turn the hypothesis over until
+it either holds or is disproved.
+
+**The standard is principal engineer.** Diagnose to root cause. Prefer fixing the
+cause to suppressing the symptom. Measure rather than assume. Verify with a real
+probe, never with an expectation. An unverified claim is a liability, and saying
+"I think" without checking is not a finding.
+
+**Never report a fix that has not been observed working.** A committed change, a
+green local run, or a plausible explanation is not evidence. The evidence is the
+system behaving correctly after the change, observed. If verification was not
+possible, say so plainly and name what remains unverified.

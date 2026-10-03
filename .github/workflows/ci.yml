@@ -72,6 +72,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install the imports the generator needs
+        # build_docs.py imports mobile_api.router to read the real route table.
+        # Without these it degrades to a single "(unavailable)" row, so the gate
+        # fails on a page that is in fact current. The failure looks like staleness
+        # and is not staleness.
+        run: pip install fastapi pydantic python-multipart
+
       - name: Fail if the generated reference is stale
         # The reference is generated from the code so it cannot drift. That only
         # holds if something notices when it does.
