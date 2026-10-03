@@ -51,6 +51,9 @@ object DoseDetector {
             "|મિ\\.?\\s?ગ્રા\\.?|ગ્રામ|મિ\\.?\\s?લી" +
             "|ମିଗ୍ରା|ଗ୍ରାମ|ମିଲୀ" +
             "|മിഗ്രാ|ഗ്രാം|മിലി" +
+            // Bengali was absent from this alternation entirely, so a dose written
+            // as "\u09a1\u09ef\u09a0 \u09ae\u09bf\u09b2\u09bf\u0997\u09cd\u09b0\u09be\u09ae" passed straight through.
+            "|\u09ae\u09bf\u09b2\u09bf\u0997\u09cd\u09b0\u09be\u09ae|\u0997\u09cd\u09b0\u09be\u09ae|\u09ae\u09bf\u09b2\u09bf" +
             "|ਮਿਲੀਗ੍ਰਾਮ|ਮਿਲੀਲੀਟਰ" +
             "|มิลลิกรัม|มิลลิลิตร)"
 

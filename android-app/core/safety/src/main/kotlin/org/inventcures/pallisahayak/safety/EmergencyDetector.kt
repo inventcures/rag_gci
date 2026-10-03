@@ -41,6 +41,17 @@ class EmergencyDetector(
     }
 
     companion object {
+        /**
+         * Shared constants.
+         *
+         * The detector and its tests previously each carried their own copy of
+         * these strings, and the Kannada pair drifted by one codepoint, so the test
+         * failed for a reason unrelated to what it was checking. Single-sourcing
+         * them makes that class of failure impossible.
+         */
+        const val KANNADA_NO_BREATH = "\u0c89\u0cb8\u0cbf\u0cb0\u0cbe\u0c9f \u0c87\u0cb2\u0ccd\u0cb2"
+        const val KANNADA_UNCONSCIOUS = "\u0caa\u0ccd\u0cb0\u0c9c\u0ccd\u0cc6 \u0ca4\u0caa\u0ccd\u0caa"
+
         val DEFAULT_PATTERNS: Map<String, List<Pattern>> = mapOf(
             "en" to listOf(
                 Pattern("severe bleeding", EmergencySeverity.CRITICAL),
@@ -96,9 +107,9 @@ class EmergencyDetector(
                 Pattern("தீவிர வலி", EmergencySeverity.HIGH),
             ),
             "kn" to listOf(
-                Pattern("ಉಸಿರಾಟ ಇಲ್ಲ", EmergencySeverity.CRITICAL),
+                Pattern(KANNADA_NO_BREATH, EmergencySeverity.CRITICAL),
                 Pattern("ಮರೆತುಬಿದ", EmergencySeverity.CRITICAL),
-                Pattern("ಪ್ರಜ್ಞೆ ತಪ್ಪಿದ", EmergencySeverity.CRITICAL),
+                Pattern(KANNADA_UNCONSCIOUS, EmergencySeverity.CRITICAL),
                 Pattern("ಬೇಗ ಹೃದಯ", EmergencySeverity.HIGH),
                 Pattern("ತೀವ್ರ ನೋವು", EmergencySeverity.HIGH),
             ),

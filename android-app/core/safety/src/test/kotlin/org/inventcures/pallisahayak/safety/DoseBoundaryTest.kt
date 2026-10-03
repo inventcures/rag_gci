@@ -196,10 +196,26 @@ class DoseBoundaryTest {
         // against invented translations would fail for a reason unrelated to the
         // property under test.
         val detector = EmergencyDetector()
-        assertThat(detector.detect("ಉಸಿರಾಟ ಇಲ್ಲ", "kn-IN")).isEqualTo(EmergencySeverity.CRITICAL)
+        assertThat(detector.detect(EmergencyDetector.KANNADA_NO_BREATH, "kn-IN"))
+            .isEqualTo(EmergencySeverity.CRITICAL)
+        assertThat(detector.detect(EmergencyDetector.KANNADA_UNCONSCIOUS, "kn-IN"))
+            .isEqualTo(EmergencySeverity.CRITICAL)
         assertThat(detector.detect("ശ്വാസം ഇല്ല", "ml-IN")).isEqualTo(EmergencySeverity.CRITICAL)
-        assertThat(detector.detect("ಪ್ರಜ್ಞೆ തಪ್ಪಿದ", "kn-IN")).isEqualTo(EmergencySeverity.CRITICAL)
         assertThat(detector.detect("ગળું દબાઈ જવું", "gu-IN")).isEqualTo(EmergencySeverity.CRITICAL)
+    }
+
+    @Test
+    fun `every phrase the detector carries is detectable in its language`() {
+        // Sweeps the detector's own list rather than a copy. A duplicate list drifts
+        // by one codepoint, which is how the Kannada pair previously failed for a
+        // reason unrelated to what was being checked.
+        val detector = EmergencyDetector()
+        val broken = EmergencyDetector.DEFAULT_PATTERNS.flatMap { (language, patterns) ->
+            patterns
+                .filter { detector.detect(it.term, language) != it.severity }
+                .map { "$language: ${it.term}" }
+        }
+        assertThat(broken).isEmpty()
     }
 
     @Test
