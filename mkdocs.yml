@@ -1,0 +1,74 @@
+# MkDocs configuration for Palli Sahayak.
+#
+# Published by .github/workflows/docs.yml on every push to main. The site is
+# generated rather than hand-written, so it cannot drift from the code the way a
+# wiki edited by hand inevitably does.
+#
+# Everything here runs on free GitHub Actions minutes. MkDocs and Material are MIT
+# licensed, GitHub Pages is free on public repositories, and Actions is free and
+# unmetered on public repositories.
+
+site_dir: .mkdocs-site
+site_name: Palli Sahayak
+site_description: Voice-first clinical decision support for frontline health workers in India
+site_url: https://inventcures.github.io/rag_gci/
+repo_url: https://github.com/inventcures/rag_gci
+repo_name: inventcures/rag_gci
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+# Generated HTML is not Markdown, and shipping it inside the MkDocs output would
+# nest one documentation site inside another.
+exclude_docs: |
+  site/
+  unslop___*
+  *.pdf
+
+nav:
+  - Home: index.md
+  - Resume brief: HANDOVER.md
+  - Decisions:
+      - One app, three care roles: adr/0001-one-app-three-care-roles.md
+      - Eleven languages, bounded by TTS: adr/0002-eleven-languages-bounded-by-tts.md
+      - Cross-language retrieval: adr/0003-cross-language-retrieval.md
+      - The dose boundary: adr/0004-dosage-boundary.md
+      - Offline strategy: adr/0005-offline-strategy.md
+      - The household record: adr/0006-household-record.md
+      - Voice architecture: adr/0007-voice-architecture.md
+  - Android specifications:
+      - Android app specification: android-app-specs/v0_27march2026_0923st_210s_detailed-android-app-specs.md
+      - Implementation spec: android-app-specs/v1_03oct2026_android-app-implementation-spec.md

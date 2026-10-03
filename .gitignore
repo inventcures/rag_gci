@@ -34,3 +34,8 @@ data/study/drift/
 # entries into it, which is the reason this is called out.
 data/study/voice_provider.json
 data/study/voice_provider_audit.jsonl
+
+# MkDocs build output. Generated on every push by .github/workflows/docs.yml.
+# Never commit it: it would nest a built copy of the docs inside the repo and
+# pull stale pages into every clone.
+.mkdocs-site/

@@ -627,6 +627,27 @@ heads.forEach(h=>io.observe(h));
     return doc
 
 
+def normalise_volatile(markup: str) -> str:
+    """
+    Blank out the two fields that change on every build.
+
+    The rendered page records when it was built and which commit it was built
+    from. Both change every time the page is rebuilt, so comparing them verbatim
+    means `--check` can never pass, including on the very commit that updates the
+    docs. A gate that always fails is a gate nobody reads.
+
+    Everything else is compared exactly, which is the part that catches real drift.
+    """
+    markup = re.sub(r"Generated [^<]*? from commit", "Generated <volatile> from commit", markup)
+    markup = re.sub(r"<code>[0-9a-f]{7,40}</code>", "<code><volatile></code>", markup)
+    markup = re.sub(
+        r'<div class="k">Commit</div><div class="v">[0-9a-f]{7,40}</div>',
+        '<div class="k">Commit</div><div class="v"><volatile></div>',
+        markup,
+    )
+    return markup
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
@@ -638,7 +659,7 @@ def main() -> int:
     target = OUT / "index.html"
     if args.check:
         current = target.read_text(encoding="utf-8") if target.exists() else ""
-        if current != doc:
+        if normalise_volatile(current) != normalise_volatile(doc):
             print("docs/site is stale. Run: python3 scripts/build_docs.py", file=sys.stderr)
             return 1
         print("docs/site is up to date.")

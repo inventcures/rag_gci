@@ -1,0 +1,105 @@
+# Checks that fail the build.
+#
+# Each of these exists because something once looked correct and was not.
+#
+# The secret scan is not theatre: this repository is public, and a clinical study
+# system is exactly the kind of thing where one careless `git add -f` publishes a
+# credential or a participant record permanently.
+#
+# Everything here runs on free Actions minutes. Public repositories are unmetered.
+
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt || pip install pytest fastapi pydantic
+
+      - name: Run the suite
+        # The count is asserted, not just the exit code. Twice in this project a run
+        # reported success while collecting nothing at all, which a bare exit code
+        # cannot tell apart from a real pass.
+        run: |
+          python -m pytest --tb=short
+          COUNT=$(python -m pytest --collect-only -q 2>/dev/null | tail -1)
+          echo "collected: $COUNT"
+          case "$COUNT" in
+            *"error"*|*"no tests ran"*) echo "nothing was collected"; exit 1 ;;
+          esac
+
+  docs-current:
+    name: Generated docs are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Fail if the generated reference is stale
+        # The reference is generated from the code so it cannot drift. That only
+        # holds if something notices when it does.
+        run: python scripts/build_docs.py --check
+
+  android:
+    name: Android unit tests and contract gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Unit tests, contract drift and generated client
+        working-directory: android-app
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest \
+                    :core:api:verifyApiContract \
+                    :core:api:verifyGeneratedClient \
+                    :app:assembleDebug
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Scan all history
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
