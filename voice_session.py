@@ -62,6 +62,10 @@ class VoiceTurn:
     emergency_level: str
     source_count: int
     voice_path: str
+    sources: List[Any] = field(default_factory=list)
+    confidence: float = 0.0
+    validation_status: str = "not_validated"
+    disclaimer: Optional[str] = None
     audio_base64: Optional[str] = None
     latency_ms: int = 0
     fallback_reason: Optional[str] = None
@@ -101,6 +105,21 @@ class VoiceSession:
 ANSWER = "ANSWER"
 REDACTED_ANSWER = "REDACTED_ANSWER"
 DEFERRAL = "DEFERRAL"
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    """
+    Coerce a reported number without letting it end the turn.
+
+    A malformed confidence from a provider must not raise here. This runs after
+    the answer has already passed the dose boundary, so an exception would lose both
+    the answer and the study record for a field that only affects display. Low
+    confidence is the safe direction to fall back to.
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _answer_kind(safety: Any) -> str:
@@ -206,7 +225,7 @@ class VoiceTurnHandler:
         result = await self.rag_pipeline.query(
             question=transcript,
             user_id=f"voice__{session.session_id}",
-            language=session.language,
+            source_language=session.language,
         )
         raw_answer = result.get("answer", "") or ""
         sources = result.get("sources", []) or []
@@ -234,6 +253,12 @@ class VoiceTurnHandler:
             emergency_level=str(getattr(safety, "emergency_level", "none")),
             source_count=len(sources),
             voice_path=voice_path,
+            sources=list(sources),
+            confidence=_as_float(getattr(safety, "confidence", 0.0)),
+            validation_status=str(
+                getattr(safety, "validation_status", "not_validated")
+            ),
+            disclaimer=getattr(safety, "disclaimer", None),
             audio_base64=audio_base64,
             latency_ms=int((time.time() - started) * 1000),
             fallback_reason=fallback_reason,

@@ -48,13 +48,34 @@ class FakeSafetyManager:
 
 
 class FakeRag:
+    """
+    Mirrors SimpleRAGPipeline.query exactly.
+
+    The signature is copied from the real class rather than invented. An earlier
+    version of this fake accepted `**kw`, which silently absorbed a kwarg the real
+    pipeline does not accept. Both voice routes were therefore broken in production
+    while every test passed, because the fake was more forgiving than the code it
+    stood in for.
+    """
+
+    #: The real signature, asserted at import so drift is caught here and not in a
+    #: field site.
+    REAL_SIGNATURE = ("question", "conversation_id", "user_id", "top_k", "source_language")
+
     def __init__(self, answer="Morphine is a strong opioid.", sources=None):
         self.answer = answer
         self.sources = sources if sources is not None else [{"filename": "handbook.pdf"}]
         self.calls = []
 
-    async def query(self, question, user_id, language="en-IN", **kw):
-        self.calls.append({"question": question, "language": language})
+    async def query(
+        self,
+        question: str,
+        conversation_id=None,
+        user_id=None,
+        top_k: int = 5,
+        source_language: str = "en",
+    ):
+        self.calls.append({"question": question, "source_language": source_language})
         return {"answer": self.answer, "sources": self.sources}
 
 
@@ -196,6 +217,49 @@ class AudioFraming(unittest.TestCase):
         self.assertEqual(frame["release_id"], "dev@abc")
         self.assertEqual(frame["voice_path"], vs.VOICE_PATH_FALLBACK)
         self.assertEqual(frame["fallback_reason"], "turn_stalled")
+
+
+class TestPipelineSignatureGuard(unittest.TestCase):
+    """
+    The fake must not be more forgiving than the code it stands in for.
+
+    Both voice routes once called `query(question=..., language=...)` while the real
+    pipeline accepts `source_language`. Every test passed because the fakes took
+    `**kw`, and every voice turn in the field would have raised TypeError. This
+    fails the build the moment the two drift apart.
+    """
+
+    def test_fake_matches_the_real_pipeline_signature(self):
+        import inspect
+
+        from simple_rag_server import SimpleRAGPipeline
+
+        real = {
+            name
+            for name in inspect.signature(SimpleRAGPipeline.query).parameters
+            if name != "self"
+        }
+        fake = {
+            name
+            for name in inspect.signature(FakeRag.query).parameters
+            if name != "self"
+        }
+        self.assertEqual(
+            fake,
+            real,
+            "FakeRag.query has drifted from SimpleRAGPipeline.query. A fake that "
+            "accepts more than the real thing hides real breakages.",
+        )
+
+    def test_real_pipeline_does_not_accept_the_wrong_kwarg(self):
+        """Pins the specific mistake, so the fix is not silently reverted."""
+        import inspect
+
+        from simple_rag_server import SimpleRAGPipeline
+
+        params = inspect.signature(SimpleRAGPipeline.query).parameters
+        self.assertNotIn("language", params)
+        self.assertNotIn("query_text", params)
 
 
 if __name__ == "__main__":

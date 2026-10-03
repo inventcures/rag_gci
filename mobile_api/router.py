@@ -41,10 +41,14 @@ from mobile_api.dependencies import get_rag_pipeline, get_safety_manager, get_me
 from evaluation.sus_collector import SusCollector
 from evaluation.vignette_manager import VignetteManager
 from evaluation.interaction_logger import MobileInteractionLogger
+import base64
 import json
 
 from study_logging import get_study_logger
+from voice_live_adapter import build_live_service_factory
+from voice_router import VoiceRouter, set_voice_router
 from voice_session import (
+    VOICE_PATH_FALLBACK,
     VOICE_PATH_LIVE,
     VoiceSession,
     VoiceTurnHandler,
@@ -224,73 +228,73 @@ async def voice_query(
     stage_ms: dict = {}
     t0 = time.perf_counter()
 
+    session = VoiceSession(language=language)
+    session.participant_id = user.user_id
+
+    # This route previously transcribed with Sarvam and hardcoded the answer, which
+    # meant the Android app's real voice path never consulted the router, never saw
+    # an operator override, and duplicated the grounding and safety code that
+    # VoiceTurnHandler already owns. It now goes through the same path as the socket.
+    handler = VoiceTurnHandler(
+        rag_pipeline=rag_pipeline,
+        safety_manager=safety_manager,
+        study_logger=None,
+        synthesise=_synthesise_voice,
+    )
+    voice_router = VoiceRouter(
+        handler=handler,
+        live_service_factory=build_live_service_factory(handler),
+    )
+
     try:
-        from sarvam_integration import SarvamClient
-        sarvam = SarvamClient()
-        stt_result = await sarvam.speech_to_text(audio_bytes, language)
-        transcript = stt_result.transcript
-        stage_ms["stt"] = (time.perf_counter() - t0) * 1000
+        outcome = await voice_router.route(session, audio_bytes)
     except Exception as e:
-        logger.error(f"STT failed: {e}")
-        stage_ms["stt"] = (time.perf_counter() - t0) * 1000
+        logger.error(f"Voice turn failed: {e}")
+        stage_ms["turn"] = (time.perf_counter() - t0) * 1000
         await _study_logger.record(
             user_id=user.user_id, site_id=user.site_id, care_role=user.role,
             query="", response="", language=language, channel="voice",
             stage_latency_ms=stage_ms, total_latency_ms=(time.perf_counter() - t0) * 1000,
-            error=f"stt_failed: {e}",
+            error=f"voice_turn_failed: {e}",
         )
-        raise HTTPException(status_code=500, detail="Speech-to-text processing failed")
+        raise HTTPException(status_code=500, detail="Voice processing failed")
 
-    t1 = time.perf_counter()
-    result = await rag_pipeline.query(
-        query_text=transcript,
-        user_id=user.user_id,
-        language=language,
-    )
-    stage_ms["rag"] = (time.perf_counter() - t1) * 1000
+    stage_ms["turn"] = (time.perf_counter() - t0) * 1000
 
-    safety_result = safety_manager.process_response(
-        query=transcript,
-        response=result.answer,
-        sources=result.sources,
-        language=language,
-    )
-
-    t2 = time.perf_counter()
-    audio_base64 = None
-    try:
-        tts_result = await sarvam.text_to_speech(safety_result.response, language)
-        audio_base64 = tts_result.audio_base64
-    except Exception as e:
-        logger.warning(f"TTS failed, returning text-only: {e}")
-    stage_ms["tts"] = (time.perf_counter() - t2) * 1000
+    turn = outcome.turn
+    if turn is None:
+        # A tap rather than a question. Recording it would put an empty substantive
+        # interaction into the adoption denominator.
+        raise HTTPException(status_code=400, detail="Nothing was heard.")
 
     await _study_logger.record(
         user_id=user.user_id,
         site_id=user.site_id,
         care_role=user.role,
-        query=transcript,
-        response=safety_result.response,
+        query=turn.transcript,
+        response=turn.answer,
         language=language,
         channel="voice",
         stage_latency_ms=stage_ms,
         total_latency_ms=(time.perf_counter() - t0) * 1000,
-        rag_method=getattr(result, "rag_method", "") or "",
-        sources=result.sources,
-        safety_result=safety_result,
-        provider="sarvam",
-        stt_model="saaras-v3",
+        sources=turn.sources,
+        provider=turn.voice_path,
+        stt_model="gemini-live"
+        if turn.voice_path == VOICE_PATH_LIVE
+        else "saaras-v3",
         tts_model="bulbul-v3",
     )
 
     return VoiceQueryResponse(
-        transcript=transcript,
-        answer=safety_result.response,
-        sources=result.sources,
-        evidence_level=safety_result.evidence_level,
-        emergency_level=safety_result.emergency_level,
-        confidence=safety_result.confidence,
-        audio_base64=audio_base64,
+        transcript=turn.transcript,
+        answer=turn.answer,
+        sources=turn.sources,
+        evidence_level=turn.evidence_level,
+        emergency_level=turn.emergency_level,
+        confidence=turn.confidence,
+        validation_status=turn.validation_status,
+        disclaimer=turn.disclaimer,
+        audio_base64=turn.audio_base64,
     )
 
 
@@ -729,10 +733,15 @@ async def websocket_voice(
     """
     Real-time voice conversation.
 
-    The connection carries one session. Each stop frame ends a turn, which is
+    The connection carries one session. Each audio frame ends a turn, which is
     grounded through the same pipeline the text route uses and then passed
     through the same safety boundary. Nothing about this route may produce an
     answer the text route would have withheld.
+
+    The client sends audio and never a transcript. It cannot hear itself, so a
+    transcript from the client is an unverifiable claim. Accepting one would put a
+    caller-supplied string into the study log in place of what the participant
+    actually said, which is the one thing the log has to be trustworthy about.
 
     A dropped connection is ordinary in these sites and is not an error worth
     logging loudly; a turn that fails to record is, because it leaves a gap in the
@@ -747,6 +756,13 @@ async def websocket_voice(
         study_logger=_study_logger,
         synthesise=_synthesise_voice,
     )
+    router = VoiceRouter(
+        handler=handler,
+        live_service_factory=build_live_service_factory(handler),
+    )
+    # Registered so the admin dashboard can read the fallback rate for a session
+    # that is not yet serving traffic. Without it the panel reported zero forever.
+    set_voice_router(router)
 
     try:
         await websocket.send_text(
@@ -755,6 +771,7 @@ async def websocket_voice(
                 "session_id": session.session_id,
                 "voice_path": VOICE_PATH_LIVE,
                 "language": session.language,
+                "accepts": "audio",
             })
         )
 
@@ -784,22 +801,47 @@ async def websocket_voice(
                 session.interrupted = True
                 continue
 
-            if kind != "stop":
+            if kind == "stop":
+                # A client-supplied transcript is refused rather than ignored, so
+                # that a client still sending one fails loudly instead of quietly
+                # producing empty turns that look like a working session.
+                await websocket.send_text(
+                    error_frame("This endpoint takes audio, not a transcript.")
+                )
+                continue
+
+            if kind != "audio":
                 await websocket.send_text(error_frame(f"Unknown frame type: {kind!r}"))
                 continue
 
             session.interrupted = False
-            transcript = (frame.get("transcript") or "").strip()
-            if not transcript:
-                # Transcription happens on the provider side. A stop with no
-                # transcript is a tap rather than a question, and sending it would
-                # record an empty substantive interaction.
-                await websocket.send_text(
-                    error_frame("No transcript in this turn.")
-                )
+            encoded = frame.get("audio_base64")
+            if not encoded:
+                await websocket.send_text(error_frame("No audio in this turn."))
                 continue
 
-            turn = await handler.handle(session, transcript)
+            try:
+                audio = base64.b64decode(encoded, validate=True)
+            except (ValueError, TypeError):
+                await websocket.send_text(error_frame("Audio was not valid base64."))
+                continue
+
+            if not audio:
+                await websocket.send_text(error_frame("No audio in this turn."))
+                continue
+
+            # The client may correct the language after connecting, since
+            # registration knows it and the connection may not.
+            session.language = frame.get("language") or session.language
+
+            outcome = await router.route(session, audio)
+            turn = outcome.turn
+            if turn is None:
+                # A tap rather than a question. Sending this would record an empty
+                # substantive interaction, which protocol 4.1 would then exclude.
+                await websocket.send_text(error_frame("Nothing was heard."))
+                continue
+
             await websocket.send_text(turn_frame(turn, session.release_id))
 
     except WebSocketDisconnect:

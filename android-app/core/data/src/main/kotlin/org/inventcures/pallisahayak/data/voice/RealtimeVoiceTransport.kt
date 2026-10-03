@@ -1,5 +1,6 @@
 package org.inventcures.pallisahayak.data.voice
 
+import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.OkHttpClient
@@ -32,6 +33,16 @@ class RealtimeVoiceTransport(
     private var socket: WebSocket? = null
     private var sessionId: String = ""
 
+    /**
+     * The language the session opened with.
+     *
+     * Kept because registration knows the language and the socket may not, and
+     * every turn frame carries it so the server never has to guess which language
+     * the recording is in.
+     */
+    @Volatile
+    private var lastLanguage: String = "en-IN"
+
     @Volatile
     var lastVoicePath: String = ""
         private set
@@ -43,6 +54,7 @@ class RealtimeVoiceTransport(
      * which is exactly the latency the socket exists to avoid.
      */
     suspend fun connect(language: String): String {
+        lastLanguage = language
         // onFailure nulls the socket, so a non-null socket means the session is
         // still live. Reconnecting per turn would put a handshake in front of
         // every question.
@@ -89,7 +101,7 @@ class RealtimeVoiceTransport(
      * rather than throwing, because a turn that fails is an ordinary state in
      * these sites and the caller already reports it to the user.
      */
-    suspend fun sendTurn(transcript: String): VoiceReply? {
+    suspend fun sendTurn(audio: ByteArray): VoiceReply? {
         val active = socket ?: return null
 
         return suspendCancellableCoroutine { continuation ->
@@ -136,8 +148,9 @@ class RealtimeVoiceTransport(
             socket = active
             active.send(
                 JSONObject()
-                    .put("type", "stop")
-                    .put("transcript", transcript)
+                    .put("type", "audio")
+                    .put("audio_base64", Base64.encodeToString(audio, Base64.NO_WRAP))
+                    .put("language", lastLanguage)
                     .toString(),
             )
 
