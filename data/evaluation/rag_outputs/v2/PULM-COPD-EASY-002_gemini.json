@@ -2,22 +2,10 @@
   "vignette_id": "PULM-COPD-EASY-002",
   "language": "en-IN",
   "asker_query": "Madam, Saraswati-aji has her usual cough — white phlegm, no blood, no fever. But her daughter-in-law keeps asking why the inhalers are not stopping the cough. What can I tell her, and what simple things can the family do at home to help with the phlegm?",
-  "answer": "It is common for families to feel distressed by a chronic cough, even when the patient is stable. You can reassure the daughter-in-law that in advanced COPD, inhalers like Tiotropium and Budesonide-Formoterol are primarily designed to keep airways open and improve breathing, rather than completely stopping a productive cough. Since Saraswati-aji has no fever or blood in her phlegm, this is likely a stable symptom of her condition. If the cough is bothersome, you can suggest simple, non-pharmacological measures to help manage the secretions and improve her comfort. These include ensuring she stays hydrated to thin the mucus, encouraging her to sit upright or \"prop up\" with pillows to assist with airway clearance, and teaching her \"pursed-lip breathing\" or controlled coughing techniques to clear phlegm more effectively without exhaustion.\nAt home, the family plays a vital role in creating a supportive environment. You should instruct them to keep the room well-ventilated, perhaps by keeping windows open to ensure fresh air, and to avoid irritants like smoke or dust. If she feels breathless or anxious during a coughing spell, the family should remain calm, as their panic can worsen her distress. They can assist by using a fan to direct a gentle stream of air toward her face, which often provides significant relief for the sensation of breathlessness. If the cough becomes significantly worse, or if she develops a high fever, chest pain, or blood in the sputum, this is a red flag requiring immediate escalation to a physician or the local palliative care team.\nCaregiver education is essential for long-term management. Explain to the family that investigations like X-rays are often not useful for chronic breathlessness or cough in advanced disease, as they may appear normal even when the patient is symptomatic.",
+  "answer": "It is common for families to feel anxious about a chronic cough, but in stable COPD, the goal is symptom management rather than total elimination of the cough.\nYou can reassure the family that as long as the cough remains productive of white phlegm without fever, blood, or increased breathlessness, it is part of her underlying condition.\nContinue her current inhaler regimen (Tiotropium and Budesonide-Formoterol) as prescribed, as these prevent exacerbations and improve lung function.\nIf she experiences breakthrough breathlessness, ensure she uses the Salbutamol MDI with a spacer correctly.\nPharmacological interventions for the cough itself are generally not the first line; focus instead on non-pharmacological methods to clear secretions and improve comfort.\nTo manage the phlegm and cough at home, focus on positioning and environmental support.\nEncourage Saraswati-aji to practice deep breathing and \"pursed-lip\" breathing, which helps keep airways open and aids in clearing secretions.\nPropping her up with pillows or cushions can make breathing easier, and keeping the environment calm and well-ventilated—perhaps by placing her near an open window or using a fan to direct a gentle stream of air toward her face—can significantly reduce the sensation of breathlessness.\nEnsure she remains mobile; encourage her to sit up in a chair or walk within the room as her energy allows to prevent complications.\nIf she has difficulty swallowing, offer small sips of water or fluids slowly, ensuring each sip is swallowed before the next, to minimize the risk of aspiration.\nAdditionally, if the cough becomes so severe that she cannot eat or sleep, or if she develops gurgling sounds in her throat that she cannot clear, contact the medical team for a review.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -29,7 +17,19 @@
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:29:54.851096Z",
+  "generated_at": "2026-10-03T13:47:12.728275Z",
   "rag_method": "vector",
-  "elapsed_ms": 3400,
+  "elapsed_ms": 5564,
   "error": null,
   "provider": "gemini"
 }

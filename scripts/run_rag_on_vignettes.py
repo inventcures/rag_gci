@@ -54,17 +54,31 @@ logger = logging.getLogger(__name__)
 
 
 def load_vignettes() -> Dict[str, dict]:
-    """Load all vignette JSON files."""
+    """
+    Load every vignette, recursing into the version directories.
+
+    The vignettes live in `v1/` and `v2/`, so a non-recursive glob found none and
+    the runner exited with "No vignettes found" while appearing to work. Nine
+    vignette_ids appear in both versions, so keys are qualified by version rather
+    than by id alone; keying on id alone would silently drop nine of the eighty.
+    """
     vignettes = {}
-    for filepath in sorted(VIGNETTES_DIR.glob("*.json")):
+    for filepath in sorted(VIGNETTES_DIR.rglob("*.json")):
         if filepath.name.startswith("_"):
             continue  # skip _schema.json etc.
+        version = filepath.parent.name
         try:
             with open(filepath) as f:
                 v = json.load(f)
-            vignettes[v["vignette_id"]] = v
         except Exception as e:
             logger.error(f"Failed to load {filepath}: {e}")
+            continue
+        key = f"{version}/{v['vignette_id']}"
+        if key in vignettes:
+            logger.warning("Duplicate vignette key %s; keeping the first", key)
+            continue
+        v["_version"] = version
+        vignettes[key] = v
     return vignettes
 
 
@@ -132,6 +146,29 @@ async def run_one(vignette: dict, rag_pipeline) -> Dict[str, Any]:
 
     elapsed_ms = int((time.time() - started_at) * 1000)
 
+    # Apply the same safety layer production uses.
+    #
+    # This runner previously skipped it and wrote the raw pipeline answer, which is
+    # why 51 of the 80 stored outputs contain specific doses: they were never run
+    # through the Dose Boundary. Regenerating without this step would produce files
+    # that look refreshed and are still unremediated.
+    raw_answer = result.get("answer", "") if isinstance(result, dict) else str(result)
+    try:
+        from safety_enhancements import get_safety_manager
+
+        safety = get_safety_manager().process_response(
+            query=query_input,
+            response=raw_answer,
+            sources=result.get("sources", []) if isinstance(result, dict) else [],
+            language=language,
+        )
+        result["answer"] = safety.response
+        result["dosage_blocked"] = safety.dosage_blocked
+        result["dosage_reason"] = safety.dosage_reason
+        result["validation_status"] = safety.validation_status
+    except Exception:
+        logger.exception("Safety layer unavailable; recording raw answer")
+
     # Normalize fields across simple_rag_server.query() return shapes
     answer = result.get("answer", "") if isinstance(result, dict) else str(result)
     sources_raw = result.get("sources", []) if isinstance(result, dict) else []
@@ -174,6 +211,12 @@ async def run_one(vignette: dict, rag_pipeline) -> Dict[str, Any]:
         "emergency_level": emergency_level,
         "confidence": confidence,
         "validation": validation,
+        # Safety outcome, so a reviewer can tell an untouched answer from one
+        # the Dose Boundary redacted. Without these the corpus shows only that no
+        # dose is present, not that the restriction acted.
+        "dosage_blocked": (result.get("dosage_blocked") if isinstance(result, dict) else None),
+        "dosage_reason": (result.get("dosage_reason") if isinstance(result, dict) else None),
+        "validation_status": (result.get("validation_status") if isinstance(result, dict) else None),
         "generated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
         "rag_method": result.get("rag_method", "vector") if isinstance(result, dict) else "unknown",
         "elapsed_ms": elapsed_ms,
@@ -221,6 +264,8 @@ async def main() -> int:
 
     results = []
     for i, (vid, v) in enumerate(sorted(vignettes.items()), 1):
+        # Bound before the retry loop so the write below is unambiguous.
+        result: Dict[str, Any] = {}
         for attempt in range(1, MAX_RETRIES + 2):
             logger.info("[%d/%d] %s (attempt %d, provider=%s)", i, len(vignettes), vid, attempt, provider)
             result = await run_one(v, rag_pipeline)
@@ -239,7 +284,11 @@ async def main() -> int:
         # provider-suffixed filename so multiple LLM outputs per vignette
         # can coexist for side-by-side review.
         result["provider"] = provider
-        out_path = OUTPUTS_DIR / f"{vid}_{provider}.json"
+        # Mirror the version directory, or v2 would overwrite v1.
+        version = v.get("_version", "v1")
+        out_dir = OUTPUTS_DIR / version
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"{v['vignette_id']}_{provider}.json"
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         results.append((vid, result.get("error"), result.get("elapsed_ms")))

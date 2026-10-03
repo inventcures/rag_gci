@@ -2,22 +2,10 @@
   "vignette_id": "PULM-FIB-DIFFICULT-001",
   "language": "en-IN",
   "asker_query": "Madam, Praveen-sir is suffering — breath very short even with oxygen, anxiety at night, wife is exhausted, family is asking how much longer and what more can we do. He doesn't want hospital. Morphine is helping a little. What more can we do at home?",
-  "answer": "To manage Praveen-sir’s refractory dyspnea and anxiety at home, we must focus on symptom relief rather than curative measures. Since he is already on Morphine, ensure the IR dose is being utilized effectively; Morphine is highly effective for breathlessness by acting on brain centers. If dyspnea persists, you may consider adding Dexamethasone (8–32 mg daily, orally or subcutaneously) to reduce airway edema, and nebulization with Salbutamol-Ipratropium if wheezing is present. For breakthrough panic attacks, Diazepam (2–5 mg PRN) or Lorazepam (1 mg sublingually PRN) can be added to his regimen. Non-pharmacological measures are equally vital: use a fan to blow air across his face, encourage pursed-lip breathing, and maintain a calm, quiet environment. Oxygen should only be continued if it provides clear subjective comfort; if it does not relieve the sensation of breathlessness, it may be discontinued to improve his quality of life and social interaction.\nThe family’s exhaustion is a critical concern. As a caregiver, your role is to provide clear, empathetic communication about the prognosis to reduce the distress caused by uncertainty. Create an \"anticipatory prescription\" plan: write down exactly which medication to give for specific symptoms (e.g., \"if panic occurs, give X mg of Y\") so the wife feels empowered and less anxious. Ensure the family understands that these medications are for comfort. If Praveen-sir experiences severe delirium, acute psychotic behavior, or if the breathlessness becomes unmanageable despite these adjustments, this is a red-flag trigger to contact the palliative care team immediately for a home visit or medication titration.\nCaregivers should monitor for side effects such as excessive sedation or constipation from the opioids. Always prioritize his comfort over rigid adherence to oxygen or non-essential medications (like multivitamins) if they cause him distress.",
+  "answer": "Managing refractory breathlessness in end-stage pulmonary fibrosis requires a dual approach of pharmacological optimization and intensive non-pharmacological support.\nWhile the patient is already on Morphine, it is important to remember that Morphine is highly effective for breathlessness by acting on brain centers to reduce the sensation of air hunger.\nIf breathlessness remains refractory, the dose can be titrated upward under medical supervision, as there is no standard upper limit for chronic symptom management; however, this must always be accompanied by a laxative and an anti-emetic to manage common side effects like constipation and nausea.\nAt home, the family plays the most critical role in reducing the patient's panic.\nYou can immediately implement non-pharmacological measures: position him upright using pillows, place a fan to direct a gentle stream of air across his face, and ensure good ventilation by keeping windows open.\nTeach the family \"pursed-lip breathing\" and forward-leaning postures, which help improve airflow.\nBecause anxiety exacerbates breathlessness, the family must remain calm; if they panic, the patient’s distress will increase.\nUse diversion therapy—such as playing his favorite music, recalling happy memories, or using relaxation techniques—to shift his focus away from the sensation of suffocation.\nIf the patient experiences severe muscle jerks or if the breathlessness becomes completely unmanageable despite these interventions, this is a red-flag trigger to contact the palliative care team for urgent medication adjustment or home-based crisis support.\nCaregivers must be educated that oxygen may provide limited relief when lungs are severely damaged by fibrosis; therefore, the focus should shift toward comfort measures rather than just increasing oxygen flow.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -29,7 +17,19 @@
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:19:45.964023Z",
+  "generated_at": "2026-10-03T13:43:59.144735Z",
   "rag_method": "vector",
-  "elapsed_ms": 4042,
+  "elapsed_ms": 3942,
   "error": null,
   "provider": "gemini"
 }

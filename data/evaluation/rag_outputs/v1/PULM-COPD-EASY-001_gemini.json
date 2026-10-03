@@ -2,34 +2,34 @@
   "vignette_id": "PULM-COPD-EASY-001",
   "language": "en-IN",
   "asker_query": "I have COPD for about a year now. I am on tiotropium and use salbutamol when needed. I want to know if my treatment is right, what exercises I should do, and what else I can do to keep my breathing good. Should I take any vaccines?",
-  "answer": "For a patient with GOLD Stage III COPD, your current management with Tiotropium (a long-acting muscarinic antagonist) and Salbutamol (a short-acting beta-agonist) is a standard foundation. However, as your condition is classified as GOLD Group B, the primary goal is symptom control and prevention of exacerbations. In the Indian context, it is essential to ensure your inhaler technique is perfect; even the best medication fails if the drug does not reach the lungs. Regarding vaccinations, you should consult your physician about the annual Influenza vaccine and the Pneumococcal vaccine, as these are critical for preventing respiratory infections that can trigger severe breathlessness. While investigations like X-rays may appear normal even when you feel breathless, it is vital to address \"controllable causes\" such as respiratory infections or anemia, which can worsen your symptoms despite your current medication.\nTo keep your breathing stable, you should incorporate pulmonary rehabilitation or simple, supervised breathing exercises, such as pursed-lip breathing, which helps keep airways open longer. As a caregiver or patient, your action plan should focus on monitoring: keep a daily log of your Salbutamol usage. If you find yourself needing your \"rescue\" inhaler (Salbutamol) more than twice a week, or if you experience a sudden increase in sputum production or change in color, this is a time-critical signal to contact your doctor, as it may indicate an impending exacerbation. Ensure you are not exposed to indoor air pollution, such as smoke from biomass fuels (chulhas), which is a common trigger in rural and semi-urban Indian settings.\nBe aware that while your current medications are generally well-tolerated, you should monitor for side effects like dry mouth or palpitations.",
+  "answer": "Managing GOLD Stage III COPD requires a focus on preventing exacerbations and maintaining functional independence.\nYour current regimen of Tiotropium (a long-acting bronchodilator) and Salbutamol (a rescue inhaler) is standard for symptom management.\nWhile the provided guidelines focus heavily on pain management, the principles of regular review and non-pharmacological support are universal.\nYou should discuss with your physician the potential addition of pulmonary rehabilitation exercises, which are proven to improve exercise tolerance and quality of life.\nRegarding vaccinations, annual influenza and pneumococcal vaccines are standard recommendations for COPD patients to prevent respiratory infections that can trigger severe exacerbations.\nFor your practical action plan, prioritize a structured review with your healthcare provider to assess your inhaler technique—incorrect technique is a common reason for suboptimal control.\nIf you experience increased breathlessness, avoid rushing to oxygen therapy; instead, use non-pharmacological methods such as sitting near a fan, practicing pursed-lip breathing, and maintaining a calm environment.\nIf you find your breathing worsening despite regular medication, or if you develop a fever or increased sputum production, this is a red-flag trigger requiring immediate medical evaluation to rule out an infection.\nCaregivers should be educated to monitor for signs of respiratory distress and to assist with energy conservation techniques during daily activities.\nAlways remember that as your condition progresses, your treatment plan may need to be adjusted.\nRegular, scheduled follow-ups are necessary to ensure your medications remain effective and to monitor for any side effects.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:18:42.284885Z",
+  "generated_at": "2026-10-03T13:42:52.069991Z",
   "rag_method": "vector",
-  "elapsed_ms": 3145,
+  "elapsed_ms": 3705,
   "error": null,
   "provider": "gemini"
 }

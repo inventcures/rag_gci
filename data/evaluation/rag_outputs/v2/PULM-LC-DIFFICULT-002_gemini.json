@@ -2,34 +2,34 @@
   "vignette_id": "PULM-LC-DIFFICULT-002",
   "language": "en-IN",
   "asker_query": "Doctor saheb, mausi-ji's cough comes every 10 minutes for 3 weeks, especially at night. She vomits, leaks urine, cannot sleep. We cannot sleep — 4 nights now. Morphine SR 15 BD + 5 PRN — not working. Gabapentin 100 TDS started 1 week. Codeine cannot be given (bad reaction before). She is on apixaban, kidneys are weak. What can we do tonight?",
-  "answer": "For managing Mausi-ji’s intractable cough, the priority is to address the underlying airway irritation while optimizing her current regimen. Since she is already on morphine, you should increase her current total daily dose of morphine by 30–50% to help suppress the respiratory drive associated with the cough. If she is not achieving relief, ensure she is taking the IR morphine regularly rather than just PRN. For anxiety or panic associated with the paroxysmal coughing, consider adding a benzodiazepine; Lorazepam 0.5–1 mg sublingually or Midazolam 1–2 mg orally can be used to manage the distress and sleep deprivation. Please note that nebulized morphine is ineffective and should be avoided. Ensure you are also addressing reversible factors: check for acid reflux (which can trigger cough) and consider a trial of bronchodilators if there is any bronchospasm.\nFor your immediate action plan at home, focus on positioning and environmental comfort. Encourage Mausi-ji to sit upright, as lying flat often worsens central airway obstruction and cough. Ensure the room is well-ventilated and free of irritants like smoke or dust. As a caregiver, you should document the frequency and severity of the cough episodes to share with her palliative care team. If she develops sudden, severe difficulty breathing, stridor (a high-pitched whistling sound), or massive hemoptysis (coughing up significant blood), this is a medical emergency; contact your local hospice or hospital team immediately for urgent assessment. Given her CKD 3b, monitor for any signs of increased sedation or confusion when adjusting opioid doses.\nCaregivers should be aware that while morphine helps, it may cause constipation; continue her lactulose and monitor bowel movements closely. If the cough remains refractory, the palliative team may consider other interventions like radiotherapy or stenting if the obstruction is worsening.",
+  "answer": "Since the current morphine regimen is not controlling the cough, the dose must be titrated upward under medical supervision, as there is no standard upper limit for chronic cancer-related symptoms.\nGiven the patient’s CKD 3b, morphine must be used cautiously.\nWhile morphine is the gold standard for severe pain and can help reduce the sensation of breathlessness and cough, it must always be accompanied by a laxative (like the lactulose she is already taking) and an anti-emetic to manage potential nausea.\nBecause the cough is paroxysmal and causing vomiting and sleep deprivation, you should consult the treating physician to increase the baseline Morphine SR dose or consider adding adjuvant medications, such as anti-anxiety drugs, if the cough is exacerbated by panic or distress.\nIn the home setting, immediate non-pharmacological interventions are critical to provide relief tonight.\nEnsure the patient is in a comfortable, upright position to reduce airway irritation.\nUse \"diversion therapy,\" such as playing calming music or providing gentle reassurance, to manage the anxiety that often worsens paroxysmal coughing.\nIf the cough is triggered by dryness or irritation, keep the environment humidified and ensure she is well-hydrated with small, frequent sips of water or curd/whey water if tolerated.\nCaregivers should document the frequency and intensity of the cough to help the doctor adjust the medication during the next review.\nBecause she is on apixaban, monitor closely for any signs of hemoptysis (coughing up blood).\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:31:34.341778Z",
+  "generated_at": "2026-10-03T13:48:51.001349Z",
   "rag_method": "vector",
-  "elapsed_ms": 4113,
+  "elapsed_ms": 4594,
   "error": null,
   "provider": "gemini"
 }

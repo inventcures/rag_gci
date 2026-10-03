@@ -2,10 +2,10 @@
   "vignette_id": "PULM-COPD-MODERATE-002",
   "language": "en-IN",
   "asker_query": "Doctor, I keep sighing and gasping every few minutes. My chest feels empty. My saturation is 92, my wife says I look normal. Since my friend Antonio died last week I cannot stop thinking about it. Am I dying? Is this the end?",
-  "answer": "It is completely understandable that you are feeling frightened; breathlessness is a very distressing sensation, and it is common for it to worsen during times of grief or emotional turmoil. In the context of advanced COPD, breathlessness is often a subjective experience that can occur even when oxygen levels are stable. To manage this, we must first address the \"correctable\" contributors, such as ensuring your inhaler technique is optimal and checking for any underlying respiratory infections or fluid buildup. While your current medications (Tiotropium and Budesonide-Formoterol) are standard, the \"air hunger\" you describe—especially when linked to anxiety—often responds well to non-pharmacological techniques. You should continue your prescribed inhalers as directed, but please consult your palliative care team to discuss if a low-dose, short-acting anxiolytic or a specific adjustment to your respiratory management is appropriate to help you feel more at ease.\nFor your immediate comfort at home, focus on positioning and breathing retraining. When you feel an episode of gasping or panic, sit upright and lean forward, which helps your respiratory muscles work more efficiently. Practice \"pursed-lip breathing\"—inhaling slowly through your nose and exhaling through pursed lips as if blowing out a candle. Your wife plays a vital role here: she should remain calm, speak in a soothing voice, and reassure you that while the sensation of breathlessness is terrifying, you have recovered from these episodes before and will do so again. Avoid the urge to rush or over-exert yourself; pace your activities throughout the day. If you find your anxiety is overwhelming, it is essential to discuss this openly with your family and your palliative care provider, as addressing these fears is just as important as managing your physical symptoms.",
+  "answer": "It is understandable that you are feeling frightened, especially after the recent loss of your friend.\nIn patients with advanced COPD, breathlessness can be triggered not only by lung disease but also by emotional distress, anxiety, and the fear of suffocation.\nWhile medical management for COPD includes your current inhalers, low-dose Morphine is sometimes used in palliative care to help reduce the sensation of breathlessness by acting on specific centers in the brain.\nPlease discuss this with your palliative care physician, as they can assess if this is appropriate for your specific needs.\nTo manage these episodes at home, focus on non-pharmacological techniques that are highly effective for air hunger.\nWhen you feel a panic attack or gasping coming on, try \"pursed-lip breathing\" (inhaling through your nose and exhaling slowly through pursed lips) and leaning forward, perhaps resting your arms on a table or pillows.\nYour wife can help by keeping the environment calm, ensuring good ventilation by opening windows, or using a small fan to direct a gentle stream of air toward your face, which often provides immediate relief.\nIt is vital that your family remains calm; anxiety is contagious, and a soothing, quiet voice can help lower your heart rate and breathing effort.\nIf you find yourself unable to catch your breath despite these measures, or if you experience severe chest pain or a sudden drop in consciousness, this is a red-flag trigger to contact your palliative care team or nearest emergency service immediately.\nRegarding your question about the end of life: it is normal to fear the future when you are struggling to breathe.\nHowever, these symptoms are often manageable.\nYour palliative care team is there to focus on your quality of life and comfort.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -17,19 +17,19 @@
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:30:50.205587Z",
+  "generated_at": "2026-10-03T13:48:04.142617Z",
   "rag_method": "vector",
-  "elapsed_ms": 9972,
+  "elapsed_ms": 4002,
   "error": null,
   "provider": "gemini"
 }

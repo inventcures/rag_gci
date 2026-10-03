@@ -2,15 +2,15 @@
   "vignette_id": "PULM-COPD-EASY-001",
   "language": "en-IN",
   "asker_query": "Doctor sir, this is Ramesh from Solapur. I am taking my regular inhalers but when I walk to the toilet I feel my chest is heavy and I have to stop. Is this dangerous? Should I come to hospital?",
-  "answer": "🚨 Emergency detected. Connecting you to a human caregiver immediately.\n\nRequest ID: 0dca2a33b7ba\nA nurse will contact you within 5 minutes.",
+  "answer": "🚨 Emergency detected. Connecting you to a human caregiver immediately.\n\nRequest ID: cf9180a75679\nA nurse will contact you within 5 minutes.",
   "sources": [],
   "evidence_level": "C",
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:29:45.447496Z",
+  "generated_at": "2026-10-03T13:47:01.150148Z",
   "rag_method": "vector",
-  "elapsed_ms": 5,
+  "elapsed_ms": 1,
   "error": null,
   "provider": "gemini"
 }

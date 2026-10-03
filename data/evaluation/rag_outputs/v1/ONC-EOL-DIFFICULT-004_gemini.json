@@ -2,34 +2,34 @@
   "vignette_id": "ONC-EOL-DIFFICULT-004",
   "language": "en-IN",
   "asker_query": "Madam, mother has terrible itching all over her body, no sleep at night, she has scratched until the skin has broken, jaundice is severe. What medicine can we give? Should we attempt PTBD again?",
-  "answer": "For the management of intractable cholestatic pruritus in advanced gallbladder cancer, the primary goal is symptomatic relief. While ursodeoxycholic acid is already in use, you may consider adding cholestyramine, which is specifically indicated for cholestasis-related pruritus. If these measures are insufficient, second-line pharmacological options include paroxetine or mirtazapine, which have shown benefit in managing refractory itch. Regarding your mother’s severe jaundice and the question of repeat PTBD (Percutaneous Transhepatic Biliary Drainage), this decision requires a careful assessment of the risks versus benefits by her oncology team, as repeat invasive procedures in advanced-stage disease may not always provide the intended relief and can carry significant morbidity.\nIn the home setting, focus on skin integrity and comfort. Keep her fingernails short to prevent further excoriation and secondary infection of the broken skin. For wound care, if the skin is broken or foul-smelling, maintain hygiene with gentle cleansing. If there is evidence of infection, consult your palliative team regarding the use of topical metronidazole, which can be applied as a gargle or powdered tablet in gauze to manage odor and local bacterial load. Ensure the family caregiver monitors for signs of delirium (such as confusion or irrelevant speech), as this can occur in advanced disease; if this occurs, notify your palliative care provider immediately to adjust medications like morphine or other sedating agents.\nMonitor closely for \"red flags\" that require urgent medical escalation: sudden onset of high fever, signs of ascending cholangitis (increased pain, worsening jaundice, or confusion), or severe, unmanageable agitation. While pruritus is distressing, it is not typically a medical emergency unless accompanied by these signs of infection or acute obstruction.",
+  "answer": "For severe cholestatic pruritus in advanced gallbladder cancer, the priority is to manage the skin integrity and address the underlying discomfort. While you are already using Morphine SR, it is important to note that pruritus is a common symptom in obstructive jaundice. You should continue the \"By the Clock\" approach for pain management, ensuring that the Morphine dose is titrated to her specific needs, as there is no standard upper limit for cancer pain. For the itching and insomnia, adjuvant medications—such as anti-anxiety drugs or specific anti-pruritics—may be added to the regimen to help with sleep, as anxiety can exacerbate the perception of pain and discomfort. Please consult your physician regarding the addition of these co-analgesics or anti-pruritics, as they are not \"SOS\" medications but require regular, scheduled dosing to be effective.\nRegarding the skin excoriations, you must implement a rigorous nursing care plan immediately. Perform a daily examination of all pressure points and skin surfaces. Keep the skin well-lubricated to prevent further cracking and ensure she receives a high-protein, vitamin-rich diet to support tissue health. If she is bedbound, change her position every two hours to prevent pressure sores, and ensure she remains clean and dry to avoid irritation from incontinence. Regarding the PTBD (Percutaneous Transhepatic Biliary Drainage), this is a clinical decision that must be weighed by your oncology team based on her current performance status and the potential for symptom relief versus the risks of an invasive procedure in advanced disease. If she develops signs of infection (fever, chills, or increased pain), this is a red-flag trigger requiring immediate medical escalation.\nCaregivers should be educated that increasing doses of morphine for pain control does not mean the patient is becoming addicted.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:15:49.406551Z",
+  "generated_at": "2026-10-03T13:39:50.978632Z",
   "rag_method": "vector",
-  "elapsed_ms": 3643,
+  "elapsed_ms": 4545,
   "error": null,
   "provider": "gemini"
 }

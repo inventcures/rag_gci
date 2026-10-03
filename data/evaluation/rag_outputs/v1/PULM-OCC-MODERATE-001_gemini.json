@@ -2,34 +2,34 @@
   "vignette_id": "PULM-OCC-MODERATE-001",
   "language": "en-IN",
   "asker_query": "Madam, Manjunath sir has silicosis, now for 6 weeks his breathing has worsened, night sweats, 4 kg weight loss, blood in sputum twice, no fever. Has the silicosis worsened or is it something else? What should we do?",
-  "answer": "It is understandable that you are worried about Manjunath’s worsening symptoms. In a patient with established silicosis, the development of night sweats, significant weight loss, and blood-streaked sputum (hemoptysis) is highly concerning for a superimposed infection, most notably tuberculosis, which is a common and serious complication in silicosis patients. While his current medications (Tiotropium and Salbutamol) manage airway obstruction, they do not address this potential new infection or the underlying disease progression. To manage his breathlessness and discomfort, palliative care principles suggest optimizing symptom control: oral morphine (starting at 5 mg every 6 hours) can act as both an analgesic and an effective antitussive to reduce cough, while nebulized salbutamol-ipratropium can help relieve dyspnea. Dexamethasone (8 mg daily) may also be considered to reduce inflammation, though this must be initiated under medical supervision.\nFor your immediate action plan, you must prioritize a diagnostic evaluation to confirm or rule out tuberculosis, as this is a treatable condition that could significantly improve his quality of life. Please take him to a local primary health center or a district hospital for a sputum examination (CBNAAT/GeneXpert) and a chest X-ray. It is critical to inform the doctor about his 25-year occupational history and the recent 6-week decline. If he is at home, ensure he is in a well-ventilated room to prevent potential transmission to family members until TB is ruled out. If he experiences sudden, severe difficulty breathing, confusion (delirium), or heavy bleeding from the mouth, this is a medical emergency requiring immediate hospital transfer.\nMonitor him closely for side effects of any new medications, such as constipation (common with morphine, requiring laxatives) or increased confusion.",
+  "answer": "It is very concerning to hear about Manjunath’s recent weight loss, night sweats, and blood-streaked sputum. While his known silicosis causes chronic breathing difficulties, these specific new symptoms—especially the blood in the sputum and weight loss—are strong indicators of a superimposed infection, most notably tuberculosis (TB), which is a common and serious complication in patients with long-term silica exposure. You must prioritize a clinical evaluation to rule out active TB. For his current breathlessness, you may use non-pharmacological methods such as using a fan to improve airflow, providing emotional support, and gently stroking his back. Do not start oxygen therapy routinely without a formal assessment by a doctor. If the doctor prescribes medications for breathlessness, such as morphine or alprazolam, ensure these are documented and administered strictly according to their instructions.\nYour immediate priority is to arrange for a sputum examination and a chest X-ray at the nearest primary health center or hospital to confirm or rule out TB. As a caregiver, your role is to monitor his symptoms closely and ensure he maintains a fiber-rich diet with adequate fluid intake to prevent constipation, which can worsen discomfort. If he has a tracheostomy or requires suctioning, ensure the tube is kept clean and covered with wet gauze, and change the ties if they become soiled. To prevent pressure sores, change his position every two to three hours and inspect all bony areas for skin color changes. Restrict visitors to prevent infection and reduce fatigue.\nIf you notice any red flags—such as severe, uncontrollable bleeding (hemoptysis), a sudden inability to breathe, or a significant change in his level of consciousness—you must seek emergency medical help immediately.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:21:02.450231Z",
+  "generated_at": "2026-10-03T13:45:19.210936Z",
   "rag_method": "vector",
-  "elapsed_ms": 3515,
+  "elapsed_ms": 3710,
   "error": null,
   "provider": "gemini"
 }

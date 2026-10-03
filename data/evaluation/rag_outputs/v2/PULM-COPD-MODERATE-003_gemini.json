@@ -2,34 +2,34 @@
   "vignette_id": "PULM-COPD-MODERATE-003",
   "language": "en-IN",
   "asker_query": "Madam, Lalita-mausi is breathing faster — 28 per minute. Her saturation is 89, normally 92. Slight fever 37.6. Phlegm is yellowish now. Started 1.5 days back. Son brought cold from Bhubaneswar last week. What should I do? Should we travel 40 km tonight?",
-  "answer": "Lalita-mausi is likely experiencing an acute exacerbation of COPD, potentially triggered by a respiratory infection. Given her clinical presentation—increased respiratory rate (28/min), yellow sputum, and desaturation—the priority is to manage the infection and optimize bronchodilation. You should immediately increase her Salbutamol MDI usage to 2 puffs every 4 hours, or more frequently if she remains distressed, using a spacer if available. Since she has a fever and yellow sputum, she requires a prompt clinical assessment for antibiotics, as these are \"controllable causes of breathlessness\" (Indian Primer, p. 100). Do not wait for an X-ray, as the *Indian Primer of Palliative Care* notes that investigations are often not useful in assessing chronic breathlessness and can be normal even in severe cases.\nRegarding your question about traveling 40 km tonight: if she is alert, able to speak in short sentences, and her saturation remains stable at 89% with the increased bronchodilator use, you may monitor her closely at home overnight. However, you must designate a family member to observe her breathing pattern and consciousness level continuously. If she becomes confused, drowsy, or if her respiratory rate exceeds 30/min despite the Salbutamol, this is a red-flag escalation trigger. In such a case, she requires immediate transport to the nearest hospital for oxygen therapy and potentially systemic steroids or antibiotics. If she remains stable, plan to visit the clinic first thing tomorrow morning to have a physician evaluate her for a formal antibiotic prescription.\nMonitor for side effects of increased Salbutamol, such as tremors or palpitations, which are common but usually manageable. If she develops sudden chest pain, severe agitation, or if her oxygen saturation drops below 85% despite rest, do not delay transport, regardless of the time. Ensure she stays in a comfortable, upright position to aid her breathing, and keep her hydrated.",
+  "answer": "While you should consult her primary physician immediately regarding the need for antibiotics or an adjustment to her nebulization therapy, you can initiate supportive care at home.\nEnsure she is positioned upright, propped up with pillows, and keep the environment calm to reduce the anxiety that often accompanies breathlessness.\nIf she is struggling to breathe, you can assist her with pursed-lip breathing and place a fan to direct a gentle stream of air over her face, which can provide significant relief.\nRegarding your travel plans, please contact her doctor before making the 40 km journey tonight.\nIf she is stable, you may be able to manage her at home by ensuring good ventilation (keeping doors/windows open) and maintaining her hydration.\nIf she remains distressed despite non-pharmacological measures, morphine may be considered by a palliative specialist to manage the sensation of breathlessness, though this requires a formal prescription under the NDPS Act, necessitating three copies of the prescription (for the patient, doctor, and chemist).\nCaregivers should monitor for neurotoxicity, such as muscle jerks, if medications are adjusted.\nKeep her surroundings clean and restrict visitors to prevent further infection and fatigue.\nAlways keep the family calm, as anxiety can spread to the patient and exacerbate her respiratory distress.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:30:59.412412Z",
+  "generated_at": "2026-10-03T13:48:14.219134Z",
   "rag_method": "vector",
-  "elapsed_ms": 3204,
+  "elapsed_ms": 4065,
   "error": null,
   "provider": "gemini"
 }

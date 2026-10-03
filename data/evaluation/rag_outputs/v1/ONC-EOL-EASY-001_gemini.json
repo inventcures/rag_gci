@@ -2,34 +2,34 @@
   "vignette_id": "ONC-EOL-EASY-001",
   "language": "en-IN",
   "asker_query": "Madam, dadi-ji is in last days, she is sleeping mostly, sometimes she moans softly when we turn her. Family is worried — is she in pain? Should we give more morphine? What else to do?",
-  "answer": "It is understandable that you are worried when Dadi-ji moans, but in a patient who is mostly sleeping and in her final days, soft moaning during repositioning does not always mean she is in severe pain. It can often be a reflex response to movement or discomfort. Since she is already on a stable regimen of Morphine SR (30mg BD) and IR (5mg PRN), please **do not crush the SR (Sustained Release) tablets**, as this destroys the time-release mechanism and can lead to a dangerous, rapid dose dump. If she can no longer swallow, you must consult your palliative care team immediately to switch to a liquid formulation or an alternative route (such as subcutaneous injection) to ensure she remains comfortable without the risk of sudden toxicity.\nFor your immediate action plan, focus on gentle, minimal handling. When you must turn her, do so slowly and with support to minimize physical distress. If the moaning is frequent or seems to cause her visible distress, you may administer the prescribed 5mg IR Morphine, but keep a record of how often this is needed. Because she has mild CKD, be cautious with dose adjustments, as renal impairment can cause morphine metabolites to accumulate. Ensure the family is involved in her care through clear communication; often, the fear of \"pain\" is actually a fear of the dying process itself. If she is not passing stool regularly, continue the laxatives (Lactulose and Senna), as constipation can significantly increase discomfort in the final days.\nWatch for signs of opioid toxicity, such as pinpoint pupils, extreme respiratory depression, or muscle twitching, which require an urgent review by your physician. If she appears restless, agitated, or the moaning persists despite the PRN dose, this is a red-flag trigger to call your hospice or palliative care team for a medication review. Remember that \"total pain\" includes spiritual and emotional distress; sitting with her, holding her hand, and speaking softly can be as therapeutic as medication.",
+  "answer": "It is very common for families to worry when a loved one moans during repositioning, but this does not always indicate uncontrolled pain.\nIn a patient who is mostly sleeping and appears peaceful, soft moaning during movement can sometimes be a reflex or a sign of discomfort from physical handling rather than severe, ongoing pain.\nFor the moaning during repositioning, focus on non-pharmacological comfort measures: ensure she is turned very gently, use pillows for proper positioning to relieve pressure on her bones, and offer reassurance through a calm voice or gentle touch.\nIf the moaning is frequent or seems to cause her distress, document the timing and frequency, and report this to her palliative care team.\nThey may need to adjust her titration or add adjuvant medications if they determine the pain is not being adequately controlled.\nAlways ensure her laxative (Lactulose/Senna) is continued, as constipation can significantly increase discomfort.\nBe aware that morphine can cause side effects like nausea, dry mouth, or, rarely, muscle jerks (neurotoxicity).\nWhile respiratory depression is a common fear, it is uncommon when the dose is titrated properly for pain.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:15:58.867007Z",
+  "generated_at": "2026-10-03T13:40:01.462281Z",
   "rag_method": "vector",
-  "elapsed_ms": 3457,
+  "elapsed_ms": 4472,
   "error": null,
   "provider": "gemini"
 }

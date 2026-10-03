@@ -2,34 +2,34 @@
   "vignette_id": "PULM-COPD-DIFFICULT-003",
   "language": "en-IN",
   "asker_query": "Didi, father has had fever for 2 days, cough, yellow-green sputum, increasing breathlessness, no oxygen at home, SpO2 87%. The hospital is 60 km away, road is bad. What should we do, should we take him to hospital?",
-  "answer": "Managing breathlessness and infection in a remote setting requires a focus on both symptom relief and addressing reversible causes. For your father’s current symptoms of fever, purulent sputum, and low oxygen saturation (87%), he likely requires antibiotics to treat the suspected bacterial bronchitis, which is a controllable contributor to his distress. If you cannot reach the hospital immediately, prioritize positioning him upright to ease his breathing and ensure he uses his Salbutamol MDI as needed. If available, a trial of nebulization with Salbutamol and Ipratropium can be more effective than an MDI during severe exacerbations. Morphine (e.g., 5 mg every 6 hours) is a gold-standard pharmacological intervention in palliative care for refractory breathlessness, as it acts as both an antitussive and a respiratory sedative to reduce the sensation of air hunger. Please note that oxygen therapy should only be continued if it demonstrably improves his comfort; if he remains distressed despite oxygen, it may not be providing the relief you hope for.\nGiven the 60 km distance and poor road conditions, you must weigh the burden of travel against the potential for medical intervention. If his breathlessness is bordering on panic or if he is experiencing delirium, the physical toll of a long, bumpy journey may outweigh the benefits of hospital care, especially if the goal is comfort at home. If you choose to stay home, ensure you have an \"anticipatory prescription\" from a local physician for antibiotics, steroids (such as Dexamethasone 8mg), and anxiolytics to manage the anxiety associated with his breathlessness. The family should focus on \"essential care\"—discontinuing non-essential medications and prioritizing comfort.",
+  "answer": "Managing a patient with severe COPD and acute breathlessness at home requires a careful balance between comfort and medical necessity.\nWhile oxygen therapy should not be started routinely without a doctor’s assessment, the current clinical picture suggests he needs an urgent medical evaluation to determine if he requires antibiotics or formal respiratory support.\nIf transport is possible, a hospital visit is recommended to stabilize his condition.\nIf the journey is truly impossible, you must immediately contact a local doctor to discuss starting appropriate medications, such as morphine or alprazolam, to manage the distress of breathlessness, and to evaluate if antibiotics are indicated for the suspected infection.\nAt home, your primary focus is to reduce his respiratory effort and anxiety.\nUse non-pharmacological techniques: prop him up with pillows, position him near an open window or place a fan to direct a gentle stream of air toward his face, and encourage pursed-lip breathing or leaning forward.\nKeep his environment calm and soothing; your own composure is vital, as anxiety can worsen his breathlessness.\nIf he is struggling to swallow, feed him slowly with a spoon, ensuring each sip is swallowed to prevent aspiration.\nIf he becomes severely distressed, unresponsive, or if his breathing pattern changes drastically, this is a red-flag trigger requiring immediate escalation to emergency medical services, regardless of the distance.\nCaregivers must monitor for signs of worsening, such as increased confusion, inability to speak in full sentences, or blue discoloration of the lips.\nWhile you provide physical care—such as wiping his face with a wet towel, gently stroking his back, and maintaining hygiene—ensure you are documenting his symptoms to share with the medical team.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:18:33.137405Z",
+  "generated_at": "2026-10-03T13:42:42.352329Z",
   "rag_method": "vector",
-  "elapsed_ms": 4440,
+  "elapsed_ms": 3847,
   "error": null,
   "provider": "gemini"
 }

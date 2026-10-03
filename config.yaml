@@ -14,11 +14,22 @@ llm:
   temperature: 0.7
   max_tokens: 1024
   
-# Embedding Configuration  
+# Embedding Configuration
+# Model pinned by ADR 0003, chosen by measurement: mean hit@5 0.96 across the eleven
+# supported languages, against 0.09 for the English-only bge-small-en-v1.5 this
+# replaced, which scored 0.00 on every Indic language.
+#   evaluation/retrieval_eval/results.json
+# Changing this requires reindexing: scripts/reindex_with_configured_model.py
 embedding:
-  provider: "sentence_transformers"  # Local embedding model
-  model: "all-MiniLM-L6-v2"
+  provider: "sentence_transformers"
+  model: "BAAI/bge-m3"
+  dimension: 1024
   batch_size: 32
+  # Point at a local copy to avoid re-downloading 2.3 GB on every migration:
+  #   EMBEDDING_MODEL_PATH=/srv/models/bge-m3
+  # Frozen corpus vectors are ~263 KB at int8, so shipping them to the Android
+  # client is free. Query embedding on-device is not viable and is ruled out by
+  # ADR 0005.
 
 # Reranking Configuration
 reranking:

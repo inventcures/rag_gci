@@ -2,22 +2,10 @@
   "vignette_id": "PULM-EOL-DIFFICULT-001",
   "language": "en-IN",
   "asker_query": "Mr. Reddy is on NIV for AE-IPF, deteriorating, distressed by mask, lucidly asking us to stop, family in agreement. Need a structured NIV-withdrawal plan — pre-medication doses, sequence of removal, who is present, how to manage acute dyspnea/distress at moment of removal, possibility of discharge home for terminal care, ethical/legal framing, family debrief plan, and any documentation requirements.",
-  "answer": "To manage the terminal discontinuation of NIV for Mr. Reddy, prioritize comfort by optimizing symptom-relief medications before withdrawal. Transition from PRN to scheduled dosing to prevent distress: administer Morphine 5mg SC Q6H (which acts as both an analgesic and antitussive) and consider adding Dexamethasone (8mg IV OD) to reduce airway inflammation. If the patient experiences breakthrough breathlessness or panic during the transition, use Lorazepam 1mg sublingually for rapid anxiolytic effect. For delirium, consider Haloperidol (2.5mg SC), titrating slowly based on response. Ensure all essential medications for symptom relief are prioritized, while non-essential drugs (e.g., antibiotics, routine antihypertensives) should be discontinued to reduce the burden of care.\nThe withdrawal process requires a coordinated team approach. Before removing the mask, explain the sequence to the family to reduce uncertainty, as clear communication is vital for their support. Once the patient is comfortable with the pre-medication, remove the NIV mask. If dyspnea recurs, prioritize pharmacological management over re-initiating oxygen, as oxygen is only beneficial if it actively relieves the symptom. If the family chooses to transition to home care, provide an \"anticipatory prescription\" chart that clearly lists the drug name, dose, route, and frequency for managing recurrent breathlessness or delirium. Document the clinical decision-making process, the patient’s lucid request, and the family’s consensus clearly in the medical record to ensure legal and ethical clarity.\nMonitor for red-flag symptoms that require immediate escalation, including worsening of speech or visual problems, increased seizures, or signs of infection (fever >101°F). Caregivers should maintain a log of symptoms such as constipation, nausea, or anxiety, which are common in bedridden patients.",
+  "answer": "For a patient like Mr.\nReddy, the goal of withdrawing non-invasive ventilation (NIV) is to ensure a peaceful, symptom-free transition.\nThese medications should be administered 15–30 minutes prior to removing the mask.\nDuring the withdrawal process, the NIV should be discontinued slowly or removed entirely based on his comfort, while maintaining regular, scheduled doses of opioids and adjuvant medications to prevent the return of dyspnea.\nAdjuvant drugs, such as anti-anxiety medications, are vital when sleeplessness or distress exacerbates pain or breathlessness.\nIn the hospital setting, the primary physician or palliative care team should lead the withdrawal process with the family present to provide support.\nEnsure the environment is calm and private.\nIf the family expresses a desire for home-based terminal care, this is feasible if the caregiver is trained in basic symptom management and mouth care, though intravenous routes should be avoided in favor of subcutaneous injections or oral medications where possible.\nDocument the patient’s clear request and the family’s consensus in the medical records to align with ethical standards of care.\nCaregivers must be educated on monitoring for side effects such as constipation or excessive sedation.\nBecause the patient is bedridden, prioritize the prevention of bedsores through regular repositioning and keep the surroundings clean to minimize infection risk.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
-      "page": null,
-      "relevance": 0,
-      "snippet": ""
-    },
-    {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -29,7 +17,19 @@
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
+      "page": null,
+      "relevance": 0,
+      "snippet": ""
+    },
+    {
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:19:20.277557Z",
+  "generated_at": "2026-10-03T13:43:33.138349Z",
   "rag_method": "vector",
-  "elapsed_ms": 3628,
+  "elapsed_ms": 4482,
   "error": null,
   "provider": "gemini"
 }

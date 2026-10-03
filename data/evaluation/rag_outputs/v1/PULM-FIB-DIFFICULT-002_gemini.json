@@ -2,34 +2,34 @@
   "vignette_id": "PULM-FIB-DIFFICULT-002",
   "language": "en-IN",
   "asker_query": "Palaniammal has post-TB fibrosis with severe PH (PASP 80) and cor pulmonale. SpO2 88% air, no home O2 yet. On sildenafil + diuretics with modest benefit. Looking for: home O2 prescription criteria, role of PH-specific therapy in Group 3, cautious opioid initiation for dyspnea, prognostication, advance care planning given travel distance to specialist centre.",
-  "answer": "For the management of refractory dyspnea in a patient with post-TB pulmonary fibrosis and cor pulmonale, symptomatic relief is the priority. If the patient is not currently on oral morphine, a starting dose of 5–6 mg every 4–6 hours is appropriate to reduce the respiratory drive and alleviate the sensation of breathlessness. If she is already on morphine for pain, increase the current dose by 30–50%. Please note that nebulized morphine is ineffective and should be avoided. For associated anxiety or panic, consider diazepam 2–5 mg PRN or lorazepam 1 mg sublingually BD and PRN. Regarding oxygen, a trial of supplemental oxygen is indicated for patients with breathlessness at rest, particularly when hypoxic (SpO2 88%). In the Indian context, nasal prongs at 2–4 L/min are preferred as they allow for social interaction. Corticosteroids (8–32 mg daily) may also be considered if there is evidence of airway edema or peritumoral inflammation contributing to obstruction.\nIn your home setting, prioritize non-pharmacological measures alongside these medications: use a fan to direct cool air toward the patient’s face, encourage pursed-lip breathing, and assist with activity pacing to minimize exertion. Caregivers should be trained to recognize that breathlessness often triggers panic; clear communication about the cause of dyspnea is essential to reduce family anxiety. Given the travel distance to a specialist center, document an advance care plan now, focusing on the patient’s goals of care and preferences for end-of-life management. If the patient experiences a sudden worsening of dyspnea, chest pain, or altered consciousness, this is a red-flag trigger requiring immediate escalation to the nearest emergency facility.\nPatients on diuretics and sildenafil require ongoing monitoring for signs of worsening right heart failure or renal impairment.",
+  "answer": "For patients with advanced post-TB pulmonary fibrosis and cor pulmonale, the primary goal is symptom relief and quality of life.\nRegarding oxygen therapy, do not start it routinely; it should only be initiated after a formal discussion with the patient’s physician to determine if it provides symptomatic benefit, as it is not always indicated for all patients with chronic breathlessness.\nFor refractory dyspnea, low-dose oral morphine is the gold standard for symptom control.\nPlease note that in India, morphine prescriptions require three copies (for the patient, doctor, and pharmacy) and must include the doctor’s registration number, drug strength, route, dose, frequency, and duration.\nIn a home setting, focus on non-pharmacological interventions to manage breathlessness, such as using a fan to direct cool air toward the patient’s face, ensuring proper positioning, and providing constant reassurance to reduce the anxiety that often exacerbates dyspnea.\nAs a caregiver, your role is to monitor for side effects like severe constipation, nausea, or excessive sedation.\nGiven the distance to the specialist center, initiate advance care planning now; discuss the patient's preferences regarding potential interventions like catheterization or nasogastric feeding if the patient becomes unable to swallow or manage bodily functions independently.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:19:54.708237Z",
+  "generated_at": "2026-10-03T13:44:09.135712Z",
   "rag_method": "vector",
-  "elapsed_ms": 2742,
+  "elapsed_ms": 3978,
   "error": null,
   "provider": "gemini"
 }

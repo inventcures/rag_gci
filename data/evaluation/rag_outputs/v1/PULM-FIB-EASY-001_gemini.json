@@ -2,34 +2,34 @@
   "vignette_id": "PULM-FIB-EASY-001",
   "language": "en-IN",
   "asker_query": "Doctor, I had TB 7 years ago, finished my treatment. Now my lungs have some scarring. I get breathless on stairs. What is the best long-term plan — exercises, any medicines, vaccines? How do I keep my lungs as healthy as possible?",
-  "answer": "For a patient with stable post-TB pulmonary fibrosis and exertional dyspnea, the primary goal is to optimize functional capacity and manage symptoms through non-pharmacological interventions before considering symptomatic drug therapy. You should focus on \"activity pacing\"—breaking tasks into smaller segments with rest periods in between (e.g., eat, rest, wash, rest, dress, rest). Physiotherapy is highly recommended for breathing retraining, such as learning to breathe out slowly through pursed lips, which helps manage expiratory resistance. While investigations like X-rays are often stable in chronic fibrosis, ensure you have ruled out reversible contributors like anemia or secondary infections. Symptomatic medications are generally reserved for when non-drug measures are fully exploited; if breathlessness persists despite these, a palliative care physician may consider low-dose interventions, though these are not first-line for mild exertional symptoms.\nIn your home setting, you and your family should prioritize maintaining physical fitness by encouraging regular, gentle exertion to your threshold of breathlessness to improve tolerance. Ensure your environment is supportive: keep your living space cool with good airflow, use an electric fan directed toward your face, and wear loose clothing around the neck to reduce the sensation of breathlessness. As a caregiver, your role is to help the patient adjust to changes in physical roles while providing emotional reassurance that breathlessness during exertion is not inherently life-threatening. You should also ensure the patient receives annual influenza and pneumococcal vaccinations to prevent respiratory infections, which can acutely worsen scarring-related symptoms.\nMonitor for \"red flags\" that require immediate medical escalation, such as a sudden, significant increase in breathlessness at rest, new chest pain, or symptoms of a respiratory infection (fever, increased sputum, or change in color).",
+  "answer": "Managing post-TB pulmonary fibrosis requires a focus on symptom control and preventing further lung strain. While your condition is stable, the scarring (fibrosis) restricts lung expansion, leading to the breathlessness you feel on exertion. For pharmacological management, if your breathlessness worsens, low-dose oral morphine is recognized as highly effective for relieving the sensation of dyspnea by acting on specific centers in the brain. However, this should only be initiated under the guidance of a palliative care physician. Ensure you remain up-to-date with annual influenza and pneumococcal vaccinations to prevent respiratory infections, which can exacerbate scarring. If you experience wheezing, consult your doctor to see if bronchodilators or nebulizers are indicated to open your airways.\nFor your daily routine, non-pharmacological management is your most powerful tool. You should practice \"pursed-lip breathing\" and \"leaning forward\" techniques to improve airflow during exertion. At home, maintain a calm environment, ensure good ventilation by keeping windows open, and use a fan to direct a gentle stream of air toward your face, which can significantly reduce the sensation of breathlessness. If you feel anxious, use relaxation techniques like focusing on pleasant memories or calm scenes. To maintain overall health, continue your diabetes management, as stable blood sugar supports your immune system. If you notice a sudden increase in breathlessness at rest, persistent cough, fever, or if you feel you are \"suffocating,\" these are red flags requiring immediate medical evaluation at your nearest health center.\nCaregivers should monitor for signs of respiratory distress and ensure the patient avoids heavy physical strain.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:20:14.176182Z",
+  "generated_at": "2026-10-03T13:44:29.128060Z",
   "rag_method": "vector",
-  "elapsed_ms": 3826,
+  "elapsed_ms": 4036,
   "error": null,
   "provider": "gemini"
 }

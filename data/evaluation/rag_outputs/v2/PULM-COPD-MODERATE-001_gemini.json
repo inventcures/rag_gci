@@ -2,34 +2,34 @@
   "vignette_id": "PULM-COPD-MODERATE-001",
   "language": "en-IN",
   "asker_query": "Madam, Ganesh-kaka is breathless even sitting still. His oxygen is 90 on 2 litres, his usual. No fever, no extra phlegm. Inhalers are full done. Family asks if there is some medicine for this constant breathing struggle. What should I tell them?",
-  "answer": "It is distressing to see Ganesh-kaka struggling for breath despite his current inhaler regimen. In the context of end-stage (GOLD IV) COPD, when breathlessness remains refractory despite optimal inhaler use and supplemental oxygen, the primary pharmacological intervention is the use of low-dose oral morphine. According to the *Indian Primer of Palliative Care*, the goal is to manage the sensation of breathlessness rather than just oxygen saturation. You may discuss with his physician the initiation of immediate-release oral morphine, typically starting at a very low dose such as 2.5 mg to 5 mg every 4 to 6 hours. This helps reduce the \"air hunger\" sensation by modulating the respiratory drive and reducing anxiety associated with dyspnea.\nFor your practical action plan, please advise the family that while we continue his current oxygen and inhalers, the focus shifts to comfort. As a caregiver or health worker, your role is to document the frequency of his \"struggle\" episodes and ensure the family understands that morphine is for symptom relief, not just pain. In India, ensure the facility has the necessary NDPS (Narcotic Drugs and Psychotropic Substances) license to dispense these medications. If the patient is at home, the family must keep a simple log of the time and severity of breathlessness to help the doctor adjust the dose. If the patient develops sudden, severe agitation, worsening cyanosis, or if the breathlessness does not improve after two doses of the prescribed morphine, this is a red flag requiring immediate escalation to the palliative care team or the nearest emergency center.\nFinally, educate the family on non-pharmacological measures, which are often highly effective in the home setting. A simple table fan blowing air across the patient's face can significantly reduce the sensation of breathlessness.",
+  "answer": "It is distressing to see Ganesh-kaka struggling for breath despite being on optimal inhaler therapy. In end-stage COPD, breathlessness often persists even when oxygen levels are stable because the lungs are physically damaged and cannot process air efficiently. For refractory dyspnea at rest, low-dose oral morphine is the gold-standard pharmacological intervention used in palliative care to reduce the sensation of breathlessness by acting on the brain’s respiratory centers. Please advise the family that while oxygen helps if blood levels are low, it does not always relieve the *sensation* of breathlessness in advanced disease. You must discuss the initiation of morphine or anxiolytics (like alprazolam) with his primary palliative physician, as these require specific prescriptions and careful titration to ensure safety and comfort.\nFor your immediate action plan, focus on non-pharmacological techniques that can be implemented at home today. Encourage the family to prop Ganesh-kaka up with pillows to improve lung expansion and place a fan near his face to direct a gentle stream of air, which is highly effective in reducing the perception of dyspnea. Ensure the room is well-ventilated and maintain a calm, soothing environment; anxiety often worsens the \"suffocation\" feeling, so family members should speak in soft voices and use relaxation techniques, such as guiding him to think of pleasant memories or using pursed-lip breathing. If he is unable to manage secretions or if his condition declines, discuss the potential need for a feeding tube or catheterization with the doctor, but prioritize his comfort and morale above all else.\nMonitor Ganesh-kaka closely for red flags that require urgent medical escalation, such as the onset of increased confusion, extreme drowsiness, or a sudden change in consciousness, which may indicate carbon dioxide retention.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:30:34.230938Z",
+  "generated_at": "2026-10-03T13:47:54.129513Z",
   "rag_method": "vector",
-  "elapsed_ms": 3515,
+  "elapsed_ms": 5012,
   "error": null,
   "provider": "gemini"
 }

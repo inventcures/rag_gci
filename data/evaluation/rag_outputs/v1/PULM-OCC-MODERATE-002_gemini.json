@@ -2,34 +2,34 @@
   "vignette_id": "PULM-OCC-MODERATE-002",
   "language": "en-IN",
   "asker_query": "Didi, my husband's breathlessness is getting worse day by day, he worked for 30 years in a cotton mill, now there is no work, the compensation case is pending. He is taking inhalers. SpO2 89%. What more can I do at home?",
-  "answer": "It is understandable how distressing this progressive breathlessness is for both you and your husband, especially given the financial strain. To manage his breathlessness at home, ensure his current inhalers (Tiotropium-Olodaterol and Budesonide-Formoterol) are used consistently as prescribed. If he experiences acute wheezing or air hunger, his Salbutamol MDI can be used as a rescue medication. If his breathlessness is persistent or increasing, a physician may consider adding oral or subcutaneous corticosteroids (8–32 mg once daily) to reduce airway edema. Because he has anemia (Hb 10.5), which can worsen breathlessness, please discuss with his doctor whether iron supplementation or other treatments are appropriate to address this \"controllable cause\" of his symptoms.\nAt home, you can implement several non-pharmacological measures immediately to help him feel more comfortable. Use a handheld electric fan to blow cool air across his face, or wipe his face with a cold, wet flannel; this simple technique is highly effective for relieving the sensation of breathlessness. Encourage \"pursed-lip breathing\" (breathing out slowly through pursed lips) and help him pace his daily activities—rest before and after tasks like washing or eating. It is vital to reassure him that while these episodes feel terrifying, they are not immediately life-threatening. If you are part of a home-care program, ask the team for an \"anticipatory prescription\" so you have medications ready at home for future episodes of panic or severe breathlessness.\nIf you notice a sudden, severe worsening of breathlessness that does not improve with his rescue inhaler, or if he develops signs of a respiratory infection (fever, increased sputum), please contact your local palliative care provider or clinic immediately.",
+  "answer": "It is deeply distressing to see your husband struggling with such severe breathlessness, especially given his years of hard work. While he continues his prescribed inhalers, we can add powerful non-pharmacological methods to help him feel more comfortable at home. You can immediately help by propping him up with extra pillows or cushions to help him breathe more easily. Place a fan near him to direct a gentle stream of air over his face, keep doors and windows open for fresh air, and ensure he wears loose, comfortable clothing. You can also assist him with \"pursed-lip breathing\" (breathing in through the nose and slowly out through pursed lips) and encourage him to lean forward when he feels breathless. Staying by his side, speaking in a calm, soothing voice, and gently stroking his back can significantly reduce the panic and anxiety that often worsen the sensation of suffocation.\nAs a caregiver, your presence is the most important tool. If his breathlessness remains severe, please consult his doctor about whether low-dose morphine or medications like alprazolam might be appropriate to help manage his distress; these are often used in palliative care to ease the sensation of breathlessness, but they must be started only after a formal discussion and documentation by a physician. Please do not start oxygen therapy on your own, as it may not be helpful if the lungs are significantly damaged and requires a doctor’s assessment. Because he is at risk of becoming bedridden, ensure he remains as active as possible, but if he must stay in bed, try to keep him clean and comfortable. If his condition changes—specifically if he develops severe panic, becomes unresponsive, or if his breathing becomes significantly more labored despite these comfort measures—this is a red flag that requires immediate contact with his healthcare provider or a local palliative care team.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:21:12.281678Z",
+  "generated_at": "2026-10-03T13:45:29.140606Z",
   "rag_method": "vector",
-  "elapsed_ms": 3828,
+  "elapsed_ms": 3919,
   "error": null,
   "provider": "gemini"
 }

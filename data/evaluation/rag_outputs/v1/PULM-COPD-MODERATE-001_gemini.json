@@ -2,34 +2,34 @@
   "vignette_id": "PULM-COPD-MODERATE-001",
   "language": "en-IN",
   "asker_query": "Madam, grandfather's breathlessness has been increasing for two weeks, he cannot walk from bed to the toilet. No fever, no increase in sputum. Oxygen is given 16 hours a day. What should we do now? Can we increase the O2?",
-  "answer": "In managing progressive breathlessness for a patient with GOLD IV COPD, the first step is to recognize that investigations like X-rays may appear normal even in severe distress, as breathlessness is a subjective experience often decoupled from physiological markers. According to the *Indian Primer of Palliative Care*, you must first systematically screen for and correct reversible contributors. While you are already using home oxygen, increasing the flow rate without medical supervision can be risky in COPD patients due to the risk of CO2 retention. Instead, focus on pharmacological management: if the patient is already on maximal inhaler therapy (Tiotropium-Olodaterol and Budesonide-Formoterol), the addition of low-dose oral morphine is the gold standard for refractory breathlessness in palliative care. A typical starting dose is 2.5 mg to 5 mg of immediate-release morphine orally, administered every 4 to 6 hours as needed. This helps reduce the \"air hunger\" sensation by modulating the respiratory drive and reducing anxiety.\nFor your practical action plan, the caregiver should prioritize non-pharmacological interventions immediately: ensure the patient is in an upright, forward-leaning position (tripod position) and use a handheld fan to blow cool air across the face, which is highly effective in relieving dyspnea. Since the patient is housebound, the family should contact a local palliative care team or a physician trained in the NDPS Act regulations to obtain a prescription for oral morphine, as this is a controlled substance in India. Do not arbitrarily increase the oxygen flow beyond the prescribed 2 L/min without a blood gas analysis or physician order, as this may worsen his condition. If the patient develops confusion, extreme drowsiness, or a bluish tint to the lips (cyanosis), these are red flags indicating hypercapnia or severe hypoxia; in such cases, immediate escalation to the nearest hospital emergency department is required.",
+  "answer": "It is distressing to see a loved one struggle with breathlessness, especially when they are already on long-term oxygen therapy.\nConsequently, simply increasing oxygen flow may not provide relief and should not be done without explicit instructions from your doctor.\nInstead, the focus should shift to symptom management.\nMorphine is highly effective for managing refractory breathlessness in palliative care by acting on specific centers in the brain to reduce the sensation of air hunger.\nAdditionally, medications like alprazolam may be considered to manage the anxiety that often accompanies severe breathlessness.\nPlease consult your physician to discuss whether these medications are appropriate for your grandfather’s specific condition.\nTo manage his comfort at home, prioritize non-pharmacological techniques, which are essential components of palliative care.\nEnsure he is propped up with pillows to assist his breathing, and use a fan to direct a gentle stream of air toward his face, as this can significantly reduce the sensation of breathlessness.\nMaintain a calm environment, keep windows open for ventilation, and practice techniques like pursed-lip breathing or leaning forward.\nAs a caregiver, your presence is vital; stay with him, speak in a soothing voice, and gently stroke his back to provide reassurance.\nIf he becomes bedbound, ensure you keep his surroundings clean and monitor for signs of constipation, which can worsen discomfort.\nWhile these measures provide comfort, please remain vigilant for red flags that require immediate medical escalation.\nSeek urgent care if you notice the onset of confusion, increased drowsiness, severe persistent headache, or a sudden change in the pattern of breathing (such as very noisy or gasping breaths).\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:19:01.469846Z",
+  "generated_at": "2026-10-03T13:43:12.342636Z",
   "rag_method": "vector",
-  "elapsed_ms": 3940,
+  "elapsed_ms": 4431,
   "error": null,
   "provider": "gemini"
 }

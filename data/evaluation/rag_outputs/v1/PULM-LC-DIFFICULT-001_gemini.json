@@ -2,34 +2,34 @@
   "vignette_id": "PULM-LC-DIFFICULT-001",
   "language": "en-IN",
   "asker_query": "Mrs. Mathew has rapid reaccumulation of MPE — 3 taps in 6 weeks. Recently started on Morphine SR 10mg BD. Looking for guidance on next step — talc slurry pleurodesis vs IPC vs continued thoracentesis, prognosis considerations, lung re-expansion concerns, patient preference framing.",
-  "answer": "For a patient like Mrs. Mathew experiencing recurrent symptomatic malignant pleural effusion (MPE), the primary goal is to minimize the burden of repeated procedures while maximizing comfort. While thoracentesis provides temporary relief, the frequency of her taps suggests that definitive management is necessary. Options such as talc slurry pleurodesis or an Indwelling Pleural Catheter (IPC) should be discussed based on her lung re-expansion status; if the lung fails to re-expand fully due to trapped lung, an IPC is often preferred over pleurodesis. Regarding her breathlessness, morphine is an appropriate intervention. If she is already on morphine for pain, you should increase her total daily dose by 30–50% to address dyspnea. If she were not on morphine, a starting dose of 5–6mg every 4–6 hours is recommended. Please note that nebulized morphine is not effective and should be avoided.\nIn your home or hospice setting, the priority is to integrate non-drug interventions alongside pharmacological management. Ensure Mrs. Mathew is referred to a physiotherapist for breathing retraining and activity pacing, which is vital if she experiences anxiety or panic associated with her breathlessness. As a caregiver, your role is to facilitate an overt discussion about her goals of care—balancing the invasiveness of procedures against her remaining time and quality of life. If she is in a rural setting where specialized thoracic intervention is limited, prioritize symptom control (morphine titration and oxygen if hypoxic) while arranging for a palliative care consultation to discuss the feasibility of IPC placement, which allows for home-based drainage and reduces the need for hospital travel.\nMonitor closely for signs of respiratory distress or sudden changes in consciousness. While morphine is effective for breathlessness, it can cause sedation; ensure the dose is titrated to comfort without causing excessive drowsiness.",
+  "answer": "For managing severe cancer-related pain in patients like Mrs.\nIn the Indian context, ensure that all morphine prescriptions comply with the NDPS Act, requiring the doctor’s registration number and the provision of three copies of the prescription (for the patient, doctor, and pharmacy).\nRegarding the recurrent malignant pleural effusion (MPE), the decision between talc pleurodesis and an Indwelling Pleural Catheter (IPC) should be framed around the patient’s functional status and goals of care.\nIf the lung is trapped (failed re-expansion), pleurodesis is often ineffective, making an IPC a more suitable option for symptom relief.\nAs a caregiver or health worker, your role is to facilitate a conversation about these options, focusing on which method best allows Mrs.\nMathew to maintain her independence and comfort.\nNon-pharmacological methods, such as proper positioning and reassurance, are vital adjuncts to help manage the anxiety associated with breathlessness.\nMonitor Mrs.\nMathew closely for side effects such as excessive sedation or neurotoxicity (e.g., muscle jerks).\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:20:33.348059Z",
+  "generated_at": "2026-10-03T13:44:49.459651Z",
   "rag_method": "vector",
-  "elapsed_ms": 3867,
+  "elapsed_ms": 4475,
   "error": null,
   "provider": "gemini"
 }

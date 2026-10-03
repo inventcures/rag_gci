@@ -2,28 +2,28 @@
   "vignette_id": "PULM-COPD-DIFFICULT-001",
   "language": "en-IN",
   "asker_query": "Didi, we are a respectable family, we will not give papa morphine, it is an addictive drug, he will get addicted. What else can we give my father apart from morphine? Tell us some other way.",
-  "answer": "It is completely understandable that you are concerned about your father’s comfort and the stigma surrounding morphine. In palliative care, we use morphine not for addiction, but as a precise medical tool to relieve the sensation of breathlessness by reducing the brain's \"panic\" response to low oxygen levels. When used at low, titrated doses for symptom relief, the risk of addiction is very low. However, if you are not ready for morphine, we must optimize his current regimen: ensure his nebulized salbutamol-ipratropium is used regularly rather than just PRN, and consider adding dexamethasone (8mg) to reduce airway inflammation. Non-pharmacological techniques are also essential: use a fan to blow cool air across his face, ensure he is in an upright, supported sitting position, and use \"pursed-lip\" breathing techniques to help him manage his respiratory rate.\nTo manage this at home, your primary goal is to minimize his physical exertion and anxiety. The family should focus on \"paced activities,\" ensuring he does not overexert himself during daily tasks. If he experiences a panic attack, a caregiver should stay by his side, maintain a calm voice, and use reassurance or diversion therapy (like music or gentle massage) to distract him from the sensation of breathlessness. If his dyspnea remains refractory despite these measures, please understand that his fear of \"suffocating\" is a medical symptom that requires professional management. You should keep a clear \"anticipatory prescription\" summary provided by your palliative team, which lists exactly how to use his rescue medications.\nPlease monitor him closely for \"red flags,\" such as sudden confusion, severe agitation, or a significant change in his level of consciousness, which may indicate delirium or worsening hypoxia. While respiratory depression is a common fear, it is extremely rare when medications are titrated appropriately by a palliative physician.",
+  "answer": "It is completely understandable that you are worried about your father’s comfort and the stigma surrounding morphine. In palliative care, we prioritize relieving suffering, and while morphine is the gold standard for severe pain, it is not the only way to manage the distress of breathlessness in end-stage COPD. For patients who cannot or will not use opioids, we focus on non-pharmacological interventions that can significantly reduce the sensation of air hunger. These include propping the patient up with pillows to improve lung expansion, ensuring good ventilation by keeping doors and windows open, and placing a fan to direct a gentle stream of air across the patient's face, which can provide immediate relief from the feeling of suffocation.\nAs a caregiver, you can implement these strategies immediately at home. Encourage your father to practice pursed-lip breathing and leaning forward, which helps manage the work of breathing. Keep his environment calm and use distraction techniques, such as playing his favorite music or talking to him in a soothing voice, as anxiety often worsens the sensation of breathlessness. If his anxiety is severe, please discuss with his doctor the use of adjuvant medications, such as anti-anxiety drugs, which can help manage the distress associated with his condition. It is vital to remember that these non-drug methods are a core part of palliative care and are highly effective when used consistently.\nPlease monitor your father closely for any signs of worsening distress, such as increased confusion, extreme lethargy, or a sudden inability to speak in full sentences, as these are red flags that require immediate medical escalation. While you are currently avoiding morphine, please keep an open dialogue with his palliative care team.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:18:13.185251Z",
+  "generated_at": "2026-10-03T13:42:22.543641Z",
   "rag_method": "vector",
-  "elapsed_ms": 2753,
+  "elapsed_ms": 3465,
   "error": null,
   "provider": "gemini"
 }

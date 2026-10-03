@@ -2,15 +2,15 @@
   "vignette_id": "PULM-COPD-DIFFICULT-001",
   "language": "en-IN",
   "asker_query": "Madam, Vasant-kaka is struggling continuously for breath since two days. Rate is 30, sat 91 on usual oxygen, no fever, no new phlegm. He has never had any morphine. Wife is asking for something to help him not struggle. Family does not want hospital. Palliative nurse will come tomorrow only. What do I do tonight?",
-  "answer": "⚡ Please consult a doctor as soon as possible.\n\n\nActions:\n1. Schedule doctor appointment\n2. Monitor symptoms\n3. Rest and stay hydrated\n4. Contact if symptoms worsen\n\n🚨 Emergency detected. Connecting you to a human caregiver immediately.\n\nRequest ID: 3058f0ddfdd2\nA nurse will contact you within 5 minutes.",
+  "answer": "⚡ Please consult a doctor as soon as possible.\n\n\nActions:\n1. Schedule doctor appointment\n2. Monitor symptoms\n3. Rest and stay hydrated\n4. Contact if symptoms worsen\n\n🚨 Emergency detected. Connecting you to a human caregiver immediately.\n\nRequest ID: 39d30b4922cf\nA nurse will contact you within 5 minutes.",
   "sources": [],
   "evidence_level": "C",
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:28:18.371870Z",
+  "generated_at": "2026-10-03T13:45:35.150101Z",
   "rag_method": "vector",
-  "elapsed_ms": 4,
+  "elapsed_ms": 1,
   "error": null,
   "provider": "gemini"
 }

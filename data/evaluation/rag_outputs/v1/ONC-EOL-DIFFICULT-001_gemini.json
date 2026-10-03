@@ -2,34 +2,34 @@
   "vignette_id": "ONC-EOL-DIFFICULT-001",
   "language": "en-IN",
   "asker_query": "Didi, Mashima is shouting, pulling at her clothes, worse at night, no bowel motion for 3 days, urine is reduced — what should I do? The family does not want to go to hospital, they want to stay at home.",
-  "answer": "When a patient in the end-of-life phase exhibits acute hyperactive delirium—manifesting as agitation, shouting, and carphologia (picking at clothes)—it is critical to first exclude and manage reversible causes. In this case, the 3-day history of constipation is a significant, treatable contributor to delirium. You should ensure the bowel regimen is optimized; if the patient can swallow, continue Lactulose and Senna, but if she is unable to take oral medications, consult a palliative physician for rectal interventions (e.g., glycerin suppositories or enemas). For the agitation itself, Haloperidol is the standard pharmacological intervention. In the Indian palliative context, Haloperidol can be titrated (e.g., starting at 0.5mg to 1mg orally or subcutaneously) and stepped up based on the patient's response until the agitation is controlled, as demonstrated in the case of Sukumaran.\nFor the home setting, your primary role is to support the family and simplify the care plan. Since the family wishes to remain at home, focus on non-pharmacological measures: keep the environment calm, avoid confrontation, validate the patient’s distress without arguing against her perceptions, and explain to the family that this delirium is a symptom of the dying process, not \"madness.\" As the patient is likely in her final days, prioritize comfort over routine medications; if she has difficulty swallowing, work with a doctor to transition essential medications to the subcutaneous or rectal route, or discontinue non-essential ones. Monitor for signs that the end is near, such as profound weakness, being bedbound, or an inability to take fluids, which signals that the focus should shift entirely to symptom-directed comfort care.\nBe aware that Haloperidol may cause extrapyramidal side effects, though these are less common at low palliative doses.",
+  "answer": "It is distressing to see a loved one agitated, but please know that these symptoms—delirium, constipation, and reduced urine—are common in advanced illness and can often be managed at home with careful adjustments. The agitation (pulling at clothes/shouting) may be caused by physical discomfort, such as the 3-day constipation or urinary retention from her obstructive uropathy. Morphine, while essential for pain, can cause constipation, which must be addressed immediately. You must ensure she is taking her laxatives regularly. For the delirium and agitation, the priority is to maintain a calm environment, as anxiety is contagious. Please contact your palliative care team immediately to review her medication doses; they may need to adjust her morphine or add adjuvant medications to manage the delirium and ensure she remains comfortable.\nTo manage this at home, follow the \"By the Clock\" principle: continue her regular analgesics as prescribed, but ensure the laxative regimen is strictly followed. Since she has not had a bowel movement in 3 days, increase the frequency of her laxatives as advised by your doctor, and ensure she is hydrated if she can swallow. For the agitation, use non-pharmacological comfort measures: keep the room quiet, dim the lights at night, use a soothing voice, and avoid physical restraints. If she is pulling at her clothes, ensure her bedding is smooth and she is positioned comfortably. Because morphine prescriptions require specific documentation (including the doctor’s registration number and three-copy prescriptions), ensure you have a clear plan with your palliative team for any emergency medication changes.\nMonitor her closely for red flags: if the agitation becomes violent, if she develops muscle jerks (a sign of neurotoxicity), or if she becomes completely unresponsive, contact your palliative care physician immediately for an urgent home visit.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:15:23.536296Z",
+  "generated_at": "2026-10-03T13:39:23.196550Z",
   "rag_method": "vector",
-  "elapsed_ms": 3503,
+  "elapsed_ms": 4499,
   "error": null,
   "provider": "gemini"
 }

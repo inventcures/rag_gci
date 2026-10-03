@@ -37,7 +37,7 @@ Severity ordering:
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -184,9 +184,13 @@ class DoseFinding:
         return {"reason": self.reason, "snippet": self.snippet, "pattern": self.pattern}
 
 
-def detect_doses(text: str) -> List[DoseFinding]:
+def detect_doses(text: Optional[str] = None) -> List[DoseFinding]:
     """
     Find dose-shaped spans in `text`.
+
+    Accepts None and the empty string, returning no findings, because callers reach
+    it from response handlers where a missing body is a normal state rather than a
+    programming error.
 
     Returns findings ordered by pattern reliability. An empty list means the text
     is clear of specific dosage instructions.
@@ -309,7 +313,7 @@ def _redaction_note(language: str) -> str:
     return _REDACTION_NOTE.get(primary, _REDACTION_NOTE["en"])
 
 
-def _is_critical_alert(alert: Any) -> bool:
+def _is_critical_alert(alert: Optional[Any]) -> bool:
     """
     Only a CRITICAL alert may override the dosage restriction.
 
@@ -335,6 +339,21 @@ def _is_critical_alert(alert: Any) -> bool:
 # ---------------------------------------------------------------------------
 # Guard
 # ---------------------------------------------------------------------------
+
+
+class EmergencyDetector(Protocol):
+    """
+    The slice of the emergency detector that DosageGuard depends on.
+
+    Declared structurally rather than imported: safety_enhancements imports this
+    module, so a direct import would be circular. Typing it as bare `object` and
+    then calling a method on it would defeat the type checker, and the point of
+    this module is that its dependency ordering is correct.
+    """
+
+    def detect_emergency(
+        self, query: str, user_id: Optional[str] = ..., language: str = ...
+    ) -> Optional[Any]: ...
 
 # Explicit instructions to summon urgent help. Used only as a fallback when no
 # emergency detector is injected, and matched tightly on purpose: requiring the
@@ -493,7 +512,7 @@ class DosageGuard:
     enforced on the response text itself and is independently testable.
     """
 
-    def __init__(self, emergency_system: Optional[object] = None):
+    def __init__(self, emergency_system: Optional[EmergencyDetector] = None):
         # Injected rather than imported to avoid a circular dependency on
         # safety_enhancements, which imports this module.
         self.emergency_system = emergency_system
@@ -590,7 +609,7 @@ class DosageGuard:
 _dosage_guard: Optional[DosageGuard] = None
 
 
-def get_dosage_guard(emergency_system: Optional[object] = None) -> DosageGuard:
+def get_dosage_guard(emergency_system: Optional[EmergencyDetector] = None) -> DosageGuard:
     """Get or create the DosageGuard singleton."""
     global _dosage_guard
     if _dosage_guard is None:

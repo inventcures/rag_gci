@@ -22,28 +22,12 @@ EMERGENCY_KEYWORDS = {
     "as": ["ৰক্তক্ষৰণ", "অচেতন", "উশাহ নাই", "বুকুৰ বিষ"],
 }
 
-DEFAULT_TOP_QUERIES = [
-    "How to manage pain at home",
-    "What to do for nausea and vomiting",
-    "How to manage breathlessness",
-    "Morphine dosage and side effects",
-    "How to manage constipation from opioids",
-    "Signs of emergency that need hospital",
-    "How to help with anxiety and fear",
-    "What to do when patient cannot eat",
-    "How to manage mouth sores",
-    "How to help patient sleep better",
-    "What to do for bedsores",
-    "How to manage fever at home",
-    "When to call the doctor",
-    "How to give emotional support to patient",
-    "What to tell family about prognosis",
-    "How to manage swelling in legs",
-    "Pain assessment for non-verbal patient",
-    "How to manage secretions at end of life",
-    "Caregiver self-care and burnout",
-    "Medication schedule management",
-]
+# Replaced by offline.questions, which carries all eleven supported languages.
+# The previous single English list meant a Marathi user received a bundle whose
+# questions were in English and matched nothing, and one of the twenty was a
+# dosage question the Dose Boundary would refuse.
+from offline.questions import ENGLISH as DEFAULT_TOP_QUERIES  # noqa: E402,F401
+from offline.questions import has_translation, questions_for  # noqa: E402
 
 
 class CacheBundleBuilder:
@@ -63,6 +47,8 @@ class CacheBundleBuilder:
         bundle = {
             "version": bundle_version,
             "language": language,
+            "questions_translated": has_translation(language),
+            "question_count": len(queries),
             "generated_at": time.time(),
             "queries": queries,
             "treatments": treatments,
@@ -84,8 +70,14 @@ class CacheBundleBuilder:
         return bundle
 
     async def _build_query_cache(self, language: str) -> List[dict]:
-        """Pre-compute responses for top 20 queries."""
-        queries = DEFAULT_TOP_QUERIES
+        """Pre-compute responses for the twenty anticipated questions."""
+        queries = list(questions_for(language))
+        if not has_translation(language):
+            logger.warning(
+                "No translated question set for %s; bundle will be in English and "
+                "will not match a non-English query. Recorded so this is visible "
+                "rather than mistaken for a translation failure.", language,
+            )
 
         if self.usage_analytics:
             try:
@@ -93,7 +85,7 @@ class CacheBundleBuilder:
                 if top:
                     queries = top
             except Exception:
-                pass
+                logger.exception("Usage analytics unavailable; using the curated set")
 
         cached_queries = []
         for query_text in queries:
@@ -106,6 +98,7 @@ class CacheBundleBuilder:
                     cached_queries.append({
                         "query_hash": hashlib.sha256(query_text.lower().strip().encode()).hexdigest(),
                         "query_text": query_text,
+                        "query_language": language,
                         "response_text": result.answer,
                         "evidence_level": result.evidence_level if hasattr(result, "evidence_level") else "C",
                         "sources": result.sources if hasattr(result, "sources") else [],

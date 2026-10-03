@@ -2,34 +2,34 @@
   "vignette_id": "PULM-OCC-DIFFICULT-001",
   "language": "en-IN",
   "asker_query": "Madam, Basavaraj sir has difficulty breathing, he is bed-bound, he said 'why should I live', the family is in difficulty, the compensation pension has still not come. What should we do — medication, mental support, compensation help — please tell everything.",
-  "answer": "To manage Basavaraj’s refractory dyspnea and distress, we must shift the focus from curative efforts to comfort-oriented care. For his breathlessness, morphine is the gold standard; you may initiate oral morphine at 5 mg every 6 hours (Q6H), which also acts as an antitussive. To address the panic and respiratory distress, ensure he has access to nebulized salbutamol-ipratropium as needed. Dexamethasone (8 mg once daily) may be considered to reduce airway inflammation, though this should be discussed with his primary physician. Given his cachexia and poor intake, review his current medication list with a palliative care team to discontinue non-essential drugs (like multivitamins) that may burden him, while maintaining essential symptom-relief medications. Oxygen therapy should only be continued if it demonstrably improves his comfort; if it causes distress or fails to relieve symptoms, it may be discontinued.\nFor the family and mental health support, prioritize open, empathetic communication. His suicidal ideation is a red flag that requires immediate assessment; explore the root cause of his distress—is it fear of breathlessness, financial burden, or the uncertainty of his prognosis? You must provide the family with an \"anticipatory prescription\" and a clear plan for managing episodes of panic or delirium at home so they feel empowered rather than helpless. Regarding the compensation pension, coordinate with local social workers or community leaders to expedite the paperwork, as alleviating this financial anxiety is a critical component of his overall quality of life. If his depression or suicidal ideation worsens, or if he develops acute delirium, escalate immediately to a palliative care specialist or a mental health professional.\nCaregiver education is vital: ensure the family understands that morphine is for symptom relief and not a sign of \"giving up.\" Monitor for side effects like constipation (start a prophylactic laxative) and sedation.",
+  "answer": "Managing refractory breathlessness in end-stage silicosis requires a dual approach of pharmacological and non-pharmacological interventions. Morphine is the gold standard for relieving the sensation of breathlessness by acting on brain centers; it should be initiated only after a formal discussion with a physician, who must provide a specific prescription including the drug name, strength, route, dose, and frequency, adhering to NDPS Act requirements. For anxiety or panic associated with breathlessness, medications like alprazolam may be considered, but only after consultation with a doctor. Please note that routine oxygen therapy may not always help if lung tissue is extensively damaged, so do not start or increase oxygen without medical guidance.\nFor immediate home management, prioritize non-pharmacological methods: switch on a fan to provide a cool breeze, stay close to Basavaraj to provide reassurance, and gently stroke his back to reduce panic. As he is bed-bound, ensure the family is trained in hygiene and turning to prevent pressure sores. Regarding his mental health and the family's financial distress, it is critical to address his feelings of being a burden. Validate his emotions by listening to his concerns and ensuring he feels treated with respect. Involve a social worker or local NGO to assist with the pending compensation pension, as financial security is vital for reducing family anxiety. If he expresses active suicidal intent or if his breathing becomes gasping, noisy, or severely labored, contact your palliative care team or the nearest doctor immediately for urgent review.\nCaregivers should monitor for side effects if morphine is started, such as excessive drowsiness or rare muscle jerks. If the patient becomes unable to swallow, discuss the potential need for a nasogastric tube or catheterization with the physician to maintain dignity and comfort.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:20:52.932689Z",
+  "generated_at": "2026-10-03T13:45:09.490067Z",
   "rag_method": "vector",
-  "elapsed_ms": 3810,
+  "elapsed_ms": 3814,
   "error": null,
   "provider": "gemini"
 }

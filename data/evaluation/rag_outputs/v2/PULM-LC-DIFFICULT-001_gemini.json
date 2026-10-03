@@ -8,9 +8,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:31:24.225922Z",
+  "generated_at": "2026-10-03T13:48:40.391086Z",
   "rag_method": "vector",
-  "elapsed_ms": 6,
+  "elapsed_ms": 1,
   "error": null,
   "provider": "gemini"
 }

@@ -2,34 +2,34 @@
   "vignette_id": "PULM-LC-DIFFICULT-008",
   "language": "en-IN",
   "asker_query": "Sister, Sundaram-uncle's sacral wound has progressed to Stage 4 — bone is showing, 30% slough, lots of fluid, edges red, no fever, no smell yet. He is paraplegic, cachectic, PPS 20. On morphine SR 60 BD. Daughter is at bedside. What is the comprehensive management plan — debridement, dressing, antibiotics, pain control, family discussion?",
-  "answer": "For a patient with a Stage 4 sacral pressure ulcer at a Palliative Performance Scale (PPS) of 20, the primary goal is comfort and symptom control rather than aggressive surgical intervention. Given the exposed bone and heavy exudate, focus on moisture balance and infection management. If the surrounding erythema suggests localized infection, consider systemic antibiotics, but prioritize comfort-focused dressings (e.g., absorbent foam or alginate dressings to manage exudate). Avoid aggressive surgical debridement in this cachectic state; instead, use conservative measures to manage slough. Regarding pain, if the patient experiences breakthrough pain shortly before the next scheduled dose, the logical step is to increase the frequency of the morphine or adjust the dose, rather than adding sedatives. Ensure that NSAIDs are avoided or used with extreme caution given his advanced age, cachexia, and potential for renal impairment, adhering to the principle of using the lowest effective dose for the shortest duration.\nThe caregiver and family should focus on pressure redistribution using a high-specification mattress or frequent repositioning (if tolerated) to prevent further tissue damage. Since the patient has an indwelling catheter, monitor for bladder spasms or catheter-related irritation, which can exacerbate discomfort; if spasms occur, consider antimuscarinics or flavoxate (200mg TDS-QDS) if tolerated. For the wound, perform gentle cleansing and apply dressings that require infrequent changes to minimize pain. If the patient develops fever, spreading cellulitis, or worsening pain that is unresponsive to current morphine titration, this is a red-flag trigger requiring immediate escalation to a palliative care physician for potential antibiotic adjustment or review of the analgesic regimen.\nCaregiver education is vital: emphasize that \"end-of-life\" wound care is about preventing odor and pain rather than healing.",
+  "answer": "Managing a patient with a Stage 4 pressure ulcer at a PPS of 20 requires a focus on comfort and preventing further tissue breakdown.\nFor the wound, aggressive surgical debridement is generally not indicated in end-stage disease; instead, focus on gentle cleansing and moisture-retentive dressings to manage exudate.\nGiven the exposed bone and heavy exudate, ensure the area is kept clean and dry.\nRegarding pain, you are already using the WHO Pain Ladder’s Step III (strong opioids).\nSince he is on morphine, ensure he is receiving a regular laxative (like lactulose) and an anti-emetic to manage common side effects like constipation and nausea.\nThere is no upper limit for morphine in cancer pain; the correct dose is the one that achieves comfort.\nFor the home-based care plan, the daughter must prioritize pressure relief to prevent further damage.\nReposition the patient every two hours if lying down, or every hour if sitting, to stimulate circulation and protect pressure points.\nEnsure he receives high-protein nutrition and adequate fluids to support tissue health, despite his cachexia.\nFor the wound, perform daily skin assessments and keep the surrounding skin lubricated to prevent cracking.\nIf you notice signs of spreading infection—such as increasing redness, foul odor, or new fever—this is a red-flag trigger requiring immediate escalation to a palliative care physician or nurse for potential antibiotic assessment.\nCaregiver education is vital: reassure the family that increasing morphine doses as the disease advances is not addiction, but necessary management for severe pain.\nWhen managing morphine, ensure you have the correct prescription (name, dose, frequency, and duration) and that you are using the three-copy system required for opioid access under the NDPS Act.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:32:25.218625Z",
+  "generated_at": "2026-10-03T13:49:43.583168Z",
   "rag_method": "vector",
-  "elapsed_ms": 3861,
+  "elapsed_ms": 3878,
   "error": null,
   "provider": "gemini"
 }

@@ -1,0 +1,28 @@
+{
+  "$comment": [
+    "The repository has no type-checker configuration. Without one, root-level",
+    "modules resolve only by luck of the import graph: a module imported solely",
+    "from a test is unreachable, because the sys.path.insert the tests rely on is",
+    "a runtime operation a static checker cannot follow. Tests here import project",
+    "modules by bare name, so the project root is declared explicitly."
+  ],
+  "include": ["."],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "kotaemon-main",
+    "out",
+    "out_gemini3.1_ag_23feb2026_0257ist"
+  ],
+  "extraPaths": ["."],
+  "pythonVersion": "3.12",
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": "none",
+  "reportOptionalMemberAccess": "warning",
+  "reportOptionalSubscript": "warning",
+  "reportOptionalCall": "warning",
+  "reportPrivateUsage": "none",
+  "reportUnnecessaryIsInstance": "none",
+  "reportMissingTypeArgument": "none"
+}

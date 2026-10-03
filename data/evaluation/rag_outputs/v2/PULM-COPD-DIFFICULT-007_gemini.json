@@ -2,34 +2,34 @@
   "vignette_id": "PULM-COPD-DIFFICULT-007",
   "language": "en-IN",
   "asker_query": "Doctor, amma has a deep bed sore on her back — about 6 cm across, 2 cm deep, yellow slough in middle and pink edges, heavy fluid soaks the dressing. No smell, no fever. She is bedbound on morphine 5 mg every 4 hours. How should we dress it? Antibiotic? Will it heal or are we just keeping her comfortable?",
-  "answer": "Managing a Stage 3 pressure ulcer in a patient with end-stage COPD and severe cachexia requires a focus on comfort and symptom control rather than aggressive healing, given her limited physiological reserve. For the wound, focus on moisture management and pain relief. Since she is already on systemic morphine, you may consider topical morphine (0.1% gel, typically 5–10 mL applied twice or thrice daily) if the ulcer is painful during dressing changes, as peripheral opioid receptors in inflamed tissue can provide localized relief. For the heavy exudate, use an absorbent dressing to protect the surrounding skin. Regarding antibiotics, they are generally not indicated for localized pressure ulcers unless there are clear signs of spreading infection (fever, spreading redness, or foul odor). Since your patient currently has no smell or fever, systemic antibiotics are likely unnecessary and may cause unwanted side effects.\nYour primary goal is to maintain skin integrity and prevent further deterioration while ensuring Amma remains comfortable. As a caregiver, your action plan involves: 1) Gentle cleansing of the wound with normal saline at every dressing change to remove slough; 2) Applying an absorbent dressing to manage the exudate, changing it as soon as it becomes saturated to prevent skin maceration; and 3) Ensuring she is repositioned frequently (if her COPD and comfort allow) to relieve pressure. Because she is on aspirin and has a history of MI and diabetes, avoid adding NSAIDs for pain, as these are contraindicated in patients with atherosclerotic disease and pose high risks for GI bleeding and renal impairment. Continue her current pain regimen, but monitor for signs of opioid-induced constipation, which may be exacerbated by her immobility.\nPlease be aware that in the context of a PPS of 20 and severe cachexia, the wound may not heal completely; our priority is to prevent pain and infection.",
+  "answer": "For a patient with a Stage 3 pressure ulcer, the primary goal in an end-of-life context is comfort, symptom management, and preventing further deterioration.\nYou do not need systemic antibiotics unless there are signs of spreading infection (fever, foul odor, or spreading redness).\nFor the wound itself, clean the area gently using normal saline to irrigate and remove any loose debris.\nBecause the wound has heavy exudate and slough, use a moist dressing material; this protects the healthy pink granulation tissue while absorbing excess fluid.\nAvoid aggressive debridement or scrubbing, as this can cause pain and damage fragile tissue.\nEnsure you are not massaging the area, as this can worsen tissue damage at pressure points.\nTo manage this at home, implement a strict turning and positioning schedule every 2 to 4 hours to offload pressure from the sacrum.\nIf possible, invest in an alternating pressure air mattress (widely available for approximately Rs.\n3000) to help distribute weight.\nUse pillows or foam pads to protect bony prominences, but avoid placing her directly on the side-lying position for extended periods.\nMaintain a log of the turning schedule so that all family caregivers follow the same plan.\nWhile the wound may show signs of healing with meticulous care, in a patient with severe cachexia and a low albumin level, the priority is to prevent the ulcer from progressing to Stage 4, where it may reach muscle or bone.\nMonitor the site daily for \"red flags\": a foul smell, increasing pain, spreading redness, or fever.\nIf these occur, contact your palliative care team immediately, as this may indicate a deep infection requiring medical intervention.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:29:11.345000Z",
+  "generated_at": "2026-10-03T13:46:29.145414Z",
   "rag_method": "vector",
-  "elapsed_ms": 4559,
+  "elapsed_ms": 4124,
   "error": null,
   "provider": "gemini"
 }

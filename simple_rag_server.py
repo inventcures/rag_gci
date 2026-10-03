@@ -186,6 +186,13 @@ except ImportError as e:
 # Core RAG components
 import chromadb
 from chromadb.utils import embedding_functions
+
+from retrieval_index import (
+    IndexMismatchError,
+    check_live_index,
+    load_identity_from_config,
+    write_index_metadata,
+)
 import requests
 import aiohttp
 from sentence_transformers import SentenceTransformer
@@ -737,9 +744,14 @@ class AutoRebuildManager:
 class SimpleRAGPipeline:
     """Simplified RAG Pipeline without database dependencies"""
     
-    def __init__(self, data_dir: str = "data"):
+    def __init__(self, data_dir: str = "data", config: Optional[Dict[str, Any]] = None):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
+
+        # Single source of truth for which embedding model this pipeline uses.
+        # Previously three places disagreed: config.yaml, the model-loading branch
+        # below, and whatever the live collection happened to contain.
+        self.embedding_identity = load_identity_from_config(config)
         
         # Storage paths
         self.vector_db_path = self.data_dir / "chroma_db"
@@ -753,6 +765,8 @@ class SimpleRAGPipeline:
         self.document_processor = SimpleDocumentProcessor()
         self.embedding_model = None
         self.vector_db = None
+        self.index_drift = None
+        self.retrieval_available = False
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.translation_model = "llama-3.1-8b-instant"  # Model for query translation (still Groq)
@@ -809,23 +823,26 @@ class SimpleRAGPipeline:
     def _initialize_components(self):
         """Initialize embedding model and vector database"""
         try:
-            # Check for Hugging Face token and choose appropriate model
-            hf_token = os.getenv('HUGGINGFACE_HUB_TOKEN')
-            if hf_token:
-                try:
-                    logger.info("HF token found, attempting to load EmbeddingGemma-300M...")
-                    self.embedding_model = SentenceTransformer('google/embeddinggemma-300m', token=hf_token)
-                    self.embedding_model_name = "google/embeddinggemma-300m"
-                    logger.info("✅ Successfully loaded EmbeddingGemma-300M")
-                except Exception as e:
-                    logger.warning(f"Failed to load EmbeddingGemma with token: {e}")
-                    logger.info("Falling back to all-MiniLM-L6-v2...")
-                    self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                    self.embedding_model_name = "all-MiniLM-L6-v2"
+            # The embedding model is configuration, not a runtime guess. It used
+            # to be selected by the presence of a Hugging Face token, which meant
+            # the model silently differed between machines and could differ from
+            # the index already on disk. ADR 0003 pins it to bge-m3.
+            model_name = self.embedding_identity.model
+            local_path = os.getenv("EMBEDDING_MODEL_PATH")
+            source = local_path or model_name
+
+            if os.path.isdir(source):
+                logger.info(f"Loading embedding model from local path: {source}")
+                self.embedding_model = SentenceTransformer(source)
             else:
-                logger.info("No HF token found, using free model all-MiniLM-L6-v2...")
-                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                self.embedding_model_name = "all-MiniLM-L6-v2"
+                logger.info(f"Loading embedding model: {model_name}")
+                self.embedding_model = SentenceTransformer(model_name)
+
+            self.embedding_model_name = model_name
+            logger.info(
+                f"Embedding model: {model_name} "
+                f"(expected {self.embedding_identity.dimension}d)"
+            )
             
             # Initialize ChromaDB
             logger.info("Initializing vector database...")
@@ -833,19 +850,38 @@ class SimpleRAGPipeline:
             
             # Create or get collection
             # Create embedding function based on the model we're using
-            if hasattr(self, 'embedding_model_name'):
-                embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
-                    model_name=self.embedding_model_name
-                )
-            else:
-                embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
-                    model_name="all-MiniLM-L6-v2"
-                )
-            
+            embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name=self.embedding_model_name
+            )
+
             self.vector_db = chroma_client.get_or_create_collection(
                 name="documents",
                 embedding_function=embedding_func
             )
+
+            # Refuse to serve through an index built by a different model.
+            #
+            # get_or_create_collection hands back whatever is already on disk
+            # regardless of the embedding function it was created with, so
+            # changing the configured model does not reindex and querying
+            # proceeds against stale vectors. That is exactly how an English-only
+            # 384d index ended up serving Indic queries at a measured 0.00
+            # hit@5 without ever raising an error.
+            self.index_drift = check_live_index(self.vector_db, self.embedding_identity)
+            if self.index_drift.has_drift:
+                logger.error(
+                    "Embedding index mismatch: configured %s at %dd, index holds %s. "
+                    "Retrieval would return ungrounded results rather than fail, so "
+                    "the pipeline will refuse to answer until the corpus is reindexed. "
+                    "Run scripts/reindex_with_configured_model.py.",
+                    self.embedding_identity.model,
+                    self.embedding_identity.dimension,
+                    self.index_drift.observed,
+                )
+                self.retrieval_available = False
+            else:
+                self.retrieval_available = True
+                logger.info("Embedding index matches the configured model.")
             
             # Initialize corruption detection and auto-rebuild managers
             self.health_manager = VectorDBHealthManager(
@@ -1752,11 +1788,18 @@ ANSWER (2-3 paragraphs):"""
             return f"Error generating answer: {str(e)}"
     
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> tuple:
-        """Generate answer with citations using Groq API
-        Returns: (answer, model_used)"""
+        """Generate an answer with citations.
+
+        Routes through the provider-agnostic helper below, Gemini first. An earlier
+        version guarded on GROQ_API_KEY before reaching that routing, so a
+        deployment configured for Gemini with no Groq key returned
+        "GROQ_API_KEY not configured" without ever attempting a Gemini call.
+
+        Returns: (answer, model_used)
+        """
         try:
-            if not self.groq_api_key:
-                return "Error: GROQ_API_KEY not configured", "error"
+            if not (self.gemini_api_key or self.groq_api_key):
+                return "Error: no LLM provider configured", "error"
             
             # Create citation mapping
             citation_text = self._format_citation_context(context, metadatas)

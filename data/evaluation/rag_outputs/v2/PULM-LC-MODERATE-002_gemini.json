@@ -2,34 +2,34 @@
   "vignette_id": "PULM-LC-MODERATE-002",
   "language": "en-IN",
   "asker_query": "Doctor, since I heard 4 days ago that my cancer has come back, I keep sighing every few minutes, my chest feels empty, I gasp at night and wake up sweating. Saturation 95-96. My wife says I look fine. I think I am suffocating but the meter is normal. Am I dying soon?",
-  "answer": "It is understandable that you feel this way; receiving news of disease progression is an incredibly stressful event that often triggers a cycle of anxiety and physical breathlessness. In advanced lung cancer, breathlessness is frequently multifactorial, but when your oxygen saturation remains stable (95-96%), your symptoms are likely driven by the emotional distress of your diagnosis. According to Twycross, breathlessness is a common trigger for panic, which can create a feedback loop where anxiety increases your respiratory rate, leading to the sensation of \"air hunger\" or \"suffocation\" even when your lungs are functioning adequately. While you are currently experiencing distress, this does not necessarily mean you are in the \"terminal\" phase (days-to-weeks); rather, it is a symptom of the anxiety associated with your recent transition in treatment.\nTo manage this, your primary goal is to break the cycle of panic. If you are at home, your wife can assist by ensuring you are in a cool, well-ventilated room, perhaps using a small fan to blow a gentle stream of air across your face, which is a proven non-pharmacological way to reduce the sensation of breathlessness. If the \"gasping\" at night persists, you should speak with your oncologist about a short-term, low-dose anxiolytic, such as a benzodiazepine (e.g., Lorazepam 0.5 mg at bedtime), which can help calm the autonomic nervous system and improve sleep. In the Indian context, ensure your prescription is documented clearly, as the NDPS Act requires strict adherence for controlled medications. You should maintain your current medications, but keep a log of when the \"sighing\" occurs to see if it correlates with specific times of stress or physical exertion.\nPlease monitor your symptoms closely.",
+  "answer": "It is completely understandable that you are feeling this way; receiving news of disease progression is incredibly distressing, and the physical sensation of \"air hunger\" or breathlessness is a very real symptom, even when your oxygen levels are normal. In palliative care, we recognize that breathlessness is not just about oxygen; it is a complex experience that can be triggered by anxiety and the emotional weight of your diagnosis. Morphine is a highly effective medication used in palliative care to help manage this specific type of breathlessness by acting on the brain’s respiratory centers, helping to ease that \"empty\" or suffocating feeling. While you are currently on Paracetamol for pain, you should discuss with your oncologist or a palliative care specialist whether a low-dose, regular oral morphine regimen is appropriate for your symptoms. Please be assured that using morphine for breathlessness is a standard, evidence-based practice and does not mean you are \"dying soon\"—it is a tool to improve your quality of life while you transition to your new treatment.\nTo manage this at home, your wife can help implement non-pharmacological techniques that are often as important as medicine. When you feel the panic rising, try propping yourself up with extra pillows, sitting near an open window, or using a small fan to direct a gentle stream of air across your face. These simple actions can significantly reduce the sensation of breathlessness. If you feel anxious, practice \"pursed-lip breathing\" (inhaling through your nose and exhaling slowly through pursed lips) and focus on calm, pleasant memories or music to break the cycle of panic. Your family should remain calm, as your anxiety can be contagious; having a soothing voice and a quiet environment will help you settle.",
   "sources": [
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:33:35.943435Z",
+  "generated_at": "2026-10-03T13:50:58.131222Z",
   "rag_method": "vector",
-  "elapsed_ms": 3419,
+  "elapsed_ms": 4417,
   "error": null,
   "provider": "gemini"
 }

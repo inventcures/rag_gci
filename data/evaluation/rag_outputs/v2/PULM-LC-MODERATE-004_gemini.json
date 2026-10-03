@@ -2,34 +2,34 @@
   "vignette_id": "PULM-LC-MODERATE-004",
   "language": "en-IN",
   "asker_query": "Doctor, my wife was started on enoxaparin 10 days back for left leg DVT. Now her gums bleed when brushing, abdomen has bruises at injection sites, one dark stool yesterday, hemoglobin dropped from 11.5 to 10.2. Platelets 95,000. She is on ramucirumab too. Should we stop the injections? Should we go to hospital tonight?",
-  "answer": "It is understandable to be concerned given the new signs of bleeding while your wife is on therapeutic anticoagulation. Ramucirumab is known to increase the risk of bleeding, and the combination with therapeutic LMWH (enoxaparin) requires careful clinical reassessment. While you should not stop the injections without immediate medical consultation, the presence of dark stools (melena) and bruising indicates a potential for significant internal bleeding. You must contact her oncology or palliative care team immediately to review the necessity of continued therapeutic anticoagulation versus prophylactic dosing, especially given her platelet count of 95,000 and the recent drop in hemoglobin.\nPlease arrange for an urgent clinical review today. In the home setting, monitor for \"red flag\" symptoms that necessitate an immediate hospital visit: persistent or heavy bleeding (e.g., bright red blood in stools, coughing up blood, or inability to stop gum bleeding), severe abdominal pain, dizziness, or signs of fainting (orthostatic hypotension). Ensure you keep a log of all bleeding episodes and injection site reactions to show the physician. Do not administer the next dose of enoxaparin until you have spoken with her treating oncologist or palliative physician, as they will need to weigh the risk of recurrent DVT against the risk of life-threatening hemorrhage.\nCaregivers should be educated that nausea and vomiting, which may occur during this period, should be managed with regular, scheduled anti-emetics rather than PRN dosing to ensure consistent control. If she experiences nausea, avoid combining prokinetics like metoclopramide with anti-spasmodics like hyoscine butyl bromide, as these act on opposing pathways and are not advised. If her condition worsens or if she develops signs of intracranial pressure—such as new headaches, confusion, or vision changes—seek emergency care immediately, as dexamethasone adjustments may be required.",
+  "answer": "It is understandable that you are worried about the bleeding symptoms while your wife is on blood thinners.\nThe medical team needs to evaluate if the enoxaparin dose needs adjustment, if the ramucirumab should be held, or if further investigations for the source of the dark stool are required.\nFor your immediate action plan, keep a detailed record of all symptoms, including the frequency of gum bleeding, the size and spread of abdominal bruises, and the exact appearance of the stool.\nEnsure the environment is kept clean to prevent infection, and restrict visitors to reduce fatigue for both the patient and yourself.\nIf you are at home, monitor for any \"red flag\" symptoms that require an emergency visit to the hospital: onset of severe headache, confusion, increased drowsiness, persistent nausea or vomiting, shortness of breath, chest pain, or any sudden worsening of speech or vision.\nIf any of these occur, or if the bleeding becomes heavy or uncontrollable, transport her to the emergency OPD immediately.\nWhen managing her overall care, remember that her comfort is a priority.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:33:53.756877Z",
+  "generated_at": "2026-10-03T13:51:14.385362Z",
   "rag_method": "vector",
-  "elapsed_ms": 5800,
+  "elapsed_ms": 4234,
   "error": null,
   "provider": "gemini"
 }

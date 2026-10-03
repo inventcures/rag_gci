@@ -2,34 +2,34 @@
   "vignette_id": "PULM-FIB-DIFFICULT-003",
   "language": "en-IN",
   "asker_query": "Doctor, papa's HRCT shows acute exacerbation of IPF, breathing is very bad — 9 out of 10, oxygen needs gone up to 5L, he is open to hospital but no ICU. What is the best management — should we admit, can we manage at home, what medicines now, what is the chance he gets better?",
-  "answer": "Managing an acute exacerbation of Idiopathic Pulmonary Fibrosis (AE-IPF) is challenging, and your goal of prioritizing comfort over ICU-based life support is a valid and common palliative approach. For severe dyspnea (9/10), pharmacological management should focus on symptom relief: morphine is the gold standard for breathlessness, acting as both an antitussive and a respiratory distress reliever. You may consider increasing the morphine dose or frequency under medical supervision to manage the acute distress. Additionally, corticosteroids (e.g., Dexamethasone 8mg IV/PO OD) are often used to reduce airway or peri-tumor edema, and nebulization with bronchodilators (salbutamol-ipratropium) can be trialed if there is any wheezing or airway obstruction. If the patient experiences panic alongside breathlessness, benzodiazepines like Diazepam (2–5mg PRN) or Lorazepam (1mg sublingually) are effective adjuncts. Oxygen therapy should be continued only if it provides clear symptomatic relief; if it does not improve comfort, it may be discontinued to avoid unnecessary burden.\nRegarding the setting, admission to a palliative care unit or a general ward (avoiding ICU) is appropriate for titration of these medications and closer monitoring of the exacerbation. At home, management requires a caregiver to be trained in administering PRN medications and utilizing non-pharmacological measures such as a bedside fan, pursed-lip breathing, and relaxation techniques. The caregiver should monitor for \"red flags\" that necessitate immediate medical review, including sudden worsening of delirium, inability to swallow medications, or a complete loss of consciousness. Because IPF exacerbations carry a poor prognosis, the focus must remain on the patient's Quality of Life (QOL) rather than aggressive disease-modifying treatments. Meaningful communication between the family and the medical team is essential to ensure that the patient’s wish to avoid ICU remains the guiding principle of care.",
+  "answer": "Managing an acute exacerbation of Idiopathic Pulmonary Fibrosis (IPF) is challenging, and your father’s preference to avoid ICU care is a critical part of his care plan that must be respected.\nPharmacologically, morphine is the gold standard for managing severe breathlessness in palliative care, as it acts on brain centers to reduce the sensation of dyspnea.\nWhile oxygen is currently at 5 L/min, please note that in advanced lung disease where lung tissue is significantly destroyed, oxygen may provide limited benefit; it should not be started or increased routinely without a clear assessment of its effectiveness by his physician.\nOther medications like benzodiazepines (e.g., alprazolam) may be considered by his doctor to manage the severe anxiety and panic associated with breathlessness.\nFor the immediate action plan, focus on non-pharmacological interventions which are highly effective for symptom relief at home or in a ward setting.\nYou can assist him by propping him up with pillows, ensuring good ventilation by keeping windows open, or placing a fan near him to direct a gentle stream of air over his face.\nPhysiotherapy techniques, such as pursed-lip breathing and leaning forward, can also help him manage his breath.\nIf he is admitted to a hospital ward (non-ICU), ensure the medical team is aware of his \"no-ICU\" directive.\nCaregivers play a vital role by staying calm, as anxiety is contagious and can worsen his breathing; use a soothing voice, offer physical touch like rubbing his back, and help him focus on pleasant memories or music to reduce distress.\nRegarding the prognosis, acute exacerbations of IPF are serious events, and the chance of returning to his previous baseline is often limited.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "pallium-india____Safe-use-of-opioids-in-acute-pain-and-long-term-pain-conditions.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-19T05:20:04.346585Z",
+  "generated_at": "2026-10-03T13:44:19.082790Z",
   "rag_method": "vector",
-  "elapsed_ms": 3635,
+  "elapsed_ms": 3934,
   "error": null,
   "provider": "gemini"
 }

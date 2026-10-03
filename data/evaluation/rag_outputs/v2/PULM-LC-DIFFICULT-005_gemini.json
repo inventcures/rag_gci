@@ -2,34 +2,34 @@
   "vignette_id": "PULM-LC-DIFFICULT-005",
   "language": "en-IN",
   "asker_query": "Madam, Nikhil-da has a new DVT — right popliteal, confirmed on Doppler at oncology centre today. He has been on apixaban 5 BD for 14 days after enoxaparin earlier. Different leg from before. Stable — no chest symptoms, no breathlessness. Brain mets treated with SRS. eGFR 75, Hb 11.5, plt 230. What is the next step for anticoagulation failure in cancer?",
-  "answer": "For a patient with cancer-associated thrombosis who experiences recurrent VTE despite therapeutic anticoagulation (apixaban), the clinical priority is to transition to a more reliable anticoagulant regimen. While current guidelines often favor low-molecular-weight heparin (LMWH) for cancer-associated thrombosis, the recurrence on apixaban suggests a need for escalation. In the palliative setting, if the patient is stable and asymptomatic, the standard of care involves switching back to LMWH (e.g., enoxaparin) at therapeutic doses, as it is generally considered more reliable than direct oral anticoagulants (DOACs) in the setting of treatment failure. Given the brain metastases, ensure that the patient remains on his seizure prophylaxis (levetiracetam) as prescribed, as intracranial stability is paramount.\nIn your home or hospice setting, the primary caregiver should coordinate with the oncology team to facilitate this transition immediately. The physician must calculate the appropriate weight-based dose of LMWH, as this is time-critical to prevent further propagation of the clot or a potential pulmonary embolism. Monitor the patient closely for any signs of bleeding—such as easy bruising, dark stools, or hematuria—especially since he is on dual therapy for his underlying malignancy and hypertension. If the patient develops sudden shortness of breath, chest pain, or focal neurological deficits, this is a red-flag emergency requiring immediate hospital transfer for evaluation of pulmonary embolism or intracranial hemorrhage.\nRegarding symptom management for his underlying condition, if he experiences neuropathic pain or secondary complications from his disease, medications such as Gabapentin (starting at 100 mg TDS) or corticosteroids (e.g., Dexamethasone 8–32 mg/day for intracranial pressure) may be utilized as part of his palliative care plan.",
+  "answer": "For a patient with cancer-associated thrombosis (CAT) who experiences recurrent VTE despite therapeutic anticoagulation with a direct oral anticoagulant (DOAC) like apixaban, clinical guidelines generally recommend switching to low-molecular-weight heparin (LMWH). While your specific oncology team will make the final determination, the standard of care for anticoagulation failure in malignancy is often a transition back to therapeutic-dose LMWH (such as enoxaparin). Because Nikhil-da is stable and asymptomatic, this transition should be coordinated with his oncologist to ensure the correct weight-based dosing and to monitor for any signs of bleeding or further progression.\nIn the home setting, your primary role as a caregiver is to ensure strict adherence to the new medication regimen and to monitor for red flags that necessitate immediate medical intervention. Since Nikhil-da has a history of brain metastases, you must be vigilant for any signs of intracranial hemorrhage or neurological changes. Maintain a clean environment, encourage gentle mobility as tolerated to prevent further stasis, and ensure he remains well-hydrated. If he experiences a sudden onset of severe headache, neck stiffness, confusion, worsening speech, visual problems, or increased weakness/numbness, you must report to the emergency department immediately. Additionally, if you notice any signs of bleeding (e.g., blood in stool, bruising, or nosebleeds), contact his oncology team right away, as these are critical triggers for escalation.\nRegarding his overall comfort, remember that pain management should follow the WHO Pain Ladder: use oral, round-the-clock medications rather than \"SOS\" (as-needed) dosing to ensure consistent relief. If he develops constipation—a common side effect of reduced mobility and certain medications—increase his fluid intake, encourage fiber-rich foods, and consult his physician about adding a stool softener.",
   "sources": [
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:31:59.463424Z",
+  "generated_at": "2026-10-03T13:49:17.800522Z",
   "rag_method": "vector",
-  "elapsed_ms": 3374,
+  "elapsed_ms": 3427,
   "error": null,
   "provider": "gemini"
 }

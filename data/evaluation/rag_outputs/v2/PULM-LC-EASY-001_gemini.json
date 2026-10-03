@@ -2,34 +2,34 @@
   "vignette_id": "PULM-LC-EASY-001",
   "language": "en-IN",
   "asker_query": "Doctor, this is Suresh. For 10 days now, climbing my one floor stairs makes me more out of breath than before — I have to stop at the landing. Saturation 95, no cough, no fever, no pain. Is my cancer growing? Should I go for a scan?",
-  "answer": "Suresh, it is understandable to feel concerned when you notice a change in your breathing, but breathlessness in advanced cancer is often multifactorial and does not always mean the cancer is progressing. While your saturation is currently stable at 95%, your symptoms could be related to several factors, including anemia, muscle weakness, or even minor fluid accumulation, rather than just tumor growth. In palliative care, we first aim to rule out \"correctable\" causes. Before rushing for a scan, your doctor should evaluate you for common, treatable contributors such as pleural effusion, anemia, or cardiac issues, which can cause breathlessness even if your chest X-ray appears relatively normal.\nFor your immediate management, focus on non-pharmacological strategies to conserve energy. Use a fan to blow cool air across your face, which can significantly reduce the sensation of breathlessness. If you feel anxious, practice paced breathing or relaxation techniques, as breathlessness often triggers a panic cycle that makes the sensation feel worse. If the breathlessness persists at rest or worsens, your physician may consider low-dose oral morphine, which is the gold standard for managing refractory breathlessness in advanced cancer, provided it is titrated carefully under medical supervision. Please coordinate with your primary oncology team to review your blood counts (for anemia) and consider a physical examination to check for fluid buildup (ascites or pleural effusion).\nIf you experience sudden, severe difficulty breathing, chest pain, or if your oxygen saturation drops below 90% despite resting, please seek immediate medical attention at the nearest emergency facility. These are \"red flags\" that require urgent assessment. Remember that your current stability on osimertinib is a positive sign, and your care team will prioritize keeping you comfortable and active at home.",
+  "answer": "It is understandable that you are concerned about this change in your breathing, Suresh.\nWhile you are worried that this indicates disease progression, it is important to note that stable disease on osimertinib does not automatically mean the cancer is growing whenever a new symptom appears.\nIn palliative care, we focus on managing the symptom itself to maintain your quality of life.\nYou do not necessarily need an immediate scan; instead, we should focus on a clinical review to determine if your current management plan needs adjustment.\nFor your home-based care, the priority is to maintain your mobility while managing your energy.\nContinue your daily activities as tolerated, but try to pace yourself—for example, resting briefly before you reach the stairs.\nIf you find yourself needing to stop, do not push through; allow your breathing to settle before continuing.\nYour caregiver should monitor you for any new red flags, such as a sudden drop in oxygen levels, worsening chest pain, or the development of a fever or productive cough.\nIf these occur, or if your breathlessness worsens significantly at rest, please contact your palliative care team immediately for an urgent assessment.\nIf you are prescribed strong opioids like morphine for pain, remember that they must always be accompanied by a laxative to prevent constipation, as this is a common side effect.\n\n_(The specific amount and schedule of any medicine are not included here. Take that part of your question to your next consultation.)_",
   "sources": [
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "complete-textbook__Textbook_IndianPrimer.pdf",
+      "document": "NPPC____Handbook for Community Health Workers_____5127_1558685700905.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
     },
     {
-      "document": "Textbook_Twycross-2008-Introducing-palliative-care.pdf",
+      "document": "Neurosurgery-AGuidebook18-5-2018.pdf",
       "page": null,
       "relevance": 0,
       "snippet": ""
@@ -39,9 +39,9 @@
   "emergency_level": "none",
   "confidence": 0.0,
   "validation": null,
-  "generated_at": "2026-05-20T04:32:46.382994Z",
+  "generated_at": "2026-10-03T13:50:05.580275Z",
   "rag_method": "vector",
-  "elapsed_ms": 3145,
+  "elapsed_ms": 3963,
   "error": null,
   "provider": "gemini"
 }
