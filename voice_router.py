@@ -1,861 +1,295 @@
+#!/usr/bin/env python3
 """
-Voice Router for Palli Sahayak Voice AI Agent Helpline
+Voice providers and arbitration
+===============================
+The real-time path is Gemini Live (ADR 0007). The fallback is the India-resident
+Sarvam path. This module decides which one answers.
 
-Routes voice requests between providers:
-- Bolna.ai (-p b): Phone calls via Twilio
-- Gemini Live (-p g): Web-based voice with native audio
-- Retell.AI (-p r): Phone calls via Vobiz.ai (Indian PSTN +91)
-- Fallback Pipeline: STT → RAG → LLM → TTS (always available)
+Why arbitration is separate
+---------------------------
+Because the decision is the risky part and it is pure. A Live session that
+connects and then goes quiet mid-answer is worse than one that never connects:
+the user is left mid-sentence with the app apparently still thinking. So the
+decision is made on measured latency, not on whether a socket opened, and it lives
+here where it can be tested without a provider, a network, or a clock.
 
-This module provides a unified interface for voice handling regardless
-of the underlying provider.
+Provider availability
+---------------------
+`GeminiLiveProvider` imports `gemini_live` lazily. `google-genai` is not
+installed in every environment, and the study build must still work when it is
+not, so the import failing resolves to "Live unavailable" and the Sarvam path
+answers. That is the same shape as the fallback decision itself: a provider that
+cannot serve must not be able to strand a user mid-conversation.
 """
 
-import os
+import asyncio
 import logging
-from enum import Enum
-from typing import Dict, Any, Optional, Callable, Awaitable
-from dataclasses import dataclass
-from datetime import datetime
+import time
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Protocol
+
+from voice_provider import PROVIDER_LIVE, VoiceProviderControl
+from voice_session import (
+    VOICE_PATH_FALLBACK,
+    VOICE_PATH_LIVE,
+    VoiceSession,
+    VoiceTurn,
+    classify_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class VoiceProvider(Enum):
-    """Available voice providers."""
-    BOLNA = "bolna"
-    GEMINI_LIVE = "gemini_live"
-    RETELL = "retell"
-    SARVAM = "sarvam"
-    FALLBACK_PIPELINE = "fallback_pipeline"
+class SupportsAudioTurns(Protocol):
+    """
+    The slice of VoiceTurnHandler the router actually uses.
+
+    Declared structurally so the router can be driven by a test double without the
+    type checker rejecting it, and so adding a method to VoiceTurnHandler does not
+    silently widen what the router depends on.
+    """
+
+    async def handle_audio(
+        self, session: VoiceSession, audio: bytes, voice_path: str = ...
+    ) -> Optional[VoiceTurn]: ...
 
 
 @dataclass
-class VoiceSession:
-    """Represents an active voice session."""
-    session_id: str
-    provider: VoiceProvider
-    phone_number: Optional[str] = None
-    user_id: Optional[str] = None
-    language: str = "hi"
-    started_at: datetime = None
-    metadata: Dict[str, Any] = None
+class LiveAvailability:
+    """Whether the Live path can be used at all, and why not when it cannot."""
+    available: bool
+    reason: Optional[str] = None
 
-    def __post_init__(self):
-        if self.started_at is None:
-            self.started_at = datetime.now()
-        if self.metadata is None:
-            self.metadata = {}
+    @classmethod
+    def probe(cls) -> "LiveAvailability":
+        try:
+            import google.genai  # noqa: F401
+        except Exception as exc:  # noqa: BLE001
+            return cls(False, f"live_sdk_unavailable: {type(exc).__name__}")
+        try:
+            from gemini_live import GeminiLiveService  # noqa: F401
+        except Exception as exc:  # noqa: BLE001
+            return cls(False, f"live_service_unavailable: {type(exc).__name__}")
+        return cls(True)
 
 
 @dataclass
-class VoiceResponse:
-    """Response from a voice provider."""
-    success: bool
-    provider: VoiceProvider
-    session_id: Optional[str] = None
-    message: str = ""
-    audio_url: Optional[str] = None
-    transcript: Optional[str] = None
+class ProviderOutcome:
+    """What a provider returned, including how long it took to first respond."""
+    turn: Optional[VoiceTurn]
+    first_token_latency_s: Optional[float] = None
+    turn_latency_s: Optional[float] = None
     error: Optional[str] = None
-    metadata: Dict[str, Any] = None
 
-    def __post_init__(self):
-        if self.metadata is None:
-            self.metadata = {}
+    @property
+    def ok(self) -> bool:
+        return self.turn is not None and self.error is None
+
+
+class LiveVoiceProvider:
+    """
+    Gemini Live, proxied through the server's own session service.
+
+    The client never talks to Google. Audio goes to our endpoint, we hold the Live
+    session, which is what keeps the release identifier and the study log in one
+    place.
+    """
+
+    def __init__(self, service: Any, session: VoiceSession):
+        self.service = service
+        self.session = session
+
+    async def serve(self, audio: bytes) -> ProviderOutcome:
+        started = time.time()
+        first_token_at: Optional[float] = None
+        try:
+            async for event in self.service.stream_audio(audio, self.session.language):
+                if first_token_at is None:
+                    first_token_at = time.time()
+                if event.get("final"):
+                    return ProviderOutcome(
+                        turn=event.get("turn"),
+                        first_token_latency_s=first_token_at - started,
+                        turn_latency_s=time.time() - started,
+                    )
+            return ProviderOutcome(
+                turn=None,
+                first_token_latency_s=first_token_at - (first_token_at and started) if first_token_at else None,
+                turn_latency_s=time.time() - started,
+                error="live_produced_no_final_turn",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Live provider failed: %s", exc)
+            return ProviderOutcome(
+                turn=None,
+                turn_latency_s=time.time() - started,
+                error=f"live_error: {type(exc).__name__}",
+            )
+
+
+class SarvamVoiceProvider:
+    """The India-resident turn-based path. Always available in the study build."""
+
+    def __init__(self, handler: SupportsAudioTurns, session: VoiceSession):
+        self.handler = handler
+        self.session = session
+
+    async def serve(self, audio: bytes) -> ProviderOutcome:
+        started = time.time()
+        try:
+            turn = await self.handler.handle_audio(self.session, audio)
+        except Exception as exc:  # noqa: BLE001
+            return ProviderOutcome(
+                turn=None, turn_latency_s=time.time() - started,
+                error=f"sarvam_error: {type(exc).__name__}",
+            )
+        elapsed = time.time() - started
+        return ProviderOutcome(
+            turn=turn,
+            # The whole turn arrives at once on this path, so first-token and
+            # turn latency are the same number.
+            first_token_latency_s=elapsed,
+            turn_latency_s=elapsed,
+        )
+
+
+@dataclass
+class Arbitration:
+    """What the router decided, recorded with the interaction so it is measurable."""
+    voice_path: str
+    fallback_reason: Optional[str] = None
+    live_reason: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "voice_path": self.voice_path,
+            "fallback_reason": self.fallback_reason,
+            "live_reason": self.live_reason,
+        }
 
 
 class VoiceRouter:
     """
-    Routes voice requests to appropriate providers.
+    Chooses the provider for each turn and reports which one answered.
 
-    Priority:
-    1. Bolna.ai - For phone calls (production telephony)
-    2. Gemini Live - For web-based voice (real-time streaming)
-    3. Fallback Pipeline - STT → RAG → LLM → TTS (always available)
-
-    Usage:
-        router = VoiceRouter(rag_pipeline=my_rag)
-
-        # For phone call
-        response = await router.handle_phone_call("+919876543210", language="hi")
-
-        # For web voice
-        response = await router.handle_web_voice(user_id="user123", language="en")
-
-        # Auto-select based on context
-        response = await router.route_voice_request(
-            request_type="phone",
-            phone_number="+919876543210"
-        )
+    The router never decides policy. Policy is in `classify_fallback`, which is
+    pure and tested on its own.
     """
 
     def __init__(
         self,
-        rag_pipeline=None,
-        bolna_client=None,
-        gemini_service=None,
-        preferred_provider: VoiceProvider = VoiceProvider.BOLNA
+        handler: SupportsAudioTurns,
+        live_service_factory: Optional[Any] = None,
+        control: Optional[VoiceProviderControl] = None,
     ):
-        """
-        Initialize the voice router.
+        self.handler = handler
+        self.live_service_factory = live_service_factory
+        self.control = control or VoiceProviderControl()
+        self.stats: Dict[str, int] = {}
 
-        Args:
-            rag_pipeline: RAG pipeline for fallback queries
-            bolna_client: BolnaClient instance (optional, will create if available)
-            gemini_service: GeminiLiveService instance (optional)
-            preferred_provider: Default provider preference
-        """
-        self.rag_pipeline = rag_pipeline
-        self.preferred_provider = preferred_provider
-        self.active_sessions: Dict[str, VoiceSession] = {}
+    def _count(self, key: str) -> None:
+        self.stats[key] = self.stats.get(key, 0) + 1
 
-        # Initialize Bolna client
-        self.bolna_client = bolna_client
-        self.bolna_available = False
-        if self.bolna_client is None:
-            try:
-                from bolna_integration import BolnaClient
-                self.bolna_client = BolnaClient()
-                self.bolna_available = self.bolna_client.is_available()
-            except ImportError:
-                logger.warning("Bolna integration not available")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Bolna client: {e}")
-
-        # Initialize Gemini Live service
-        self.gemini_service = gemini_service
-        self.gemini_available = False
-        if self.gemini_service is None:
-            try:
-                from gemini_live import GeminiLiveService
-                self.gemini_service = GeminiLiveService()
-                self.gemini_available = True
-            except ImportError:
-                logger.warning("Gemini Live not available")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Gemini Live: {e}")
-
-        # Initialize Retell client
-        self.retell_client = None
-        self.retell_available = False
-        try:
-            from retell_integration import RetellClient
-            self.retell_client = RetellClient()
-            self.retell_available = self.retell_client.is_available()
-            if self.retell_available:
-                logger.info("Retell client initialized")
-        except ImportError:
-            logger.warning("Retell integration not available")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Retell client: {e}")
-
-        # Initialize Sarvam AI client
-        self.sarvam_client = None
-        self.sarvam_available = False
-        try:
-            from sarvam_integration import SarvamClient
-            self.sarvam_client = SarvamClient()
-            self.sarvam_available = self.sarvam_client.is_available()
-            if self.sarvam_available:
-                logger.info("Sarvam AI client initialized")
-        except ImportError:
-            logger.warning("Sarvam integration not available")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Sarvam client: {e}")
-
-        # Log available providers
-        providers = []
-        if self.bolna_available:
-            providers.append("Bolna.ai")
-        if self.gemini_available:
-            providers.append("Gemini Live")
-        if self.retell_available:
-            providers.append("Retell.AI")
-        if self.sarvam_available:
-            providers.append("Sarvam AI")
-        providers.append("Fallback Pipeline")
-
-        logger.info(f"VoiceRouter initialized with providers: {', '.join(providers)}")
-        
-        # Initialize voice safety wrapper
-        self.voice_safety = None
-        try:
-            from voice_safety_wrapper import get_voice_safety_wrapper
-            self.voice_safety = get_voice_safety_wrapper()
-            logger.info("✅ Voice safety wrapper initialized in VoiceRouter")
-        except Exception as e:
-            logger.warning(f"Voice safety wrapper not available: {e}")
-
-    def get_available_providers(self) -> list:
-        """Get list of available voice providers."""
-        providers = []
-        if self.bolna_available:
-            providers.append(VoiceProvider.BOLNA)
-        if self.gemini_available:
-            providers.append(VoiceProvider.GEMINI_LIVE)
-        if self.retell_available:
-            providers.append(VoiceProvider.RETELL)
-        if self.sarvam_available:
-            providers.append(VoiceProvider.SARVAM)
-        providers.append(VoiceProvider.FALLBACK_PIPELINE)
-        return providers
-
-    def select_provider(
+    async def route(
         self,
-        request_type: str = "web",
-        force_provider: Optional[VoiceProvider] = None
-    ) -> VoiceProvider:
+        session: VoiceSession,
+        audio: bytes,
+        live_enabled: Optional[bool] = None,
+    ) -> ProviderOutcome:
         """
-        Select the best provider for a request.
+        Answer one turn.
 
-        Args:
-            request_type: "phone" or "web"
-            force_provider: Force a specific provider (if available)
-
-        Returns:
-            Selected VoiceProvider
+        `live_enabled` defaults to whatever the administrator has selected, so an
+        override applies to every session without a restart. Passing it explicitly
+        exists for tests only; the admin dashboard goes through VoiceProviderControl.
         """
-        # If forced and available, use it
-        if force_provider:
-            if force_provider == VoiceProvider.BOLNA and self.bolna_available:
-                return VoiceProvider.BOLNA
-            elif force_provider == VoiceProvider.GEMINI_LIVE and self.gemini_available:
-                return VoiceProvider.GEMINI_LIVE
-            elif force_provider == VoiceProvider.RETELL and self.retell_available:
-                return VoiceProvider.RETELL
-            elif force_provider == VoiceProvider.SARVAM and self.sarvam_available:
-                return VoiceProvider.SARVAM
-            elif force_provider == VoiceProvider.FALLBACK_PIPELINE:
-                return VoiceProvider.FALLBACK_PIPELINE
+        if live_enabled is None:
+            live_enabled = self.control.current().live_enabled
 
-        # Phone calls: prefer Bolna -> Retell -> Sarvam -> Fallback
-        if request_type == "phone":
-            if self.bolna_available:
-                return VoiceProvider.BOLNA
-            elif self.retell_available:
-                return VoiceProvider.RETELL
-            elif self.sarvam_available:
-                return VoiceProvider.SARVAM
-            elif self.gemini_available:
-                return VoiceProvider.GEMINI_LIVE
-            else:
-                return VoiceProvider.FALLBACK_PIPELINE
+        availability = LiveAvailability.probe()
+        use_live = live_enabled and availability.available and self.live_service_factory
 
-        # Web voice: prefer Gemini Live -> Sarvam -> Bolna -> Fallback
-        if request_type == "web":
-            if self.gemini_available:
-                return VoiceProvider.GEMINI_LIVE
-            elif self.sarvam_available:
-                return VoiceProvider.SARVAM
-            elif self.bolna_available:
-                return VoiceProvider.BOLNA
-            else:
-                return VoiceProvider.FALLBACK_PIPELINE
+        if not live_enabled:
+            self._count("operator_forced_fallback")
+            return await self._fallback(session, audio, "operator_forced_fallback")
 
-        # Default to fallback
-        return VoiceProvider.FALLBACK_PIPELINE
+        if not use_live:
+            self._count("live_unavailable")
+            return await self._fallback(session, audio, availability.reason or "live_unavailable")
 
-    async def route_voice_request(
-        self,
-        request_type: str = "web",
-        phone_number: Optional[str] = None,
-        user_id: Optional[str] = None,
-        language: str = "hi",
-        force_provider: Optional[VoiceProvider] = None,
-        **kwargs
-    ) -> VoiceResponse:
+        live = LiveVoiceProvider(self.live_service_factory(session), session)
+        outcome = await live.serve(audio)
+
+        reason = classify_fallback(outcome.first_token_latency_s, outcome.turn_latency_s)
+        if outcome.ok and reason is None:
+            self._count("live")
+            outcome.turn.voice_path = VOICE_PATH_LIVE
+            return outcome
+
+        # Unhealthy rather than broken: connected, then went quiet, or produced
+        # nothing. Fall back so the user gets an answer instead of silence.
+        self._count(f"live_to_fallback:{reason or outcome.error or 'unknown'}")
+        return await self._fallback(session, audio, reason or outcome.error or "live_unhealthy")
+
+    async def _fallback(
+        self, session: VoiceSession, audio: bytes, reason: str
+    ) -> ProviderOutcome:
+        outcome = await SarvamVoiceProvider(self.handler, session).serve(audio)
+        if outcome.turn is not None:
+            outcome.turn.voice_path = VOICE_PATH_FALLBACK
+            outcome.turn.fallback_reason = reason
+        self._count("fallback")
+        return outcome
+
+    def report(self) -> Dict[str, Any]:
         """
-        Route a voice request to the appropriate provider.
+        Fallback rate, per ADR 0007.
 
-        Args:
-            request_type: "phone" or "web"
-            phone_number: Phone number for phone calls
-            user_id: User ID for web sessions
-            language: Language code (hi, en, mr, ta)
-            force_provider: Force a specific provider
-            **kwargs: Additional provider-specific arguments
-
-        Returns:
-            VoiceResponse from the selected provider
+        This number is the evidence that the primary path works. A high fallback
+        rate says it does not, and is worth more than any single successful call.
         """
-        provider = self.select_provider(request_type, force_provider)
-
-        logger.info(f"Routing {request_type} request to {provider.value}")
-
-        try:
-            if provider == VoiceProvider.BOLNA:
-                return await self._handle_bolna_request(
-                    phone_number=phone_number,
-                    user_id=user_id,
-                    language=language,
-                    **kwargs
-                )
-
-            elif provider == VoiceProvider.GEMINI_LIVE:
-                return await self._handle_gemini_request(
-                    user_id=user_id,
-                    language=language,
-                    **kwargs
-                )
-
-            elif provider == VoiceProvider.RETELL:
-                return await self._handle_retell_request(
-                    phone_number=phone_number,
-                    user_id=user_id,
-                    language=language,
-                    **kwargs
-                )
-
-            elif provider == VoiceProvider.SARVAM:
-                return await self._handle_sarvam_request(
-                    user_id=user_id,
-                    language=language,
-                    **kwargs
-                )
-
-            else:
-                return await self._handle_fallback_request(
-                    user_id=user_id,
-                    language=language,
-                    **kwargs
-                )
-
-        except Exception as e:
-            logger.error(f"Provider {provider.value} failed: {e}")
-
-            # Try fallback if primary failed
-            if provider != VoiceProvider.FALLBACK_PIPELINE:
-                logger.info("Falling back to pipeline...")
-                return await self._handle_fallback_request(
-                    user_id=user_id,
-                    language=language,
-                    error_context=str(e),
-                    **kwargs
-                )
-
-            return VoiceResponse(
-                success=False,
-                provider=provider,
-                error=str(e),
-                message="Voice service unavailable"
-            )
-
-    async def handle_phone_call(
-        self,
-        phone_number: str,
-        language: str = "hi",
-        user_data: Optional[Dict[str, Any]] = None
-    ) -> VoiceResponse:
-        """
-        Handle an incoming or outgoing phone call.
-
-        Uses Bolna as primary provider for phone calls.
-
-        Args:
-            phone_number: Phone number in E.164 format
-            language: Language code
-            user_data: Optional user context data
-
-        Returns:
-            VoiceResponse with call details
-        """
-        return await self.route_voice_request(
-            request_type="phone",
-            phone_number=phone_number,
-            language=language,
-            user_data=user_data
-        )
-
-    async def handle_web_voice(
-        self,
-        user_id: str,
-        language: str = "hi",
-        **kwargs
-    ) -> VoiceResponse:
-        """
-        Handle a web-based voice session.
-
-        Uses Gemini Live as primary provider for web voice.
-
-        Args:
-            user_id: User identifier
-            language: Language code
-            **kwargs: Additional arguments
-
-        Returns:
-            VoiceResponse with session details
-        """
-        return await self.route_voice_request(
-            request_type="web",
-            user_id=user_id,
-            language=language,
-            **kwargs
-        )
-
-    async def _handle_bolna_request(
-        self,
-        phone_number: Optional[str] = None,
-        user_id: Optional[str] = None,
-        language: str = "hi",
-        user_data: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> VoiceResponse:
-        """Handle request via Bolna."""
-        if not self.bolna_available:
-            raise RuntimeError("Bolna client not available")
-
-        agent_id = os.getenv("BOLNA_AGENT_ID")
-        if not agent_id:
-            raise RuntimeError("BOLNA_AGENT_ID not configured")
-
-        # Initiate outbound call if phone number provided
-        if phone_number:
-            result = await self.bolna_client.initiate_call(
-                agent_id=agent_id,
-                phone_number=phone_number,
-                user_data=user_data or {"language": language, "user_id": user_id}
-            )
-
-            if result.success:
-                # Create session record
-                session = VoiceSession(
-                    session_id=result.call_id,
-                    provider=VoiceProvider.BOLNA,
-                    phone_number=phone_number,
-                    user_id=user_id,
-                    language=language,
-                    metadata={"agent_id": agent_id}
-                )
-                self.active_sessions[result.call_id] = session
-
-                return VoiceResponse(
-                    success=True,
-                    provider=VoiceProvider.BOLNA,
-                    session_id=result.call_id,
-                    message=f"Call initiated to {phone_number}",
-                    metadata=result.data
-                )
-            else:
-                return VoiceResponse(
-                    success=False,
-                    provider=VoiceProvider.BOLNA,
-                    error=result.error,
-                    message="Failed to initiate call"
-                )
-
-        # For inbound calls, Bolna handles via webhook
-        return VoiceResponse(
-            success=True,
-            provider=VoiceProvider.BOLNA,
-            message="Bolna agent ready for inbound calls",
-            metadata={"agent_id": agent_id}
-        )
-
-    async def _handle_gemini_request(
-        self,
-        user_id: Optional[str] = None,
-        language: str = "hi",
-        **kwargs
-    ) -> VoiceResponse:
-        """Handle request via Gemini Live."""
-        if not self.gemini_available:
-            raise RuntimeError("Gemini Live not available")
-
-        try:
-            # Create Gemini Live session
-            session_id = f"gemini_{user_id or 'anonymous'}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-            # Map language to Gemini voice
-            language_map = {
-                "hi": "hi-IN",
-                "en": "en-IN",
-                "mr": "mr-IN",
-                "ta": "ta-IN"
-            }
-            gemini_language = language_map.get(language, "en-IN")
-
-            # Create session record
-            session = VoiceSession(
-                session_id=session_id,
-                provider=VoiceProvider.GEMINI_LIVE,
-                user_id=user_id,
-                language=language,
-                metadata={"gemini_language": gemini_language}
-            )
-            self.active_sessions[session_id] = session
-
-            return VoiceResponse(
-                success=True,
-                provider=VoiceProvider.GEMINI_LIVE,
-                session_id=session_id,
-                message="Gemini Live session ready",
-                metadata={
-                    "language": gemini_language,
-                    "websocket_path": "/ws/voice"
-                }
-            )
-
-        except Exception as e:
-            logger.error(f"Gemini session creation failed: {e}")
-            raise
-
-    async def _handle_retell_request(
-        self,
-        phone_number: Optional[str] = None,
-        user_id: Optional[str] = None,
-        language: str = "hi",
-        user_data: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> VoiceResponse:
-        """
-        Handle request via Retell.AI.
-
-        Retell uses Custom LLM via WebSocket for full RAG integration,
-        Cartesia Sonic-3 TTS, and Vobiz.ai for Indian PSTN telephony.
-
-        Args:
-            phone_number: Phone number for calls (E.164 format)
-            user_id: User identifier
-            language: Language code (hi, en, mr, ta)
-            user_data: Optional user context data
-
-        Returns:
-            VoiceResponse with session/call details
-        """
-        if not self.retell_available:
-            raise RuntimeError("Retell client not available")
-
-        agent_id = os.getenv("RETELL_AGENT_ID")
-        if not agent_id:
-            raise RuntimeError("RETELL_AGENT_ID not configured")
-
-        # For inbound calls via Vobiz.ai, Retell handles via WebSocket
-        # The Custom LLM server at /ws/retell/llm/{call_id} processes requests
-        session_id = f"retell_{user_id or 'anonymous'}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-        # Create session record
-        session = VoiceSession(
-            session_id=session_id,
-            provider=VoiceProvider.RETELL,
-            phone_number=phone_number,
-            user_id=user_id,
-            language=language,
-            metadata={
-                "agent_id": agent_id,
-                "telephony": "vobiz" if phone_number else "web"
-            }
-        )
-        self.active_sessions[session_id] = session
-
-        # Map language to Retell/Cartesia voice
-        from retell_integration.config import CARTESIA_VOICE_IDS
-        voice_config = CARTESIA_VOICE_IDS.get(language, CARTESIA_VOICE_IDS.get("hi"))
-
-        return VoiceResponse(
-            success=True,
-            provider=VoiceProvider.RETELL,
-            session_id=session_id,
-            message="Retell agent ready" + (f" for {phone_number}" if phone_number else ""),
-            metadata={
-                "agent_id": agent_id,
-                "voice": voice_config.get("voice_name") if voice_config else "Hindi Narrator Woman",
-                "websocket_path": "/ws/retell/llm",
-                "webhook_path": "/api/retell/webhook",
-                "language": language
-            }
-        )
-
-    async def _handle_sarvam_request(
-        self,
-        user_id: Optional[str] = None,
-        language: str = "hi",
-        **kwargs
-    ) -> VoiceResponse:
-        """
-        Handle request via Sarvam AI (STT → RAG → LLM → TTS pipeline).
-
-        Uses Sarvam Saaras v3 for STT (22 Indian languages) and
-        Bulbul v3 for TTS (11 Indian languages, 30+ voices).
-        """
-        from sarvam_integration.config import (
-            sarvam_language_code,
-            get_default_voice,
-            get_stt_model,
-            get_tts_model,
-        )
-
-        session_id = f"sarvam_{user_id or 'anonymous'}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        sarvam_lang = sarvam_language_code(language)
-        voice = get_default_voice(language)
-
-        session = VoiceSession(
-            session_id=session_id,
-            provider=VoiceProvider.SARVAM,
-            user_id=user_id,
-            language=language,
-            metadata={"sarvam_language": sarvam_lang, "sarvam_voice": voice}
-        )
-        self.active_sessions[session_id] = session
-
-        return VoiceResponse(
-            success=True,
-            provider=VoiceProvider.SARVAM,
-            session_id=session_id,
-            message="Sarvam AI voice session ready",
-            metadata={
-                "pipeline": "Sarvam STT → RAG → LLM → Sarvam TTS",
-                "stt_provider": f"sarvam_{get_stt_model().replace(':', '_')}",
-                "tts_provider": f"sarvam_{get_tts_model().replace(':', '_')}",
-                "stt_language": sarvam_lang,
-                "tts_voice": voice,
-                "language": language,
-            }
-        )
-
-    async def _handle_fallback_request(
-        self,
-        user_id: Optional[str] = None,
-        language: str = "hi",
-        query: Optional[str] = None,
-        error_context: Optional[str] = None,
-        **kwargs
-    ) -> VoiceResponse:
-        """
-        Handle request via fallback STT → RAG → LLM → TTS pipeline.
-
-        This is the ultimate fallback when both Bolna and Gemini are unavailable.
-        """
-        session_id = f"fallback_{user_id or 'anonymous'}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-        # Create session record
-        session = VoiceSession(
-            session_id=session_id,
-            provider=VoiceProvider.FALLBACK_PIPELINE,
-            user_id=user_id,
-            language=language,
-            metadata={"error_context": error_context} if error_context else {}
-        )
-        self.active_sessions[session_id] = session
-
-        response_message = "Fallback voice pipeline ready"
-        if error_context:
-            response_message = f"Using fallback pipeline (primary error: {error_context})"
-
-        return VoiceResponse(
-            success=True,
-            provider=VoiceProvider.FALLBACK_PIPELINE,
-            session_id=session_id,
-            message=response_message,
-            metadata={
-                "pipeline": "STT → RAG → LLM → TTS",
-                "stt_provider": "groq_whisper",
-                "tts_provider": "edge_tts",
-                "language": language
-            }
-        )
-
-    async def process_audio_fallback(
-        self,
-        audio_data: bytes,
-        language: str = "hi",
-        user_id: Optional[str] = None
-    ) -> VoiceResponse:
-        """
-        Process audio through the fallback pipeline.
-
-        Pipeline: Audio → STT → RAG Query → LLM → TTS → Audio
-
-        Args:
-            audio_data: Raw audio bytes
-            language: Language code
-            user_id: User identifier
-
-        Returns:
-            VoiceResponse with transcript and audio URL
-        """
-        try:
-            # This would integrate with existing STT/TTS services
-            # For now, return placeholder
-
-            if not self.rag_pipeline:
-                return VoiceResponse(
-                    success=False,
-                    provider=VoiceProvider.FALLBACK_PIPELINE,
-                    error="RAG pipeline not configured"
-                )
-
-            # Placeholder for STT processing
-            # transcript = await stt_service.transcribe(audio_data, language)
-
-            # Placeholder for RAG query
-            # result = await self.rag_pipeline.query(transcript, source_language=language)
-
-            # Placeholder for TTS
-            # audio_url = await tts_service.synthesize(result["answer"], language)
-
-            return VoiceResponse(
-                success=True,
-                provider=VoiceProvider.FALLBACK_PIPELINE,
-                message="Audio processed via fallback pipeline",
-                metadata={"language": language}
-            )
-
-        except Exception as e:
-            logger.error(f"Fallback audio processing failed: {e}")
-            return VoiceResponse(
-                success=False,
-                provider=VoiceProvider.FALLBACK_PIPELINE,
-                error=str(e)
-            )
-
-    async def check_voice_safety(
-        self,
-        transcript: str,
-        user_id: str,
-        language: str = "en",
-        call_id: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Check voice transcript for safety concerns before processing.
-        
-        This is a centralized safety check that can be called from any
-        voice provider integration.
-        
-        Args:
-            transcript: Voice transcript text
-            user_id: User identifier
-            language: Language code
-            call_id: Optional call/session ID
-            
-        Returns:
-            Safety check result dict
-        """
-        if not self.voice_safety:
-            return {"safe": True, "should_escalate": False}
-        
-        try:
-            safety_result = await self.voice_safety.check_voice_query(
-                user_id=user_id,
-                transcript=transcript,
-                language=language,
-                call_id=call_id
-            )
-            
-            return {
-                "safe": not safety_result.should_escalate,
-                "should_escalate": safety_result.should_escalate,
-                "should_proceed": safety_result.should_proceed,
-                "event_type": safety_result.event_type.value if safety_result.event_type else None,
-                "emergency_alert": safety_result.emergency_alert,
-                "handoff_reason": safety_result.handoff_reason,
-                "safety_message": safety_result.safety_message,
-                "modified_transcript": safety_result.modified_transcript
-            }
-            
-        except Exception as e:
-            logger.error(f"Voice safety check failed: {e}")
-            return {"safe": True, "should_escalate": False, "error": str(e)}
-    
-    async def handle_voice_escalation(
-        self,
-        safety_result: Dict[str, Any],
-        provider: str
-    ) -> Dict[str, Any]:
-        """Handle voice escalation across all providers."""
-        if not self.voice_safety:
-            return {"escalated": False}
-        
-        try:
-            from voice_safety_wrapper import VoiceSafetyResult, VoiceSafetyEvent
-            
-            # Reconstruct the result object
-            result_obj = VoiceSafetyResult(
-                should_proceed=safety_result.get("should_proceed", False),
-                should_escalate=safety_result.get("should_escalate", True),
-                event_type=VoiceSafetyEvent(safety_result["event_type"]) if safety_result.get("event_type") else None,
-                emergency_alert=safety_result.get("emergency_alert"),
-                handoff_reason=safety_result.get("handoff_reason"),
-                modified_transcript=safety_result.get("modified_transcript"),
-                evidence_badge=None,
-                safety_message=safety_result.get("safety_message"),
-                metadata={}
-            )
-            
-            return await self.voice_safety.handle_voice_escalation(result_obj, provider)
-            
-        except Exception as e:
-            logger.error(f"Voice escalation handling failed: {e}")
-            return {"escalated": False, "error": str(e)}
-
-    def get_session(self, session_id: str) -> Optional[VoiceSession]:
-        """Get an active session by ID."""
-        return self.active_sessions.get(session_id)
-
-    def end_session(self, session_id: str) -> bool:
-        """End and remove a session."""
-        if session_id in self.active_sessions:
-            del self.active_sessions[session_id]
-            logger.info(f"Session {session_id} ended")
-            return True
-        return False
-
-    def get_active_session_count(self) -> int:
-        """Get count of active sessions."""
-        return len(self.active_sessions)
-
-    def get_status(self) -> Dict[str, Any]:
-        """Get router status."""
+        live = self.stats.get("live", 0)
+        fallback = self.stats.get("fallback", 0)
+        total = live + fallback
         return {
-            "bolna_available": self.bolna_available,
-            "gemini_available": self.gemini_available,
-            "retell_available": self.retell_available,
-            "sarvam_available": self.sarvam_available,
-            "fallback_available": True,
-            "preferred_provider": self.preferred_provider.value,
-            "active_sessions": self.get_active_session_count(),
-            "available_providers": [p.value for p in self.get_available_providers()]
+            "live": live,
+            "fallback": fallback,
+            "fallback_rate": round(fallback / total, 4) if total else None,
+            "by_reason": {
+                k.split(":", 1)[1]: v
+                for k, v in self.stats.items()
+                if k.startswith("live_to_fallback:")
+            },
+            "operator_forced": self.stats.get("operator_forced_fallback", 0),
+            "selected_provider": self.control.current().provider,
+            "live_selected": self.control.current().live_enabled,
+            "live_available": LiveAvailability.probe().available,
         }
 
 
-# Convenience function to create router from environment
-def create_voice_router(rag_pipeline=None) -> VoiceRouter:
+_router_instance: Optional[VoiceRouter] = None
+
+
+def set_voice_router(router: VoiceRouter) -> None:
+    """Register the process-wide router so the admin dashboard can read its counters."""
+    global _router_instance
+    _router_instance = router
+
+
+def get_voice_router() -> VoiceRouter:
     """
-    Create a VoiceRouter with configuration from environment.
+    The router the WebSocket endpoint is actually using.
 
-    Environment variables:
-    - VOICE_PREFERRED_PROVIDER: "bolna", "gemini_live", "retell", "sarvam", or "fallback_pipeline"
-      (shortcuts: "b", "g", "r", "s")
-    - BOLNA_API_KEY: Required for Bolna
-    - GOOGLE_CLOUD_PROJECT: Required for Gemini Live
-    - RETELL_API_KEY: Required for Retell
-    - RETELL_AGENT_ID: Required for Retell
-
-    Args:
-        rag_pipeline: Optional RAG pipeline for fallback queries
-
-    Returns:
-        Configured VoiceRouter instance
+    A separate function rather than returning an optional, because the dashboard
+    asking for usage figures and being handed a broken provider would be worse
+    than asking for nothing. Returning None here made the panel report zero
+    fallback turns forever, which is the silent-failure shape this whole area has
+    been fighting.
     """
-    preferred = os.getenv("VOICE_PREFERRED_PROVIDER", "bolna").lower()
-
-    provider_map = {
-        "bolna": VoiceProvider.BOLNA,
-        "b": VoiceProvider.BOLNA,
-        "gemini_live": VoiceProvider.GEMINI_LIVE,
-        "gemini": VoiceProvider.GEMINI_LIVE,
-        "g": VoiceProvider.GEMINI_LIVE,
-        "retell": VoiceProvider.RETELL,
-        "r": VoiceProvider.RETELL,
-        "sarvam": VoiceProvider.SARVAM,
-        "s": VoiceProvider.SARVAM,
-        "fallback": VoiceProvider.FALLBACK_PIPELINE,
-        "fallback_pipeline": VoiceProvider.FALLBACK_PIPELINE
-    }
-
-    preferred_provider = provider_map.get(preferred, VoiceProvider.BOLNA)
-
-    return VoiceRouter(
-        rag_pipeline=rag_pipeline,
-        preferred_provider=preferred_provider
-    )
+    if _router_instance is None:
+        raise RuntimeError(
+            "No voice router has been registered. The WebSocket endpoint builds "
+            "one at startup; if this is raised before any voice traffic, usage "
+            "figures are simply not available yet."
+        )
+    return _router_instance

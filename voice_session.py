@@ -155,6 +155,38 @@ class VoiceTurnHandler:
         self.study_logger = study_logger
         self.synthesise = synthesise
 
+    async def handle_audio(
+        self,
+        session: VoiceSession,
+        audio: bytes,
+        voice_path: str = VOICE_PATH_LIVE,
+    ) -> Optional[VoiceTurn]:
+        """
+        Transcribe a recording, then answer it.
+
+        Transcribing here rather than on the client is deliberate. The client cannot
+        know what the user said, so making it fetch the transcript first costs a
+        round trip on every turn for no benefit. One frame in, one frame out, and
+        the transcript comes back alongside the answer.
+        """
+        transcript = await self._transcribe(audio, session.language)
+        if not transcript:
+            return None
+        return await self.handle(session, transcript, voice_path=voice_path)
+
+    async def _transcribe(self, audio: bytes, language: str) -> str:
+        try:
+            from sarvam_integration import SarvamClient
+
+            result = await SarvamClient().speech_to_text(audio, language)
+            return (result.transcript or "").strip()
+        except Exception:
+            # No transcript means no question. Returning an empty string here would
+            # be recorded as an empty substantive interaction, which protocol 4.1
+            # would then have to exclude.
+            logger.warning("Transcription unavailable for %s", language)
+            return ""
+
     async def handle(
         self,
         session: VoiceSession,

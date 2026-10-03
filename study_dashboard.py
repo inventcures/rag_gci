@@ -33,10 +33,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import HTMLResponse
 
 import study_outcomes
+from voice_provider import PROVIDER_LIVE, PROVIDER_SARVAM, get_voice_provider_control
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ async def browse_interactions(
     elif flagged == "unsupported":
         entries = [e for e in entries if e.get("source_count", 0) == 0]
     elif flagged == "unapproved_release":
-        entries = [e for e in entries if e.get("release_approved") is False]
+        entries = [e for e in entries if e.get("release_approved") is not True]
 
     entries.sort(key=lambda e: e.get("occurred_at", 0), reverse=True)
     return {
@@ -191,6 +192,7 @@ async def dashboard_page(day: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
     equity = d["language_equity"]
     supervision = d["supervision"]
     release = d["release"]
+    voice = _voice_panel()
 
     parts: List[str] = []
 
@@ -419,6 +421,10 @@ async def dashboard_page(day: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
         "</tbody></table>"
     )
 
+    # -- voice provider --------------------------------------------------
+    parts.append("<h2>Voice provider</h2>")
+    parts.append(voice)
+
     # -- release -----------------------------------------------------------
     parts.append("<h2>Release provenance &mdash; protocol 7.8</h2>")
     parts.append(
@@ -454,3 +460,129 @@ async def dashboard_page(day: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
 
     body = "\n".join(parts)
     return PAGE_TEMPLATE.replace("__GENERATED__", d["generated_at"]).replace("__BODY__", body)
+
+
+# -- Voice provider control --------------------------------------------------
+
+
+@router.get("/api/voice/provider")
+async def get_voice_provider() -> Dict[str, Any]:
+    """
+    Which provider is selected, and how the Live path has been doing.
+
+    Reported separately because the two are different facts. A forced fallback
+    means an administrator chose Sarvam; an automatic one means Live degraded on
+    its own. Reading them as one number would make a deliberate incident response
+    look like a fault.
+    """
+    control = get_voice_provider_control()
+    router_stats = _router_stats()
+    return {
+        "setting": control.current().to_dict(),
+        "live_enabled": control.current().live_enabled,
+        "availability": _live_availability(),
+        "usage": router_stats,
+        "recent_changes": control.history(limit=10),
+    }
+
+
+@router.post("/api/voice/provider")
+async def set_voice_provider(
+    provider: str = Body(..., embed=True),
+    actor: str = Body("", embed=True),
+    reason: str = Body("", embed=True),
+) -> Dict[str, Any]:
+    """
+    Select the voice provider for the whole deployment.
+
+    An audit record with actor, time, previous value and a required reason. Forcing
+    the India-resident path is incident response rather than a preference, so it has
+    to be explainable later without relying on anyone's memory.
+    """
+    if provider not in (PROVIDER_LIVE, PROVIDER_SARVAM):
+        raise HTTPException(
+            status_code=400,
+            detail=f"provider must be {PROVIDER_LIVE} or {PROVIDER_SARVAM}",
+        )
+    if not actor.strip():
+        raise HTTPException(status_code=400, detail="actor is required")
+    try:
+        setting = get_voice_provider_control().set_provider(provider, actor, reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return setting.to_dict()
+
+
+def _live_availability() -> Dict[str, Any]:
+    try:
+        from voice_router import LiveAvailability
+
+        result = LiveAvailability.probe()
+        return {"available": result.available, "reason": result.reason}
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "reason": f"probe_failed: {exc}"}
+
+
+def _router_stats() -> Dict[str, Any]:
+    """Fallback counters from the live router, if one has been constructed."""
+    try:
+        from voice_router import get_voice_router
+
+        return get_voice_router().report()
+    except Exception:
+        # No router registered yet, or none available. Returned as None rather
+        # than {} so the dashboard says "no traffic yet" instead of "zero
+        # fallbacks", which would read as good news.
+        return {"available": False}
+
+
+def _voice_panel() -> str:
+    """
+    Render the voice provider state.
+
+    Reports the selected provider and the fallback rate separately, because an
+    administrator forcing Sarvam and Gemini Live failing are different events and
+    the page should not blur them.
+    """
+    try:
+        control = get_voice_provider_control()
+        setting = control.current()
+        stats = _router_stats()
+        traffic = stats.get("available", True)
+        availability = _live_availability()
+    except Exception as exc:  # noqa: BLE001
+        return f'<div class="banner b-amber">Voice provider state unavailable: {exc}</div>'
+
+    live_sel = setting.live_enabled
+    rows = [
+        '<table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>',
+        f'<tr><td>Selected provider</td><td>'
+        f'{_tag(setting.provider, "ok" if live_sel else "warn")}</td></tr>',
+        f'<tr><td>Gemini Live reachable</td><td>'
+        f'{_tag("yes", "ok") if availability["available"] else _tag("no", "bad")}</td></tr>',
+        f'<tr><td>Turns answered by Live</td><td class="num">{stats.get("live", 0)}</td></tr>',
+        f'<tr><td>Turns answered by Sarvam</td><td class="num">{stats.get("fallback", 0)}</td></tr>',
+        f'<tr><td>Automatic fallback rate</td><td class="num">'
+        f'{stats.get("fallback_rate") if traffic and stats.get("fallback_rate") is not None else "no traffic yet"}</td></tr>',
+        f'<tr><td>Turns forced to Sarvam by an admin</td><td class="num">'
+        f'{stats.get("operator_forced", 0)}</td></tr>',
+    ]
+    if setting.updated_at:
+        rows.append(
+            f'<tr><td>Last changed</td><td class="sub">{setting.updated_by}: '
+            f'{setting.reason}</td></tr>'
+        )
+    rows.append("</tbody></table>")
+
+    if not live_sel:
+        rows.append(
+            '<div class="banner b-amber">Sarvam is forced for the whole deployment. '
+            'Gemini Live is not being used. This is an incident response and is '
+            'audited.</div>'
+        )
+    elif not availability["available"]:
+        rows.append(
+            '<div class="banner b-amber">Gemini Live is selected but unreachable, so '
+            'every turn is falling back to Sarvam. Voice is degraded, not broken.</div>'
+        )
+    return "".join(rows)
