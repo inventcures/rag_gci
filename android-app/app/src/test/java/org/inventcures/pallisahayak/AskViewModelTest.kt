@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -113,12 +114,13 @@ class AskViewModelTest {
         )
     }
 
-    private val testDispatcher = UnconfinedTestDispatcher()
-    private fun viewModel() = AskViewModel(
-        repository,
-        session,
-        kotlinx.coroutines.CoroutineScope(testDispatcher),
-    )
+    /**
+     * Takes the runTest scope, so advanceUntilIdle drives the same scheduler the
+     * ViewModel works on. An injected UnconfinedTestDispatcher is a *separate*
+     * scheduler, and OkHttp's real I/O resumes on neither, which left the
+     * coroutine suspended and every answer empty.
+     */
+    private fun TestScope.viewModel() = AskViewModel(repository, session, this)
 
     @Test
     fun `a grounded answer reaches the screen intact`() = runTest {

@@ -1,5 +1,6 @@
 package org.inventcures.pallisahayak.data.repository
 
+import android.util.Log
 import org.inventcures.pallisahayak.api.generated.MobileQueryRequest
 import org.inventcures.pallisahayak.api.generated.MobileQueryResponse
 import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
@@ -76,6 +77,10 @@ class PalliSahayakRepository(
      * that deliberately: a route that ever bypassed the server filter must not be
      * able to put a dose on screen. ADR 0004 calls this defence in depth.
      */
+    private companion object {
+        const val TAG = "PalliRepo"
+    }
+
     suspend fun ask(question: String, session: SessionContext): AnsweredQuestion {
         val answered = request(question, session)
         record(question, answered, session)
@@ -98,8 +103,14 @@ class PalliSahayakRepository(
                 offlineOrUnavailable(question, session)
             }
         } catch (error: Exception) {
-            // A network failure is an ordinary state in these sites, not an
-            // exception worth propagating into the UI as a crash.
+            // A network failure is an ordinary state in these sites, not a crash.
+            //
+            // Logged rather than swallowed. A silent fallback here looks identical
+            // to a connectivity problem, which is the same failure shape as the
+            // English-only index: the app appears healthy and returns the wrong
+            // thing. Logcat, not stdout, because that is where an Android crash
+            // report would lead.
+            Log.w(TAG, "query failed, falling back to offline", error)
             offlineOrUnavailable(question, session.copy(isOffline = true))
         }
 

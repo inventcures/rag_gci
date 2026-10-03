@@ -147,26 +147,37 @@ T8  Accessibility contract + release gate              ⬜
    and the comment was wrong. Corrected, and the test now asserts the real
    invariant.
 
-**Still outstanding: 4 of 6 Robolectric tests red**
+**Still outstanding: 4 of 6 Robolectric tests red.** All four show an empty answer.
 
-All four fail with an empty answer, meaning the repository takes its
-`catch (Exception)` branch and returns `AnswerSource.Unavailable`. The two SI-5 tests
-pass because recording happens regardless of outcome, which is exactly why recording
-comes after the outcome rather than before.
+**What is ruled out.** A throwaway test called the API directly with the same
+MockWebServer, the same Retrofit config and the same generated model, and it passed.
+So Moshi, the converter, the generated classes, the URL resolution and the JSON shape
+are all fine. The earlier "Moshi cannot deserialise" hypothesis was wrong, though the
+`KotlinJsonAdapterFactory` added while chasing it is still correct to have.
 
-**Do not guess at the cause.** Log the exception first:
+**What remains.** The repository takes its `catch (Exception)` branch. Attempts to
+drive it have all failed to resume:
 
-```kotlin
-} catch (error: Exception) {
-    logger.error("query failed", error)
-    offlineOrUnavailable(...)
-}
-```
+- `Dispatchers.setMain(StandardTestDispatcher())`: `runTest` owns a separate scheduler,
+  so `advanceUntilIdle` drains the wrong queue.
+- `UnconfinedTestDispatcher`: launches eagerly but OkHttp's real I/O resumes on
+  neither scheduler.
+- Passing the `TestScope` itself: closest, still not resuming.
 
-The repository currently swallows every exception with no log, and a silent offline
-fallback in a study app is the same class of failure as the English-only index: it
-looks healthy and returns the wrong thing.
----
+**The likely cause** is that Retrofit's suspend call parks on OkHttp's dispatcher, and
+Robolectric's main looper is not being pumped, so the continuation never resumes.
+Two things worth trying next, in order:
+
+1. `Robolectric.flushForegroundThreadScheduler()` or `shadowOf(Looper.getMainLooper()).idle()`
+   after `submit()`.
+2. Drop MockWebServer and hand `PalliSahayakRepository` a stub `PalliSahayakApi` whose
+   methods return immediately. That keeps the repository, the Room database, the Dose
+   Boundary and the ViewModel real, and fakes only the network boundary, which is
+   exactly the rule this suite is supposed to follow. It also removes the real-I/O
+   problem entirely rather than working around it.
+
+Option 2 is likely the right answer and is not a cop-out: the boundary being faked is
+the boundary the test is meant to fake.
 
 ## 6. Tickets still to be written (if `.scratch/` is lost)
 
