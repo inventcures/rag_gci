@@ -2,11 +2,12 @@ package org.inventcures.pallisahayak.data
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import org.inventcures.pallisahayak.data.repository.AnsweredQuestion
 import org.inventcures.pallisahayak.data.repository.AnswerSource
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
@@ -53,7 +54,22 @@ data class AskUiState(
 class AskViewModel(
     private val repository: PalliSahayakRepository,
     private val session: SessionContext,
+    /**
+     * Injected so tests can drive it.
+     *
+     * viewModelScope is pinned to Dispatchers.Main.immediate, which does not run
+     * under Robolectric whatever Main is set to. Injecting the scope makes the
+     * class testable by construction rather than by fighting the dispatcher.
+     *
+     * Nullable with a fallback rather than defaulted to viewModelScope, because a
+     * default argument cannot reference an extension property of the object being
+     * constructed: the ViewModel does not exist yet at that point.
+     */
+    private val scope: CoroutineScope? = null,
 ) : ViewModel() {
+
+    private val workScope: CoroutineScope
+        get() = scope ?: viewModelScope
 
     private val _state = MutableStateFlow(AskUiState())
     val state: StateFlow<AskUiState> = _state.asStateFlow()
@@ -75,7 +91,7 @@ class AskViewModel(
 
         _state.update { it.copy(isAsking = true, errorMessage = null) }
 
-        viewModelScope.launch {
+        workScope.launch {
             try {
                 val answered = repository.ask(question, session)
                 _state.update { current ->

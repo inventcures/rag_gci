@@ -85,4 +85,7 @@ dependencies {
     // The test builds a real in-memory Room database rather than mocking it, so
     // Room has to be on this module's test classpath.
     testImplementation(libs.room.runtime)
+    // The test builds its own Retrofit, and Moshi cannot read Kotlin default
+    // parameter values without this factory.
+    testImplementation(libs.moshi.kotlin)
 }

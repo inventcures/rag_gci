@@ -5,6 +5,11 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -27,6 +32,7 @@ import org.inventcures.pallisahayak.safety.AnswerKind
  * code would make these tests assert that our own mocks agree with each other,
  * which is the failure mode this whole body of work exists to avoid.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class AskViewModelTest {
@@ -36,8 +42,12 @@ class AskViewModelTest {
     private lateinit var interactions: InteractionDao
     private lateinit var repository: PalliSahayakRepository
 
+    /**
+     * Registration hands the app a server-generated UUID, never a name or a phone
+     * number, so this is the shape the app actually holds.
+     */
     private val session = SessionContext(
-        participantId = "asha-001",
+        participantId = "3f2a8c14-9b7e-4d21-8a55-6c1e0d3b7f92",
         careRole = "ASHA Worker",
         siteId = "CCHRC",
         language = "en-IN",
@@ -47,6 +57,14 @@ class AskViewModelTest {
 
     @Before
     fun setUp() {
+        // Main is still set because Room and Retrofit touch it internally, but the
+        // ViewModel's own work runs on the injected test scope.
+        // Unconfined, not Standard. runTest creates its own scheduler, so a
+        // StandardTestDispatcher installed here would be a *second* one, and
+        // advancing testScheduler would drain the wrong queue. Unconfined runs
+        // the launch eagerly on the calling thread, which is what a
+        // ViewModel-under-test needs.
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         server = MockWebServer()
         server.start()
 
@@ -64,7 +82,13 @@ class AskViewModelTest {
         val api = retrofit2.Retrofit.Builder()
             .baseUrl(server.url("/api/mobile/v1/"))
             .client(client)
-            .addConverterFactory(retrofit2.converter.moshi.MoshiConverterFactory.create())
+            .addConverterFactory(
+                retrofit2.converter.moshi.MoshiConverterFactory.create(
+                    com.squareup.moshi.Moshi.Builder()
+                        .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                        .build(),
+                ),
+            )
             .build()
             .create(org.inventcures.pallisahayak.api.generated.PalliSahayakApi::class.java)
 
@@ -73,6 +97,7 @@ class AskViewModelTest {
 
     @After
     fun tearDown() {
+        Dispatchers.resetMain()
         server.shutdown()
         // close() is enough: the test never goes through the process-wide
         // singleton, so there is no shared instance to reset.
@@ -88,7 +113,12 @@ class AskViewModelTest {
         )
     }
 
-    private fun viewModel() = AskViewModel(repository, session)
+    private val testDispatcher = UnconfinedTestDispatcher()
+    private fun viewModel() = AskViewModel(
+        repository,
+        session,
+        kotlinx.coroutines.CoroutineScope(testDispatcher),
+    )
 
     @Test
     fun `a grounded answer reaches the screen intact`() = runTest {
@@ -170,7 +200,11 @@ class AskViewModelTest {
         assertThat(row.releaseId).isEqualTo("unassigned-dev@abc1234")
         assertThat(row.releaseApproved).isFalse()
         assertThat(row.careRole).isEqualTo("ASHA Worker")
-        assertThat(row.participantId).isNotEqualTo("asha-001")
+        // Pseudonymous by construction: the device never receives a raw
+        // identifier, so there is nothing for it to hash. This asserts the value
+        // survives the round trip unchanged rather than claiming a hashing step
+        // that does not exist.
+        assertThat(row.participantId).isEqualTo(session.participantId)
         assertThat(row.dosageBlocked).isTrue()
         assertThat(row.answerKind).isEqualTo(AnswerKind.DEFERRAL.name)
         assertThat(row.response).doesNotContain("10 mg")

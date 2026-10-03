@@ -8,6 +8,8 @@ import org.inventcures.pallisahayak.data.local.PalliDatabase
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
 import org.inventcures.pallisahayak.data.repository.SessionContext
 import retrofit2.Retrofit
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import retrofit2.converter.moshi.MoshiConverterFactory
 
 /**
@@ -64,7 +66,15 @@ object ServiceLocator {
         val retrofit = Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(client)
-            .addConverterFactory(MoshiConverterFactory.create())
+            .addConverterFactory(
+                // KotlinJsonAdapterFactory is required. Without it Moshi's
+                // reflective adapter cannot read Kotlin default parameter values,
+                // so the generated data classes fail to deserialise and every
+                // request falls into the offline branch with no error anywhere.
+                MoshiConverterFactory.create(
+                    Moshi.Builder().add(KotlinJsonAdapterFactory()).build(),
+                ),
+            )
             .build()
 
         repositoryInstance = PalliSahayakRepository(

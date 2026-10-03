@@ -50,6 +50,9 @@ dependencies {
     implementation(libs.retrofit.converter.moshi)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    // Required for KotlinJsonAdapterFactory, without which Moshi cannot read
+    // Kotlin default parameter values in the generated data classes.
+    implementation(libs.moshi.kotlin)
     // ViewModel and viewModelScope. lifecycle-runtime alone does not bring them,
     // so the ViewModel would not compile without this.
     implementation(libs.androidx.lifecycle.viewmodel.ktx)

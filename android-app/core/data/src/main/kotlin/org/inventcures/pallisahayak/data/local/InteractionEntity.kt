@@ -21,10 +21,18 @@ data class InteractionEntity(
     @PrimaryKey
     val id: String,
 
-    // -- who, in pseudonymised form ----------------------------------------
-    // The raw participant id is never stored. The server pseudonymises with an
-    // HMAC and the app does the same, so ids are linkable within a study without
-    // the device holding anything that identifies a person.
+    // -- who ----------------------------------------------------------------
+    // Pseudonymous by construction, not by hashing on the device.
+    //
+    // Registration hands the app a server-generated UUID (mobile_api/router.py,
+    // `uuid.uuid4()`). The device never receives a phone number, a name or any
+    // other identifier that could identify a person, so there is nothing here to
+    // protect and no secret to ship. The server applies a keyed HMAC of its own
+    // when it aggregates, which is where a raw identifier would otherwise arrive.
+    //
+    // An earlier comment on this field claimed the app pseudonymises the way the
+    // server does. That was false: the repository stored the session value
+    // verbatim, and it was right to. Pseudonymisation happens at registration.
     @ColumnInfo(name = "participant_id")
     val participantId: String,
 
