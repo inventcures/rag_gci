@@ -125,20 +125,47 @@ T8  Accessibility contract + release gate              ⬜
 **Outstanding:**
 - Robolectric test: written but **6 tests fail**, see below.
 
-**Two real findings from the Robolectric attempt**
+**Three real defects found and fixed**
 
-1. **`viewModelScope` is pinned to `Dispatchers.Main`,** so `advanceUntilIdle()` on
-   the `runTest` scheduler never runs the coroutine and no row is written. All six
-   tests fail this way. Fix is `Dispatchers.setMain(StandardTestDispatcher())` in
-   setup. The tests are structurally right; the async boundary is not bridged.
+1. **Moshi could not deserialise the generated data classes.** Without
+   `KotlinJsonAdapterFactory` its reflective adapter cannot read Kotlin default
+   parameter values, so every request failed and fell into the offline branch with
+   no error anywhere. Against a live server the app would have looked like a
+   connectivity problem rather than a serialisation one. Fixed in `ServiceLocator`
+   and in the test's own Retrofit.
 
-2. **The device does not pseudonymise participant ids.** The test asserted
-   `participantId != "asha-001"` and failed, because the repository stores
-   `session.participantId` verbatim. `InteractionEntity`'s comment claims "the app
-   does the same" as the server, which is false. Either pseudonymise on device, which
-   needs a shared secret and is a design decision, or correct the comment and decide
-   where pseudonymisation happens. Do not leave the comment lying.
+2. **`AskViewModel` was untestable by construction.** `viewModelScope` is pinned to
+   `Dispatchers.Main.immediate` and does not run under Robolectric whatever Main is
+   set to. It now takes an injectable `CoroutineScope`, nullable with a fallback,
+   because a default argument cannot reference an extension property of the object
+   being constructed.
 
+3. **`InteractionEntity`'s comment was false.** It claimed the app pseudonymises
+   participant ids the way the server does. It does not, and should not.
+   `mobile_api/router.py:70` shows registration issues `uuid.uuid4()`, so the device
+   never receives a raw identifier and there is nothing to hash. The code was right
+   and the comment was wrong. Corrected, and the test now asserts the real
+   invariant.
+
+**Still outstanding: 4 of 6 Robolectric tests red**
+
+All four fail with an empty answer, meaning the repository takes its
+`catch (Exception)` branch and returns `AnswerSource.Unavailable`. The two SI-5 tests
+pass because recording happens regardless of outcome, which is exactly why recording
+comes after the outcome rather than before.
+
+**Do not guess at the cause.** Log the exception first:
+
+```kotlin
+} catch (error: Exception) {
+    logger.error("query failed", error)
+    offlineOrUnavailable(...)
+}
+```
+
+The repository currently swallows every exception with no log, and a silent offline
+fallback in a study app is the same class of failure as the English-only index: it
+looks healthy and returns the wrong thing.
 ---
 
 ## 6. Tickets still to be written (if `.scratch/` is lost)
