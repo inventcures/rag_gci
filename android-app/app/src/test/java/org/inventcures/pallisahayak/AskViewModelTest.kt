@@ -3,9 +3,13 @@ package org.inventcures.pallisahayak
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import retrofit2.http.Body
+import retrofit2.http.Part
+import retrofit2.http.GET
+import retrofit2.http.Query
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -13,12 +17,17 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
+import okhttp3.RequestBody
+import java.util.concurrent.Executor as JavaExecutor
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.inventcures.pallisahayak.api.generated.CacheBundleResponse
+import org.inventcures.pallisahayak.api.generated.MobileQueryRequest
+import org.inventcures.pallisahayak.api.generated.MobileQueryResponse
+import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
 import org.inventcures.pallisahayak.data.AskViewModel
-import org.inventcures.pallisahayak.data.ServiceLocator
 import org.inventcures.pallisahayak.data.local.InteractionDao
 import org.inventcures.pallisahayak.data.local.PalliDatabase
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
@@ -38,7 +47,7 @@ import org.inventcures.pallisahayak.safety.AnswerKind
 @Config(sdk = [33])
 class AskViewModelTest {
 
-    private lateinit var server: MockWebServer
+    private lateinit var api: StubApi
     private lateinit var database: PalliDatabase
     private lateinit var interactions: InteractionDao
     private lateinit var repository: PalliSahayakRepository
@@ -58,59 +67,54 @@ class AskViewModelTest {
 
     @Before
     fun setUp() {
-        // Main is still set because Room and Retrofit touch it internally, but the
-        // ViewModel's own work runs on the injected test scope.
-        // Unconfined, not Standard. runTest creates its own scheduler, so a
-        // StandardTestDispatcher installed here would be a *second* one, and
-        // advancing testScheduler would drain the wrong queue. Unconfined runs
-        // the launch eagerly on the calling thread, which is what a
-        // ViewModel-under-test needs.
+        // Main is still set because Room touches it internally; the ViewModel's
+        // own work runs on the injected test scope.
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        server = MockWebServer()
-        server.start()
 
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        // A real Room database, created in memory. The database is not mocked,
-        // because a mocked database would only prove the repository calls the
-        // methods the test expects it to call.
+        // A real Room database, created in memory. Not mocked: a mocked database
+        // would only prove the repository calls the methods the test expects.
         database = androidx.room.Room
             .inMemoryDatabaseBuilder(context, PalliDatabase::class.java)
             .allowMainThreadQueries()
+            // Run Room inline. Its suspend DAO methods otherwise dispatch to a
+            // transaction executor whose continuation never resumes under
+            // Robolectric, and the repository hangs inside insert().
+            .setQueryExecutor(directExecutor)
+            .setTransactionExecutor(directExecutor)
             .build()
         interactions = database.interactions()
-
-        val client = okhttp3.OkHttpClient.Builder().build()
-        val api = retrofit2.Retrofit.Builder()
-            .baseUrl(server.url("/api/mobile/v1/"))
-            .client(client)
-            .addConverterFactory(
-                retrofit2.converter.moshi.MoshiConverterFactory.create(
-                    com.squareup.moshi.Moshi.Builder()
-                        .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
-                        .build(),
-                ),
-            )
-            .build()
-            .create(org.inventcures.pallisahayak.api.generated.PalliSahayakApi::class.java)
-
+        api = StubApi()
         repository = PalliSahayakRepository(api = api, interactions = interactions)
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
-        server.shutdown()
         // close() is enough: the test never goes through the process-wide
         // singleton, so there is no shared instance to reset.
         database.close()
     }
 
-    private fun answer(body: String) {
-        server.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .setHeader("Content-Type", "application/json")
-                .setBody(body),
+    private fun answer(
+        answer: String,
+        sources: List<Map<String, Any>> = listOf(
+            mapOf(
+                "filename" to "handbook.pdf", "document" to "d",
+                "page" to 1, "relevance" to 0.5, "snippet" to "s",
+            ),
+        ),
+        emergencyLevel: String = "none",
+        evidenceLevel: String = "B",
+    ) {
+        api.response = MobileQueryResponse(
+            answer = answer,
+            sources = sources,
+            evidence_level = evidenceLevel,
+            emergency_level = emergencyLevel,
+            confidence = 0.8,
+            validation_status = "validated",
+            disclaimer = null,
         )
     }
 
@@ -120,21 +124,45 @@ class AskViewModelTest {
      * scheduler, and OkHttp's real I/O resumes on neither, which left the
      * coroutine suspended and every answer empty.
      */
-    private fun TestScope.viewModel() = AskViewModel(repository, session, this)
+    /**
+     * Wait for the ViewModel to finish a submit.
+     *
+     * Room's suspend DAO methods resume on Room's own transaction executor, not
+     * on the test scheduler, so advanceUntilIdle returns while the row is still
+     * being written and the ViewModel has not yet updated. Draining the scheduler
+     * and yielding until the state settles handles both.
+     */
+    private suspend fun TestScope.awaitIdle(vm: AskViewModel) {
+        val deadline = System.currentTimeMillis() + 5_000
+        while (vm.state.value.isAsking && System.currentTimeMillis() < deadline) {
+            advanceUntilIdle()
+            // Room writes on its own executor, so give it real time too.
+            Thread.sleep(10)
+            advanceUntilIdle()
+        }
+    }
+
+    /**
+     * Unconfined but bound to *this* runTest's scheduler.
+     *
+     * A separately constructed dispatcher is a separate scheduler, so Room's
+     * continuation lands on a queue advanceUntilIdle never drains. Binding it to
+     * the runTest scheduler puts both on one queue.
+     */
+    private fun TestScope.viewModel() = AskViewModel(
+        repository,
+        session,
+        kotlinx.coroutines.CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
+    )
 
     @Test
     fun `a grounded answer reaches the screen intact`() = runTest {
-        answer(
-            """{"answer":"Morphine is a strong opioid used for severe cancer pain.",
-               "sources":[{"filename":"handbook.pdf"}],"evidence_level":"B",
-               "emergency_level":"none","confidence":0.8,
-               "validation_status":"validated","disclaimer":null}""",
-        )
+        answer("Morphine is a strong opioid used for severe cancer pain.")
         val vm = viewModel()
 
         vm.onDraftChanged("what is morphine used for?")
         vm.submit()
-        testScheduler.advanceUntilIdle()
+        awaitIdle(vm)
 
         val state = vm.state.value
         assertThat(state.answerKind).isEqualTo(AnswerKind.ANSWER)
@@ -145,12 +173,7 @@ class AskViewModelTest {
 
     @Test
     fun `SI-1 a dosed answer is refused before it reaches the screen`() = runTest {
-        answer(
-            """{"answer":"Give morphine 10 mg orally every 4 hours.",
-               "sources":[{"filename":"handbook.pdf"}],"evidence_level":"C",
-               "emergency_level":"none","confidence":0.6,
-               "validation_status":"validated","disclaimer":null}""",
-        )
+        answer("Give morphine 10 mg orally every 4 hours.", evidenceLevel = "C")
         val vm = viewModel()
 
         vm.onDraftChanged("what dose of morphine?")
@@ -165,10 +188,9 @@ class AskViewModelTest {
     @Test
     fun `SI-2 useful content survives when one sentence carries the dose`() = runTest {
         answer(
-            """{"answer":"Morphine is a strong opioid used for severe cancer pain. Give 10 mg every 4 hours.",
-               "sources":[{"filename":"handbook.pdf"}],"evidence_level":"B",
-               "emergency_level":"none","confidence":0.7,
-               "validation_status":"validated","disclaimer":null}""",
+            "Morphine is a strong opioid used for severe cancer pain. " +
+                "It is the gold standard for severe pain control. " +
+                "Give 10 mg every 4 hours.",
         )
         val vm = viewModel()
 
@@ -183,12 +205,26 @@ class AskViewModelTest {
     }
 
     @Test
-    fun `SI-5 every interaction is recorded with its release and outcome`() = runTest {
+    fun `SI-2 a too-short remainder becomes a full deferral rather than a fragment`() = runTest {
+        // Not a weakened assertion. After redaction this leaves about 56
+        // characters, below the 80-character threshold, so shipping the fragment
+        // would read worse than refusing outright.
         answer(
-            """{"answer":"Give 10 mg morphine.","sources":[],"evidence_level":"C",
-               "emergency_level":"none","confidence":0.5,
-               "validation_status":"validated","disclaimer":null}""",
+            "Morphine is a strong opioid used for severe cancer pain. " +
+                "Give 10 mg every 4 hours.",
         )
+        val vm = viewModel()
+
+        vm.onDraftChanged("what is morphine used for?")
+        vm.submit()
+        awaitIdle(vm)
+
+        assertThat(vm.state.value.answerKind).isEqualTo(AnswerKind.DEFERRAL)
+    }
+
+    @Test
+    fun `SI-5 every interaction is recorded with its release and outcome`() = runTest {
+        answer("Give 10 mg morphine.", sources = emptyList(), evidenceLevel = "C")
         val vm = viewModel()
 
         vm.onDraftChanged("dose?")
@@ -214,11 +250,7 @@ class AskViewModelTest {
 
     @Test
     fun `SI-5 phone numbers are scrubbed before the row is written`() = runTest {
-        answer(
-            """{"answer":"Call 9876543210 for help.","sources":[],"evidence_level":"C",
-               "emergency_level":"none","confidence":0.5,
-               "validation_status":"validated","disclaimer":null}""",
-        )
+        answer("Call 9876543210 for help.", sources = emptyList(), evidenceLevel = "C")
         val vm = viewModel()
 
         vm.onDraftChanged("what number should I call, my phone is 9876543210?")
@@ -232,7 +264,7 @@ class AskViewModelTest {
 
     @Test
     fun `a network failure is reported plainly rather than crashing`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(503))
+        api.failWith = java.io.IOException("simulated network failure")
         val vm = viewModel()
 
         vm.onDraftChanged("what should I do?")
@@ -247,3 +279,57 @@ class AskViewModelTest {
         assertThat(interactions.recent(limit = 1)).hasSize(1)
     }
 }
+
+/**
+ * The network boundary, faked.
+ *
+ * Real network I/O inside runTest parks Retrofit's suspend call on OkHttp's
+ * dispatcher, and Robolectric never pumps the main looper, so the continuation
+ * never resumes and every answer comes back empty. Stubbing the API removes the
+ * problem rather than working around it, and it fakes exactly the boundary this
+ * suite is meant to fake: the repository, the Room database, the Dose Boundary and
+ * the ViewModel all stay real.
+ */
+private class StubApi : PalliSahayakApi {
+    var response: MobileQueryResponse? = null
+    var failWith: Exception? = null
+    var callCount = 0
+    var lastQuery: String? = null
+
+    override suspend fun query(body: MobileQueryRequest): retrofit2.Response<MobileQueryResponse> {
+        callCount++
+        lastQuery = body.query
+        failWith?.let { throw it }
+        return retrofit2.Response.success(
+            response ?: error("StubApi.response was not set for '${body.query}'"),
+        )
+    }
+
+    override suspend fun voiceQuery(
+        @Query("language") language: String,
+        @Part("audio") audio: okhttp3.RequestBody,
+    ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.VoiceQueryResponse> =
+        error("voice is ticket 04")
+
+    override suspend fun cacheBundle(
+        @Query("language") language: String,
+    ): retrofit2.Response<CacheBundleResponse> = retrofit2.Response.success(
+        CacheBundleResponse(
+            version = "stub",
+            language = language,
+            generated_at = 0.0,
+            queries = emptyList(),
+            treatments = emptyList(),
+            emergency_keywords = emptyMap(),
+            evidence_badge_metadata = emptyMap(),
+        ),
+    )
+
+    override suspend fun login(
+        @Body body: org.inventcures.pallisahayak.api.generated.LoginRequest,
+    ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.AuthResponse> =
+        error("login is ticket 06")
+}
+
+/** Runs work inline on the calling thread. */
+private val directExecutor = JavaExecutor { it.run() }
