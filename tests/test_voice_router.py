@@ -23,6 +23,17 @@ from voice_session import VOICE_PATH_FALLBACK, VOICE_PATH_LIVE  # noqa: E402
 from voice_session import VoiceSession  # noqa: E402
 
 
+def require_turn(outcome):
+    """Unwrap an outcome, failing on the absence of a turn.
+
+    ProviderOutcome.turn is Optional by design, because a quiet room produces no
+    turn. Asserting it here means a routing regression reports as a missing turn
+    rather than an AttributeError three lines later.
+    """
+    assert outcome.turn is not None, f"expected a turn, got error={outcome.error!r}"
+    return outcome.turn
+
+
 def make_turn(text="Morphine is a strong opioid."):
     from voice_session import VoiceTurn
 
@@ -95,17 +106,17 @@ class RoutingWhenLiveIsUnavailable(unittest.TestCase):
     def test_without_live_sdk_the_sarvam_path_answers(self):
         outcome = asyncio.run(self.router.route(self.session, b"\x00" * 100))
         self.assertTrue(outcome.ok)
-        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
+        self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_FALLBACK)
         # A provider that cannot serve must not strand a user mid-conversation.
-        self.assertIsNotNone(outcome.turn.fallback_reason)
+        self.assertIsNotNone(require_turn(outcome).fallback_reason)
 
     def test_operator_can_force_the_fallback_for_the_whole_deployment(self):
         router = vr.VoiceRouter(
             self.handler, live_service_factory=lambda s: FakeLive()
         )
         outcome = asyncio.run(router.route(self.session, b"\x00", live_enabled=False))
-        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
-        self.assertEqual(outcome.turn.fallback_reason, "operator_forced_fallback")
+        self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_FALLBACK)
+        self.assertEqual(require_turn(outcome).fallback_reason, "operator_forced_fallback")
         self.assertEqual(router.report()["operator_forced"], 1)
 
 
@@ -128,7 +139,7 @@ class RoutingWhenLiveIsHealthy(unittest.TestCase):
         with unittest.mock.patch.object(vr.LiveAvailability, "probe", return_value=live):
             router = vr.VoiceRouter(self.handler, live_service_factory=lambda s: FakeLive())
             outcome = asyncio.run(router.route(self.session, b"\x00"))
-        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_LIVE)
+        self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_LIVE)
         # Sarvam must not have been touched at all when Live answered.
         self.assertEqual(self.handler.calls, 0)
 
@@ -147,9 +158,9 @@ class RoutingWhenLiveIsHealthy(unittest.TestCase):
                 self.handler, live_service_factory=lambda s: stalling
             )
             outcome = asyncio.run(router.route(self.session, b"\x00"))
-        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
+        self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_FALLBACK)
         self.assertEqual(self.handler.calls, 1)
-        self.assertIsNotNone(outcome.turn.fallback_reason)
+        self.assertIsNotNone(require_turn(outcome).fallback_reason)
 
     def test_classification_is_pinned_independently(self):
         from voice_session import classify_fallback
