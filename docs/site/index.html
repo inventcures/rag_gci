@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Palli Sahayak reference</title><style>:root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--ink:#e6edf3;--dim:#8b949e;
+--blue:#1f6feb;--green:#238636;--purple:#8957e5;--amber:#9e6a03;--red:#da3633}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:#58a6ff;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#21262d;padding:2px 6px;border-radius:5px;font-size:13px;
+font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:#0b0f14;border:1px solid var(--line);border-radius:8px;
+padding:14px;overflow:auto}
+pre code{background:none;padding:0}
+.layout{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+nav{background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;
+position:sticky;top:0;height:100vh;overflow-y:auto}
+nav h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+color:var(--dim);margin:18px 0 8px}
+nav a{display:block;padding:5px 9px;border-radius:6px;color:var(--dim);font-size:13.5px}
+nav a:hover{background:#21262d;color:var(--ink);text-decoration:none}
+nav a.on{background:#1f6feb33;color:#58a6ff}
+main{padding:34px 40px;max-width:1080px}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:21px;margin:38px 0 12px;padding-bottom:8px;
+border-bottom:1px solid var(--line)}
+h3{font-size:16px;margin:26px 0 8px;color:#c9d1d9}
+p,li{color:#c9d1d9}
+.lead{color:var(--dim);font-size:16px;margin:0 0 22px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;
+background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th{text-align:left;padding:9px 12px;color:var(--dim);font-size:11.5px;
+text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line)}
+td{padding:8px 12px;border-bottom:1px solid #21262d}
+tr:last-child td{border-bottom:none}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+padding:13px 16px;margin:12px 0}
+.card .k{color:var(--dim);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+.card .v{font-size:24px;margin-top:3px}
+.grid{display:grid;gap:11px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.mermaid{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+padding:18px;margin:16px 0;overflow-x:auto}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11.5px;
+border:1px solid;font-weight:600}
+.ok{color:#3fb950;border-color:#3fb95055;background:#3fb9501a}
+.warn{color:#d29922;border-color:#d2992255;background:#d299221a}
+.bad{color:#f85149;border-color:#f8514955;background:#f851491a}
+.note{border-left:3px solid var(--amber);background:#9e6a0312;
+padding:11px 15px;margin:15px 0;border-radius:0 6px 6px 0;font-size:14px}
+.foot{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);
+color:var(--dim);font-size:12.5px}</style></head>
+<body><div class="layout">
+<nav><h2>Contents</h2><a href="#overview" data-anchor="overview">Overview</a><a href="#architecture" data-anchor="architecture">Architecture</a><a href="#voice" data-anchor="voice">Voice</a><a href="#safety" data-anchor="safety">Safety</a><a href="#retrieval" data-anchor="retrieval">Retrieval</a><a href="#study" data-anchor="study">Study and audit</a><a href="#api" data-anchor="api">Mobile API</a><a href="#decisions" data-anchor="decisions">Decisions</a><a href="#android" data-anchor="android">Android code</a></nav>
+<main>
+<h1>Palli Sahayak</h1>
+<p class="lead">A voice-first clinical decision support system for frontline health
+workers in India. This page is generated from the code, so it does not drift from
+what the code does.</p>
+
+<div class="grid">
+  <div class="card"><div class="k">Commit</div><div class="v">dcb0234</div></div>
+  <div class="card"><div class="k">Python files</div><div class="v">218</div></div>
+  <div class="card"><div class="k">Lines of Python</div><div class="v">49,091</div></div>
+  <div class="card"><div class="k">Kotlin files</div><div class="v">22</div></div>
+  <div class="card"><div class="k">Tests</div><div class="v">726</div></div>
+  <div class="card"><div class="k">Decisions</div><div class="v">7</div></div>
+</div>
+
+<h2 id="overview">Overview</h2>
+<p>The backend answers clinical questions in eleven Indic languages. It grounds
+every answer in a pinned knowledge base. It refuses to give a specific dose, and it
+records every interaction so the study can measure adoption and safety.</p>
+
+<p>The system runs under an approved study protocol. That changes several
+engineering decisions. The release record names every component, so any answer can
+be traced to the build that produced it.</p>
+
+<div class="note">
+<strong>Read this first.</strong> The single most dangerous defect found in this
+project was silent: an index built with an English-only model scored 0.00 on all
+ten Indic languages while scoring 1.00 on English. Nothing raised an error. The
+pipeline now refuses to serve through a mismatched index.
+</div>
+
+<h2 id="architecture">Architecture</h2>
+<p>Four layers. The client holds safety rules and local storage. The server holds
+retrieval, safety enforcement and the study log. ChromaDB holds vectors. Two voice
+providers sit behind a router that picks between them.</p>
+<div class="mermaid">flowchart TB
+    subgraph client[&quot;Android client&quot;]
+        APP[Palli Sahayak app]
+        SAFE[core:safety&lt;br/&gt;Dose Boundary]
+        DATA[core:data&lt;br/&gt;Room store]
+        API[core:api&lt;br/&gt;generated client]
+        APP --&gt; SAFE
+        APP --&gt; DATA
+        APP --&gt; API
+    end
+
+    subgraph server[&quot;FastAPI server&quot;]
+        MOB[mobile_api&lt;br/&gt;29 routes]
+        WS[WebSocket /ws/voice]
+        RAG[RAG pipeline]
+        GS[safety_enhancements]
+        VPROV[voice_router]
+        VSESS[voice_session]
+        VCTRL[voice_provider]
+        LOG[study_logging]
+        REL[study_release]
+        MOB --&gt; RAG
+        WS --&gt; VPROV
+        VSESS --&gt; RAG
+        RAG --&gt; GS
+        GS --&gt; VPROV
+        VPROV --&gt; VCTRL
+        VPROV --&gt; LOG
+        MOB --&gt; LOG
+        REL -.-&gt; LOG
+    end
+
+    subgraph store[&quot;Retrieval&quot;]
+        EMB[bge-m3&lt;br/&gt;1024-dim]
+        CHROMA[(ChromaDB&lt;br/&gt;263 chunks)]
+        EMB --&gt; CHROMA
+    end
+
+    subgraph providers[&quot;Voice providers&quot;]
+        LIVE[Gemini Live]
+        SARVAM[Sarvam&lt;br/&gt;India resident]
+    end
+
+    API --&gt; MOB
+    API --&gt; WS
+    RAG --&gt; EMB
+    VPROV --&gt; LIVE
+    VPROV --&gt;|fallback| SARVAM
+    SARVAM --&gt; RAG
+
+    classDef clientStyle fill:#1f6feb22,stroke:#1f6feb,color:#0d1117
+    classDef serverStyle fill:#23863622,stroke:#238636,color:#0d1117
+    classDef storeStyle fill:#8957e522,stroke:#8957e5,color:#0d1117
+    class APP,SAFE,DATA,API clientStyle
+    class MOB,WS,RAG,GS,VPROV,VSESS,VCTRL,LOG,REL serverStyle
+    class EMB,CHROMA storeStyle</div>
+
+<h3>Largest modules</h3>
+<table><thead><tr><th>Module</th><th class="num">Files</th>
+<th class="num">Lines</th><th>Purpose</th></tr></thead><tbody><tr><td><a href="#architecture"><code>tests</code></a></td><td class="num">38</td><td class="num">12,392</td><td>Unit Tests for Context Injector Module Tests the compassionate, multi-language context injection for personalized RAG queries in palliative care.</td></tr><tr><td><a href="#architecture"><code>personalization</code></a></td><td class="num">10</td><td class="num">8,527</td><td>User Personalization Module for Palli Sahayak Provides personalized experiences through: 1. User profiles with role-based context (patient, caregiver,</td></tr><tr><td><a href="#architecture"><code>graphrag_integration</code></a></td><td class="num">6</td><td class="num">3,431</td><td>GraphRAG Integration Module for Palli Sahayak This module provides integration with Microsoft GraphRAG for enhanced retrieval-augmented generation cap</td></tr><tr><td><a href="#architecture"><code>knowledge_graph</code></a></td><td class="num">7</td><td class="num">3,385</td><td>Knowledge Graph Module for Palli Sahayak RAG System This module provides knowledge graph capabilities for the palliative care RAG system, inspired by </td></tr><tr><td><a href="#architecture"><code>gemini_live</code></a></td><td class="num">5</td><td class="num">3,229</td><td>Audio Handler for Gemini Live API Handles conversion between various audio formats: - WhatsApp audio (OGG, MP3) -&gt; PCM for Gemini input - PCM from Gem</td></tr><tr><td><a href="#architecture"><code>clinical_validation</code></a></td><td class="num">5</td><td class="num">2,205</td><td>Clinical Validation Pipeline for Palli Sahayak Provides multi-layer validation for medical responses: 1. Automated validation (medical entities, dosag</td></tr><tr><td><a href="#architecture"><code>retell_integration</code></a></td><td class="num">6</td><td class="num">2,043</td><td>Retell.AI Integration Module for Palli Sahayak Voice AI Helpline Provides: - RetellClient: API client for Retell.AI - RetellWebhookHandler: Webhook ev</td></tr><tr><td><a href="#architecture"><code>scripts</code></a></td><td class="num">6</td><td class="num">1,931</td><td></td></tr><tr><td><a href="#architecture"><code>analytics</code></a></td><td class="num">4</td><td class="num">1,530</td><td>Real-time Analytics Dashboard for Palli Sahayak Provides comprehensive analytics including: 1. Real-time system metrics (latency, throughput, errors) </td></tr><tr><td><a href="#architecture"><code>pageindex_integration</code></a></td><td class="num">7</td><td class="num">1,482</td><td>PageIndex-Style RAG Integration Module for Palli Sahayak Vectorless, reasoning-based retrieval using hierarchical tree indexes. Documents are parsed i</td></tr></tbody></table>
+
+<h2 id="voice">Voice</h2>
+<p>A user holds the microphone button and speaks. The app sends one frame. The
+server answers with text and audio.</p>
+<p>Gemini Live is the primary provider. It is the only one that supports
+interruption, which matters when a patient is waiting. Sarvam is the fallback. It
+runs in India.</p>
+<div class="mermaid">sequenceDiagram
+    participant U as User
+    participant A as App
+    participant S as voice_session
+    participant R as voice_router
+    participant L as Gemini Live
+    participant V as Sarvam
+    participant P as RAG plus safety
+
+    U-&gt;&gt;A: hold to speak, release
+    A-&gt;&gt;S: audio over WebSocket
+    S-&gt;&gt;R: route(audio)
+    R-&gt;&gt;R: LiveAvailability.probe
+    alt Live selected and reachable
+        R-&gt;&gt;L: stream audio
+        L--&gt;&gt;R: first token
+        R-&gt;&gt;R: classify_fallback timing
+        alt healthy
+            L--&gt;&gt;R: grounded turn
+            R--&gt;&gt;S: voice_path is live
+        else slow or silent
+            R-&gt;&gt;R: count fallback reason
+            R-&gt;&gt;V: stream audio
+        end
+    else admin forced Sarvam
+        R-&gt;&gt;V: stream audio
+    end
+    V-&gt;&gt;P: transcribe, query, filter
+    P--&gt;&gt;R: safety filtered turn
+    R--&gt;&gt;S: transcript plus answer
+    S--&gt;&gt;A: text, audio, answer kind
+    A--&gt;&gt;U: speak and show
+    Note over S: writes the interaction to&lt;br/&gt;the study log either way</div>
+
+<p>The router picks a provider by measured health, not by whether a socket opened.
+A Live session that connects and then goes quiet is worse than one that never
+connects, because the user is left mid-sentence.</p>
+
+<p>An administrator can force Sarvam for the whole deployment. The change needs an
+actor and a reason, and it is audited. Forced and automatic fallbacks are counted
+separately.</p>
+
+<h2 id="safety">Safety</h2>
+<p>The dose boundary is the core rule. The system never states a specific dose,
+strength, titration step or start decision. The line sits at the dose, not at
+whether a medicine is sold over the counter.</p>
+<p>Over-the-counter is not a safety property for this cohort. These patients have
+advanced kidney and liver disease. A free medicine can still harm them.</p>
+<div class="mermaid">flowchart TD
+    IN[&quot;Generated answer&quot;] --&gt; EM{&quot;Emergency severity&lt;br/&gt;preserved?&quot;}
+    EM --&gt;|&quot;CRITICAL&quot;| PASS[&quot;Pass through untouched&lt;br/&gt;Emergency Override&quot;]
+    EM --&gt;|&quot;HIGH or lower&quot;| DOSE{&quot;Dose pattern&lt;br/&gt;detected?&quot;}
+    DOSE --&gt;|no| CLEAN[&quot;Return as ANSWER&quot;]
+    DOSE --&gt;|yes| REDACT[&quot;Remove dose bearing sentences&quot;]
+    REDACT --&gt; LONG{&quot;At least 80 characters&lt;br/&gt;survive?&quot;}
+    LONG --&gt;|yes| VERIFY{&quot;Re-check redaction&lt;br/&gt;for any dose?&quot;}
+    VERIFY --&gt;|clear| PARTIAL[&quot;Return as&lt;br/&gt;REDACTED_ANSWER&quot;]
+    VERIFY --&gt;|residue| REFUSE
+    LONG --&gt;|no| REFUSE[&quot;Replace whole answer&lt;br/&gt;with a Deferral&quot;]
+    PASS --&gt; LOG[&quot;Record to study log&quot;]
+    CLEAN --&gt; LOG
+    PARTIAL --&gt; LOG
+    REFUSE --&gt; LOG
+    LOG --&gt; UI[&quot;Render distinctly in the app&quot;]
+
+    classDef stop fill:#da363322,stroke:#da3633,color:#0d1117
+    classDef ok fill:#23863622,stroke:#238636,color:#0d1117
+    class REFUSE,PASS stop
+    class CLEAN,PARTIAL ok</div>
+
+<p>Three invariants matter most.</p>
+<ol>
+<li><strong>Only a critical emergency may override the boundary.</strong> "Severe
+pain" is high severity. Treating it as critical would let the most common phrasing
+of a dose question switch the control off.</li>
+<li><strong>Redaction is verified.</strong> The detector runs again over its own
+output. Any residue escalates to a full refusal. Redaction fails closed.</li>
+<li><strong>A refusal is not an answer.</strong> It renders differently, and it is
+counted separately in every metric.</li>
+</ol>
+
+<h2 id="retrieval">Retrieval</h2>
+<p>Questions are matched in the language the user spoke. The index holds 263
+passages from three clinical documents.</p>
+<div class="mermaid">flowchart TB
+    Q[&quot;Question in any of&lt;br/&gt;eleven languages&quot;] --&gt; LANGC{&quot;Strong cross-language&lt;br/&gt;match already?&quot;}
+    LANGC --&gt;|yes| SEARCH[&quot;Search as written&quot;]
+    LANGC --&gt;|no| TRANSLATE[&quot;Translate to English&lt;br/&gt;and retry&quot;]
+    TRANSLATE --&gt; SEARCH
+    SEARCH --&gt; CHROMA[(&quot;ChromaDB&lt;br/&gt;263 chunks&lt;br/&gt;1024-dim&quot;)]
+    CHROMA --&gt; CTX[&quot;Passages&quot;]
+    CTX --&gt; LLM[&quot;Gemini 3.5 Flash&lt;br/&gt;asia-south1&quot;]
+    LLM --&gt; ANSWER[&quot;Grounded answer&quot;]
+    ANSWER --&gt; GUARD[&quot;Dose Boundary&quot;]
+    GUARD --&gt; OUT[&quot;Answer, Redacted Answer,&lt;br/&gt;or Deferral&quot;]
+
+    classDef fallback fill:#9e6a0322,stroke:#9e6a03,color:#0d1117
+    class TRANSLATE fallback</div>
+
+<table><thead><tr><th>Measure</th><th>bge-m3</th><th>LaBSE</th>
+<th>Previous index</th></tr></thead><tbody>
+<tr><td>Mean hit at 5</td><td class="num"><strong>0.96</strong></td>
+<td class="num">0.72</td><td class="num">0.09</td></tr>
+<tr><td>Lowest language</td><td class="num">0.78</td><td class="num">0.56</td>
+<td class="num">0.00</td></tr>
+<tr><td>Dimensions</td><td class="num">1024</td><td class="num">471</td>
+<td class="num">384</td></tr>
+</tbody></table>
+
+<p>The previous index scored 1.00 on English and 0.00 on every Indic language. That
+is the failure described at the top of this page.</p>
+
+<h2 id="study">Study and audit</h2>
+<p>Every interaction is recorded on the server, not on the device. The device sends
+requests. The server decides what to keep.</p>
+<div class="mermaid">flowchart LR
+    subgraph prod[&quot;In production&quot;]
+        A[App records an interaction]
+    end
+    subgraph privacy[&quot;Privacy on device&quot;]
+        S[&quot;Scrub phone, Aadhaar,&lt;br/&gt;ABHA, email&quot;]
+        P[&quot;Pseudonymous id&lt;br/&gt;from registration&quot;]
+    end
+    subgraph metrics[&quot;Derived on server&quot;]
+        AD[&quot;Adoption, protocol 4.1&lt;br/&gt;two weeks in 28 days&quot;]
+        SA[&quot;Safety, refusal and&lt;br/&gt;emergency counts&quot;]
+        LA[&quot;Language equity&lt;br/&gt;all metrics by language&quot;]
+        SU[&quot;Supervision&lt;br/&gt;5, 50, 100 percent&quot;]
+    end
+    subgraph audit[&quot;Audit&quot;]
+        DASH[&quot;Admin dashboard&lt;br/&gt;read only&quot;]
+        DRIFT[&quot;Release drift&lt;br/&gt;protocol 7.8&quot;]
+        VOICE[&quot;Voice provider&lt;br/&gt;and fallback rate&quot;]
+    end
+
+    A --&gt; S --&gt; P --&gt; AD
+    A --&gt; SA
+    A --&gt; LA
+    A --&gt; SU
+    AD --&gt; DASH
+    SA --&gt; DASH
+    LA --&gt; DASH
+    SU --&gt; DASH
+    DRIFT --&gt; DASH
+    VOICE --&gt; DASH</div>
+
+<p>Participant identifiers are pseudonymous by construction. Registration issues a
+server-generated identifier. The device never receives a phone number or a name.</p>
+
+<p>The admin view at <code>/admin/study</code> is read-only. There is no endpoint
+that edits or deletes a log row.</p>
+
+<h2 id="api">Mobile API</h2>
+<p>29 routes under <code>/api/mobile/v1</code>. The Kotlin
+client is generated from this surface, and the build fails if the schema drifts.</p>
+<table><thead><tr><th>Path</th><th>Methods</th></tr></thead>
+<tbody><tr><td><code>/api/mobile/v1/auth/login</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/auth/refresh</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/auth/register</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/cache/bundle</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/careteam/{patient_id}</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/careteam/{patient_id}/add</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/evaluation/export</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/evaluation/logs</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/evaluation/sus</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/evaluation/vignette</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/evaluation/vignettes</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/feedback</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/fhir/export/{patient_id}</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/fhir/import</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/health</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/medication/adherence/{patient_id}</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/medication/reminder</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/medication/reminders</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/observation</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/patient/{patient_id}</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/patient/{patient_id}/insights</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/patient/{patient_id}/query-memory</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/patients</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/query</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/query/voice</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/sync/pull</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/sync/push</code></td><td>POST</td></tr><tr><td><code>/api/mobile/v1/sync/status</code></td><td>GET</td></tr><tr><td><code>/api/mobile/v1/ws/voice</code></td><td>WS</td></tr></tbody></table>
+
+<h2 id="decisions">Decisions</h2>
+<p>Seven architecture decisions are recorded. Each states what was chosen and why.
+The <code>unslop___</code> files hold edited copies for readability.</p>
+<table><thead><tr><th>Decision</th><th>File</th></tr></thead>
+<tbody><tr><td><a href="../../docs/adr/0001-one-app-three-care-roles.md">One app, three Care Roles, enforced server-side</a></td><td><code>0001-one-app-three-care-roles.md</code></td></tr><tr><td><a href="../../docs/adr/0002-eleven-languages-bounded-by-tts.md">Eleven languages, bounded by speech output not speech input</a></td><td><code>0002-eleven-languages-bounded-by-tts.md</code></td></tr><tr><td><a href="../../docs/adr/0003-cross-language-retrieval.md">Cross-language retrieval replaces query translation</a></td><td><code>0003-cross-language-retrieval.md</code></td></tr><tr><td><a href="../../docs/adr/0004-dosage-boundary.md">The dosage boundary is drawn at the dose, not at OTC versus prescription</a></td><td><code>0004-dosage-boundary.md</code></td></tr><tr><td><a href="../../docs/adr/0005-offline-strategy.md">Offline is a cached question bundle plus local history, not local retrieval</a></td><td><code>0005-offline-strategy.md</code></td></tr><tr><td><a href="../../docs/adr/0006-household-record.md">Care Role is an analysis label, not an access boundary</a></td><td><code>0006-household-record.md</code></td></tr><tr><td><a href="../../docs/adr/0007-voice-architecture.md">Gemini Live for voice with a Sarvam fallback, and an India-resident RAG LLM</a></td><td><code>0007-voice-architecture.md</code></td></tr></tbody></table>
+
+<h2 id="android">Android code</h2>
+<p>The client lives in this repository. Protocol §7.8 requires one commit
+identifier for the whole system, which a split repository would break.</p>
+<table><thead><tr><th>Module</th><th class="num">Files</th>
+<th class="num">Test files</th></tr></thead><tbody><tr><td><code>app</code></td><td class="num">4</td><td class="num">1</td></tr><tr><td><code>core</code></td><td class="num">18</td><td class="num">1</td></tr></tbody></table>
+
+<div class="foot">
+Generated 2026-10-03 18:33 UTC from commit
+<code>dcb0234</code> on <code>main</code>.
+Regenerate with <code>python3 scripts/build_docs.py</code>.
+</div>
+</main>
+</div>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({startOnLoad:true,theme:'dark',securityLevel:'loose'});
+const links = document.querySelectorAll('nav a');
+const heads = document.querySelectorAll('main h2[id]');
+const io = new IntersectionObserver((es)=>{
+  es.forEach(e=>{
+    if(!e.isIntersecting) return;
+    links.forEach(a=>a.classList.toggle('on',a.dataset.anchor===e.target.id));
+  });
+},{rootMargin:'0px 0px -70% 0px'});
+heads.forEach(h=>io.observe(h));
+</script></body></html>

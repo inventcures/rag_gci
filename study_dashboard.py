@@ -156,7 +156,7 @@ async def browse_interactions(
     elif flagged == "unsupported":
         entries = [e for e in entries if e.get("source_count", 0) == 0]
     elif flagged == "unapproved_release":
-        entries = [e for e in entries if e.get("release_approved") is not True]
+        entries = [e for e in entries if not e.get("release_approved", True)]
 
     entries.sort(key=lambda e: e.get("occurred_at", 0), reverse=True)
     return {
