@@ -116,13 +116,28 @@ T8  Accessibility contract + release gate              ⬜
 **Done:** `:core:safety` (pure Kotlin, no Android) — `DoseDetector`, `Redactor`,
 `DoseBoundary`, `EmergencyDetector`, `DeferralCopy`. **23 tests, 0 failures.**
 
+**Built since that snapshot:**
+- `core:data` — Room entities, both DAOs, database, text scrubber, repository,
+  `AskViewModel`, `ServiceLocator`
+- `app` — `AskScreen` with the three answer kinds rendered distinctly, `AppRoot`,
+  `MainActivity`. Debug APK builds at 10.6 MB.
+
 **Outstanding:**
-- Room entity + DAO (the `InteractionEntity` is where **SI-5 instrumentation** must land)
-- Repository + Retrofit implementation
-- ViewModel exposing `SafetyResult`
-- Compose screen: ask, answer, **Redacted Answer rendered distinctly**
-- SI-5 instrumentation on every interaction
-- Robolectric test through the real stack
+- Robolectric test: written but **6 tests fail**, see below.
+
+**Two real findings from the Robolectric attempt**
+
+1. **`viewModelScope` is pinned to `Dispatchers.Main`,** so `advanceUntilIdle()` on
+   the `runTest` scheduler never runs the coroutine and no row is written. All six
+   tests fail this way. Fix is `Dispatchers.setMain(StandardTestDispatcher())` in
+   setup. The tests are structurally right; the async boundary is not bridged.
+
+2. **The device does not pseudonymise participant ids.** The test asserted
+   `participantId != "asha-001"` and failed, because the repository stores
+   `session.participantId` verbatim. `InteractionEntity`'s comment claims "the app
+   does the same" as the server, which is false. Either pseudonymise on device, which
+   needs a shared secret and is a design decision, or correct the comment and decide
+   where pseudonymisation happens. Do not leave the comment lying.
 
 ---
 

@@ -40,6 +40,15 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests {
+            // Robolectric needs the Android resources and manifest on the unit
+            // test classpath.
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
+
     // The APK budget is a field constraint, not a hard limit: 2G connectivity and
     // a 2 GB reference device. Raising the ceiling does not make a 2G download
     // viable, so the number is measured rather than enforced blindly.
@@ -73,4 +82,7 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(libs.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
+    // The test builds a real in-memory Room database rather than mocking it, so
+    // Room has to be on this module's test classpath.
+    testImplementation(libs.room.runtime)
 }
