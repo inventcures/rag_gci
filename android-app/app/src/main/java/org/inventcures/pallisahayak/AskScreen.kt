@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +63,21 @@ fun AskScreen(viewModel: AskViewModel) {
             onDraftChanged = viewModel::onDraftChanged,
             onSubmit = viewModel::submit,
         )
+
+        MicrophoneButton(
+            isListening = state.isListening,
+            enabled = !state.isAsking && !state.isSpeaking,
+            onPress = viewModel::onMicPressed,
+            onRelease = viewModel::onMicReleased,
+        )
+
+        if (state.isSpeaking) {
+            StopSpeakingButton(onStop = viewModel::stopSpeaking)
+        }
+
+        if (state.canReplay) {
+            ReplayButton(onReplay = viewModel::replayAnswer)
+        }
 
         if (state.emergency.overridesDoseBoundary) {
             EmergencyBanner(state.emergency)
@@ -228,5 +249,89 @@ private fun HistoryRow(question: String, answer: String) {
             Spacer(Modifier.height(4.dp))
             Text(text = answer, style = MaterialTheme.typography.bodyMedium)
         }
+    }
+}
+
+/**
+ * Press and hold to speak.
+ *
+ * Held rather than tapped, because a tap does not capture enough audio to be a
+ * question. The listening state is shown as a filled circle plus text, since
+ * users may not be able to rely on the colour alone.
+ */
+@Composable
+private fun MicrophoneButton(
+    isListening: Boolean,
+    enabled: Boolean,
+    onPress: () -> Unit,
+    onRelease: () -> Unit,
+) {
+    Button(
+        onClick = {},
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp)
+            .pointerInput(enabled) {
+                // press and release, rather than click, because the interaction
+                // is holding the button down while speaking.
+                awaitPointerEventScope {
+                    while (true) {
+                        val down = awaitPointerEvent().changes.firstOrNull {
+                            it.changedToDown()
+                        } ?: continue
+                        if (enabled) {
+                            onPress()
+                            down.consume()
+                            awaitPointerEvent().changes.firstOrNull { it.changedToUp() }
+                                ?.consume()
+                            onRelease()
+                        }
+                    }
+                }
+            },
+        colors = ButtonDefaults.buttonColors(
+            containerColor = when {
+                isListening -> Color(0xFFC62828)
+                enabled -> Color(0xFF1B5E20)
+                else -> Color(0xFFB0BEC5)
+            },
+        ),
+    ) {
+        Text(
+            text = if (isListening) "Listening — let go to send" else "Hold to speak",
+            style = MaterialTheme.typography.titleMedium,
+        )
+    }
+}
+
+/**
+ * Cut playback off.
+ *
+ * One large target, always visible while audio plays. A user mid-visit must be
+ * able to silence the app without hunting for a control.
+ */
+@Composable
+private fun StopSpeakingButton(onStop: () -> Unit) {
+    Button(
+        onClick = onStop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B1A1A)),
+    ) {
+        Text("Stop speaking", style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@Composable
+private fun ReplayButton(onReplay: () -> Unit) {
+    OutlinedButton(
+        onClick = onReplay,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+    ) {
+        Text("Play the answer again", style = MaterialTheme.typography.titleMedium)
     }
 }

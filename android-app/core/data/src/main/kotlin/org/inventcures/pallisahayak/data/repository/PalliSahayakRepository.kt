@@ -121,6 +121,10 @@ class PalliSahayakRepository(
                     emergency = safety.emergency,
                     source = AnswerSource.LiveVoice(body.transcript, body.audio_base64),
                     sourceCount = body.sources?.size ?: 0,
+                    // The transcript is what the user actually said, which is not
+                    // always what was asked, and protocol 4.1 counts by what was
+                    // asked.
+                    transcript = body.transcript,
                 )
             } else {
                 null
@@ -135,7 +139,7 @@ class PalliSahayakRepository(
             return null
         }
 
-        record(answered.transcript ?: "", answered, requested)
+        record(answered.transcript, answered, requested)
         return answered
     }
 

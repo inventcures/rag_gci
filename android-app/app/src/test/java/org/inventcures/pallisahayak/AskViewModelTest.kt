@@ -29,10 +29,13 @@ import org.inventcures.pallisahayak.api.generated.MobileQueryResponse
 import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
 import org.inventcures.pallisahayak.data.AskViewModel
 import org.inventcures.pallisahayak.data.local.InteractionDao
+import org.inventcures.pallisahayak.data.voice.VoiceEngine
 import org.inventcures.pallisahayak.data.local.PalliDatabase
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
 import org.inventcures.pallisahayak.data.repository.SessionContext
+import org.inventcures.pallisahayak.api.generated.VoiceQueryResponse
 import org.inventcures.pallisahayak.safety.AnswerKind
+import org.inventcures.pallisahayak.safety.EmergencySeverity
 
 /**
  * Drives the real stack through the repository and ViewModel.
@@ -149,10 +152,13 @@ class AskViewModelTest {
      * continuation lands on a queue advanceUntilIdle never drains. Binding it to
      * the runTest scheduler puts both on one queue.
      */
+    private val voice = FakeVoiceEngine()
+
     private fun TestScope.viewModel() = AskViewModel(
-        repository,
-        session,
-        kotlinx.coroutines.CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
+        repository = repository,
+        session = session,
+        voiceEngine = voice,
+        scope = kotlinx.coroutines.CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
     )
 
     @Test
@@ -278,6 +284,95 @@ class AskViewModelTest {
         // from the adoption numerator and they have to be on disk to be excluded.
         assertThat(interactions.recent(limit = 1)).hasSize(1)
     }
+    private fun spoken(
+        transcript: String,
+        answer: String,
+        audioBase64: String? = null,
+        emergencyLevel: String = "none",
+    ) {
+        api.voiceResponse = VoiceQueryResponse(
+            answer = answer,
+            audio_base64 = audioBase64,
+            sources = listOf(
+                mapOf(
+                    "filename" to "handbook.pdf", "document" to "d",
+                    "page" to 1, "relevance" to 0.5, "snippet" to "s",
+                ),
+            ),
+            evidence_level = "B",
+            emergency_level = emergencyLevel,
+            confidence = 0.8,
+            validation_status = "validated",
+            disclaimer = null,
+            transcript = transcript,
+        )
+    }
+    // -- voice ---------------------------------------------------------------
+    @Test
+    fun `a spoken question returns a spoken and readable answer`() = runTest {
+        spoken("what is morphine used for?", "Morphine is a strong opioid.")
+        val vm = viewModel()
+        vm.onMicPressed()
+        assertThat(vm.state.value.isListening).isTrue()
+        vm.onMicPressed()
+        vm.onMicReleased()
+        awaitIdle(vm)
+        val state = vm.state.value
+        assertThat(state.answer).contains("strong opioid")
+        // Shown as well as spoken, because a spoken answer nobody can re-read
+        // is lost.
+        assertThat(state.transcript).isEqualTo("what is morphine used for?")
+        assertThat(vm.state.value.isListening).isFalse()
+    }
+    @Test
+    fun `SI-1 a spoken answer carrying a dose is restricted too`() = runTest {
+        spoken("what dose of morphine?", "Give morphine 10 mg every 4 hours.")
+        val vm = viewModel()
+        vm.onMicPressed()
+        vm.onMicReleased()
+        awaitIdle(vm)
+        val state = vm.state.value
+        assertThat(state.answerKind).isNotEqualTo(AnswerKind.ANSWER)
+        assertThat(state.answer).doesNotContain("10 mg")
+    }
+    @Test
+    fun `SI-4 a critical spoken emergency still overrides the dose boundary`() = runTest {
+        spoken(
+            "the patient cannot breathe",
+            "Call 108 immediately. Give oxygen if available.",
+            emergencyLevel = "critical",
+        )
+        val vm = viewModel()
+        vm.onMicPressed()
+        vm.onMicReleased()
+        awaitIdle(vm)
+        assertThat(vm.state.value.emergency).isEqualTo(EmergencySeverity.CRITICAL)
+        assertThat(vm.state.value.isSpeaking).isFalse()
+        assertThat(vm.state.value.answer).contains("108")
+    }
+    @Test
+    fun `SI-5 a voice interaction records the voice path`() = runTest {
+        spoken("what should I do?", "Ask the palliative physician.")
+        val vm = viewModel()
+        vm.onMicPressed()
+        vm.onMicReleased()
+        awaitIdle(vm)
+        val row = interactions.recent(limit = 1).first()
+        assertThat(row.voicePath).isEqualTo("live")
+        assertThat(row.channel).isEqualTo("live")
+    }
+    @Test
+    fun `a voice failure is reported rather than left silent`() = runTest {
+        api.failWith = java.io.IOException("simulated network failure")
+        val vm = viewModel()
+        vm.onMicPressed()
+        vm.onMicReleased()
+        awaitIdle(vm)
+        assertThat(vm.state.value.errorMessage).isNotNull()
+        // Still recorded, because protocol 4.1 excludes failures from the adoption
+        // numerator and they have to be on disk to be excluded from it.
+        assertThat(interactions.recent(limit = 1)).hasSize(1)
+    }
 }
 
 /**
@@ -305,11 +400,18 @@ private class StubApi : PalliSahayakApi {
         )
     }
 
+    var voiceResponse: org.inventcures.pallisahayak.api.generated.VoiceQueryResponse? = null
+    var voiceCallCount = 0
+
     override suspend fun voiceQuery(
         @Query("language") language: String,
         @Part("audio") audio: okhttp3.RequestBody,
-    ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.VoiceQueryResponse> =
-        error("voice is ticket 04")
+    ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.VoiceQueryResponse> {
+        voiceCallCount++
+        return retrofit2.Response.success(
+            voiceResponse ?: error("StubApi.voiceResponse was not set"),
+        )
+    }
 
     override suspend fun cacheBundle(
         @Query("language") language: String,
@@ -332,4 +434,58 @@ private class StubApi : PalliSahayakApi {
 }
 
 /** Runs work inline on the calling thread. */
+/** Runs work inline on the calling thread. */
 private val directExecutor = JavaExecutor { it.run() }
+
+/**
+ * Stands in for the microphone.
+ *
+ * Robolectric has no audio hardware, and a real microphone in a unit test is a
+ * flake waiting to happen. The interface exists so the voice path can be tested
+ * without one.
+ */
+private class FakeVoiceEngine : VoiceEngine {
+    var listening = false
+        private set
+    var speaking = false
+        private set
+    var startCount = 0
+        private set
+    var stopSpeakingCount = 0
+        private set
+    var spokenBytes = 0
+        private set
+
+    /** Set false to simulate a denied microphone permission. */
+    var permitted = true
+
+    /** Audio handed back by stopRecording. */
+    var captured: ByteArray? = ByteArray(16_000)
+
+    override fun canRecord(): Boolean = permitted
+
+    override val isListening: Boolean get() = listening
+    override val isSpeaking: Boolean get() = speaking
+
+    override fun startRecording() {
+        if (listening || !permitted) return
+        listening = true
+        startCount++
+    }
+
+    override fun stopRecording(): ByteArray? {
+        if (!listening) return null
+        listening = false
+        return captured
+    }
+
+    override fun speak(pcm: ByteArray) {
+        speaking = true
+        spokenBytes += pcm.size
+    }
+
+    override fun stopSpeaking() {
+        if (speaking) stopSpeakingCount++
+        speaking = false
+    }
+}
