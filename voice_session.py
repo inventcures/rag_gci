@@ -309,6 +309,7 @@ def turn_frame(turn: VoiceTurn, release_id: str = "") -> str:
     return json.dumps(
         {
             "type": "response",
+            "transcript": turn.transcript,
             "text": turn.answer,
             "audio_base64": turn.audio_base64,
             "answer_kind": turn.answer_kind,
