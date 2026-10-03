@@ -49,6 +49,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+from dosage_guard import get_dosage_guard  # noqa: E402  (local module, post-stdlib)
+
 
 # ============================================================================
 # 1. EVIDENCE BADGES SYSTEM
@@ -1397,6 +1399,28 @@ class HumanHandoffSystem:
 # MAIN SAFETY ENHANCEMENTS MANAGER
 # ============================================================================
 
+@dataclass
+class SafetyResult:
+    """Result of post-processing a generated answer.
+
+    Mirrors the fields the mobile API returns, so the router can pass this
+    straight through without re-deriving anything.
+    """
+    response: str
+    evidence_level: str = "E"
+    emergency_level: str = "none"
+    confidence: float = 0.0
+    validation_status: str = "not_validated"
+    disclaimer: Optional[str] = None
+    dosage_blocked: bool = False
+    dosage_reason: Optional[str] = None
+    emergency_overrode_dosage: bool = False
+    sources: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
 class SafetyEnhancementsManager:
     """
     Main manager class that coordinates all 5 safety enhancement features.
@@ -1409,7 +1433,8 @@ class SafetyEnhancementsManager:
         self.reminder_scheduler = MedicationReminderScheduler()
         self.response_optimizer = ResponseLengthOptimizer()
         self.handoff_system = HumanHandoffSystem()
-        
+        self.dosage_guard = get_dosage_guard(emergency_system=self.emergency_system)
+
         logger.info("🛡️ Safety Enhancements Manager initialized")
     
     async def process_query(
@@ -1488,6 +1513,89 @@ class SafetyEnhancementsManager:
     def optimize_response(self, response: str, user_id: str) -> str:
         """Optimize response length for user"""
         return self.response_optimizer.adapt_response(response, user_id)
+
+    def process_response(
+        self,
+        query: str,
+        response: str,
+        sources: Optional[List[Dict[str, Any]]] = None,
+        language: str = "en",
+        distances: Optional[List[float]] = None,
+    ) -> SafetyResult:
+        """
+        Post-process a generated answer before it is returned to the user.
+
+        This is the synchronous counterpart to `process_query`, and is the method
+        the mobile API depends on. Order matters and is deliberate:
+
+            1. Emergency detection  - an emergency always wins.
+            2. Dosage guard         - enforce the study's dosage restriction.
+            3. Evidence badge       - grade what the answer is based on.
+
+        The dosage guard runs before the evidence badge so that a refused
+        response is never given a confidence grade implying it is an answer.
+        """
+        sources = sources or []
+        distances = distances or []
+
+        # 1. Emergency
+        emergency_alert = None
+        try:
+            emergency_alert = self.emergency_system.detect_emergency(
+                query, None, language
+            )
+        except Exception:
+            logger.warning("Emergency detection failed", exc_info=True)
+
+        # 2. Dosage restriction (study requirement, protocol section 7.7)
+        guard_result = self.dosage_guard.apply(
+            response=response, language=language, query=query
+        )
+        final_response = guard_result.response
+
+        # 3. Evidence badge
+        evidence_level = EvidenceLevel.E.value
+        confidence = 0.0
+        validation_status = "not_validated"
+        disclaimer = None
+
+        try:
+            badge = self.evidence_system.calculate_evidence_badge(
+                query, sources, distances, final_response
+            )
+            evidence_level = badge.level.value
+            confidence = badge.confidence_score
+            validation_status = "validated" if sources else "unsupported_answer"
+            if badge.consult_physician:
+                disclaimer = (
+                    "This information is for guidance only. Please consult a "
+                    "palliative care physician for advice specific to this patient."
+                )
+        except Exception:
+            logger.warning("Evidence badge calculation failed", exc_info=True)
+
+        if guard_result.blocked:
+            # A deferral is a refusal, not an answer: it must not be graded as
+            # though it were grounded clinical guidance.
+            evidence_level = EvidenceLevel.E.value
+            validation_status = "dosage_restricted"
+            confidence = 0.0
+            disclaimer = None
+
+        return SafetyResult(
+            response=final_response,
+            evidence_level=evidence_level,
+            emergency_level=(
+                emergency_alert.level.value if emergency_alert else "none"
+            ),
+            confidence=confidence,
+            validation_status=validation_status,
+            disclaimer=disclaimer,
+            dosage_blocked=guard_result.blocked,
+            dosage_reason=guard_result.reason,
+            emergency_overrode_dosage=guard_result.emergency_overrode,
+            sources=sources,
+        )
 
 
 # Singleton instance

@@ -1,1 +1,22 @@
 .env
+
+# Study source documents (grant application and study protocol PDFs).
+# These are large binaries and are governed as study records, not as source.
+# They are distributed through the study team's own channel, not via git.
+evah_android-app/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# LaTeX build byproducts. The generated PDF/TEX in out/ are tracked; the
+# intermediate files are not.
+*.aux
+*.log
+*.out
+
+# Alternate build output directory (regenerated per run).
+out_gemini3.1_ag_23feb2026_0257ist/
