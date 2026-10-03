@@ -43,6 +43,9 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    // ViewModel and viewModelScope. lifecycle-runtime alone does not bring them,
+    // so the ViewModel would not compile without this.
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

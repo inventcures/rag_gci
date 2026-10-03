@@ -23,6 +23,38 @@ This is a **clinical safety system under an IRB-approved study protocol.** Treat
 safety, consent and privacy as non-negotiable constraints rather than
 trade-offs against features.
 
+## Committing
+
+**Commit and push after every logical, substantial chunk of code.** Not after each
+file, and not at the end of a ticket. A chunk is a piece of work that compiles
+and can be described in one sentence, such as the data layer, or the repository
+plus its view model.
+
+Each commit should be independently green and say why the change was made rather
+than what changed. If a chunk needs a second commit to be coherent, it was not a
+chunk.
+
+## Writing for humans
+
+Apply `https://github.com/inventcures/tp53_unslop` to anything a human reads:
+**summaries, ADRs, specs, and commit messages**. The originals stay untouched;
+edited copies are named `unslop___\<filename>` so the unedited version is still
+available if the edit makes things worse.
+
+The rules that matter most here, because they are this project's worst habits:
+em-dash overuse, the rule of three, bold labels that restate the line they sit
+on, "not just X, it's Y", synonym cycling, and "worth flagging" used as a tic.
+
+Two files are **exempt**, deliberately:
+
+- `CONTEXT.md` is a glossary. It is meant to be telegraphic, and prose would make
+  it worse.
+- `docs/HANDOVER.md` is read by the agent to restore context. Adding voice to a
+  briefing document works against its job.
+
+Do not pad an argument to sound confident, and do not hedge a finding because it
+is inconvenient. A number nobody has measured should say so.
+
 ## Android Client
 
 The Android app lives in `android-app/` in this repository, not a separate one. See
