@@ -192,8 +192,19 @@ The following platforms were analyzed for architectural patterns, offline strate
 
 **ASHA Worker Reality**:
 - 1M+ ASHAs across India; exclusively women; basic smartphone access ($100-200 devices)
-- Typical devices: Redmi 10A (2GB RAM), Samsung Galaxy A03 (3GB RAM), Jio phones
-- Network: 4G in urban/peri-urban, 2G/3G in rural, intermittent/absent in remote (Barak Valley)
+- Typical devices: **mid-range, by decision of the project owner (2026-10-04).**
+  Not top tier, not bottom tier. This replaces an earlier assumption naming the
+  Redmi 10A (2GB RAM) and the Samsung Galaxy A03 (3GB RAM), which are budget-tier
+  and so no longer describe the deployment. Recorded as a decision rather than a
+  derived constraint, so nobody "optimises" against a device floor that is not real.
+- `minSdk = 26` is **kept anyway**. A higher floor would save nothing measurable, and
+  the failure mode of being wrong is one-sided: a worker who turns up with a budget
+  phone gets an app that will not install, with no fallback, while an app built for
+  Android 8 running on a mid-range phone merely carries an unused compatibility
+  layer. The version floor is insurance, not a performance decision.
+- Network: 4G in urban/peri-urban, 2G/3G in rural, intermittent/absent in remote
+  (Barak Valley). **This is unchanged and independent of the device decision.** A
+  more capable phone still meets a 2G tower, so the download budget still binds.
 - Device sharing is common -- ASHAs share phones with family members
 - Digital literacy varies widely -- baseline assessed as covariate in EVAH study
 

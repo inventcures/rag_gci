@@ -17,9 +17,9 @@ so no participant is ever given the wrong system.
 - [x] No screen requires English to operate
 - [x] Text remains legible at the largest system font setting on a small screen
 - [x] The app refuses to start against a release that is not approved, and says why
-- [ ] A release that is drifting from its approved record is visible to the study team
+- [x] A release that is drifting from its approved record is visible to the study team
       before any participant uses it
-- [ ] The app installs and runs on the low-end reference device, and the download is
+- [x] The app installs and runs on the low-end reference device, and the download is
       viable on the stated field connection
 - [x] Evidence is recorded that the dosage restriction is enforced and tested, so the
       study's own precondition for participant use is satisfied
@@ -91,8 +91,22 @@ states that it does not decide whether the study's standard is met.
 
 ## What is still not closed
 
-**Criterion 8's device half.** Size and download time are measured and gated in CI:
-1.61 MB, 1m 24s on sustained 2G against a 6 MB budget. Whether the app installs and
-runs on the low-end reference device is not something a build server can answer. It
-needs hardware, or your acceptance that size plus a successful build is the evidence
-available.
+**Criterion 8 is closed on the owner's acceptance, not on a build server.** The
+device half cannot be answered here: nothing in CI can say whether an APK installs on
+a phone nobody has. The project owner accepted that the device capability assumption
+is mid-range, and that size plus a successful build is the available evidence.
+
+Two things follow from that decision and are worth separating.
+
+**The network constraint is unaffected.** Device capability and connectivity are
+independent. A mid-range phone still meets a 2G tower in Barak Valley, so the download
+budget still binds and is still gated: 1.61 MB, 1m 24s on sustained 2G against 6 MB.
+
+**`minSdk = 26` is kept.** A higher floor would save nothing measurable and the
+failure mode is one-sided. A worker who turns up with a budget phone gets an app that
+will not install, with no fallback. An app built for Android 8 running on a mid-range
+phone merely carries an unused compatibility layer. Insurance, not a performance
+decision.
+
+The spec's device list, which named the Redmi 10A and Galaxy A03, has been corrected
+in place. Both of those are budget-tier, so they no longer described the deployment.
