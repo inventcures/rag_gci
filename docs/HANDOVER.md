@@ -3,7 +3,7 @@
 **Purpose:** paste this into a fresh session after context compaction to resume work
 without re-deriving anything.
 **Written:** 4 October 2026. Updated at the end of the T4 build.
-**Commit at update:** `7f33386` on `main`, clean and pushed.
+**Commit at update:** `5ed284b` on `main`, clean and pushed.
 **Repo:** `/home/tp53/showmethecode/rag_gci` · branch `main` · remote `inventcures/rag_gci`
 
 ---
@@ -454,6 +454,50 @@ That handler returned raw retrieval text to Gemini with no safety manager anywhe
 the route. It reads as the safe one precisely because it is grounded in the verified
 knowledge base. Filtering now happens on this server before the model sees anything,
 which is also what ADR 0007 requires, since grounding must stay in India.
+
+### Live services, verified against the real APIs, 2026-10-04
+
+Both voice providers have now been exercised with real audio. Until this point every
+test faked the network, which is how the following went unnoticed.
+
+**Gemini 3.1 Flash Live works.** `gemini-3.1-flash-live-preview` transcribed real
+16 kHz speech exactly ("What should I give for severe pain at home?") and replied in
+4.6 seconds. `gemini-2.5-flash-native-audio-preview-09-2025` also works.
+
+**The configured default was a retired model.** `gemini_live/config.py` pointed at
+`gemini-live-2.5-flash-preview-native-audio-09-2025`, which the service refuses with
+1008. Real-time voice had never worked against the live endpoint. Fixed.
+
+**Sarvam STT works.** Real speech in, exact transcript out, via the project's own
+`SarvamClient`.
+
+Two findings worth keeping:
+
+- **1008 and 1007 mean opposite things.** 1008 is "model does not exist". 1007 is
+  "model exists, you asked for the wrong modalities". Treating them alike made this
+  look like no live models existed, while one was sitting there the whole time.
+- **Sarvam needs a WAV container.** Headerless PCM is rejected with "Failed to read
+  the file, please check the audio format", which reads as a corrupt file rather than
+  a missing container.
+
+Run either check by hand, since both cost money:
+
+```bash
+python scripts/live_roundtrip_check.py     # Gemini Live, audio in and out
+python scripts/sarvam_roundtrip_check.py   # Sarvam STT
+```
+
+### Still unproven, and it is the part that matters
+
+**The grounding tool call has never fired on a live turn.** Gemini answered from its
+own audio turn and mentioned no sources, and two runs of the same audio gave different
+answers, so the response is non-deterministic. ADR 0007 requires grounding through a
+tool call back to the retrieval and safety path, and that requirement has not been
+observed working. Until it is, the India-residency claim is unsupported.
+
+**A 1008 is still reported as "Session not connected".** `connect()` logs success, the
+socket dies, and `send_audio` raises a misleading error. Still unfixed, and still the
+highest-value bug here.
 
 ### The environment
 
