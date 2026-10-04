@@ -123,10 +123,14 @@ jobs:
 
       - name: Install the server imports the contract gate needs
         # Both contract gates shell out to scripts/export_openapi_contract.py, which
-        # imports the FastAPI app to read its real schema. Without fastapi present
-        # the gate fails on a missing module and the build says nothing about
-        # contract drift, which is the one thing this gate exists to report.
-        run: pip install fastapi pydantic python-multipart
+        # imports the FastAPI app, and the app imports auth, which imports PyJWT.
+        # A hand-kept list of these was tried and missed jwt, so the gate failed on
+        # a missing module while saying nothing about contract drift, which is the
+        # one thing this gate exists to report. The same filtered requirements the
+        # Python job uses is applied here instead, so it cannot drift out of sync.
+        run: |
+          grep -vE '^(ktem|kotaemon)\s*$|^whisper-openai' requirements.txt > /tmp/req.txt
+          pip install -r /tmp/req.txt
 
       - name: Unit tests, contract drift and generated client
         working-directory: android-app
