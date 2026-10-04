@@ -163,6 +163,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: No fixed height on a text container
+        # Criterion 5. At twice the system font a fixed height clips the label off the
+        # bottom, the text stays in the tree, and nothing reports an error.
+        run: python3 scripts/check_font_scaling.py
+
       - name: No user-facing English literals
         # Criterion 4. Auditing this by reading found three hardcoded strings in one
         # sitting, inside a Hindi app, while the criterion was already ticked. Made a

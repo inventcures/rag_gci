@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -150,7 +151,7 @@ private fun QuestionInput(
                 .fillMaxWidth()
                 // Above the Material default of 48dp. Users may have limited
                 // dexterity and the app is used one-handed in a home.
-                .height(56.dp),
+                .heightIn(min = 56.dp),
         ) {
             Text(
                 text = stringResource(if (enabled) R.string.ask_button_send else R.string.ask_button_working),
@@ -283,7 +284,7 @@ private fun MicrophoneButton(
         enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .heightIn(min = 72.dp)
             .pointerInput(enabled) {
                 // press and release, rather than click, because the interaction
                 // is holding the button down while speaking.
@@ -343,7 +344,7 @@ private fun StopSpeakingButton(onStop: () -> Unit) {
         onClick = onStop,
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp),
+            .heightIn(min = 64.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B1A1A)),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -368,7 +369,7 @@ private fun ReplayButton(onReplay: () -> Unit) {
         onClick = onReplay,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .heightIn(min = 56.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
