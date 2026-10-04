@@ -5,6 +5,9 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
 import org.inventcures.pallisahayak.data.local.PalliDatabase
+import org.inventcures.pallisahayak.data.offline.ConnectivityMonitor
+import org.inventcures.pallisahayak.data.offline.HistoryRepository
+import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
 import org.inventcures.pallisahayak.data.repository.SessionContext
 import retrofit2.Retrofit
@@ -45,6 +48,21 @@ object ServiceLocator {
     @Volatile
     private var repositoryInstance: PalliSahayakRepository? = null
 
+    @Volatile
+    private var offlineGraph: OfflineGraph? = null
+
+    /**
+     * Everything the offline screens need, built once alongside the repository.
+     *
+     * Grouped rather than exposed as four more properties because they share one
+     * database handle and are meaningless apart from each other.
+     */
+    val offline: OfflineGraph
+        get() = offlineGraph ?: error(
+            "ServiceLocator.initialise(context) has not been called. " +
+                "MainActivity should do this in onCreate before setContent.",
+        )
+
     val repository: PalliSahayakRepository
         get() = repositoryInstance ?: error(
             "ServiceLocator.initialise(context) has not been called. " +
@@ -77,9 +95,29 @@ object ServiceLocator {
             )
             .build()
 
+        val database = PalliDatabase.get(context)
+
         repositoryInstance = PalliSahayakRepository(
             api = api ?: retrofit.create(PalliSahayakApi::class.java),
-            interactions = PalliDatabase.get(context).interactions(),
+            interactions = database.interactions(),
+        )
+
+        offlineGraph = OfflineGraph(
+            history = HistoryRepository(database.interactions()),
+            bundle = OfflineAnswerResolver(database.cachedAnswers()),
+            connectivity = ConnectivityMonitor(context),
         )
     }
 }
+
+/**
+ * The offline object graph.
+ *
+ * A small named holder so the screens take one dependency rather than three, and so
+ * a test can build the same shape without an Activity.
+ */
+data class OfflineGraph(
+    val history: HistoryRepository,
+    val bundle: OfflineAnswerResolver,
+    val connectivity: ConnectivityMonitor,
+)

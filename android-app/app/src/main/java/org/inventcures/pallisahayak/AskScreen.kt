@@ -48,7 +48,16 @@ import org.inventcures.pallisahayak.safety.EmergencySeverity
  * patient would be worse than shipping none.
  */
 @Composable
-fun AskScreen(viewModel: AskViewModel) {
+fun AskScreen(
+    viewModel: AskViewModel,
+    /**
+     * Criterion 4. The microphone stays visible and says why it is inert.
+     *
+     * Defaults to false so a preview or an existing test renders the online state
+     * rather than having to construct one.
+     */
+    offline: Boolean = false,
+) {
     val state by viewModel.state.collectAsState()
 
     Column(
