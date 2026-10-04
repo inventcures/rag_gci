@@ -132,6 +132,16 @@ jobs:
           grep -vE '^(ktem|kotaemon)\s*$|^whisper-openai' requirements.txt > /tmp/req.txt
           pip install -r /tmp/req.txt
 
+      - name: Release build and size budget
+        working-directory: android-app
+        # Criterion 8. The size budget is a field constraint, so it is checked rather
+        # than stated. R8 currently takes 10.1 MB of debug output down to 1.61 MB,
+        # which is about 84 seconds of sustained 2G. A dependency added without
+        # noticing is invisible until this fails.
+        run: |
+          ./gradlew :app:assembleRelease
+          python ../scripts/check_apk_budget.py
+
       - name: Unit tests, contract drift and generated client
         working-directory: android-app
         run: |
