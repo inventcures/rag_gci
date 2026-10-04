@@ -82,12 +82,16 @@ fun OfflineBanner(
     cachedCount: Int,
     modifier: Modifier = Modifier,
 ) {
+    // Resolved here rather than inside the semantics lambda, which is not a composable
+    // scope. A screen reader is the one channel a worker who cannot see the banner
+    // still has, so the announcement is a translatable string, not an English literal.
+    val announcement = stringResource(R.string.offline_banner_a11y, cachedCount)
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp)
             // Announced as a state, so a screen reader says it too.
-            .semantics { contentDescription = "Offline. $cachedCount questions available" },
+            .semantics { contentDescription = announcement },
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFFFFF3CD),
             contentColor = Color(0xFF664D03),

@@ -75,4 +75,22 @@
     <string name="starting_up">Palli Sahayak is starting</string>
     <string name="nav_settings">Settings</string>
     <string name="settings_placeholder">Settings will be available before the study begins.</string>
+
+    <!--
+      Found by the lint, not by an audit.
+
+      Six user-facing literals sat in composables. The emergency line is the one that
+      matters: a Hindi worker reading an English "call 108" during a crisis is a
+      worse outcome than a slower answer.
+    -->
+    <string name="history_heading">Earlier</string>
+    <string name="ask_button_idle">Hold to speak</string>
+    <string name="ask_button_listening">Listening, let go to send</string>
+    <string name="ask_button_send">Ask</string>
+    <string name="ask_button_working">Working</string>
+    <string name="evidence_count">From %1$d passages in the handbook</string>
+    <string name="cached_notice">Saved answer, not a live one</string>
+    <string name="emergency_call_108">This may be an emergency. Call 108 now.</string>
+    <string name="offline_banner_a11y">Offline. %1$d questions available</string>
+    <string name="active_role_a11y">Active role. %1$s</string>
 </resources>

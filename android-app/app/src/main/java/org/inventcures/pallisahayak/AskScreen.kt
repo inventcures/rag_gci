@@ -21,8 +21,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
+import org.inventcures.pallisahayak.app.ui.ActionGlyphs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -112,7 +114,7 @@ fun AskScreen(
 
         if (state.history.isNotEmpty()) {
             Text(
-                text = "Earlier",
+                text = stringResource(R.string.history_heading),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
@@ -151,7 +153,7 @@ private fun QuestionInput(
                 .height(56.dp),
         ) {
             Text(
-                text = if (enabled) "Ask" else "Working",
+                text = stringResource(if (enabled) R.string.ask_button_send else R.string.ask_button_working),
                 style = MaterialTheme.typography.titleMedium,
             )
         }
@@ -199,7 +201,7 @@ private fun AnswerCard(state: AskUiState) {
             if (state.sourceCount > 0) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "From ${state.sourceCount} passage(s) in the handbook",
+                    text = stringResource(R.string.evidence_count, state.sourceCount),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF5A6570),
                 )
@@ -207,7 +209,7 @@ private fun AnswerCard(state: AskUiState) {
             if (state.cameFromCache) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Saved answer, not a live one",
+                    text = stringResource(R.string.cached_notice),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF8A5300),
                 )
@@ -238,7 +240,7 @@ private fun EmergencyBanner(severity: EmergencySeverity) {
             )
             Spacer(Modifier.size(12.dp))
             Text(
-                text = "This may be an emergency. Call 108 now.",
+                text = stringResource(R.string.emergency_call_108),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF8B1A1A),
@@ -308,10 +310,24 @@ private fun MicrophoneButton(
             },
         ),
     ) {
-        Text(
-            text = if (isListening) "Listening — let go to send" else "Hold to speak",
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = ActionGlyphs.Speak,
+                // Null because the button already announces itself as the talk action;
+                // two descriptions on one control makes a screen reader say both.
+                contentDescription = null,
+                tint = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.size(30.dp),
+            )
+            Text(
+                text = stringResource(
+                    if (isListening) R.string.ask_button_listening
+                    else R.string.ask_button_idle,
+                ),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
     }
 }
 
@@ -330,7 +346,19 @@ private fun StopSpeakingButton(onStop: () -> Unit) {
             .height(64.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B1A1A)),
     ) {
-        Text(stringResource(R.string.stop_speaking), style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = ActionGlyphs.Stop,
+                contentDescription = null,
+                tint = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.size(26.dp),
+            )
+            Text(
+                stringResource(R.string.stop_speaking),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
     }
 }
 
@@ -342,6 +370,18 @@ private fun ReplayButton(onReplay: () -> Unit) {
             .fillMaxWidth()
             .height(56.dp),
     ) {
-        Text(stringResource(R.string.replay_answer), style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = ActionGlyphs.Replay,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Text(
+                stringResource(R.string.replay_answer),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
     }
 }

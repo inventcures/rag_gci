@@ -51,6 +51,8 @@ fun ActiveRoleBadge(
     /** Large enough to read across a room. The badge is meant to be seen, not read. */
     size: androidx.compose.ui.unit.Dp = 56.dp,
 ) {
+    // Resolved in the composable body; a semantics lambda is not a composable scope.
+    val announcement = stringResource(R.string.active_role_a11y, role.label)
     Box(
         modifier = modifier
             .size(size + 16.dp)
@@ -58,7 +60,7 @@ fun ActiveRoleBadge(
             .semantics {
                 // Announced as context, never as protection. The wording matters as
                 // much as the glyph: "Speaking as" is framing, "Signed in as" is not.
-                contentDescription = "Active role. ${role.label}"
+                contentDescription = announcement
                 stateDescription = role.label
             },
         contentAlignment = Alignment.Center,
