@@ -531,7 +531,21 @@ class GeminiLiveService:
 
         self.project_id = project_id or self.config.project_id
         self.location = location or self.config.location or "us-central1"
+        # Validate the configured default too.
+        #
+        # resolve_model only checked models passed to create_session. The default
+        # came straight from config.yaml and was never checked at all, so a stale
+        # name there reached the service and came back as a 1008 that, before the
+        # session_error fix, surfaced as "Session not connected" and sent debugging in
+        # the wrong direction. Refusing here means a bad config is a loud startup
+        # failure rather than a mystery at the first turn.
         self.model = model or self.config.model
+        if self.model not in SUPPORTED_MODELS:
+            raise GeminiLiveError(
+                f"Configured Gemini Live model '{self.model}' is not supported. "
+                f"Supported: {', '.join(sorted(SUPPORTED_MODELS))}. "
+                f"Fix gemini_live.model in config.yaml."
+            )
         self.rag_pipeline = rag_pipeline
 
         # The dose boundary for the tool-call path. Without this the tool returns
@@ -672,10 +686,20 @@ CONVERSATION STYLE:
             return self.model
 
         if model != self.model and model not in SUPPORTED_MODELS:
-            logger.warning(
-                f"Unknown model '{model}', falling back to {self.model}"
+            # Refuse rather than substitute.
+            #
+            # This used to log a warning and quietly use a different model. That is
+            # the worst shape a failure can take in a clinical system: a typo in
+            # config.yaml produced a fully working voice path answering with a model
+            # nobody chose, and the only trace was a warning that nothing reads. The
+            # voice model is an analysis-affecting choice, so a wrong one has to be
+            # loud. An operator can set a valid model; nobody can notice a silent
+            # swap.
+            raise GeminiLiveError(
+                f"Unknown Gemini Live model '{model}'. "
+                f"Supported: {', '.join(sorted(SUPPORTED_MODELS))}. "
+                f"Refusing to substitute a different model."
             )
-            return self.model
 
         return model
 

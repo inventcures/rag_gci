@@ -16,6 +16,8 @@ import os
 import sys
 import unittest
 
+from gemini_live.config import SUPPORTED_MODELS, GeminiLiveConfig
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 DOSE_ANSWER = (
@@ -47,8 +49,7 @@ class FakeRag:
 
 def build_service(rag, safety):
     """A service shaped like the real one, including config, which the tool reads."""
-    from gemini_live.config import GeminiLiveConfig
-
+    
     return type("S", (), {
         "rag_pipeline": rag,
         "safety_manager": safety,
@@ -98,3 +99,49 @@ class LiveToolAppliesDoseBoundary(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ModelSelectionRefusesRatherThanSubstitutes(unittest.TestCase):
+    """
+    An unknown model must be an error, not a different model.
+
+    resolve_model used to log a warning and fall back. That is the worst shape a
+    failure takes in a clinical system: a typo in config.yaml produced a fully
+    working voice path answering with a model nobody chose, and the only trace was a
+    warning nobody reads. The configured default was not checked at all, so a stale
+    name in config.yaml reached the service and returned a 1008.
+
+    A 1008 here cost several wrong diagnoses before it was understood. These tests
+    exist so that the cause is a startup error rather than a mystery at the first turn.
+    """
+
+    def test_a_valid_default_still_constructs(self):
+        from gemini_live.service import GeminiLiveService
+
+        self.assertIn(GeminiLiveService().model, SUPPORTED_MODELS)
+
+    def test_an_unknown_configured_model_is_refused(self):
+        from gemini_live.service import GeminiLiveError, GeminiLiveService
+
+        with self.assertRaises(GeminiLiveError) as caught:
+            GeminiLiveService(model="gemini-typo-does-not-exist")
+        message = str(caught.exception)
+        self.assertIn("gemini-typo-does-not-exist", message)
+        # The message must name the real options, so the fix is obvious.
+        self.assertIn("gemini-3.1-flash-live-preview", message)
+
+    def test_an_unknown_requested_model_is_refused_not_swapped(self):
+        from gemini_live.service import GeminiLiveError, GeminiLiveService
+
+        service = GeminiLiveService()
+        with self.assertRaises(GeminiLiveError):
+            service.resolve_model("gemini-typo-does-not-exist")
+
+    def test_resolve_returns_a_supported_model_unchanged(self):
+        from gemini_live.service import GeminiLiveService
+
+        service = GeminiLiveService()
+        self.assertEqual(
+            service.resolve_model("gemini-3.1-flash-live-preview"),
+            "gemini-3.1-flash-live-preview",
+        )

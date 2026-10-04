@@ -540,3 +540,19 @@ probe, never with an expectation. An unverified claim is a liability, and saying
 green local run, or a plausible explanation is not evidence. The evidence is the
 system behaving correctly after the change, observed. If verification was not
 possible, say so plainly and name what remains unverified.
+
+### Act without asking for permission on bugs
+
+Standing instruction from the project owner, issued 2026-10-04.
+
+**Fix bugs and issues without waiting for permission.** Do not end a piece of work
+by asking whether a defect should be fixed. A defect found is a defect owned. Ask
+only when the fix would change behaviour someone chose on purpose, and even then fix
+what is unambiguous and say plainly what was left.
+
+The exception is context. Stop and hand back at roughly 80 to 85 percent, where the
+record in `docs/HANDOVER.md` needs writing before the window closes.
+
+**What this does not cover.** Product and design decisions are still the owner's, and
+this does not extend to them. "The app should never show a dose" is a decision. "This
+route returns 500" is a bug, and it gets fixed without a conversation.
