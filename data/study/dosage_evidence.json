@@ -1,0 +1,63 @@
+{
+  "generated_at": "2026-10-04T11:11:57+00:00",
+  "commit": "ea2e424",
+  "branch": "main",
+  "dirty": true,
+  "invariants": {
+    "SI-1": {
+      "statement": "A response containing a specific dose is not returned verbatim.",
+      "tests": [
+        "fun `SI-1 a response containing a dose is not returned verbatim`",
+        "fun `SI-1 doses written in Indic numerals are caught`",
+        "fun `SI-1 general drug information is answered normally`",
+        "fun `SI-1 over-firing destroys the tool and is treated as a defect`"
+      ],
+      "count": 4,
+      "required_minimum": 3,
+      "met": true
+    },
+    "SI-2": {
+      "statement": "Redaction keeps useful content, fails closed, and a total refusal becomes a Deferral that names next steps.",
+      "tests": [
+        "fun `SI-2 a deferral names next steps and the emergency number`",
+        "fun `SI-2 a deferral never implies a person has been contacted`",
+        "fun `SI-2 a redacted answer is never reported as an answer`",
+        "fun `SI-2 an entirely dosing answer becomes a deferral`",
+        "fun `SI-2 localised deferral is used when available`",
+        "fun `SI-2 redaction is verified and fails closed`",
+        "fun `SI-2 unsupported language falls back to English rather than failing`",
+        "fun `SI-2 useful content survives when only one sentence carries a dose`"
+      ],
+      "count": 8,
+      "required_minimum": 5,
+      "met": true
+    },
+    "SI-4": {
+      "statement": "Only a CRITICAL emergency overrides the boundary; HIGH does not.",
+      "tests": [
+        "fun `SI-4 a critical emergency is never withheld`",
+        "fun `SI-4 an unknown language falls back to English rather than to none`",
+        "fun `SI-4 detection works in the languages the server cannot cover`",
+        "fun `SI-4 empty input is not an emergency`",
+        "fun `SI-4 highest severity wins when several patterns match`",
+        "fun `SI-4 only critical severity overrides`",
+        "fun `SI-4 severe pain is high and does not override the dose boundary`",
+        "fun `SI-4 severity survives parsing a server label`"
+      ],
+      "count": 8,
+      "required_minimum": 2,
+      "met": true
+    }
+  },
+  "server_dosage_tests": [
+    "test_live_tool_safety.py::test_grounding_text_is_filtered_before_the_model_sees_it",
+    "test_live_tool_safety.py::test_the_boundary_receives_the_users_own_question",
+    "test_live_tool_safety.py::test_no_knowledge_base_result_still_warns_rather_than_answers",
+    "test_live_tool_safety.py::test_a_valid_default_still_constructs",
+    "test_live_tool_safety.py::test_an_unknown_configured_model_is_refused",
+    "test_live_tool_safety.py::test_an_unknown_requested_model_is_refused_not_swapped",
+    "test_live_tool_safety.py::test_resolve_returns_a_supported_model_unchanged"
+  ],
+  "gaps": [],
+  "note": "This records what is tested, not that the study's standard is met. Whether this satisfies protocol 7.7 is the study's decision."
+}

@@ -151,6 +151,25 @@ jobs:
                     :core:api:verifyGeneratedClient \
                     :app:assembleDebug
 
+  dosage-evidence:
+    name: Dosage restriction evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Fail if the evidence record is stale
+        # Protocol 7.7 makes this a precondition for participant use. The record is
+        # generated from the tests rather than written by hand, so it cannot claim
+        # coverage the code does not have. Checked in CI so deleting a safety test
+        # fails the build rather than quietly shrinking the evidence.
+        run: python3 scripts/dosage_evidence.py --check
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
