@@ -58,3 +58,49 @@ Order worth following: criteria 2, 6, 7 and 8 are the safety and honesty ones an
 depend only on data that already exists. Criteria 4 and 5 are UI and carry the same
 Robolectric risk as T6. Criterion 9 needs the delta tracker, which exists in
 `sync/delta_tracker.py`.
+
+## Blocking finding, 2026-10-04
+
+**The bundle can never answer a question. The client has no hash implementation.**
+
+`offline/cache_builder.py:99` writes each row's key as
+`hashlib.sha256(query_text.lower().strip().encode()).hexdigest()`. Nothing on the
+Android side computes that. There is no SHA-256 of the question anywhere in
+`core:data`, so every lookup key the client could invent would miss.
+
+This is not a missing feature so much as a missing seam: the two halves of the same
+lookup were implemented on opposite sides of a language boundary and never tested
+against each other. Until it exists, criteria 6 and 7 cannot pass, and an offline
+app would report every question as a miss, which looks exactly like an empty bundle.
+
+The implementation was written and passes a scratch check, but **it could not be
+committed**, for the reason below.
+
+## Unexplained toolchain failure
+
+A new class in `core:data` compiles to a `.class` file that the unit-test compile
+cannot then resolve, while sibling declarations in the same file resolve fine:
+
+```
+OfflineMiss.class          visible to the test
+OfflineResolution.class    visible to the test
+OfflineAnswerResolver.class compiled, on disk, NOT visible
+```
+
+Ruled out by measurement, not assumption:
+
+- the file is in the source set — injecting a syntax error produced the expected error
+- the class file is produced and is a valid class file
+- `clean`, `--rerun-tasks`, `--no-configuration-cache`, `--no-build-cache`, and
+  deleting `core/data/build` and `.gradle` by hand all change nothing
+- renaming the package `offline` to `bundle` and then to `data.repository` changes
+  nothing
+- renaming the class changes nothing
+- removing the unused `clock` parameter changes nothing
+
+New files added to this module earlier in the session work, so it is not "new files
+are invisible". The tree has been left clean and the suite green; nothing from this
+attempt was committed.
+
+Next step for whoever picks this up: reduce it to the smallest file that reproduces
+it in a throwaway branch. Guessing further has already cost more than the feature.
