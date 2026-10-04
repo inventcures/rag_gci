@@ -3,7 +3,7 @@
 **Purpose:** paste this into a fresh session after context compaction to resume work
 without re-deriving anything.
 **Written:** 4 October 2026. Updated at the end of the T4 build.
-**Commit at update:** `303081d` on `main`, clean and pushed.
+**Commit at update:** `7f33386` on `main`, clean and pushed.
 **Repo:** `/home/tp53/showmethecode/rag_gci` · branch `main` · remote `inventcures/rag_gci`
 
 ---
@@ -426,89 +426,94 @@ run, because collection aborted. Do not quote a number that was not measured.
 
 ## 10. What is next
 
-### `requirements.txt` has never been installable
+### Everything green, as of 2026-10-04
 
-`requirements.txt` lists `ktem` and `kotaemon`. **Both are 404 on PyPI**, because
-they ship with the vendored `kotaemon-main` tree rather than being published. Any
-attempt to install that file fails at dependency resolution.
+```
+Python  716 passed, 0 failed
+CI      all four jobs green: Python, Android, docs staleness, gitleaks
+Docs    https://inventcures.github.io/rag_gci/  rebuilt on every push
+Kotlin  35 passed
+```
 
-This is the root cause of the environment drift, and nothing surfaced it. The
-consequences ran for a long time:
+The last two red Python tests are fixed, and both were real defects that had been
+reported as pre-existing and left for a long time.
 
-- `google-genai>=2.18.0` was declared but never installed, so
-  `LiveAvailability.probe()` reported the Gemini Live path unavailable and every
-  voice turn silently fell back to Sarvam.
-- Two tests passed **because** the SDK was missing, one of them asserting the
-  opposite of what its name claimed.
+**Handoff requests went unmatched whenever phrased naturally.**
+`check_handoff_needed` compared keywords by exact substring, and "speak to doctor"
+is not a substring of "speak to a doctor". Asking for a human in the ordinary way
+meant being answered by the bot. Matching now ignores articles and politeness
+fillers.
 
-`pyproject.toml` deliberately does **not** read `requirements.txt` for its
-dependencies, and the reason is recorded in a comment there. Do not reintroduce
-that link, or every build of this project fails.
+**Voice responses were not bounded in time.** `optimize_for_voice` truncated on
+word count alone, and one long token is one word, so a 3000-character input was
+spoken in full. There is now a character budget, cut on a word boundary.
 
-The fix for the file itself is a decision, not a guess: either vendor those two
-packages properly, or split them into a `requirements-local.txt` that installs only
-where `kotaemon-main` is present.
+**The Live tool-call path was a way around the dose boundary.** Ticket 04 asks for
+real-time voice to ground through a tool call to the same retrieval and safety path.
+That handler returned raw retrieval text to Gemini with no safety manager anywhere on
+the route. It reads as the safe one precisely because it is grounded in the verified
+knowledge base. Filtering now happens on this server before the model sees anything,
+which is also what ADR 0007 requires, since grounding must stay in India.
 
-### Environment as it now stands
+### The environment
 
-```bash
+`requirements.txt` has **never** been installable. Three entries cannot resolve:
+`ktem` and `kotaemon` are 404 on PyPI because they ship with the vendored
+`kotaemon-main` tree, and `whisper-openai>=20231107` names a version that was never
+published. CI filters those three out of the real file rather than keeping a second
+list, so a dependency added for a feature reaches CI without being added twice.
+
+```
 uv venv .venv --python 3.12 --system-site-packages
 uv pip install --python .venv/bin/python google-genai pyyaml setuptools
 ```
 
-`uv` rather than `python -m venv`: this machine is PEP 668 managed and `ensurepip`
-is absent, so `python -m venv` fails outright and its first error line is useless.
-An early attempt reported `rc=0` while installing nothing, because a pipe to `tail`
-masked pip's exit code.
+`uv`, not `python -m venv`: this machine is PEP 668 managed with no `ensurepip`, and
+`python -m venv` fails outright with an unhelpful first line. A `.pth` file puts the
+repository root on the path; editable installs were tried and rejected.
 
-A `.pth` file in the venv puts the repository root on `sys.path`, so project modules
-resolve from any directory. Editable installs were tried first and rejected:
-setuptools discovery across 44 root modules and 27 packages failed with a build
-error. The reason is recorded in `pyproject.toml`.
+### CI notes for whoever touches it next
 
-Current state: `google-genai` 2.28.0 installed, `LiveAvailability` reports
-available, **703 passed, 2 pre-existing failures, 0 errors**.
+- The Gradle wrapper pointed at `file:///tmp/gradle.zip`. It resolved on exactly one
+  machine and nowhere else, so Android CI could never have run. Now points at 8.11.1.
+- The Android SDK is installed explicitly. `android-actions/setup-android` checks the
+  version of the sdkmanager baked into the runner image and aborts when it disagrees,
+  which is a failure of the image rather than of this project.
+- Both contract gates shell out to `scripts/export_openapi_contract.py`, which
+  imports the FastAPI app and therefore `auth` and therefore PyJWT. Hand-kept
+  dependency lists missed it twice.
+- `build_docs.py` reads routes with `ast`, not by importing, because the import made
+  the generated page depend on what was installed.
+- It also sorts its glob. Unsorted, the page depended on filesystem ordering and
+  differed between a working copy and a fresh clone.
 
-### Live is a transcription upgrade, not a second answer generator
+### Known limits, stated plainly
 
-The answer is still produced by `VoiceTurnHandler`, so the dose boundary keeps one
-implementation. The cost is Live's latency advantage, which is a real trade and is
-stated in the module docstring. True duplex with barge-in needs a protocol change on
-`/ws/voice` rather than an adapter, and belongs in a later ticket.
+- **No Live turn has been exercised against the real Gemini endpoint.** Every test
+  fakes the network. The transport is written and wired, not proven in anger.
+- **Interruption has no test.** The server discards the half-heard turn and the client
+  sends the frame, but nothing asserts the sequence.
+- **Ticket 04 criterion 4 has no test.** The override is admin-only by inspection
+  rather than by assertion. On a clinical system that should close.
+- **The tickets live in `/home/tp53/.scratch/android-app-v1/issues/`, outside the
+  repository.** They are not version controlled and will not survive a machine reset.
+  Worth moving into `docs/tickets/`.
+- **The pi-lens type checker reports root-level imports as unresolved and ignores
+  `pyrightconfig.json` entirely**, verified by measurement: standalone `npx pyright`
+  reports zero errors on the same files, `refreshRunners: all` changes nothing, and a
+  dedicated config in `tests/` changed nothing. Tool-side fix required. The code is
+  clean.
 
-Then, in order:
+### Needs you, and I cannot do it from here
 
-- **Add a voice-route integration test.** The unit tests cover the adapter, the
-  router and the handler separately. Nothing yet drives a real audio frame through
-  the endpoint end to end. That gap is how the kwargs bug survived.
-- **Fix the type checker server, not the repo.** pi-lens's pyright reports root-level
-  imports as unresolved while standalone `pyright` reports zero errors on the same
-  file. The repo config is correct; pi-lens does not load `pyrightconfig.json`, and
-  `extraPaths` resolves relative to the config file, so nothing in the repo can fix
-  it. Verified after a full `refreshRunners: all`.
-- **T6** language, household and roles. Everything it needs exists.
-- **T7** offline history, state and cached bundle. The server bundle route and the
-  twenty questions per language are already done.
-- **T8** accessibility contract and the release gate. The gate cannot pass until §7.7
-  evidence exists.
-
-**Done since the last handover:** MkDocs Material publishing to GitHub Pages, CI
-covering the Python suite, Android unit tests, both contract gates, the docs
-staleness gate and a gitleaks secret scan. Actions are pinned to commit SHAs. The
-site builds with `--strict` and all five diagrams render.
-
-**Still needs you, and I cannot do it from here:**
-
-- **The repository is public.** No PHI or secret exposure today, verified by scanning
-  all history and confirming `uploads/` holds no tracked files. Whether the protocol
-  and grant documents should be published at all is a study decision, not an
-  engineering one, and worth reviewing before this goes further.
-- **Enable Pages and Actions on the repo**, or the docs workflow will not run.
-- `STUDY_LOG_SALT` is unset, so participant ids are not linkable across restarts.
-  Sustained adoption is unmeasurable without it.
+- **The repository is public.** No PHI or secret exposure, verified by scanning all
+  history and confirming `uploads/` holds no tracked files. Whether the protocol and
+  grant documents should be published is a study decision, not an engineering one.
+- `STUDY_LOG_SALT` is unset. Participant ids are not linkable across restarts, and
+  sustained adoption is unmeasurable without it.
 - The Gemini API key is in `.env` and in the session transcript on disk. Rotate it.
 - Residency needs written confirmation from Google. A selected region is not itself
-  evidence, and their documentation warns that endpoints do not guarantee it.
+  evidence.
 
 ## 11. Working practices worth keeping
 
