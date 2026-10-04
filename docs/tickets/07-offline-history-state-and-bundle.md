@@ -59,7 +59,13 @@ depend only on data that already exists. Criteria 4 and 5 are UI and carry the s
 Robolectric risk as T6. Criterion 9 needs the delta tracker, which exists in
 `sync/delta_tracker.py`.
 
-## Blocking finding, 2026-10-04
+## Resolved, 2026-10-04 — see "Bundle resolver built" below
+
+The finding below was real and is now fixed. Kept because it explains why the seam
+was invisible: both halves of the lookup were implemented on opposite sides of a
+language boundary and neither was tested against the other.
+
+## Blocking finding, 2026-10-04 (now fixed)
 
 **The bundle can never answer a question. The client has no hash implementation.**
 
@@ -104,3 +110,29 @@ attempt was committed.
 
 Next step for whoever picks this up: reduce it to the smallest file that reproduces
 it in a throwaway branch. Guessing further has already cost more than the feature.
+
+## Bundle resolver built, 2026-10-04
+
+`OfflineAnswerResolver`, 12 tests, all green. Criteria 6 and 7 have the data layer
+they need; the UI for them is still to do.
+
+Two real defects fixed, both found by tests rather than by reading:
+
+**Trailing punctuation broke every lookup.** The builder keyed on
+`sha256(text.lower().strip())` and the client did the same, so "How to manage pain at
+home?" and "how to manage pain at home" hashed differently. A worker typing a
+question mark would miss on every bundle row and be told to find a connection for a
+question the app already answers. Both sides now strip a trailing question mark or
+exclamation point, and a test reads the builder so the two cannot drift.
+
+**There was no client-side hash at all**, which is the finding above. Without it the
+bundle could never match anything.
+
+Two things recorded as decisions rather than left as surprises:
+
+- **A paraphrase is a miss, not a guess.** The bundle holds twenty canonical
+  questions. Matching meaning needs on-device retrieval, which ADR 0005 rules out, so
+  a paraphrase returns a clear "needs a connection" rather than the nearest stored
+  answer implied to be what was asked.
+- **No bundle and not-in-bundle are different messages**, because the remedies differ:
+  sync, or find signal.

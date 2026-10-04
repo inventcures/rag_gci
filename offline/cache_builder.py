@@ -30,6 +30,21 @@ from offline.questions import ENGLISH as DEFAULT_TOP_QUERIES  # noqa: E402,F401
 from offline.questions import has_translation, questions_for  # noqa: E402
 
 
+def _normalise_for_hash(question_text: str) -> str:
+    """Reduce a question to its lookup key.
+
+    Lowercase, trim, and drop a trailing question mark or exclamation point. The
+    Android client applies the same normalisation in OfflineAnswerResolver, because
+    the two cannot share code and a difference between them turns every offline
+    lookup into a silent miss. People type "How do I manage pain?"; the bundle holds
+    "how to manage pain at home" with no punctuation.
+    """
+    text = question_text.lower().strip()
+    for suffix in ("?", "!"):
+        if text.endswith(suffix):
+            text = text[: -len(suffix)].strip()
+    return text
+
 class CacheBundleBuilder:
     def __init__(self, rag_pipeline=None, kg_client=None, usage_analytics=None):
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -96,7 +111,9 @@ class CacheBundleBuilder:
                         language=language,
                     )
                     cached_queries.append({
-                        "query_hash": hashlib.sha256(query_text.lower().strip().encode()).hexdigest(),
+                        "query_hash": hashlib.sha256(
+                            _normalise_for_hash(query_text).encode()
+                        ).hexdigest(),
                         "query_text": query_text,
                         "query_language": language,
                         "response_text": result.answer,
