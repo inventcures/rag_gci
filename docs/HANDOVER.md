@@ -49,7 +49,7 @@ this session.
 | Domain glossary (17 terms) | `CONTEXT.md` |
 | Implementation spec (86 user stories) | `docs/android-app-specs/v1_03oct2026_android-app-implementation-spec.md` |
 | Technical spec, amended to 0.2.0 | `docs/android-app-specs/v0_27march2026_…_detailed-android-app-specs.md` |
-| Tickets | `/home/tp53/.scratch/android-app-v1/issues/01…08-*.md` |
+| Tickets | `docs/tickets/01…08-*.md` (in the repository) |
 | Study release record | `data/study/release.yaml` |
 | Grant PDF text | `/tmp/grant.txt` (extracted, 7,582 lines) |
 | Protocol PDF text | `/tmp/protocol.txt` (extracted, 1,264 lines) |
@@ -495,9 +495,9 @@ repository root on the path; editable installs were tried and rejected.
   sends the frame, but nothing asserts the sequence.
 - **Ticket 04 criterion 4 has no test.** The override is admin-only by inspection
   rather than by assertion. On a clinical system that should close.
-- **The tickets live in `/home/tp53/.scratch/android-app-v1/issues/`, outside the
-  repository.** They are not version controlled and will not survive a machine reset.
-  Worth moving into `docs/tickets/`.
+- ~~The tickets live outside the repository.~~ **Done 2026-10-04.** They are now at
+  `docs/tickets/` and version controlled. Stale copies may remain at
+  `/home/tp53/.scratch/android-app-v1/issues/`; the repository wins.
 - **The pi-lens type checker reports root-level imports as unresolved and ignores
   `pyrightconfig.json` entirely**, verified by measurement: standalone `npx pyright`
   reports zero errors on the same files, `refreshRunners: all` changes nothing, and a

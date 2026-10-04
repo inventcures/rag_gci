@@ -69,6 +69,15 @@ nav:
       - Offline strategy: adr/0005-offline-strategy.md
       - The household record: adr/0006-household-record.md
       - Voice architecture: adr/0007-voice-architecture.md
+  - Tickets:
+      - 01 Retrieval, bge-m3 end to end: tickets/01-retrieval-bge-m3.md
+      - 02 Project and contract seam: tickets/02-project-and-contract-seam.md
+      - 03 Walking skeleton and safety core: tickets/03-walking-skeleton-and-safety-core.md
+      - 04 Voice, push-to-talk then real-time: tickets/04-voice-push-to-talk-then-real-time.md
+      - 05 Voice resilience and admin override: tickets/05-voice-resilience-fallback-and-override.md
+      - 06 Language, household and roles: tickets/06-language-household-and-roles.md
+      - 07 Offline, history and bundle: tickets/07-offline-history-state-and-bundle.md
+      - 08 Accessibility and release gate: tickets/08-accessibility-contract-and-release-gate.md
   - Android specifications:
       - Android app specification: android-app-specs/v0_27march2026_0923st_210s_detailed-android-app-specs.md
       - Implementation spec: android-app-specs/v1_03oct2026_android-app-implementation-spec.md
