@@ -122,7 +122,11 @@ gemini_live:
   enabled: true  # Enabled for voice AI
   project_id: ${GOOGLE_CLOUD_PROJECT}
   location: ${VERTEX_AI_LOCATION}  # MUST be us-central1 or other US/EU region!
-  model: "gemini-live-2.5-flash-native-audio"  # GA model (Dec 2024)
+  # Gemini Live. The previous value, gemini-live-2.5-flash-native-audio, is
+  # refused by the service with 1008 and real-time voice could never connect.
+  # Verified live on 2026-10-04: real 16 kHz speech in, exact transcript and a
+  # spoken answer in 4.6s.
+  model: "gemini-3.1-flash-live-preview"
 
   # Voice settings
   default_voice: "Aoede"  # Warm, empathetic voice for healthcare
