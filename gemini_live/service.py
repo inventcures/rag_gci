@@ -1060,6 +1060,9 @@ class GeminiLiveSession:
         self._audio_in_queue: asyncio.Queue = asyncio.Queue()
         self._audio_out_queue: asyncio.Queue = asyncio.Queue()
         self._running = False
+
+        # Why the session died, when it did. None means it has not died.
+        self.session_error: Optional[str] = None
         self._session_task = None
 
         # Buffers for transcription
@@ -1108,6 +1111,7 @@ class GeminiLiveSession:
         self._running = True
         self.is_connected = True
         self.is_active = True
+        self.session_error = None
 
         # Start the session management task
         self._session_task = asyncio.create_task(self._run_session())
@@ -1140,6 +1144,12 @@ class GeminiLiveSession:
             logger.debug(f"Session {self.session_id} cancelled")
         except Exception as e:
             logger.error(f"Session {self.session_id} error: {e}")
+            # Keep the reason. It used to be logged and queued, then dropped on the
+            # floor, and every caller then reported the generic "Session not
+            # connected". That sent developers looking at the connection code when
+            # the real cause was a 1008 from the service: a model name it refused.
+            # A dead provider has to say why it died.
+            self.session_error = f"{type(e).__name__}: {e}"
             # Put error in output queue to notify client
             await self._audio_out_queue.put({"error": str(e)})
         finally:
@@ -1147,6 +1157,25 @@ class GeminiLiveSession:
             self.is_connected = False
             self.is_active = False
             self._running = False
+
+    def _require_running(self) -> None:
+        """
+        Raise with the real reason the session is unusable.
+
+        Every send used to raise the same flat "Session not connected", whether the
+        socket had never opened or the service had closed it with a policy error
+        seconds later. Those need different fixes, and the second one was
+        indistinguishable from the first.
+        """
+        if self.is_active and self._running:
+            return
+        if self.session_error:
+            raise GeminiLiveError(
+                f"Gemini Live session '{self.session_id}' ended: {self.session_error}"
+            )
+        raise GeminiLiveError(
+            f"Gemini Live session '{self.session_id}' was never connected"
+        )
 
     def _is_stop_command(self, fragment: str) -> bool:
         """
@@ -1630,8 +1659,7 @@ Please use this information to provide an accurate, grounded response. Mention t
         Raises:
             GeminiLiveError: If session not connected
         """
-        if not self.is_active or not self._running:
-            raise GeminiLiveError("Session not connected")
+        self._require_running()
 
         await self._audio_in_queue.put(audio_chunk)
 
@@ -1645,8 +1673,7 @@ Please use this information to provide an accurate, grounded response. Mention t
         Raises:
             GeminiLiveError: If session not connected
         """
-        if not self.is_active or not self._running:
-            raise GeminiLiveError("Session not connected")
+        self._require_running()
 
         await self._audio_in_queue.put({"text": text})
         logger.debug(f"Queued text for session {self.session_id}: {text[:50]}...")
@@ -1662,8 +1689,7 @@ Please use this information to provide an accurate, grounded response. Mention t
         Raises:
             GeminiLiveError: If session not connected
         """
-        if not self.is_active or not self._running:
-            raise GeminiLiveError("Session not connected")
+        self._require_running()
 
         while self._running:
             try:
