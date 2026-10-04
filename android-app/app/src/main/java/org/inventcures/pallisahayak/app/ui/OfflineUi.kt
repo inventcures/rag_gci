@@ -1,6 +1,7 @@
 package org.inventcures.pallisahayak.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,10 +135,15 @@ fun MicrophoneWhenOffline(
     val tint = if (offline) Color(0xFF9CA3AF) else MaterialTheme.colorScheme.primary
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.semantics {
-            contentDescription =
-                if (offline) "Microphone unavailable offline" else "Ask by voice"
-        },
+        modifier = modifier
+            .semantics {
+                contentDescription =
+                    if (offline) "Microphone unavailable offline" else "Ask by voice"
+            }
+            // A plain tap, and only a plain tap. No long press, no double tap and no
+            // swipe: none are discoverable by someone who cannot read the hints, and
+            // none survive a motor tremor.
+            .clickable(enabled = !offline, onClick = onClick),
     ) {
         Box(
             modifier = Modifier
