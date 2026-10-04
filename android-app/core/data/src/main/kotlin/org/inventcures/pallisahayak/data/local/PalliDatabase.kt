@@ -17,8 +17,13 @@ import androidx.room.RoomDatabase
  * a lost or stolen device does not expose a patient history.
  */
 @Database(
-    entities = [InteractionEntity::class, CachedAnswerEntity::class],
-    version = 1,
+    entities = [
+        InteractionEntity::class,
+        CachedAnswerEntity::class,
+        HouseholdEntity::class,
+        HouseholdMemberEntity::class,
+    ],
+    version = 2,
     exportSchema = true,
 )
 abstract class PalliDatabase : RoomDatabase() {
@@ -26,6 +31,8 @@ abstract class PalliDatabase : RoomDatabase() {
     abstract fun interactions(): InteractionDao
 
     abstract fun cachedAnswers(): CachedAnswerDao
+
+    abstract fun households(): HouseholdDao
 
     companion object {
         private const val NAME = "palli-sahayak.db"
@@ -57,7 +64,43 @@ abstract class PalliDatabase : RoomDatabase() {
             // throws at open time instead, which is a loud failure in front of the
             // developer who caused it. That is the right trade for study data.
             Room.databaseBuilder(context, PalliDatabase::class.java, NAME)
+                .addMigrations(MIGRATION_1_2)
                 .build()
+
+        /**
+         * Adds the household tables without touching study data already stored.
+         *
+         * Written out rather than inferred, because the only alternative is deleting
+         * recorded interactions, and that is not a trade worth making for
+         * convenience. The change is additive: existing rows are untouched, so a
+         * device that upgrades keeps its history and the study keeps its evidence.
+         */
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS households (" +
+                        "id TEXT NOT NULL, owner_id TEXT NOT NULL, site_id TEXT NOT NULL, " +
+                        "primary_language TEXT NOT NULL, registered_at INTEGER NOT NULL, " +
+                        "release_id TEXT NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_households_owner_id " +
+                        "ON households (owner_id)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS household_members (" +
+                        "id TEXT NOT NULL, household_id TEXT NOT NULL, " +
+                        "display_name TEXT NOT NULL, patient_ref TEXT NOT NULL, " +
+                        "created_at INTEGER NOT NULL, PRIMARY KEY(id), " +
+                        "FOREIGN KEY(household_id) REFERENCES households(id) " +
+                        "ON DELETE CASCADE ON UPDATE NO ACTION)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_household_members_household_id " +
+                        "ON household_members (household_id)",
+                )
+            }
+        }
 
         /** Test seam. A test cannot share the process-wide instance above. */
         internal fun resetForTests() {

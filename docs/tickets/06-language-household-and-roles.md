@@ -24,3 +24,31 @@ privacy it cannot deliver.
 - [ ] The three role icons differ in silhouette and posture, not only in detail, and
       are distinguishable at small size by someone who cannot read the label
 - [ ] A participant cannot read another household's record by guessing an identifier
+
+## Progress, 2026-10-04
+
+Started. The data layer is done and tested:
+
+- `HouseholdEntity`, `HouseholdMemberEntity`, `HouseholdDao`.
+- Cross-household isolation is enforced in the SQL, not by the caller. Every read
+  joins on `owner_id`, and there is deliberately no `getHousehold(id)` overload that
+  could be used to bypass it. ADR 0006 leaves this as the one boundary that is real.
+- Schema 1 to 2 migration written out in full. `fallbackToDestructiveMigration`
+  stays forbidden, so an upgrade keeps the recorded interactions the study depends
+  on.
+- `HouseholdDaoTest`: 6 tests against a real Room database, including a guessed
+  member identifier from another household returning null.
+
+### One bug found on the way
+
+`OnConflictStrategy.REPLACE` is implemented as DELETE then INSERT, and the foreign
+key on `household_members` is `ON DELETE CASCADE`. Registering or re-syncing a
+household therefore deleted every member of it, silently, and the household came
+back empty. `@Upsert` updates in place and the members survive. Caught by a test
+that registered two members and found one.
+
+## Still to do
+
+Language selection and persistence, the eleven-language string coverage, plain
+refusal of an unsupported language, the household UI, the role switch, and the three
+role icons differentiated by silhouette.
