@@ -24,3 +24,37 @@ end to end
       needs a connection, not with silence or a stall
 - [ ] Cached answers are marked as such and are not presented as live
 - [ ] The app recovers cleanly when signal returns, without a restart
+
+## Survey before starting, 2026-10-04
+
+Started, not built. Recorded so the next session does not re-derive this.
+
+**Both blockers are complete, so this is unblocked.** Nothing in the nine criteria is
+met yet, and nothing was written.
+
+What already exists, and is the reason this is cheaper than it looks:
+
+- `CachedAnswerEntity` carries `queryHash`, `language`, `queryText`, `response`,
+  `answerKind`, `bundleVersion` and `fetchedAt`. `answerKind` on a cached row is what
+  makes criterion 2 possible: a redacted answer saved weeks ago can still render
+  differently from a live one.
+- `PalliSahayakRepository` already has `VOICE_PATH_CACHE = "cache"`, an
+  `offlineOrUnavailable(...)` path, and an `isOffline` flag on the session, and the
+  network failure already falls back rather than throwing.
+- The server side of the bundle is done: twenty questions per language in
+  `offline/questions.py`, built by `offline/cache_builder.py` through the mobile API
+  bundle route. `LanguageAndRoleTest` already asserts the client's eleven languages
+  match `SUPPORTED_LANGUAGES`, which is what the bundle is zipped against.
+
+Worth knowing before writing anything:
+
+- **A `LazyColumn` composes nothing under this Robolectric setup.** That is why the
+  T6 language picker has no UI test. Anything in T7 that needs a scrolling list will
+  hit the same wall, so plan for a non-lazy layout in the offline screens.
+- `InteractionEntity` already has `fromCache` and `interactionClass`, so criterion 9
+  (recover cleanly on reconnect, no restart) has somewhere to record what happened.
+
+Order worth following: criteria 2, 6, 7 and 8 are the safety and honesty ones and
+depend only on data that already exists. Criteria 4 and 5 are UI and carry the same
+Robolectric risk as T6. Criterion 9 needs the delta tracker, which exists in
+`sync/delta_tracker.py`.
