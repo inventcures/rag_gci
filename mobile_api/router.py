@@ -298,6 +298,26 @@ async def voice_query(
     )
 
 
+@mobile_router.get("/release/status")
+async def release_status():
+    """
+    Whether this build is allowed to be used with participants.
+
+    Deliberately unauthenticated. The app has to know this before it has a session,
+    because the gate is what decides whether to offer registration at all. The
+    payload is release status and drift only: no participant data, no credentials,
+    and nothing here that a participant could act on.
+
+    The app refuses to start against a release that is not approved, so this is the
+    other half of criterion 6 and the reason the endpoint exists at all. Without it
+    the client was stamping `release_approved` onto every interaction from a
+    hardcoded constant, which made the field decorative.
+    """
+    from study_release import StudyRelease
+
+    return StudyRelease().client_view()
+
+
 # -- Sync -------------------------------------------------------------------
 
 @mobile_router.post("/sync/push", response_model=SyncPushResponse)

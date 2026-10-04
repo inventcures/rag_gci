@@ -272,6 +272,36 @@ class StudyRelease:
         return path
 
     # -- startup ------------------------------------------------------------
+    def client_view(self) -> Dict[str, Any]:
+        """
+        What the app is allowed to know about this release.
+
+        Exists because the app records ``release_approved`` on every interaction but
+        nothing ever told it whether to. It stamped a value it had no way to
+        establish, which made the field decorative: a study could look at the
+        recorded rows and see approvals either way without being able to tell which
+        build produced them.
+
+        Approval and activation are reported separately on purpose. A release can be
+        approved by the leads and not yet activated for participants, and the app
+        needs both: the first says the record is signed, the second says the study
+        has actually opened it.
+        """
+        findings = self.check_drift()
+        return {
+            "release_id": self.release_id,
+            "release_name": self.release_name,
+            "status": self.status,
+            "activated": self.is_activated,
+            "approved": self.approvals_complete,
+            "usable_with_participants": self.is_activated and self.approvals_complete,
+            "drifting": bool(findings),
+            "drift": [
+                {"component": f.component, "recorded": f.recorded, "actual": f.actual}
+                for f in findings
+            ],
+        }
+
     def verify_on_startup(self, target_logger: Optional[logging.Logger] = None) -> List[DriftFinding]:
         """
         Emit the release banner and any drift, then persist the drift.

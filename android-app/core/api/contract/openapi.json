@@ -2237,6 +2237,26 @@
         ]
       }
     },
+    "/api/mobile/v1/release/status": {
+      "get": {
+        "description": "Whether this build is allowed to be used with participants.\n\nDeliberately unauthenticated. The app has to know this before it has a session,\nbecause the gate is what decides whether to offer registration at all. The\npayload is release status and drift only: no participant data, no credentials,\nand nothing here that a participant could act on.\n\nThe app refuses to start against a release that is not approved, so this is the\nother half of criterion 6 and the reason the endpoint exists at all. Without it\nthe client was stamping `release_approved` onto every interaction from a\nhardcoded constant, which made the field decorative.",
+        "operationId": "release_status_api_mobile_v1_release_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Release Status",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
     "/api/mobile/v1/sync/pull": {
       "post": {
         "operationId": "sync_pull_api_mobile_v1_sync_pull_post",
