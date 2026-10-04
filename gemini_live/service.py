@@ -514,6 +514,7 @@ class GeminiLiveService:
         location: Optional[str] = None,
         model: Optional[str] = None,
         rag_pipeline: Optional[Any] = None,
+        safety_manager: Optional[Any] = None,
         config: Optional[GeminiLiveConfig] = None
     ):
         """
@@ -532,6 +533,11 @@ class GeminiLiveService:
         self.location = location or self.config.location or "us-central1"
         self.model = model or self.config.model
         self.rag_pipeline = rag_pipeline
+
+        # The dose boundary for the tool-call path. Without this the tool returns
+        # raw retrieval text and the model speaks it verbatim, which is a dose leak
+        # on a path that looks like the safe one.
+        self.safety_manager = safety_manager
 
         # Initialize Google GenAI client
         self.client = self._create_client()
@@ -1384,6 +1390,20 @@ class GeminiLiveSession:
             s.get("filename", "Unknown")[:40] for s in result.get("sources", [])[:3]
         )
         answer = result["answer"]
+
+        # Apply the same boundary the text route applies, here, before the model
+        # sees a single character. Grounding the model on unsanitised retrieval text
+        # and relying on its discretion afterwards is how a dose reaches a patient
+        # through the route that was believed to be the safe one.
+        if self.service.safety_manager is not None:
+            safety = self.service.safety_manager.process_response(
+                query=query,
+                response=answer,
+                sources=result.get("sources", []),
+                language=getattr(self.service.config, "language", "en") or "en",
+            )
+            answer = safety.response
+
         logger.info(f"📚 RAG grounding: {len(answer)} chars, sources: {sources}")
         return (
             f"Verified palliative-care knowledge base result:\n{answer}\n\n"

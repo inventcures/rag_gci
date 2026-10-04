@@ -147,7 +147,15 @@ def build_live_service_factory(handler: Any) -> Any:
     def factory(session: Any) -> GeminiLiveTurnAdapter:
         from gemini_live.service import GeminiLiveService
 
-        return GeminiLiveTurnAdapter(GeminiLiveService(), handler, session)
+        # The safety manager is passed in so the tool-call path filters grounding
+        # text before the model can speak it. Built from the handler rather than
+        # imported from a global, because the router must not depend on the app
+        # having initialised anything.
+        service = GeminiLiveService(
+            rag_pipeline=getattr(handler, "rag_pipeline", None),
+            safety_manager=getattr(handler, "safety_manager", None),
+        )
+        return GeminiLiveTurnAdapter(service, handler, session)
 
     return factory
 
