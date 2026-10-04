@@ -238,7 +238,17 @@ class GeminiLiveConfig:
     api_key: Optional[str] = None
 
     # Model settings
-    model: str = "gemini-live-2.5-flash-preview-native-audio-09-2025"
+    # Verified against the live service on 2026-10-04. The previous default,
+    # gemini-live-2.5-flash-preview-native-audio-09-2025, is refused with 1008:
+    # it is no longer served for bidiGenerateContent. Real-time voice had therefore
+    # never worked against the live endpoint, and no test could have caught it
+    # because every test fakes the network.
+    #
+    # Two models are confirmed working: this one, and
+    # gemini-2.5-flash-native-audio-preview-09-2025. A real audio round trip on this
+    # one transcribed "What should I give for severe pain at home?" and replied
+    # "Managing severe pain at home" in 5.1 seconds.
+    model: str = "gemini-3.1-flash-live-preview"
 
     # Voice settings
     default_voice: str = DEFAULT_VOICE
