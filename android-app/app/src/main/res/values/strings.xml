@@ -22,4 +22,41 @@
     -->
     <string name="language_picker_title">Choose your language</string>
     <string name="language_picker_explainer">You can change this later in Settings. Answers will be spoken in the language you pick.</string>
+
+    <!--
+      Offline.
+
+      Criterion 3 says the offline state is conveyed by icon and colour as well as
+      by text, because a worker who cannot read these words still has to see that
+      nothing is live. So every string here is paired with a shape and a colour, and
+      none of them is the only carrier of the meaning.
+
+      The two miss reasons are worded differently on purpose. "No bundle yet" means
+      sync, and "not one of these questions" means find signal. Telling a worker to do
+      the wrong one wastes a visit.
+    -->
+    <string name="offline_banner_title">Offline</string>
+    <string name="offline_banner_body">%1$d questions are available without a connection. Answers may be out of date.</string>
+
+    <!-- Criterion 4: the microphone stays visible and says why it is inert. -->
+    <string name="mic_disabled_offline">Voice needs a connection</string>
+
+    <!-- Criterion 7: a miss explains itself instead of going quiet. -->
+    <string name="offline_miss_no_bundle">No offline questions have been downloaded yet. Connect once to download them.</string>
+    <string name="offline_miss_not_in_bundle">That question is not one of the pre-answered offline questions. It needs a connection.</string>
+
+    <!--
+      Answer kinds.
+
+      These words reinforce a colour and a shape. They are never the only thing
+      distinguishing a refusal from advice, because the reason to distinguish them is
+      that someone may not be able to read them.
+    -->
+    <string name="kind_answer">Answer</string>
+    <string name="kind_redacted">Dose information removed</string>
+    <string name="kind_deferral">Deferred to your clinician</string>
+
+    <!-- Criterion 8: a cached answer is never presented as live. -->
+    <string name="from_cache_badge">from offline bundle</string>
+    <string name="history_empty">Nothing recorded yet. Answers you give will appear here.</string>
 </resources>

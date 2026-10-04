@@ -9,20 +9,20 @@ end to end
 
 **Status:** ready-for-agent
 
-- [ ] Past interactions are readable with no connection, and survive the app being
+- [x] Past interactions are readable with no connection, and survive the app being
       closed
-- [ ] A Redacted Answer in history renders distinctly from an answer, so a refusal
+- [x] A Redacted Answer in history renders distinctly from an answer, so a refusal
       saved weeks earlier is not later mistaken for clinical advice
-- [ ] The offline state is persistent and unmissable, conveyed by icon and colour as
+- [x] The offline state is persistent and unmissable, conveyed by icon and colour as
       well as by plain text
-- [ ] The microphone remains visible but disabled when offline, with an explanation of
+- [x] The microphone remains visible but disabled when offline, with an explanation of
       why, rather than hidden or failing silently
 - [ ] Scheduled medication reminders already on the device continue to fire offline
 - [ ] Anticipated questions are answered with no network, from the downloaded bundle,
       in the user's chosen language
-- [ ] A question outside the bundle is answered with a clear explanation that it
+- [x] A question outside the bundle is answered with a clear explanation that it
       needs a connection, not with silence or a stall
-- [ ] Cached answers are marked as such and are not presented as live
+- [x] Cached answers are marked as such and are not presented as live
 - [ ] The app recovers cleanly when signal returns, without a restart
 
 ## Survey before starting, 2026-10-04
@@ -136,3 +136,29 @@ Two things recorded as decisions rather than left as surprises:
   answer implied to be what was asked.
 - **No bundle and not-in-bundle are different messages**, because the remedies differ:
   sync, or find signal.
+
+## History and offline UI, 2026-10-04
+
+Six criteria now met.
+
+- `HistoryRepository` (9 tests). Carries `answerKind` through from the stored row
+  rather than re-deriving it, so a refusal judged weeks ago is not re-judged now.
+- `OfflineAnswerResolver` (12 tests). The hash seam, which did not exist.
+- `OfflineUi`: banner, disabled mic, history cards, miss notice.
+
+Every offline string is paired with a shape or a colour, and none is the only
+carrier of the meaning. That is the point of criterion 3: a worker who cannot read
+the label still has to be able to tell that nothing is live, and to tell a refusal
+from advice.
+
+Built with a scrolling `Column` throughout, never a `LazyColumn`, because a
+LazyColumn composes nothing under this Robolectric setup and everything in it would
+have been untestable.
+
+## Still outstanding
+
+- **Scheduled medication reminders firing offline (criterion 5).** Nothing built.
+- **Clean recovery when signal returns (criterion 9).** `sync/delta_tracker.py`
+  exists on the server side; the client has no reconnection path wired.
+- **Screens are not composed into the navigation graph.** The composables exist and
+  compile, but no route shows them, so criterion 6 is not delivered end to end yet.
