@@ -80,6 +80,13 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.junit)
     testImplementation(libs.truth)
+
+    // Compose UI tests. The BOM is repeated here because the test source set does not
+    // inherit the main one, and without it ui-test-junit4 has no version to resolve
+    // to and the import fails as "unresolved" rather than as a version problem.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation(libs.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
     // The test builds a real in-memory Room database rather than mocking it, so

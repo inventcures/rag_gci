@@ -1,3 +1,25 @@
 <resources>
     <string name="app_name">Palli Sahayak</string>
+
+    <!--
+      Role switcher.
+
+      The wording is deliberately framing rather than protective. ADR 0006 settled
+      that the Care Role is not an access boundary: everyone in a household reads one
+      record, so a switch that appeared to lock anything would be teaching something
+      untrue. Phrases like "Switch account" or "Change profile securely" would
+      reintroduce exactly that impression, so none of them appear.
+    -->
+    <string name="role_switch_explainer">Changing this changes how answers are framed. Everyone in the household reads the same record.</string>
+    <string name="role_switch_title">Speaking as</string>
+
+    <!--
+      Language.
+
+      Shown once. Re-asking on every launch trains a worker to dismiss the dialog
+      without reading it, which is how a wrong language gets set silently and then
+      answers in a language the user did not choose.
+    -->
+    <string name="language_picker_title">Choose your language</string>
+    <string name="language_picker_explainer">You can change this later in Settings. Answers will be spoken in the language you pick.</string>
 </resources>

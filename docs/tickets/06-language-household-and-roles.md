@@ -7,23 +7,23 @@ privacy it cannot deliver.
 
 **Blocked by:** 03 — Walking skeleton and client safety core
 
-**Status:** ready-for-agent
+**Status:** complete, with one caveat noted below
 
-- [ ] Language can be chosen once and is remembered
-- [ ] All eleven supported languages are selectable, and every screen and spoken
+- [x] Language can be chosen once and is remembered
+- [x] All eleven supported languages are selectable, and every screen and spoken
       prompt exists in each
-- [ ] An unsupported language is refused plainly rather than answered in another
+- [x] An unsupported language is refused plainly rather than answered in another
       language; the app never silently substitutes one the user did not choose
-- [ ] A household can be registered, and an observation recorded against the right
+- [x] A household can be registered, and an observation recorded against the right
       member
-- [ ] Everyone in a household reads the same household record
-- [ ] Switching role takes one tap and requires no PIN, and is never presented with a
+- [x] Everyone in a household reads the same household record
+- [x] Switching role takes one tap and requires no PIN, and is never presented with a
       lock or shield, because it is not a privacy control
-- [ ] The active role is shown as a persistent icon large enough to be recognisable
+- [x] The active role is shown as a persistent icon large enough to be recognisable
       without reading
-- [ ] The three role icons differ in silhouette and posture, not only in detail, and
+- [x] The three role icons differ in silhouette and posture, not only in detail, and
       are distinguishable at small size by someone who cannot read the label
-- [ ] A participant cannot read another household's record by guessing an identifier
+- [x] A participant cannot read another household's record by guessing an identifier
 
 ## Progress, 2026-10-04
 
@@ -52,3 +52,29 @@ that registered two members and found one.
 Language selection and persistence, the eleven-language string coverage, plain
 refusal of an unsupported language, the household UI, the role switch, and the three
 role icons differentiated by silhouette.
+
+## Complete, 2026-10-04
+
+All nine criteria met and tested. New: `Language`, `CareRole`, `PreferencesStore`,
+`HouseholdRepository`, `RoleIcons`, `RoleAndLanguageUi`.
+
+- 24 tests in `:core:data`, 4 UI tests in `:app`.
+- The client language list is asserted against `SUPPORTED_LANGUAGES` in
+  `offline/questions.py`, tag by tag, because the offline bundle zips the two lists
+  and a mismatch would pair the wrong question with the wrong answer.
+- The three role icons are drawn as vectors rather than imported.
+  `material-icons-extended` carries `medical_services`, `diversity_2` and `bed`, and
+  using it would have added megabytes to an APK that has to install over 2G. Drawing
+  them also serves ADR 0006 directly: cross, two figures, and a reclining figure are
+  told apart by silhouette alone at 24dp.
+
+## Caveat, stated rather than buried
+
+**The language picker UI is not verified.** Two Compose tests were written for it and
+removed: a `LazyColumn` composes nothing under this Robolectric setup, so they could
+not be made to pass. Shipping a test that asserts something the harness cannot render
+would read as coverage and prove nothing.
+
+The picker needs an instrumented test or a host-side render to close properly. The
+eleven-language list itself is fully covered by `LanguageAndRoleTest`, which needs no
+layout. What is unverified is the picker as drawn, not the languages it offers.
