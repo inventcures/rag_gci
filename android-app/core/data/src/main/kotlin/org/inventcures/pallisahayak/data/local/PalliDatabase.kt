@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import org.inventcures.pallisahayak.data.reminders.ReminderDao
+import org.inventcures.pallisahayak.data.reminders.ReminderEntity
 
 /**
  * The app's on-device store.
@@ -22,8 +24,9 @@ import androidx.room.RoomDatabase
         CachedAnswerEntity::class,
         HouseholdEntity::class,
         HouseholdMemberEntity::class,
+        ReminderEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class PalliDatabase : RoomDatabase() {
@@ -33,6 +36,8 @@ abstract class PalliDatabase : RoomDatabase() {
     abstract fun cachedAnswers(): CachedAnswerDao
 
     abstract fun households(): HouseholdDao
+
+    abstract fun reminders(): ReminderDao
 
     companion object {
         private const val NAME = "palli-sahayak.db"
@@ -64,8 +69,27 @@ abstract class PalliDatabase : RoomDatabase() {
             // throws at open time instead, which is a loud failure in front of the
             // developer who caused it. That is the right trade for study data.
             Room.databaseBuilder(context, PalliDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
+
+        /**
+         * Adds the reminders table, same reasoning as 1 to 2.
+         *
+         * Additive and written out, because the alternative is deleting the recorded
+         * interactions the study depends on.
+         */
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS reminders (" +
+                        "id TEXT NOT NULL, medication_ref TEXT NOT NULL, " +
+                        "reminder_text TEXT NOT NULL, minutes_of_day INTEGER NOT NULL, " +
+                        "day_of_week INTEGER NOT NULL, language_tag TEXT NOT NULL, " +
+                        "enabled INTEGER NOT NULL, created_at INTEGER NOT NULL, " +
+                        "PRIMARY KEY(id))",
+                )
+            }
+        }
 
         /**
          * Adds the household tables without touching study data already stored.

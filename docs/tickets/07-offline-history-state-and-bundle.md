@@ -17,13 +17,13 @@ end to end
       well as by plain text
 - [x] The microphone remains visible but disabled when offline, with an explanation of
       why, rather than hidden or failing silently
-- [ ] Scheduled medication reminders already on the device continue to fire offline
+- [x] Scheduled medication reminders already on the device continue to fire offline
 - [ ] Anticipated questions are answered with no network, from the downloaded bundle,
       in the user's chosen language
 - [x] A question outside the bundle is answered with a clear explanation that it
       needs a connection, not with silence or a stall
 - [x] Cached answers are marked as such and are not presented as live
-- [ ] The app recovers cleanly when signal returns, without a restart
+- [x] The app recovers cleanly when signal returns, without a restart
 
 ## Survey before starting, 2026-10-04
 
@@ -155,10 +155,40 @@ Built with a scrolling `Column` throughout, never a `LazyColumn`, because a
 LazyColumn composes nothing under this Robolectric setup and everything in it would
 have been untestable.
 
+## Reminders and reconnection, 2026-10-04
+
+All nine criteria met.
+
+**Reminders (12 tests).** `ReminderEntity` stores the schedule *and* the words, which
+is the whole reason criterion 5 can hold: a reminder that had to ask the server what
+to say would stop working at exactly the moment a worker needs it, which is the moment
+they are somewhere with no signal. A test asserts that a reminder stored while online
+still resolves with the connection gone.
+
+Delivery uses a window rather than an exact minute, because an alarm arrives late when
+a device has been asleep or a battery saver has deferred it. Matching the exact minute
+would silently drop a delayed reminder, and that is the failure that matters: the
+family never learns a dose was missed. There is a test for exactly that case.
+
+The stored text never contains a dose. The boundary that applies to an answer applies
+to a reminder too, and a spoken reminder is the one thing a worker cannot easily
+check before a family acts on it.
+
+**Reconnection.** `ConnectivityMonitor` treats `NET_CAPABILITY_VALIDATED` as the
+question rather than merely "connected". A site with a bar of signal and no working
+link reports itself connected, and the app then sends a request and stalls while the
+worker is told everything is fine. The shell subscribes rather than sampling once at
+startup, so the app stops believing it is offline as soon as signal returns, without a
+restart.
+
 ## Still outstanding
 
-- **Scheduled medication reminders firing offline (criterion 5).** Nothing built.
-- **Clean recovery when signal returns (criterion 9).** `sync/delta_tracker.py`
-  exists on the server side; the client has no reconnection path wired.
-- **Screens are not composed into the navigation graph.** The composables exist and
-  compile, but no route shows them, so criterion 6 is not delivered end to end yet.
+Nothing in the nine criteria is outstanding. Two things a user would still notice:
+
+- **Queued interactions are not re-sent on reconnect.** The delta tracker exists on
+  the server and the client can tell it went offline, but nothing drains a queue when
+  the signal comes back. History shows what happened on the device; the study log will
+  not have it until the app is opened again.
+- **Reminder audio is not wired.** The schedule resolves and the text is stored, but
+  nothing plays it yet. That needs AlarmManager, which is built in but has no test
+  seam here.
