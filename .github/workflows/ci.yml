@@ -163,6 +163,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: No user-facing English literals
+        # Criterion 4. Auditing this by reading found three hardcoded strings in one
+        # sitting, inside a Hindi app, while the criterion was already ticked. Made a
+        # build failure so the next one fails the build too.
+        run: python3 scripts/check_no_hardcoded_strings.py
+
       - name: Fail if the evidence record is stale
         # Protocol 7.7 makes this a precondition for participant use. The record is
         # generated from the tests rather than written by hand, so it cannot claim

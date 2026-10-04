@@ -53,13 +53,16 @@ system that is not running.
 
 ## Outstanding
 
-- **Criterion 1**, every primary action completable from pictures alone. Needs the
-  icon set audited against each primary action, which is judgement rather than code.
+- **Criterion 1**, every primary action completable from pictures alone. The glyph set
+  now covers ask, stop, replay, mic, history and settings, but whether a
+  semi-literate user can actually pair each glyph with its action is a field
+  judgement, not a code property.
 - **Criterion 5**, legible at the largest system font on a small screen. Needs a real
   font-scale render, which this Robolectric setup will not do honestly.
-- **Criterion 8**, the low-end reference device and the download size. The APK builds
-  and its size is measurable; whether it installs and runs on that device is not
-  something a build server can answer.
-- **Criterion 9**, evidence that the dosage restriction is enforced and tested. The
-  tests exist and are named per invariant; whether they satisfy the study's own
-  definition of the evidence is the study's call, not mine.
+- **Criterion 8**, the device half. Size and download time are measured and gated:
+  1.61 MB, 1m 24s on sustained 2G, with a 6 MB budget enforced in CI. Whether it
+  installs and runs on the low-end reference device is not something a build server
+  can answer and needs either hardware or your acceptance of the available evidence.
+- **Criterion 9**, evidence is generated from the tests: SI-1 4 tests, SI-2 8, SI-4 8,
+  plus 7 server-side. The record states plainly that it does not decide whether the
+  study's own standard is met.

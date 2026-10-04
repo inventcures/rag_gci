@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 
 import org.inventcures.pallisahayak.app.ui.AppScaffold
 import org.inventcures.pallisahayak.app.ui.HistoryList
@@ -43,7 +44,7 @@ fun AppRoot() {
 
     if (viewModel == null) {
         // Only reachable outside an Activity, which in this app means a preview.
-        Text("Palli Sahayak is starting")
+        Text(stringResource(R.string.starting_up))
         return
     }
 
@@ -63,7 +64,7 @@ fun AppRoot() {
         },
         ask = { AskScreen(viewModel, offline = !online) },
         history = { HistoryList(entries = history) },
-        settings = { Text("Settings") },
+        settings = { Text(stringResource(R.string.settings_placeholder)) },
     )
 }
 

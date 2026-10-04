@@ -59,4 +59,20 @@
     <!-- Criterion 8: a cached answer is never presented as live. -->
     <string name="from_cache_badge">from offline bundle</string>
     <string name="history_empty">Nothing recorded yet. Answers you give will appear here.</string>
+
+    <!--
+      Ask screen.
+
+      These three were hardcoded English literals, so a Hindi user saw "Stop speaking"
+      in the middle of a Hindi app. Found while auditing for criterion 4, which had
+      been ticked on the strength of the offline screens alone. A criterion that is
+      ticked from a partial audit is worse than one left open.
+    -->
+    <string name="ask_prompt">Ask a question</string>
+    <string name="stop_speaking">Stop speaking</string>
+    <string name="replay_answer">Play the answer again</string>
+
+    <string name="starting_up">Palli Sahayak is starting</string>
+    <string name="nav_settings">Settings</string>
+    <string name="settings_placeholder">Settings will be available before the study begins.</string>
 </resources>

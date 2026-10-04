@@ -22,6 +22,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -137,7 +138,7 @@ private fun QuestionInput(
             onValueChange = onDraftChanged,
             enabled = enabled,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Ask a question") },
+            label = { Text(stringResource(R.string.ask_prompt)) },
             minLines = 2,
         )
         Button(
@@ -329,7 +330,7 @@ private fun StopSpeakingButton(onStop: () -> Unit) {
             .height(64.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B1A1A)),
     ) {
-        Text("Stop speaking", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.stop_speaking), style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -341,6 +342,6 @@ private fun ReplayButton(onReplay: () -> Unit) {
             .fillMaxWidth()
             .height(56.dp),
     ) {
-        Text("Play the answer again", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.replay_answer), style = MaterialTheme.typography.titleMedium)
     }
 }
