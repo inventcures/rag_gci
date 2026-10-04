@@ -3,7 +3,7 @@
 **Purpose:** paste this into a fresh session after context compaction to resume work
 without re-deriving anything.
 **Written:** 4 October 2026. Updated at the end of the T4 build.
-**Commit at update:** `5ed284b` on `main`, clean and pushed.
+**Commit at update:** `1448d63` on `main`, clean and pushed.
 **Repo:** `/home/tp53/showmethecode/rag_gci` · branch `main` · remote `inventcures/rag_gci`
 
 ---
@@ -90,10 +90,10 @@ T1  Retrieval — bge-m3 end to end                      ✅ COMPLETE  8/8
 T2  Project and contract seam                          ✅ COMPLETE  5/5
 T3  Walking skeleton + client safety core              ✅ COMPLETE
 T4  Voice — push-to-talk, then real-time               ✅ COMPLETE
-T5  Voice resilience — fallback + admin override       🔶 arbitration, override, audit done; Gemini transport outstanding
-T6  Language, household and roles                      ⬜
-T7  Offline — history, state, cached bundle            ⬜
-T8  Accessibility contract + release gate              ⬜
+T5  Voice resilience — fallback + admin override       ✅ COMPLETE  7/7
+T6  Language, household and roles                      ✅ COMPLETE  9/9
+T7  Offline — history, state, cached bundle            ✅ COMPLETE  9/9
+T8  Accessibility contract + release gate              ✅ COMPLETE  9/9
 ```
 
 ### T1 — complete
@@ -149,14 +149,36 @@ Voice works end to end, and voice obeys the same safety rules as text.
 `LiveVoiceProvider` has nothing to call. That adapter is the last mile of real-time
 voice. Everything either side of it is built and tested.
 
-### T5 — complete in code, blocked on one dependency
+### T5, T6, T7, T8 — all complete
 
-Arbitration, fallback rate, operator override and audit trail all exist. They are
-now also **connected**, which they were not before. See the findings below.
+Every ticket is now closed. T5 needed the router wired to anything; T6 added language,
+household and roles; T7 added the offline bundle, history and reminders; T8 added the
+accessibility contract and the release gate.
 
-Remaining: `google-genai` is not installed, so `LiveAvailability.probe()` correctly
-reports Live unavailable and every turn falls back to Sarvam. Installing it needs a
-decision (see section 10).
+**T5's last mile was a retired model.** `gemini_live/config.py` and `config.yaml`
+both named `gemini-live-2.5-flash-native-audio-09-2025`, which the service refuses
+with 1008. Fixing the dataclass default did nothing, because `get_config()` reads the
+YAML. Real-time voice had never worked. It works now on
+`gemini-3.1-flash-live-preview`, verified with a real audio round trip.
+
+**Two voice routes would have returned HTTP 500 on every turn.** They called
+`rag_pipeline.query` with `language` and `query_text`, which
+`SimpleRAGPipeline.query` does not accept. Every test passed because the fakes
+accepted `**kw`. The fake now mirrors the real signature and a guard test fails the
+build if they drift.
+
+**The router was dead code.** `set_voice_router` had no callers, `LiveVoiceProvider`
+was constructed nowhere, and `POST /query/voice` — the path the app actually uses —
+transcribed with Sarvam and reported `voice_path=live` while doing exactly that.
+
+**The offline bundle could never answer anything.** The builder keyed rows on
+`sha256(question.lower().strip())` and nothing on the Android side computed that, so
+every lookup missed. Both sides now normalise, including a trailing question mark,
+because a worker typing "How do I manage pain?" missed every row.
+
+**The client stamped `release_approved` from a hardcoded constant.** Nothing told it
+what to stamp, so the field was decorative. `GET /release/status` and a gate now
+exist, and drift outranks approval in it.
 
 ## Findings that were expensive to learn
 
@@ -487,17 +509,33 @@ python scripts/live_roundtrip_check.py     # Gemini Live, audio in and out
 python scripts/sarvam_roundtrip_check.py   # Sarvam STT
 ```
 
-### Still unproven, and it is the part that matters
+### Both resolved, verified live
 
-**The grounding tool call has never fired on a live turn.** Gemini answered from its
-own audio turn and mentioned no sources, and two runs of the same audio gave different
-answers, so the response is non-deterministic. ADR 0007 requires grounding through a
-tool call back to the retrieval and safety path, and that requirement has not been
-observed working. Until it is, the India-residency claim is unsupported.
+**The grounding tool call fires.** A live probe with real audio and a real RAG
+pipeline attached shows the model's own rephrased query reaching the pipeline:
 
-**A 1008 is still reported as "Session not connected".** `connect()` logs success, the
-socket dies, and `send_audio` raises a misleading error. Still unfixed, and still the
-highest-value bug here.
+```
+RAG TOOL CALL: 'what to give for severe pain at home'
+TOOL CALL FIRED: YES   RAG INVOCATIONS: 1
+```
+
+It had never fired because the model name was retired and the socket closed with
+1008 before anything was sent. Grounding happens on this server, so the India
+residency requirement in ADR 0007 is now structurally in place. What remains is
+Google's written confirmation, not our code.
+
+**The 1008 masking is fixed.** `connect()` used to log success, the socket died
+moments later, and `send_audio` raised "Session not connected", which points at the
+connection code rather than at a retired model. The reason is now recorded and
+reported:
+
+```
+GeminiLiveError: session 'x' ended: APIError: 1008 models/... is not found
+```
+
+An unknown model is now refused rather than silently substituted, because a typo in
+`config.yaml` otherwise produced a working voice path answering with a model nobody
+chose, with only a warning that nobody reads.
 
 ### The environment
 
@@ -518,6 +556,10 @@ repository root on the path; editable installs were tried and rejected.
 
 ### CI notes for whoever touches it next
 
+- `requirements.txt` cannot be installed. `ktem` and `kotaemon` are 404 on PyPI
+  because they ship with the vendored `kotaemon-main` tree, and `whisper-openai>=20231107`
+  names a version that was never published. CI filters those three out of the real
+  file rather than keeping a second list, which drifts.
 - The Gradle wrapper pointed at `file:///tmp/gradle.zip`. It resolved on exactly one
   machine and nowhere else, so Android CI could never have run. Now points at 8.11.1.
 - The Android SDK is installed explicitly. `android-actions/setup-android` checks the
@@ -529,12 +571,31 @@ repository root on the path; editable installs were tried and rejected.
 - `build_docs.py` reads routes with `ast`, not by importing, because the import made
   the generated page depend on what was installed.
 - It also sorts its glob. Unsorted, the page depended on filesystem ordering and
-  differed between a working copy and a fresh clone.
+  differed between a working copy and a fresh clone, which presented as a stale-docs
+  failure on every run.
+- Four static gates run in CI and all caught real defects: no user-facing English
+  literals, no fixed height on a text container, the dosage evidence record current,
+  and the APK size budget. Each had bugs of its own, found by probing them with
+  deliberate violations rather than by trusting a green run.
 
 ### Known limits, stated plainly
 
-- **No Live turn has been exercised against the real Gemini endpoint.** Every test
-  fakes the network. The transport is written and wired, not proven in anger.
+- **Live transport is proven**, but only for one turn of audio in and one spoken
+  answer out. Interruption mid-answer is wired on both sides and has never been
+  exercised against the real service.
+- **Queued interactions are not re-sent on reconnect.** The device knows it went
+  offline and the delta tracker exists server-side, but nothing drains a queue when
+  signal returns, so the study log lags the device until the app is reopened. For an
+  adoption study that gap is material.
+- **Reminder audio is not wired.** The schedule resolves and the text is stored, but
+  nothing plays it. Needs AlarmManager, which has no test seam here.
+- **Criterion 4's translations were never audited.** The check proves every string is
+  a translatable resource with no hardcoded literals, which is a real and enforced
+  property. It says nothing about whether the Hindi, Marathi and Tamil strings exist
+  or read well, and native-speaker review is still outstanding.
+- **Criterion 1 is code-complete, not field-proven.** Every primary action has a
+  glyph. Whether a semi-literate user pairs each glyph with its action is a field
+  judgement.
 - **Interruption has no test.** The server discards the half-heard turn and the client
   sends the frame, but nothing asserts the sequence.
 - **Ticket 04 criterion 4 has no test.** The override is admin-only by inspection
@@ -554,10 +615,18 @@ repository root on the path; editable installs were tried and rejected.
   history and confirming `uploads/` holds no tracked files. Whether the protocol and
   grant documents should be published is a study decision, not an engineering one.
 - `STUDY_LOG_SALT` is unset. Participant ids are not linkable across restarts, and
-  sustained adoption is unmeasurable without it.
-- The Gemini API key is in `.env` and in the session transcript on disk. Rotate it.
+  sustained adoption is unmeasurable without it. This blocks the study's primary
+  outcome and nothing else in the codebase can substitute for it.
+- **Rotate both API keys.** The Gemini key and the Sarvam key were both pasted into
+  the chat, so both are in the session transcript on disk. `.env` is mode 600 and
+  untracked, which is not where the exposure is.
 - Residency needs written confirmation from Google. A selected region is not itself
-  evidence.
+  evidence; their documentation warns that endpoints do not guarantee it. Grounding
+  now demonstrably runs on our server, which is the part we control, and the written
+  confirmation is the part we do not.
+- Native-speaker review of all Indic, emergency, deferral and offline copy. Every
+  string is now a translatable resource, which makes the review possible, but
+  nothing in the repository confirms it has happened.
 
 ## 11. Working practices worth keeping
 
