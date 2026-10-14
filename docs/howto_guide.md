@@ -1288,6 +1288,16 @@ file: <binary>
 metadata: {"category": "medical"}
 ```
 
+Returns `{"status": "queued", "job_id": "...", "stored_as": "..."}` at once; the
+document is indexed in the background, one upload at a time.
+
+#### Upload Status
+```http
+GET /api/upload/{job_id}
+```
+
+Reports `queued`, `running`, `done` or `failed`, with the indexing result or error.
+
 #### List Documents
 ```http
 GET /api/documents

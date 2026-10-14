@@ -229,7 +229,8 @@ result = await rag.query_with_auto_recovery("your question")
 
 ### API Routes
 - `POST /api/query` - Direct query endpoint
-- `POST /api/upload` - File upload endpoint
+- `POST /api/upload` - File upload; returns a job id, indexing runs in the background
+- `GET /api/upload/{job_id}` - Upload indexing status
 - `POST /api/set_language` - Set user language preference
 - `GET /api/health-check` - Database health monitoring
 - `POST /api/rebuild` - Trigger database rebuild

@@ -234,3 +234,25 @@ Each entry: what was decided, the alternatives, and why.
 - **Still built on first request, not at startup.** Startup building would
   spend twenty answers per language on every deploy, including languages no
   one requests. Revisit if the first download's wait matters in the field.
+
+## 10: Uploads index in the background
+
+- **`POST /api/upload` returns a job id at once; `GET /api/upload/{job_id}`
+  reports queued, running, done or failed.** This changes the response: it no
+  longer carries the indexing result. Nothing in the repo read it; the docs
+  are updated. Revisit if an external script relies on the old shape.
+- **Jobs run one at a time.** Two guidelines embedding at once would double
+  the CPU taken from live calls, and Chroma writes serialise anyway. The last
+  200 jobs are kept for status queries, in memory: a restart forgets them.
+- **Blocking work runs in worker threads:** copy and parse, then embedding in
+  batches of 32 chunks, then persist, verify and the metadata save. Each batch
+  is one `vector_db.add`, so the GIL is released between batches. Chunk ids
+  and metadata are identical to a single add.
+- **Stored filenames are sanitised:** directory parts and `..` are dropped,
+  unusual characters become `_`, Indic letters are kept, and a random prefix
+  keeps repeated names apart.
+- **The Gradio admin upload is unchanged:** it already runs in Gradio's worker
+  thread with its own loop.
+- **Not measured with real bge-m3** (the model cannot be downloaded here). The
+  loop-blocking test uses a slow fake parser and collection; the worst stall
+  stays under 50 ms.

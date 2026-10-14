@@ -208,6 +208,7 @@ from retrieval.kg_check import KGCrossReferenceChecker
 from retrieval.audit import record_retrieval
 from retrieval.embedder import QueryEmbedder, share_loaded_model, vector_search
 from post_work import after_reply, stats as post_work_stats
+import ingest_jobs
 from participants import ephemeral, is_person
 from llm import get_llm_client
 from observability import record_span, span, trace_request
@@ -1198,8 +1199,15 @@ class SimpleRAGPipeline:
                 "traceback": traceback.format_exc()
             }
     
+    # Chunks embedded and added per worker-thread call while indexing.
+    INDEX_BATCH = 32
+
     async def add_documents(self, file_paths: List[str], metadata: Optional[Dict] = None) -> Dict[str, Any]:
-        """Add documents to the RAG index"""
+        """Add documents to the RAG index.
+
+        Copying, parsing, chunking, embedding and verification are blocking
+        work; each runs in a worker thread, the embedding in batches, so live
+        calls keep their event loop while a guideline is indexed."""
         try:
             results = []
             
@@ -1208,11 +1216,9 @@ class SimpleRAGPipeline:
                     logger.warning(f"File not found: {file_path}")
                     continue
                 
-                # Copy to permanent storage first
-                permanent_path = self._copy_to_permanent_storage(file_path)
-                
-                # Process document from permanent storage
-                doc_result = self.document_processor.process_file(permanent_path)
+                with span("ingest.parse"):
+                    permanent_path = await asyncio.to_thread(self._copy_to_permanent_storage, file_path)
+                    doc_result = await asyncio.to_thread(self.document_processor.process_file, permanent_path)
                 
                 if doc_result["status"] != "success":
                     results.append({
@@ -1251,13 +1257,16 @@ class SimpleRAGPipeline:
                 
                 # Add to vector database with error handling
                 try:
-                    self.vector_db.add(
-                        documents=chunks,
-                        metadatas=chunk_metadata,
-                        ids=chunk_ids
-                    )
-                    # Force persistence after adding
-                    self._persist_vector_db()
+                    with span("ingest.embed", chunks=len(chunks)):
+                        for start in range(0, len(chunks), self.INDEX_BATCH):
+                            stop = start + self.INDEX_BATCH
+                            await asyncio.to_thread(
+                                self.vector_db.add,
+                                documents=chunks[start:stop],
+                                metadatas=chunk_metadata[start:stop],
+                                ids=chunk_ids[start:stop],
+                            )
+                    await asyncio.to_thread(self._persist_vector_db)
                 except Exception as e:
                     logger.error(f"Error adding document to vector DB: {e}")
                     results.append({
@@ -1280,14 +1289,14 @@ class SimpleRAGPipeline:
                 }
                 
                 # Verify the document was properly indexed
-                if self._verify_document_in_vector_db(doc_id):
+                if await asyncio.to_thread(self._verify_document_in_vector_db, doc_id):
                     results.append({
                         "file_path": file_path,
                         "status": "success",
                         "doc_id": doc_id,
                         "chunks": len(chunks)
                     })
-                    logger.info(f"Successfully indexed and verified: {file_path} ({len(chunks)} chunks)")
+                    logger.info(f"Successfully indexed and verified: {Path(file_path).name} ({len(chunks)} chunks)")
 
                     # Trigger PageIndex tree building if enabled (non-blocking)
                     if _pageindex_enabled and _pageindex_builder:
@@ -1310,10 +1319,10 @@ class SimpleRAGPipeline:
                         "status": "error",
                         "error": "Document indexing verification failed"
                     })
-                    logger.error(f"Document indexing verification failed for: {file_path}")
+                    logger.error(f"Document indexing verification failed for: {Path(file_path).name}")
             
             # Save metadata
-            self._save_metadata()
+            await asyncio.to_thread(self._save_metadata)
             
             return {
                 "status": "success",
@@ -5571,25 +5580,36 @@ def main():
     
     @app.post("/api/upload")
     async def api_upload(file: UploadFile = File(...), metadata: str = Form("{}")):
-        """API endpoint for file uploads"""
+        """Save the upload and queue it for indexing; returns the job id.
+
+        Indexing runs in the background (ingest_jobs): poll
+        GET /api/upload/{job_id} for queued, running, done or failed."""
         try:
-            # Save uploaded file
-            upload_dir = Path("uploads")
-            upload_dir.mkdir(exist_ok=True)
-            
-            file_path = upload_dir / file.filename
-            with open(file_path, "wb") as f:
-                f.write(await file.read())
-            
-            # Parse metadata
             metadata_dict = json.loads(metadata) if metadata else {}
-            
-            # Index file
-            result = await rag_pipeline.add_documents([str(file_path)], metadata_dict)
-            
-            return result
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="metadata is not valid JSON")
+        upload_dir = Path("uploads")
+        file_path = upload_dir / ingest_jobs.safe_upload_name(file.filename)
+        content = await file.read()
+
+        def save() -> None:
+            upload_dir.mkdir(exist_ok=True)
+            file_path.write_bytes(content)
+
+        await asyncio.to_thread(save)
+        job_id = ingest_jobs.submit(
+            file_path.name,
+            functools.partial(rag_pipeline.add_documents, [str(file_path)], metadata_dict),
+        )
+        return {"status": "queued", "job_id": job_id, "stored_as": file_path.name}
+
+    @app.get("/api/upload/{job_id}")
+    async def api_upload_status(job_id: str):
+        """Indexing job status: queued, running, done or failed."""
+        job = ingest_jobs.status(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Unknown job")
+        return job
 
     # ==========================================================================
     # PAGEINDEX RAG ENDPOINTS
