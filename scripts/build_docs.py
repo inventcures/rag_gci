@@ -668,17 +668,20 @@ heads.forEach(h=>io.observe(h));
 
 def normalise_volatile(markup: str) -> str:
     """
-    Blank out the two fields that change on every build.
+    Blank out the fields that change on every build.
 
-    The rendered page records when it was built and which commit it was built
-    from. Both change every time the page is rebuilt, so comparing them verbatim
-    means `--check` can never pass, including on the very commit that updates the
+    The rendered page records when it was built, which commit and which branch
+    it was built from. These change whenever or wherever the page is rebuilt, so
+    comparing them verbatim means `--check` can never pass, including on the very commit that updates the
     docs. A gate that always fails is a gate nobody reads.
 
     Everything else is compared exactly, which is the part that catches real drift.
     """
     markup = re.sub(r"Generated [^<]*? from commit", "Generated <volatile> from commit", markup)
     markup = re.sub(r"<code>[0-9a-f]{7,40}</code>", "<code><volatile></code>", markup)
+    # The branch is "HEAD" in CI (a detached pull-request checkout) and a real
+    # name locally, so it varies with where the page was built, not with the code.
+    markup = re.sub(r"(from commit\s*<code>.*?</code> on )<code>[^<]*</code>", r"\1<code><volatile></code>", markup)
     markup = re.sub(
         r'<div class="k">Commit</div><div class="v">[0-9a-f]{7,40}</div>',
         '<div class="k">Commit</div><div class="v"><volatile></div>',
