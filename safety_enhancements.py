@@ -1640,3 +1640,59 @@ def get_safety_manager() -> SafetyEnhancementsManager:
     if _safety_manager is None:
         _safety_manager = SafetyEnhancementsManager()
     return _safety_manager
+
+
+def guard_query_result(
+    result: Any,
+    *,
+    query: str,
+    language: str = "en",
+    safety_manager: Optional[SafetyEnhancementsManager] = None,
+) -> Optional[SafetyResult]:
+    """
+    Pass a `SimpleRAGPipeline.query()` result through the answer boundary, in place.
+
+    `query()` returns the drafted answer. The mobile and voice routes run that
+    draft through `process_response` (which applies the dosage guard) before a
+    user sees it; this is the same step for the routes that hand the result dict
+    straight on: the web API, the admin query tab, Bolna and WhatsApp.
+
+    `result["answer"]` is replaced by the guarded text, so everything downstream
+    (the HTTP body, a WhatsApp message, a translation, TTS, conversation history)
+    can only see what the user is allowed to receive. The draft is not kept
+    anywhere in the result. The safety outcome is attached as `result["safety"]`.
+
+    Returns the SafetyResult, or None when there was no answer text to guard
+    (an error result). Errors in the guard propagate: callers already turn an
+    exception into an error message, which is the fail-closed outcome.
+    """
+    if not isinstance(result, dict):
+        return None
+    answer = result.get("answer")
+    if not isinstance(answer, str) or not answer:
+        return None
+
+    manager = safety_manager if safety_manager is not None else get_safety_manager()
+    safety = manager.process_response(
+        query=query,
+        response=answer,
+        sources=result.get("sources") or [],
+        language=language or "en",
+    )
+    result["answer"] = safety.response
+    result["safety"] = {
+        "evidence_level": safety.evidence_level,
+        "emergency_level": safety.emergency_level,
+        "confidence": safety.confidence,
+        "validation_status": safety.validation_status,
+        "disclaimer": safety.disclaimer,
+        "dosage_blocked": safety.dosage_blocked,
+        "dosage_reason": safety.dosage_reason,
+        "emergency_overrode_dosage": safety.emergency_overrode_dosage,
+    }
+    if safety.dosage_blocked:
+        logger.info(
+            "Dosage guard applied to a %s answer (%s)",
+            result.get("status", "unknown"), safety.dosage_reason,
+        )
+    return safety

@@ -173,17 +173,25 @@ async def mobile_query(
     safety_manager=Depends(get_safety_manager),
 ):
     t0 = time.perf_counter()
+    # SimpleRAGPipeline.query takes (question, conversation_id, user_id, top_k,
+    # source_language) and returns a dict. This route once called it with
+    # query_text=/language= and read attributes off the result, so every mobile
+    # text query raised before reaching the dose boundary.
     result = await rag_pipeline.query(
-        query_text=request.query,
+        question=request.query,
         user_id=user.user_id,
-        language=request.language,
+        source_language=request.language,
     )
     rag_ms = (time.perf_counter() - t0) * 1000
 
+    raw_answer = result.get("answer", "") or ""
+    sources = result.get("sources", []) or []
+    retrieval = dict(result.get("retrieval") or {})
+
     safety_result = safety_manager.process_response(
         query=request.query,
-        response=result.answer,
-        sources=result.sources,
+        response=raw_answer,
+        sources=sources,
         language=request.language,
     )
 
@@ -197,14 +205,16 @@ async def mobile_query(
         channel="mobile",
         stage_latency_ms={"rag": rag_ms},
         total_latency_ms=(time.perf_counter() - t0) * 1000,
-        rag_method=getattr(result, "rag_method", "") or "",
-        sources=result.sources,
+        rag_method=str(retrieval.get("rag_method") or ""),
+        sources=sources,
         safety_result=safety_result,
+        retrieval=retrieval,
+        kg_check=dict(result.get("kg_check") or {}),
     )
 
     return MobileQueryResponse(
         answer=safety_result.response,
-        sources=result.sources,
+        sources=sources,
         evidence_level=safety_result.evidence_level,
         emergency_level=safety_result.emergency_level,
         confidence=safety_result.confidence,
@@ -620,7 +630,9 @@ async def get_cache_bundle(
     user: AuthenticatedUser = Depends(require_auth),
 ):
     rag_pipeline = get_rag_pipeline()
-    builder = CacheBundleBuilder(rag_pipeline=rag_pipeline)
+    builder = CacheBundleBuilder(
+        rag_pipeline=rag_pipeline, safety_manager=get_safety_manager()
+    )
     bundle = await builder.build_bundle(language)
     return CacheBundleResponse(**bundle)
 
