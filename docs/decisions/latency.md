@@ -457,3 +457,38 @@ Each entry: what was decided, the alternatives, and why.
   span now says `voice_path=fallback` instead of the old default `live`.
 - **"A slow RAG turn is not redone on the fallback"** no longer applies: with
   no Live attempt there is nothing to discard.
+
+## 16: Optional retrieval modes stay inside their budgets
+
+- **PageIndex navigates documents concurrently** (`search.max_concurrent_docs`,
+  default 8) instead of one after another. Its rate limiter was a minimum gap
+  of 60/rpm seconds between calls (2 s at the default 30 rpm), so ten
+  documents waited 18 s before any LLM time, far past the 8 s fused-mode
+  timeout. It is now a sliding window: up to `rate_limit_rpm` calls in any
+  60 s, so one query's calls go at once and the provider limit still holds.
+- **PageIndex trees are cached in memory** (by file mtime), and the
+  text-stripped navigation JSON and node map are built once per tree, not
+  parsed, stripped and serialised on the event loop for every document of
+  every query. A rebuilt tree (new mtime) is picked up.
+- **`count_tokens` no longer crashes without network.** tiktoken downloads
+  its encoding on first use; where that is blocked it raised (not
+  ImportError) on every call, which broke PageIndex search and tree building
+  and is why three PageIndex test files were deselected. It now falls back
+  to chars/4 once, with a warning. Those test files pass again.
+- **GraphRAG lookups run in a worker thread** over lowercased rows built
+  once per loaded table, instead of `DataFrame.iterrows` on the event loop
+  (which no timeout could interrupt). Same matching and scores (a test
+  compares against the old scan). A missing index is retried at most once a
+  minute rather than re-reading the directory on every query.
+- **KG lookups use an index.** Every entity now carries the `KGEntity`
+  label and a `name_lower` property, with one index on it; the answer-path
+  Cypher matches `(a:KGEntity {name_lower: ...})` instead of unlabelled
+  nodes on `toLower(a.name)`, which scanned the whole graph per name.
+  `initialize_schema` creates the index and backfills existing nodes, so a
+  graph built before this is fixed at the next startup. The label is added
+  after the MERGE, not in it, so existing nodes are not duplicated.
+- **Not verified here:** no Neo4j in this container, so the EXPLAIN test
+  (`NodeIndexSeek`) is skipped unless `NEO4J_URI` is set; run it once
+  against the deployment graph. The KG's results are unchanged by
+  construction (same names, now matched through the index), but that too
+  is unmeasured without a graph.

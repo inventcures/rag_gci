@@ -20,7 +20,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 from pageindex_integration.config import PageIndexConfig
 
@@ -55,6 +55,9 @@ class PageIndexStorage:
         self._config = config
         config.ensure_directories()
         self._index: Dict[str, TreeIndexEntry] = {}
+        # Parsed trees, keyed by doc_id with the file's mtime: a query used
+        # to read and parse every tree file from disk, on the event loop.
+        self._trees: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._load_index()
 
     def _load_index(self) -> None:
@@ -91,6 +94,7 @@ class PageIndexStorage:
 
         with open(tree_path, 'w') as f:
             json.dump(tree, f, indent=2)
+        self._trees.pop(doc_id, None)
 
         from pageindex_integration.utils import tree_stats
         stats = tree_stats(tree)
@@ -119,8 +123,14 @@ class PageIndexStorage:
             logger.warning(f"Tree file missing for {doc_id}: {tree_path}")
             return None
 
+        mtime = tree_path.stat().st_mtime
+        cached = self._trees.get(doc_id)
+        if cached and cached[0] == mtime:
+            return cached[1]
         with open(tree_path, 'r') as f:
-            return json.load(f)
+            tree = json.load(f)
+        self._trees[doc_id] = (mtime, tree)
+        return tree
 
     def has_tree(self, doc_id: str) -> bool:
         entry = self._index.get(doc_id)
@@ -135,6 +145,7 @@ class PageIndexStorage:
         if tree_path.exists():
             tree_path.unlink()
 
+        self._trees.pop(doc_id, None)
         del self._index[doc_id]
         self._save_index()
         return True

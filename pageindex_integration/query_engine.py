@@ -16,6 +16,7 @@ Usage:
     result = await engine.search("What are morphine dosing guidelines?")
 """
 
+import asyncio
 import re
 import json
 import logging
@@ -96,6 +97,9 @@ class PageIndexQueryEngine:
         self._storage = storage
         self._llm = LLMAdapter(config.llm)
         self._cache: Optional[Any] = None
+        # Per tree: the navigation JSON (text stripped) and the node map,
+        # built once per tree instead of on every query.
+        self._prepared: Dict[str, tuple] = {}
 
         if config.search.cache_enabled:
             try:
@@ -150,18 +154,31 @@ class PageIndexQueryEngine:
         all_sources = []
         all_reasoning = []
 
-        for entry in completed_entries:
-            tree = self._storage.load_tree(entry.doc_id)
-            if not tree:
-                continue
+        # One navigation call per document, run together (bounded), so a
+        # query costs about the slowest document, not the sum of them.
+        limit = asyncio.Semaphore(max(1, self._config.search.max_concurrent_docs))
 
-            node_ids, reasoning = await self._navigate_tree(query, tree, entry.filename)
+        async def navigate(entry):
+            prepared = self._prepare(entry.doc_id)
+            if prepared is None:
+                return None
+            tree_json, node_map = prepared
+            async with limit:
+                node_ids, reasoning = await self._navigate_tree(
+                    query, None, entry.filename, tree_json=tree_json)
+            return node_ids, reasoning, node_map
+
+        outcomes = await asyncio.gather(*(navigate(e) for e in completed_entries))
+
+        for entry, outcome in zip(completed_entries, outcomes):
+            if outcome is None:
+                continue
+            node_ids, reasoning, node_map = outcome
             all_reasoning.append(f"[{entry.filename}]: {reasoning}")
 
             if not node_ids:
                 continue
 
-            node_map = flatten_tree(tree)
             token_budget = self._config.search.max_context_tokens // max(len(completed_entries), 1)
             extracted = extract_node_texts(node_ids, node_map, max_tokens=token_budget)
 
@@ -205,24 +222,44 @@ class PageIndexQueryEngine:
 
         return result
 
+    def _prepare(self, doc_id: str) -> Optional[tuple]:
+        """(navigation JSON, node map) for a tree, from the cache while the
+        stored tree is unchanged."""
+        tree = self._storage.load_tree(doc_id)
+        if not tree:
+            return None
+        cached = self._prepared.get(doc_id)
+        if cached is not None and cached[0] is tree:
+            return cached[1], cached[2]
+        tree_json = self._tree_json(tree, doc_id)
+        node_map = flatten_tree(tree)
+        self._prepared[doc_id] = (tree, tree_json, node_map)
+        return tree_json, node_map
+
+    @staticmethod
+    def _tree_json(tree: Dict[str, Any], filename: str) -> str:
+        """The tree as the navigation prompt shows it: no text, capped."""
+        tree_json = json.dumps(strip_text_from_tree(tree), indent=2)
+        tree_tokens = count_tokens(tree_json)
+        if tree_tokens > 50000:
+            logger.warning(f"Tree for {filename} is {tree_tokens} tokens, truncating")
+            tree_json = tree_json[:200000]
+        return tree_json
+
     async def _navigate_tree(
         self,
         query: str,
-        tree: Dict[str, Any],
+        tree: Optional[Dict[str, Any]],
         filename: str,
+        tree_json: Optional[str] = None,
     ) -> tuple:
         """
         LLM reasons over tree to select relevant node_ids.
 
         Returns: (list of node_ids, reasoning string)
         """
-        stripped = strip_text_from_tree(tree)
-        tree_json = json.dumps(stripped, indent=2)
-
-        tree_tokens = count_tokens(tree_json)
-        if tree_tokens > 50000:
-            logger.warning(f"Tree for {filename} is {tree_tokens} tokens, truncating")
-            tree_json = tree_json[:200000]
+        if tree_json is None:
+            tree_json = self._tree_json(tree, filename)
 
         prompt = TREE_NAVIGATION_PROMPT.format(
             filename=filename,

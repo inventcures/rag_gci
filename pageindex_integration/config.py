@@ -89,6 +89,8 @@ class SearchConfig:
     """Configuration for tree search queries."""
     max_nodes_per_query: int = 5
     max_context_tokens: int = 8000
+    # Documents navigated at once per query (one LLM call each).
+    max_concurrent_docs: int = 8
     cache_enabled: bool = True
     cache_maxsize: int = 100
     cache_ttl_seconds: int = 3600
@@ -97,6 +99,7 @@ class SearchConfig:
         return {
             "max_nodes_per_query": self.max_nodes_per_query,
             "max_context_tokens": self.max_context_tokens,
+            "max_concurrent_docs": self.max_concurrent_docs,
             "cache_enabled": self.cache_enabled,
             "cache_maxsize": self.cache_maxsize,
             "cache_ttl_seconds": self.cache_ttl_seconds,

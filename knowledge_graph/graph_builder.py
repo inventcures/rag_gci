@@ -14,6 +14,14 @@ from .entity_extractor import Entity, Relationship, EntityType, RelationshipType
 
 logger = logging.getLogger(__name__)
 
+# Every entity carries this label and `name_lower`, so the answer path finds
+# an entity by name with one index seek, whatever its type.
+LOOKUP_LABEL = "KGEntity"
+BACKFILL_LOOKUP_CYPHER = f"""
+MATCH (n) WHERE n.name IS NOT NULL AND n.name_lower IS NULL AND NOT n:KGMeta
+SET n:{LOOKUP_LABEL}, n.name_lower = toLower(n.name)
+"""
+
 
 class GraphBuilder:
     """
@@ -69,6 +77,11 @@ class GraphBuilder:
             "CREATE INDEX medication_name_idx IF NOT EXISTS FOR (n:Medication) ON (n.name)",
             "CREATE INDEX condition_name_idx IF NOT EXISTS FOR (n:Condition) ON (n.name)",
             "CREATE INDEX entity_source_idx IF NOT EXISTS FOR (n:Entity) ON (n.source_doc)",
+            # The answer path looks entities up by lowercased name, whatever
+            # their type (retrieval/graph_store.py). One label on every entity
+            # and an index on that lowercased name make it an index seek;
+            # matching unlabelled nodes on toLower(n.name) scanned them all.
+            f"CREATE INDEX kg_entity_name_lower IF NOT EXISTS FOR (n:{LOOKUP_LABEL}) ON (n.name_lower)",
         ]
 
         for query in index_queries:
@@ -77,6 +90,13 @@ class GraphBuilder:
                 results["indexes"].append(query.split("INDEX ")[1].split(" IF")[0])
             except Exception as e:
                 logger.warning(f"Index creation failed: {e}")
+
+        # Entities written before the lookup label existed.
+        try:
+            await self.client.execute_write(BACKFILL_LOOKUP_CYPHER)
+            results["backfill"] = "ok"
+        except Exception as e:
+            logger.warning(f"Lookup label backfill failed: {e}")
 
         logger.info(f"Schema initialized: {results}")
         return results
@@ -98,6 +118,7 @@ class GraphBuilder:
         """
         properties = {
             "name": entity.name,
+            "name_lower": entity.name.lower(),
             **entity.properties,
             "confidence": entity.confidence,
             "created_at": datetime.now().isoformat(),
@@ -112,7 +133,8 @@ class GraphBuilder:
         return await self.client.create_node(
             label=entity.type.value,
             properties=properties,
-            unique_key="name"
+            unique_key="name",
+            extra_labels=(LOOKUP_LABEL,),
         )
 
     async def add_entities(

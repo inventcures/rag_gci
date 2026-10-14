@@ -121,12 +121,16 @@ class InMemoryGraphStore:
 
 
 class Neo4jGraphStore:
-    """Template Cypher over the existing knowledge_graph Neo4j client."""
+    """Template Cypher over the existing knowledge_graph Neo4j client.
+
+    Entities are found by `name_lower` on the `KGEntity` label, which is
+    indexed (knowledge_graph/graph_builder.py writes and backfills both).
+    """
 
     _FACTS_CYPHER = """
     UNWIND $names AS n
-    MATCH (a)-[r]-(b)
-    WHERE toLower(a.name) = n AND type(r) IN $rel_types
+    MATCH (a:KGEntity {name_lower: n})-[r]-(b)
+    WHERE type(r) IN $rel_types
     WITH DISTINCT r, startNode(r) AS s, endNode(r) AS e
     RETURN s.name AS subject, labels(s)[0] AS subject_type, type(r) AS rel,
            e.name AS object, labels(e)[0] AS object_type,
@@ -137,9 +141,9 @@ class Neo4jGraphStore:
 
     _PAIRS_CYPHER = """
     UNWIND $pairs AS p
-    OPTIONAL MATCH (a) WHERE toLower(a.name) = p.a
+    OPTIONAL MATCH (a:KGEntity {name_lower: p.a})
     WITH p, collect(DISTINCT a) AS as_
-    OPTIONAL MATCH (b) WHERE toLower(b.name) = p.b
+    OPTIONAL MATCH (b:KGEntity {name_lower: p.b})
     WITH p, as_, collect(DISTINCT b) AS bs
     OPTIONAL MATCH (x)-[r]-(y) WHERE x IN as_ AND y IN bs
     RETURN p.i AS i, size(as_) > 0 AS a_known, size(bs) > 0 AS b_known,
