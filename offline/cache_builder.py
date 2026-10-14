@@ -46,9 +46,14 @@ def _normalise_for_hash(question_text: str) -> str:
     return text
 
 class CacheBundleBuilder:
-    def __init__(self, rag_pipeline=None, kg_client=None, usage_analytics=None):
+    def __init__(self, rag_pipeline=None, kg_client=None, usage_analytics=None,
+                 safety_manager=None):
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         self.rag_pipeline = rag_pipeline
+        # Cached answers are shown offline with no server in the loop, so they
+        # must pass the same dose boundary as a live answer before they are
+        # stored. None falls back to the process-wide manager.
+        self.safety_manager = safety_manager
         self.kg_client = kg_client
         self.usage_analytics = usage_analytics
 
@@ -106,8 +111,18 @@ class CacheBundleBuilder:
         for query_text in queries:
             try:
                 if self.rag_pipeline:
+                    # SimpleRAGPipeline.query's real signature; it returns a dict.
                     result = await self.rag_pipeline.query(
-                        query_text=query_text,
+                        question=query_text,
+                        source_language=language,
+                    )
+                    answer = (result or {}).get("answer") or ""
+                    if (result or {}).get("status", "success") != "success" or not answer:
+                        continue
+                    safety = self._safety_manager().process_response(
+                        query=query_text,
+                        response=answer,
+                        sources=result.get("sources") or [],
                         language=language,
                     )
                     cached_queries.append({
@@ -116,14 +131,22 @@ class CacheBundleBuilder:
                         ).hexdigest(),
                         "query_text": query_text,
                         "query_language": language,
-                        "response_text": result.answer,
-                        "evidence_level": result.evidence_level if hasattr(result, "evidence_level") else "C",
-                        "sources": result.sources if hasattr(result, "sources") else [],
+                        "response_text": safety.response,
+                        "evidence_level": safety.evidence_level,
+                        "sources": result.get("sources") or [],
                     })
             except Exception as e:
                 logger.warning(f"Failed to cache query '{query_text}': {e}")
 
         return cached_queries
+
+    def _safety_manager(self):
+        """The injected safety manager, else the process-wide one."""
+        if self.safety_manager is None:
+            from safety_enhancements import get_safety_manager
+
+            self.safety_manager = get_safety_manager()
+        return self.safety_manager
 
     async def _build_treatment_cache(self) -> List[dict]:
         """Cache top 50 symptom-treatment pairs from knowledge graph."""

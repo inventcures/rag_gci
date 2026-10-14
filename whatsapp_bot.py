@@ -898,7 +898,7 @@ class EnhancedWhatsAppBot:
                 
             # Query RAG pipeline (with potentially enhanced query)
             logger.info(f"  🔍 About to query RAG pipeline with text: '{text}', user_id: '{from_number}', language: '{user_lang}'")
-            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=user_lang)
+            result = await self._guarded_query(text, from_number, user_lang, answer_language="en")
             logger.info(f"  📊 RAG pipeline result status: {result.get('status')}, answer length: {len(result.get('answer', ''))}")
 
             # Send the response using the extracted method
@@ -1008,7 +1008,9 @@ class EnhancedWhatsAppBot:
             await self.twilio_api.send_text_message(from_number, confirmation_msg)
 
             # Query RAG pipeline
-            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=detected_language)
+            result = await self._guarded_query(
+                text, from_number, detected_language, answer_language="en"
+            )
 
             if result["status"] == "success":
                 response_text = result["answer"]
@@ -1329,7 +1331,9 @@ class EnhancedWhatsAppBot:
             # Query RAG pipeline
             await self._send_typing_indicator(from_number)
             
-            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=user_lang)
+            result = await self._guarded_query(
+                text, from_number, user_lang, answer_language=user_lang
+            )
             
             if result["status"] == "success":
                 response_text = result["answer"]
@@ -1423,7 +1427,9 @@ class EnhancedWhatsAppBot:
             )
             
             # Query RAG pipeline
-            result = await self.rag_pipeline.query(text, user_id=from_number, source_language=detected_language)
+            result = await self._guarded_query(
+                text, from_number, detected_language, answer_language=detected_language
+            )
             
             if result["status"] == "success":
                 response_text = result["answer"]
@@ -1586,13 +1592,43 @@ Example: /lang hi"""
             logger.error(f"Error handling clarification command: {e}")
             await self._send_error_message(from_number)
     
+    async def _guarded_query(
+        self,
+        text: str,
+        from_number: str,
+        source_language: str,
+        answer_language: str,
+    ) -> Dict[str, Any]:
+        """
+        Query the pipeline and pass the answer through the safety boundary.
+
+        Every WhatsApp answer, text or spoken, goes through here, so the dosage
+        guard runs before any message is sent, translated or synthesised. It is
+        the same `process_response` step the mobile and voice routes apply.
+
+        `answer_language` is the language of the text the user will be sent as-is:
+        "en" where the bot sends the English answer and then translates it (the
+        translation then carries the guarded wording), the user's language where
+        the answer is sent and spoken directly.
+
+        If the guard cannot be imported or fails, the exception propagates to the
+        handler, which sends the generic error message rather than the draft.
+        """
+        from safety_enhancements import guard_query_result
+
+        result = await self.rag_pipeline.query(
+            text, user_id=from_number, source_language=source_language
+        )
+        guard_query_result(result, query=text, language=answer_language)
+        return result
+
     async def _process_query_directly(self, from_number: str, query: str):
         """Process query directly without clarification checks"""
         try:
             user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
             
             logger.info(f"  🔍 Processing query directly: '{query}', language: '{user_lang}'")
-            result = await self.rag_pipeline.query(query, user_id=from_number, source_language=user_lang)
+            result = await self._guarded_query(query, from_number, user_lang, answer_language="en")
             
             # Process the result normally (same logic as in main handler)
             await self._send_rag_response(from_number, result, user_lang)

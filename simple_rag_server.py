@@ -758,6 +758,34 @@ class AutoRebuildManager:
             logger.error(f"Failed to restore from backup: {e}")
 
 
+# The study's dose boundary (protocol 7.7), stated where the answer is drafted.
+# The dosage guard still runs on every channel afterwards; this keeps the draft
+# from being built around a dose in the first place, so the guard redacts less
+# and the user gets more of the clinical answer.
+ANSWER_PARAGRAPH_1_INSTRUCTION = (
+    "- Paragraph 1: Direct clinical answer. Name the medicines (and the route, e.g. "
+    "by mouth or under the skin, where it matters) and say when each is used. Never "
+    "give a dose, amount, strength, frequency, schedule or titration step, even if "
+    "the medical context contains one; instead tell the asker to confirm the dose "
+    "with the patient's doctor or nurse."
+)
+
+async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
+                           language: str = "en") -> Dict[str, Any]:
+    """
+    Answer one web (`POST /api/query`) question, through the safety boundary.
+
+    `pipeline.query()` returns a draft. This passes it through the same
+    `process_response` step (emergency, dosage guard, evidence grade) the mobile
+    and voice routes apply, so the HTTP body carries only the guarded answer.
+    """
+    from safety_enhancements import guard_query_result
+
+    result = await pipeline.query(query, source_language=language)
+    guard_query_result(result, query=query, language=language)
+    return result
+
+
 class SimpleRAGPipeline:
     """Simplified RAG Pipeline without database dependencies"""
     
@@ -1987,7 +2015,7 @@ LANGUAGE: Respond in English only.
 
 LENGTH AND STRUCTURE:
 - Write 2 to 3 substantive paragraphs (approximately 200-400 words total).
-- Paragraph 1: Direct clinical answer with specific drug names, doses, routes, frequencies as applicable.
+{ANSWER_PARAGRAPH_1_INSTRUCTION}
 - Paragraph 2: Practical action plan tailored to the asker's setting (home / hospice / hospital), including who does what and time-criticality.
 - Paragraph 3 (when relevant): Anticipated side effects, follow-up criteria, red-flag escalation triggers, and caregiver education.
 
@@ -1997,7 +2025,7 @@ QUALITY REQUIREMENTS:
 3. Adapt to the Indian context where relevant: NDPS Act opioid access, family decision-making, rural resource constraints, regional drug availability.
 4. Always include a clear handoff/escalation cue when red flags are present.
 5. Empathetic, non-judgemental tone appropriate for the asker (caregiver, ASHA, patient).
-6. Avoid generic deflection ("consult a physician") unless the question is genuinely outside scope.
+6. Avoid generic deflection ("consult a physician") unless the question is genuinely outside scope. The one exception is dosing: always refer the dose to the patient's doctor or nurse.
 
 MEDICAL CONTEXT:
 {context}
@@ -2083,7 +2111,7 @@ LANGUAGE: Respond in English only.
 {instructions}
 LENGTH AND STRUCTURE:
 - Write 2 to 3 substantive paragraphs (approximately 200-400 words total).
-- Paragraph 1: Direct clinical answer with specific drug names, doses, routes, frequencies as applicable.
+{ANSWER_PARAGRAPH_1_INSTRUCTION}
 - Paragraph 2: Practical action plan tailored to the asker's setting (home / hospice / hospital). Specify who does what and time-criticality.
 - Paragraph 3 (when relevant): Anticipated side effects, follow-up criteria, red-flag escalation triggers, and caregiver education.
 
@@ -2093,7 +2121,7 @@ QUALITY REQUIREMENTS:
 3. Adapt to the Indian context where relevant: NDPS Act opioid access, family decision-making, rural resource constraints, regional drug availability.
 4. Always include a clear handoff/escalation cue when red flags are present.
 5. Empathetic, non-judgemental tone appropriate for the asker (caregiver, ASHA, patient).
-6. Avoid generic deflection ("consult a physician") unless the question is genuinely outside scope.
+6. Avoid generic deflection ("consult a physician") unless the question is genuinely outside scope. The one exception is dosing: always refer the dose to the patient's doctor or nurse.
 
 CITATION FORMAT (at end of response):
 [ Sources: doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]
@@ -2151,6 +2179,8 @@ ANSWER (2-3 paragraphs followed by Sources line):"""
                 prompt_parts = [
                     "You are a medical expert providing evidence-based palliative care guidance. Analyze the provided medical literature and give structured, actionable advice.",
                     "",
+                    "DOSE RULE: Name medicines and when they are used, but never give a dose, amount, strength, frequency or schedule. Tell the user to confirm the dose with their doctor or nurse.",
+                    "",
                     "CITATION REQUIREMENTS:",
                     "- ONLY cite at the END of your response - NO inline citations in the text",
                     "- End your response with: " + citation_format,
@@ -2172,7 +2202,7 @@ ANSWER (2-3 paragraphs followed by Sources line):"""
                     "• Check skin integrity at pressure points",
                     "",
                     "*Medication Protocol:*",
-                    "• Start with paracetamol 500mg every 6 hours",
+                    "• Start with regular paracetamol; confirm the dose with the patient's doctor or nurse",
                     "• Add weak opioids if pain >4/10",
                     "",
                     "[ Sources : pain_management_guide: pg 23 ]",
@@ -3663,7 +3693,11 @@ class SimpleAdminUI:
             if not query.strip():
                 return "Please enter a query", {}
             
+            from safety_enhancements import guard_query_result
+
             result = asyncio.run(self.rag_pipeline.query(query))
+            # The admin tab shows what a user would receive, not the draft.
+            guard_query_result(result, query=query, language="en")
             
             if result["status"] == "success":
                 # Enhanced response formatting
@@ -5732,10 +5766,14 @@ def main():
     
     @app.post("/api/query")
     async def api_query(query: str = Form(...)):
-        """Direct API endpoint for queries"""
+        """Direct API endpoint for queries.
+
+        The answer passes the same boundary as the mobile and voice routes
+        (emergency, dosage guard, evidence grade) before it is returned. If the
+        guard cannot run, the except below returns an error, never the draft.
+        """
         try:
-            result = await rag_pipeline.query(query)
-            return result
+            return await answer_web_query(rag_pipeline, query)
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
@@ -6015,6 +6053,11 @@ def main():
             )
 
             if rag_result.get("status") == "success":
+                # Dosage boundary before the text is shortened or spoken. A
+                # failure here falls to the except below (an error reply),
+                # never to the unguarded draft.
+                from safety_enhancements import guard_query_result
+                guard_query_result(rag_result, query=query, language=language)
                 answer = rag_result.get("answer", "")
                 
                 # =================================================================
