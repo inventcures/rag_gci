@@ -242,7 +242,7 @@ flowchart TB
     end
 
     subgraph store["Retrieval"]
-        EMB[bge-m3<br/>1024-dim]
+        EMB[EmbeddingGemma 2<br/>768-dim]
         CHROMA[(ChromaDB<br/>263 chunks)]
         EMB --> CHROMA
     end
@@ -606,6 +606,10 @@ passages from three clinical documents.</p>
 
 <p>The previous index scored 1.00 on English and 0.00 on every Indic language. That
 is the failure described at the top of this page.</p>
+
+<p>EmbeddingGemma 2 replaces bge-m3 (ADR 0008) only if it scores at least as well on
+the same probes, overall and in every language. The retrieval-eval workflow measures
+it and rebuilds the index when it passes.</p>
 
 <h2 id="study">Study and audit</h2>
 <p>Every interaction is recorded on the server, not on the device. The device sends

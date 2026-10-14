@@ -26,21 +26,27 @@ llm:
     base_url: "https://api.deepseek.com"
 
 # Embedding Configuration
-# Model pinned by ADR 0003, chosen by measurement: mean hit@5 0.96 across the eleven
-# supported languages, against 0.09 for the English-only bge-small-en-v1.5 this
-# replaced, which scored 0.00 on every Indic language.
+# ADR 0008: EmbeddingGemma 2 replaces bge-m3 (ADR 0003, mean hit@5 0.96 across the
+# eleven supported languages). Merging is gated on the retrieval-eval workflow
+# measuring it at least as good on the same 99 probes:
 #   evaluation/retrieval_eval/results.json
 # Changing this requires reindexing: scripts/reindex_with_configured_model.py
 embedding:
   provider: "sentence_transformers"
-  model: "BAAI/bge-m3"
-  dimension: 1024
+  model: "google/embeddinggemma-2"
+  dimension: 768
   batch_size: 32
-  # Point at a local copy to avoid re-downloading 2.3 GB on every migration:
-  #   EMBEDDING_MODEL_PATH=/srv/models/bge-m3
-  # Frozen corpus vectors are ~263 KB at int8, so shipping them to the Android
-  # client is free. Query embedding on-device is not viable and is ruled out by
-  # ADR 0005.
+  # EmbeddingGemma 2 is asymmetric: queries and passages take different prefixes,
+  # applied by retrieval_embeddings.py. Leave both unset for a symmetric model.
+  query_prompt_name: "SearchQuery"
+  document_prompt_name: "Document"
+  # Load only the 270M text path, not the 740M multimodal model.
+  config_kwargs:
+    vision_config: null
+    audio_config: null
+  # Point at a local copy to avoid re-downloading on every migration:
+  #   EMBEDDING_MODEL_PATH=/srv/models/embeddinggemma-2
+  # Never run it in float16; the model card warns of NaN embeddings.
 
 # Reranking Configuration
 reranking:

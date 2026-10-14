@@ -15,7 +15,14 @@ Kannada, Tamil, Bengali, Malayalam, Marathi, Gujarati, Punjabi and Odia are its
 home turf rather than a tail of a 100-language average. Neither vendor number
 speaks to dyspnoea in Malayalam against this 263-chunk corpus.
 
-Three models are compared:
+ADR 0008 adds EmbeddingGemma 2 and a gate: with --gate the run fails unless
+EmbeddingGemma 2 matches or beats bge-m3 on mean hit@5 and on every language.
+Its numbers come through the production embedding function
+(retrieval_embeddings.py), so the query and document prompts measured here are
+the ones the server applies.
+
+Models compared:
+  * embeddinggemma-2 - 768-dim, 270M text path, asymmetric query/document prompts
   * bge-m3        - 1024-dim, XLM-RoBERTa large, 100+ languages
   * LaBSE         - 471M params, tuned on 22 Indian languages
   * bge-small-en-v1.5 - the model the live index was actually built with
@@ -27,25 +34,34 @@ Ground truth is anchored to chunk indices, not to topics, so a model cannot
 score well by retrieving a thematically adjacent chunk.
 """
 
+import argparse
 import json
 import re
+import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 CHROMA_DIR = "./data/chroma_db"
 COLLECTION = "documents"
 
 MODELS = {
+    "embeddinggemma-2": {
+        "path": "google/embeddinggemma-2",
+        "dim": 768,
+        "note": "EmbeddingGemma 2 text path (270M), query/document prompts",
+    },
     "bge-m3": {
-        "path": "/tmp/emb_eval/models/bge-m3",
+        "path": "BAAI/bge-m3",
         "dim": 1024,
         "note": "1024-dim multilingual, XLM-RoBERTa-large backbone",
     },
     "labse": {
-        "path": "/tmp/emb_eval/models/labse",
+        "path": "sentence-transformers/LaBSE",
         "dim": 471,
         "note": "471M params, explicitly tuned on 22 Indian languages",
     },
@@ -224,6 +240,8 @@ SEED_PROBES: List[dict] = [
 def load_corpus() -> Tuple[List[str], List[dict]]:
     import chromadb
 
+    import retrieval_embeddings  # noqa: F401  registers the index's embedding function
+
     client = chromadb.PersistentClient(path=CHROMA_DIR)
     collection = client.get_collection(COLLECTION)
     data = collection.get(include=["documents", "metadatas"])
@@ -250,21 +268,26 @@ def build_queries() -> List[dict]:
 
 
 def evaluate(model_name: str, corpus: List[str], queries: List[dict], top_k: int = 5) -> dict:
-    from sentence_transformers import SentenceTransformer
+    from retrieval_embeddings import (
+        PromptedSentenceTransformerEmbeddingFunction,
+        load_embedding_settings,
+    )
 
     spec = MODELS[model_name]
+    # The production embedding function, so per-model prompts and load options
+    # (retrieval_embeddings.MODEL_DEFAULTS) are exactly what the server uses.
+    settings = load_embedding_settings({"embedding": {"model": spec["path"], "dimension": spec["dim"]}})
+    embed = PromptedSentenceTransformerEmbeddingFunction.from_settings(settings)
     t0 = time.time()
-    model = SentenceTransformer(spec["path"], device="cpu")
+    model = embed.model
     load_s = time.time() - t0
 
     t0 = time.time()
-    doc_emb = model.encode(corpus, normalize_embeddings=True, batch_size=32,
-                           show_progress_bar=False)
+    doc_emb = np.asarray(embed(corpus))
     index_s = time.time() - t0
 
     t0 = time.time()
-    q_emb = model.encode([q["text"] for q in queries], normalize_embeddings=True,
-                        batch_size=32, show_progress_bar=False)
+    q_emb = np.asarray(embed.embed_query([q["text"] for q in queries]))
     query_s = (time.time() - t0) / max(len(queries), 1)
 
     sims = q_emb @ doc_emb.T
@@ -306,10 +329,13 @@ def evaluate(model_name: str, corpus: List[str], queries: List[dict], top_k: int
         b["hit@5"] = b["hit@5"] / b["n"]
         b["mrr"] = b["mrr"] / b["n"]
 
-    del model
+    del model, embed
+    PromptedSentenceTransformerEmbeddingFunction._models.clear()
     return {
         "model": model_name,
         "dim": spec["dim"],
+        "query_prompt_name": settings.query_prompt_name,
+        "document_prompt_name": settings.document_prompt_name,
         "note": spec["note"],
         "overall": {f"hit@{k}": v / total for k, v in overall_hits.items()},
         "mrr@10": mrr_sum / total,
@@ -322,14 +348,50 @@ def evaluate(model_name: str, corpus: List[str], queries: List[dict], top_k: int
     }
 
 
-def main() -> None:
+def gate(results: List[dict], candidate: str = "embeddinggemma-2",
+         incumbent: str = "bge-m3") -> List[str]:
+    """
+    ADR 0008's adoption rule. Returns the reasons the candidate fails, if any.
+
+    The candidate must match or beat the incumbent on mean hit@5 and on every
+    language. Strict per language because a regression in one language is a
+    population of users who get worse answers, whatever the average does.
+    """
+    by_name = {r["model"]: r for r in results}
+    cand, inc = by_name[candidate], by_name[incumbent]
+    failures = []
+    if cand["overall"]["hit@5"] < inc["overall"]["hit@5"]:
+        failures.append(
+            f"mean hit@5 {cand['overall']['hit@5']:.3f} < {incumbent} "
+            f"{inc['overall']['hit@5']:.3f}"
+        )
+    for lang in LANGUAGES:
+        c = cand["per_language"].get(lang, {}).get("hit@5", 0.0)
+        i = inc["per_language"].get(lang, {}).get("hit@5", 0.0)
+        if c < i:
+            failures.append(f"{lang} hit@5 {c:.2f} < {incumbent} {i:.2f}")
+    return failures
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="Cross-language retrieval evaluation")
+    parser.add_argument("--models", default=",".join(MODELS),
+                        help="comma-separated subset of: " + ", ".join(MODELS))
+    parser.add_argument("--out", default="evaluation/retrieval_eval/results.json")
+    parser.add_argument("--gate", action="store_true",
+                        help="exit 1 unless embeddinggemma-2 matches or beats bge-m3")
+    args = parser.parse_args(argv)
+    names = [n.strip() for n in args.models.split(",") if n.strip()]
+    if args.gate:
+        names = list(dict.fromkeys(names + ["embeddinggemma-2", "bge-m3"]))
+
     corpus, _ = load_corpus()
     queries = build_queries()
     print(f"corpus: {len(corpus)} chunks | queries: {len(queries)} "
           f"({len(SEED_PROBES)} probes x {len(LANGUAGES)} languages)\n")
 
     results = []
-    for name in MODELS:
+    for name in names:
         print(f"--- {name} ---", flush=True)
         r = evaluate(name, corpus, queries)
         results.append(r)
@@ -337,17 +399,31 @@ def main() -> None:
               f"mrr@10 {r['mrr@10']:.3f}  index {r['index_seconds']}s  "
               f"query {r['query_ms']}ms", flush=True)
 
-    Path("evaluation/retrieval_eval").mkdir(parents=True, exist_ok=True)
-    out = Path("evaluation/retrieval_eval/results.json")
-    out.write_text(json.dumps({
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
         "corpus_chunks": len(corpus),
         "probes": len(SEED_PROBES),
         "languages": LANGUAGES,
         "queries": len(queries),
         "results": results,
-    }, indent=2))
+    }
+    failures: List[str] = []
+    if args.gate:
+        failures = gate(results)
+        payload["gate"] = {"passed": not failures, "failures": failures}
+    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     print(f"\nwrote {out}")
     print_ranked_table(results)
+
+    if args.gate:
+        if failures:
+            print("\nGATE FAILED: embeddinggemma-2 does not match bge-m3")
+            for f in failures:
+                print(f"  - {f}")
+            return 1
+        print("\nGATE PASSED: embeddinggemma-2 matches or beats bge-m3")
+    return 0
 
 
 def print_ranked_table(results: List[dict]) -> None:
@@ -363,4 +439,4 @@ def print_ranked_table(results: List[dict]) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

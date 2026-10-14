@@ -179,11 +179,12 @@ class TestObserveIndex(unittest.TestCase):
 
 
 class TestConfigIdentity(unittest.TestCase):
-    def test_bge_m3_is_the_default_model(self):
-        # ADR 0003. Changing this default back is a regression.
+    def test_embeddinggemma_2_is_the_default_model(self):
+        # ADR 0008, replacing bge-m3 (ADR 0003). Changing this default back to an
+        # English-only model is a regression.
         identity = load_identity_from_config({})
-        self.assertEqual(identity.model, "BAAI/bge-m3")
-        self.assertEqual(identity.dimension, 1024)
+        self.assertEqual(identity.model, "google/embeddinggemma-2")
+        self.assertEqual(identity.dimension, 768)
 
     def test_config_override_is_honoured(self):
         identity = load_identity_from_config(

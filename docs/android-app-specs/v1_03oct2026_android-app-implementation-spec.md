@@ -264,9 +264,10 @@ Sarvam response will otherwise conclude the app has frozen.
 - **Language model**: Gemini 3.5 Flash, pinned to `asia-south1`. Chosen because
   Gemini 3.8, 3.7 and 3.6 Flash have no Asia-Pacific availability at all; 3.5 Flash
   is the newest model available in India.
-- **Embeddings**: bge-m3, self-hosted, 1024 dimensions. Chosen by measurement — mean
-  hit@5 of 0.96 against 0.72 for LaBSE and 0.09 for the previous English-only index,
-  which scored 0.00 on all ten Indic languages.
+- **Embeddings**: EmbeddingGemma 2, self-hosted, 768 dimensions (ADR 0008). Replaces
+  bge-m3 (mean hit@5 0.96 against 0.72 for LaBSE and 0.09 for the previous
+  English-only index) only once the retrieval-eval gate measures it at least as good
+  in every one of the eleven languages.
 - **Retrieval**: cross-language. Query translation is a fallback for weak retrieval,
   never the default path, and the previous translation path is known-defective because
   it silently proceeded when the translation call failed.

@@ -2,9 +2,9 @@
 """
 Reindex the knowledge base with the configured embedding model
 ==============================================================
-ADR 0003 pins retrieval to bge-m3, chosen by measurement: mean hit@5 of 0.96
-across the eleven supported languages, against 0.09 for the English-only index
-this replaced, which scored 0.00 on all ten Indic languages.
+ADR 0008 pins retrieval to EmbeddingGemma 2, replacing bge-m3 (ADR 0003, mean
+hit@5 of 0.96 across the eleven supported languages, against 0.09 for the
+English-only index before it, which scored 0.00 on all ten Indic languages).
 
 Changing the configured model does not reindex by itself.
 `get_or_create_collection` returns whatever collection is already on disk
@@ -120,6 +120,7 @@ def main() -> int:
         collection_name=COLLECTION_NAME,
         identity=identity,
         local_model_path=os.environ.get("EMBEDDING_MODEL_PATH") or None,
+        config=config,
     )
     if result.error:
         print(f"\nReindex failed: {result.error}")

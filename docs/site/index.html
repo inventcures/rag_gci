@@ -60,12 +60,12 @@ workers in India. This page is generated from the code, so it does not drift fro
 what the code does.</p>
 
 <div class="grid">
-  <div class="card"><div class="k">Commit</div><div class="v">dacebe2</div></div>
-  <div class="card"><div class="k">Python files</div><div class="v">243</div></div>
-  <div class="card"><div class="k">Lines of Python</div><div class="v">54,474</div></div>
+  <div class="card"><div class="k">Commit</div><div class="v">6479fdb</div></div>
+  <div class="card"><div class="k">Python files</div><div class="v">245</div></div>
+  <div class="card"><div class="k">Lines of Python</div><div class="v">54,635</div></div>
   <div class="card"><div class="k">Kotlin files</div><div class="v">49</div></div>
-  <div class="card"><div class="k">Tests</div><div class="v">954</div></div>
-  <div class="card"><div class="k">Decisions</div><div class="v">7</div></div>
+  <div class="card"><div class="k">Tests</div><div class="v">967</div></div>
+  <div class="card"><div class="k">Decisions</div><div class="v">8</div></div>
 </div>
 
 <h2 id="overview">Overview</h2>
@@ -121,7 +121,7 @@ providers sit behind a router that picks between them.</p>
     end
 
     subgraph store[&quot;Retrieval&quot;]
-        EMB[bge-m3&lt;br/&gt;1024-dim]
+        EMB[EmbeddingGemma 2&lt;br/&gt;768-dim]
         CHROMA[(ChromaDB&lt;br/&gt;263 chunks)]
         EMB --&gt; CHROMA
     end
@@ -147,7 +147,7 @@ providers sit behind a router that picks between them.</p>
 
 <h3>Largest modules</h3>
 <table><thead><tr><th>Module</th><th class="num">Files</th>
-<th class="num">Lines</th><th>Purpose</th></tr></thead><tbody><tr><td><a href="#architecture"><code>tests</code></a></td><td class="num">47</td><td class="num">15,035</td><td>Pytest configuration for the study test suite. Two problems this fixes, both of which made the suite lie about its own state. Async tests were silentl</td></tr><tr><td><a href="#architecture"><code>personalization</code></a></td><td class="num">10</td><td class="num">8,527</td><td>User Personalization Module for Palli Sahayak Provides personalized experiences through: 1. User profiles with role-based context (patient, caregiver,</td></tr><tr><td><a href="#architecture"><code>graphrag_integration</code></a></td><td class="num">6</td><td class="num">3,440</td><td>GraphRAG Integration Module for Palli Sahayak This module provides integration with Microsoft GraphRAG for enhanced retrieval-augmented generation cap</td></tr><tr><td><a href="#architecture"><code>knowledge_graph</code></a></td><td class="num">7</td><td class="num">3,364</td><td>Knowledge Graph Module for Palli Sahayak RAG System This module provides knowledge graph capabilities for the palliative care RAG system, inspired by </td></tr><tr><td><a href="#architecture"><code>gemini_live</code></a></td><td class="num">5</td><td class="num">3,309</td><td>Gemini Live API Integration Module This module provides real-time voice conversation capabilities using Google&#x27;s Gemini Live API for the Palliative Ca</td></tr><tr><td><a href="#architecture"><code>scripts</code></a></td><td class="num">13</td><td class="num">2,826</td><td>Live audio round trip against the real Gemini Live service. Not a unit test. It spends money and needs a key in .env, so it is a script run by hand: p</td></tr><tr><td><a href="#architecture"><code>clinical_validation</code></a></td><td class="num">5</td><td class="num">2,205</td><td>Clinical Validation Pipeline for Palli Sahayak Provides multi-layer validation for medical responses: 1. Automated validation (medical entities, dosag</td></tr><tr><td><a href="#architecture"><code>retell_integration</code></a></td><td class="num">6</td><td class="num">2,043</td><td>Retell.AI Integration Module for Palli Sahayak Voice AI Helpline Provides: - RetellClient: API client for Retell.AI - RetellWebhookHandler: Webhook ev</td></tr><tr><td><a href="#architecture"><code>analytics</code></a></td><td class="num">4</td><td class="num">1,530</td><td>Real-time Analytics Dashboard for Palli Sahayak Provides comprehensive analytics including: 1. Real-time system metrics (latency, throughput, errors) </td></tr><tr><td><a href="#architecture"><code>retrieval</code></a></td><td class="num">7</td><td class="num">1,527</td><td>Answer-path retrieval: shared Reciprocal Rank Fusion, the knowledge-graph and GraphRAG retrievers, the knowledge-graph cross-reference check (protocol</td></tr></tbody></table>
+<th class="num">Lines</th><th>Purpose</th></tr></thead><tbody><tr><td><a href="#architecture"><code>tests</code></a></td><td class="num">48</td><td class="num">15,191</td><td>Pytest configuration for the study test suite. Two problems this fixes, both of which made the suite lie about its own state. Async tests were silentl</td></tr><tr><td><a href="#architecture"><code>personalization</code></a></td><td class="num">10</td><td class="num">8,527</td><td>User Personalization Module for Palli Sahayak Provides personalized experiences through: 1. User profiles with role-based context (patient, caregiver,</td></tr><tr><td><a href="#architecture"><code>graphrag_integration</code></a></td><td class="num">6</td><td class="num">3,440</td><td>GraphRAG Integration Module for Palli Sahayak This module provides integration with Microsoft GraphRAG for enhanced retrieval-augmented generation cap</td></tr><tr><td><a href="#architecture"><code>knowledge_graph</code></a></td><td class="num">7</td><td class="num">3,364</td><td>Knowledge Graph Module for Palli Sahayak RAG System This module provides knowledge graph capabilities for the palliative care RAG system, inspired by </td></tr><tr><td><a href="#architecture"><code>gemini_live</code></a></td><td class="num">5</td><td class="num">3,309</td><td>Gemini Live API Integration Module This module provides real-time voice conversation capabilities using Google&#x27;s Gemini Live API for the Palliative Ca</td></tr><tr><td><a href="#architecture"><code>scripts</code></a></td><td class="num">13</td><td class="num">2,831</td><td>Live audio round trip against the real Gemini Live service. Not a unit test. It spends money and needs a key in .env, so it is a script run by hand: p</td></tr><tr><td><a href="#architecture"><code>clinical_validation</code></a></td><td class="num">5</td><td class="num">2,205</td><td>Clinical Validation Pipeline for Palli Sahayak Provides multi-layer validation for medical responses: 1. Automated validation (medical entities, dosag</td></tr><tr><td><a href="#architecture"><code>retell_integration</code></a></td><td class="num">6</td><td class="num">2,043</td><td>Retell.AI Integration Module for Palli Sahayak Voice AI Helpline Provides: - RetellClient: API client for Retell.AI - RetellWebhookHandler: Webhook ev</td></tr><tr><td><a href="#architecture"><code>analytics</code></a></td><td class="num">4</td><td class="num">1,530</td><td>Real-time Analytics Dashboard for Palli Sahayak Provides comprehensive analytics including: 1. Real-time system metrics (latency, throughput, errors) </td></tr><tr><td><a href="#architecture"><code>retrieval</code></a></td><td class="num">7</td><td class="num">1,527</td><td>Answer-path retrieval: shared Reciprocal Rank Fusion, the knowledge-graph and GraphRAG retrievers, the knowledge-graph cross-reference check (protocol</td></tr></tbody></table>
 
 <h2 id="voice">Voice</h2>
 <p>A user holds the microphone button and speaks. The app sends one frame. The
@@ -267,6 +267,10 @@ passages from three clinical documents.</p>
 <p>The previous index scored 1.00 on English and 0.00 on every Indic language. That
 is the failure described at the top of this page.</p>
 
+<p>EmbeddingGemma 2 replaces bge-m3 (ADR 0008) only if it scores at least as well on
+the same probes, overall and in every language. The retrieval-eval workflow measures
+it and rebuilds the index when it passes.</p>
+
 <h2 id="study">Study and audit</h2>
 <p>Every interaction is recorded on the server, not on the device. The device sends
 requests. The server decides what to keep.</p>
@@ -317,7 +321,7 @@ client is generated from this surface, and the build fails if the schema drifts.
 <p>Seven architecture decisions are recorded. Each states what was chosen and why.
 The <code>unslop___</code> files hold edited copies for readability.</p>
 <table><thead><tr><th>Decision</th><th>File</th></tr></thead>
-<tbody><tr><td><a href="../../docs/adr/0001-one-app-three-care-roles.md">One app, three Care Roles, enforced server-side</a></td><td><code>0001-one-app-three-care-roles.md</code></td></tr><tr><td><a href="../../docs/adr/0002-eleven-languages-bounded-by-tts.md">Eleven languages, bounded by speech output not speech input</a></td><td><code>0002-eleven-languages-bounded-by-tts.md</code></td></tr><tr><td><a href="../../docs/adr/0003-cross-language-retrieval.md">Cross-language retrieval replaces query translation</a></td><td><code>0003-cross-language-retrieval.md</code></td></tr><tr><td><a href="../../docs/adr/0004-dosage-boundary.md">The dosage boundary is drawn at the dose, not at OTC versus prescription</a></td><td><code>0004-dosage-boundary.md</code></td></tr><tr><td><a href="../../docs/adr/0005-offline-strategy.md">Offline is a cached question bundle plus local history, not local retrieval</a></td><td><code>0005-offline-strategy.md</code></td></tr><tr><td><a href="../../docs/adr/0006-household-record.md">Care Role is an analysis label, not an access boundary</a></td><td><code>0006-household-record.md</code></td></tr><tr><td><a href="../../docs/adr/0007-voice-architecture.md">Gemini Live for voice with a Sarvam fallback, and an India-resident RAG LLM</a></td><td><code>0007-voice-architecture.md</code></td></tr></tbody></table>
+<tbody><tr><td><a href="../../docs/adr/0001-one-app-three-care-roles.md">One app, three Care Roles, enforced server-side</a></td><td><code>0001-one-app-three-care-roles.md</code></td></tr><tr><td><a href="../../docs/adr/0002-eleven-languages-bounded-by-tts.md">Eleven languages, bounded by speech output not speech input</a></td><td><code>0002-eleven-languages-bounded-by-tts.md</code></td></tr><tr><td><a href="../../docs/adr/0003-cross-language-retrieval.md">Cross-language retrieval replaces query translation</a></td><td><code>0003-cross-language-retrieval.md</code></td></tr><tr><td><a href="../../docs/adr/0004-dosage-boundary.md">The dosage boundary is drawn at the dose, not at OTC versus prescription</a></td><td><code>0004-dosage-boundary.md</code></td></tr><tr><td><a href="../../docs/adr/0005-offline-strategy.md">Offline is a cached question bundle plus local history, not local retrieval</a></td><td><code>0005-offline-strategy.md</code></td></tr><tr><td><a href="../../docs/adr/0006-household-record.md">Care Role is an analysis label, not an access boundary</a></td><td><code>0006-household-record.md</code></td></tr><tr><td><a href="../../docs/adr/0007-voice-architecture.md">Gemini Live for voice with a Sarvam fallback, and an India-resident RAG LLM</a></td><td><code>0007-voice-architecture.md</code></td></tr><tr><td><a href="../../docs/adr/0008-embeddinggemma-2-replaces-bge-m3.md">EmbeddingGemma 2 replaces bge-m3, gated on measurement</a></td><td><code>0008-embeddinggemma-2-replaces-bge-m3.md</code></td></tr></tbody></table>
 
 <h2 id="android">Android code</h2>
 <p>The client lives in this repository. Protocol §7.8 requires one commit
@@ -326,8 +330,8 @@ identifier for the whole system, which a split repository would break.</p>
 <th class="num">Test files</th></tr></thead><tbody><tr><td><code>app</code></td><td class="num">13</td><td class="num">5</td></tr><tr><td><code>core</code></td><td class="num">36</td><td class="num">8</td></tr></tbody></table>
 
 <div class="foot">
-Generated 2026-10-14 07:53 UTC from commit
-<code>dacebe2</code> on <code>claude/llm-gemini-client</code>.
+Generated 2026-10-14 11:28 UTC from commit
+<code>6479fdb</code> on <code>claude/project-thread-hhsfk0</code>.
 Regenerate with <code>python3 scripts/build_docs.py</code>.
 </div>
 </main>

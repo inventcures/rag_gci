@@ -69,6 +69,7 @@ nav:
       - Offline strategy: adr/0005-offline-strategy.md
       - The household record: adr/0006-household-record.md
       - Voice architecture: adr/0007-voice-architecture.md
+      - EmbeddingGemma 2 replaces bge-m3: adr/0008-embeddinggemma-2-replaces-bge-m3.md
   - Tickets:
       - 01 Retrieval, bge-m3 end to end: tickets/01-retrieval-bge-m3.md
       - 02 Project and contract seam: tickets/02-project-and-contract-seam.md

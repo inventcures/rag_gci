@@ -57,15 +57,19 @@ models:
     # answers. Replaces the Groq llama-3.1-8b-instant path recorded as defective
     # in the previous release (ADR 0003).
   embedding:
-    model: "BAAI/bge-m3"
-    dimensions: 1024
-    source: "evaluation/retrieval_eval/results.json"
-    # Chosen by measurement: mean hit@5 0.96, against 0.72 for LaBSE and 0.09
-    # for the previous English-only bge-small-en-v1.5, which scored 0.00 on
-    # every one of the ten Indic languages (ADR 0003).
-    measured_mean_hit_at_5: 0.960
+    model: "google/embeddinggemma-2"
+    dimensions: 768
+    source: "evaluation/retrieval_eval/results_adr0008.json"
+    # ADR 0008. Replaces bge-m3 (mean hit@5 0.96, ADR 0003). Adopted only if the
+    # retrieval-eval gate measures it at least as good as bge-m3 overall and in
+    # every one of the eleven languages, on the same 99 probes. The measured
+    # value is filled in from the gate's result file.
+    measured_mean_hit_at_5: null
+    query_prompt: "SearchQuery"    # "task: search result | query: ..."
+    document_prompt: "Document"    # "title: none | text: ..."
     self_hosted: true
     multilingual: true
+    licence: "Apache-2.0"
   speech:
     stt:
       provider: "sarvam"
@@ -87,7 +91,7 @@ knowledge:
   # India opioid compilation (35). The Pallium document is entirely table of
   # contents, so 35 of 263 chunks carry no clinical content.
   snapshot_sha256: null        # populated once data/documents/ holds the sources
-  embedding_dimension: 1024     # bge-m3; live index is still 384 until reindexed
+  embedding_dimension: 768      # EmbeddingGemma 2 (ADR 0008)
   # OPEN: 263 chunks is thin for eleven languages and three user groups. Worth
   # confirming this is the intended knowledge base before optimising retrieval.
 
@@ -95,7 +99,7 @@ knowledge:
 retrieval:
   vector_store: "chromadb"
   persist_directory: "./data/chroma_db"
-  distance: "l2"
+  distance: "cosine"            # the live collection's hnsw space
   chunk_size_chars: 1000
   reranking: true
   rag_method: "vector"

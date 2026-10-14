@@ -71,22 +71,11 @@ def read_stored_chunks(collection: Any) -> List[Dict[str, Any]]:
     return chunks
 
 
-def load_model(identity: EmbeddingIdentity, local_path: Optional[str] = None):
-    """
-    Load the sentence-transformers model for `identity`.
-
-    A local path is preferred when supplied so a 2.3 GB download is not required
-    on every migration.
-    """
-    from sentence_transformers import SentenceTransformer
-
-    source = local_path or identity.model
-    if source != identity.model and Path(source).is_dir():
-        logger.info("Loading embedding model from %s", source)
-    return SentenceTransformer(source)
-
-
-def _embedding_function(identity: EmbeddingIdentity, local_model_path: Optional[str] = None):
+def _embedding_function(
+    identity: EmbeddingIdentity,
+    local_model_path: Optional[str] = None,
+    config: Optional[Dict[str, Any]] = None,
+):
     """
     The ChromaDB embedding function for `identity`.
 
@@ -95,11 +84,27 @@ def _embedding_function(identity: EmbeddingIdentity, local_model_path: Optional[
     the function persisted at creation time. Creating the collection without one
     records "default", and the pipeline then refuses to start with an embedding
     function conflict.
-    """
-    from chromadb.utils import embedding_functions
 
-    source = local_model_path or identity.model
-    return embedding_functions.SentenceTransformerEmbeddingFunction(model_name=source)
+    It is also the function that embeds the chunks here, so passages get the
+    model's document prompt and later queries get its query prompt.
+    """
+    from retrieval_embeddings import (
+        PromptedSentenceTransformerEmbeddingFunction,
+        load_embedding_settings,
+    )
+
+    merged = dict(config or {})
+    merged["embedding"] = {
+        **(merged.get("embedding") or {}),
+        "model": identity.model,
+        "dimension": identity.dimension,
+    }
+    source = None
+    if local_model_path and Path(local_model_path).is_dir():
+        logger.info("Loading embedding model from %s", local_model_path)
+        source = local_model_path
+    settings = load_embedding_settings(merged, model_source=source)
+    return PromptedSentenceTransformerEmbeddingFunction.from_settings(settings)
 
 
 def reindex_with_identity(
@@ -108,6 +113,7 @@ def reindex_with_identity(
     identity: EmbeddingIdentity,
     local_model_path: Optional[str] = None,
     batch_size: int = 32,
+    config: Optional[Dict[str, Any]] = None,
 ) -> ReindexResult:
     """
     Rebuild `collection_name` so its vectors come from `identity`.
@@ -133,13 +139,11 @@ def reindex_with_identity(
         )
 
     logger.info("Re-embedding %d chunks with %s", len(chunks), identity.model)
-    model = load_model(identity, local_model_path)
-    vectors = model.encode(
-        [c["text"] for c in chunks],
-        batch_size=batch_size,
-        normalize_embeddings=True,
-        show_progress_bar=False,
-    )
+    embed = _embedding_function(identity, local_model_path, config)
+    texts = [c["text"] for c in chunks]
+    vectors = []
+    for start in range(0, len(texts), batch_size):
+        vectors.extend(embed(texts[start:start + batch_size]))
 
     actual = len(vectors[0])
     if actual != identity.dimension:
@@ -159,10 +163,7 @@ def reindex_with_identity(
     staging_name = f"{collection_name}{STAGING_SUFFIX}"
     _drop_collection(client, staging_name)
 
-    staging = client.create_collection(
-        name=staging_name,
-        embedding_function=_embedding_function(identity, local_model_path),
-    )
+    staging = client.create_collection(name=staging_name, embedding_function=embed)
     staging.add(
         ids=[f"chunk-{i}" for i in range(len(chunks))],
         embeddings=[list(map(float, v)) for v in vectors],
@@ -174,8 +175,7 @@ def reindex_with_identity(
     written = staging.count()
     logger.info("Staged %d chunks as %s", written, staging_name)
 
-    _restore_name(client, staging_name, collection_name, written, identity,
-                 local_model_path)
+    _restore_name(client, staging_name, collection_name, written, identity, embed)
 
     return ReindexResult(
         chunks_written=written,
@@ -191,7 +191,7 @@ def _restore_name(
     collection_name: str,
     written: int,
     identity: EmbeddingIdentity,
-    local_model_path: Optional[str] = None,
+    embed: Any,
 ) -> None:
     """
     Put the staged collection back under the canonical name.
@@ -209,10 +209,7 @@ def _restore_name(
         return
 
     data = staged.get(include=["documents", "metadatas", "embeddings"])
-    restored = client.create_collection(
-        name=collection_name,
-        embedding_function=_embedding_function(identity, local_model_path),
-    )
+    restored = client.create_collection(name=collection_name, embedding_function=embed)
     restored.add(
         ids=data["ids"],
         embeddings=[list(map(float, v)) for v in data["embeddings"]],

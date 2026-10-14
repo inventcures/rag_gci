@@ -10,8 +10,8 @@ ktem
 kotaemon
 
 # RAG and ML Dependencies
-chromadb>=0.4.18
-sentence-transformers>=2.2.2
+chromadb>=1.5.0  # embed_query: separate query embedding (ADR 0008)
+sentence-transformers>=6.1.0  # EmbeddingGemma 2 (ADR 0008)
 transformers>=4.36.0
 torch>=2.1.0
 fastembed>=0.1.6

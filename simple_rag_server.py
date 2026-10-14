@@ -205,6 +205,10 @@ from retrieval.graph_store import Neo4jGraphStore
 from retrieval.kg_check import KGCrossReferenceChecker
 from retrieval.audit import record_retrieval
 from llm import get_llm_client
+from retrieval_embeddings import (
+    PromptedSentenceTransformerEmbeddingFunction,
+    load_embedding_settings,
+)
 from retrieval_index import (
     IndexMismatchError,
     check_live_index,
@@ -798,6 +802,7 @@ class SimpleRAGPipeline:
         # Previously three places disagreed: config.yaml, the model-loading branch
         # below, and whatever the live collection happened to contain.
         self.embedding_identity = load_identity_from_config(config)
+        self.embedding_config = config
         
         # Storage paths
         self.vector_db_path = self.data_dir / "chroma_db"
@@ -862,17 +867,20 @@ class SimpleRAGPipeline:
             # The embedding model is configuration, not a runtime guess. It used
             # to be selected by the presence of a Hugging Face token, which meant
             # the model silently differed between machines and could differ from
-            # the index already on disk. ADR 0003 pins it to bge-m3.
+            # the index already on disk. ADR 0008 pins it to EmbeddingGemma 2.
             model_name = self.embedding_identity.model
             local_path = os.getenv("EMBEDDING_MODEL_PATH")
-            source = local_path or model_name
+            source = model_name
+            if local_path and os.path.isdir(local_path):
+                logger.info(f"Loading embedding model from local path: {local_path}")
+                source = local_path
 
-            if os.path.isdir(source):
-                logger.info(f"Loading embedding model from local path: {source}")
-                self.embedding_model = SentenceTransformer(source)
-            else:
-                logger.info(f"Loading embedding model: {model_name}")
-                self.embedding_model = SentenceTransformer(model_name)
+            # One function for indexing and querying, so the model's query and
+            # document prompts are applied on every path that reaches Chroma.
+            embedding_func = PromptedSentenceTransformerEmbeddingFunction.from_settings(
+                load_embedding_settings(self.embedding_config, model_source=source)
+            )
+            self.embedding_model = embedding_func.model
 
             self.embedding_model_name = model_name
             logger.info(
@@ -885,15 +893,19 @@ class SimpleRAGPipeline:
             chroma_client = chromadb.PersistentClient(path=str(self.vector_db_path))
             
             # Create or get collection
-            # Create embedding function based on the model we're using
-            embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name=self.embedding_model_name
-            )
-
-            self.vector_db = chroma_client.get_or_create_collection(
-                name="documents",
-                embedding_function=embedding_func
-            )
+            try:
+                self.vector_db = chroma_client.get_or_create_collection(
+                    name="documents",
+                    embedding_function=embedding_func
+                )
+            except ValueError as e:
+                # Chroma refuses a collection persisted with a different embedding
+                # function, which is what an index built by the previous model
+                # looks like. Open it as it is so the drift check below reports
+                # the mismatch and retrieval is refused, rather than the whole
+                # server failing to start.
+                logger.error(f"Embedding function conflict on the live index: {e}")
+                self.vector_db = chroma_client.get_collection(name="documents")
 
             # Refuse to serve through an index built by a different model.
             #

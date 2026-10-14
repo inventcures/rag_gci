@@ -34,7 +34,7 @@ The grant promises that "Sarvam AI servers located in India (data residency)" mi
 | Voice, primary | Gemini Live | US, Europe, Seoul, Dammam, São Paulo |
 | Voice, fallback | Sarvam | India |
 | Language model | Gemini 3.5 Flash | **India (`asia-south1`)** |
-| Embeddings | bge-m3 | **local** |
+| Embeddings | EmbeddingGemma 2 (ADR 0008) | **local** |
 | Knowledge base | ChromaDB | **local** |
 
 Clinical reasoning and grounding, which carry the patient content that matters most, stay in India. Only the audio stream leaves. Selecting an Indian region is not on its own evidence of in-region processing: the same documentation warns that endpoints "don't guarantee data residency" and that some models do not use a regional endpoint. That distinction needs confirming in writing with Google before the IRB sees the claim.

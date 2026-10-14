@@ -28,10 +28,10 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# ADR 0003, chosen by measurement: mean hit@5 0.96 against 0.72 for LaBSE and 0.09
-# for the previous English-only index. See evaluation/retrieval_eval/results.json.
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3"
-DEFAULT_EMBEDDING_DIMENSION = 1024
+# ADR 0008: EmbeddingGemma 2 replaces bge-m3 (ADR 0003, mean hit@5 0.96), subject
+# to the retrieval-eval gate measuring it at least as good on the same 99 probes.
+DEFAULT_EMBEDDING_MODEL = "google/embeddinggemma-2"
+DEFAULT_EMBEDDING_DIMENSION = 768
 
 # Dimensionality for models we may need to reason about. ChromaDB records nothing
 # about which model built a collection, so the dimension is the only observable
@@ -44,6 +44,7 @@ KNOWN_DIMENSIONS = {
     "all-MiniLM-L6-v2": 384,
     "all-mpnet-base-v2": 768,
     "google/embeddinggemma-300m": 768,
+    "google/embeddinggemma-2": 768,
 }
 
 
