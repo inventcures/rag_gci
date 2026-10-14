@@ -492,3 +492,36 @@ Each entry: what was decided, the alternatives, and why.
   against the deployment graph. The KG's results are unchanged by
   construction (same names, now matched through the index), but that too
   is unmeasured without a graph.
+
+## 17: Embedding runtime switch, behind a parity gate (built, not switched)
+
+- **The switch:** `embedding.runtime` in config.yaml (or
+  `EMBEDDING_RUNTIME`): `torch` (default), `onnx`, `openvino_int8`, `tei`.
+  `retrieval/embedding_runtime.py` loads the configured model on that
+  runtime behind the same `encode` (sentence-transformers backends, or a
+  text-embeddings-inference sidecar at `EMBEDDING_TEI_URL`). The server and
+  the reindex script both load through it. Rollback is one line: `torch`.
+- **Fingerprinted:** `embedding.runtime` is in the live fingerprint and in
+  `data/study/release.yaml` (`torch`), so a runtime other than the record
+  shows as drift.
+- **The gate:** `scripts/embedding_runtime_parity.py` embeds the live corpus
+  and every retrieval-eval probe in every Supported Language with each
+  runtime, and passes a runtime only if no language's hit@5 drops more
+  than 0.01 below torch. It also reports query-embed p50/p95 and whether
+  the corpus vectors moved (min cosine below 0.999 means reindex).
+- **Not run, so the runtime stays torch.** The model hub is blocked from
+  this container (the proxy denies huggingface.co) and no bge-m3 weights
+  are on disk, so neither the speed nor the parity numbers can be measured
+  here, and the speed numbers only mean anything on the deployment's
+  hardware anyway. To decide: on the server, install the extra the runtime
+  needs (`optimum[onnxruntime]` for onnx; `optimum[openvino]` for
+  openvino_int8, which also needs the int8 export; or run TEI), then
+  `EMBEDDING_MODEL_PATH=/srv/models/bge-m3 python
+  scripts/embedding_runtime_parity.py --runtimes torch onnx openvino_int8
+  --out docs/latency/embedding-runtime-17.md`, and switch to the fastest
+  runtime that passes. Expect onnx fp32 to keep the vectors (no reindex)
+  and int8 to move them (reindex with
+  `scripts/reindex_with_configured_model.py`, which uses the runtime).
+- **Why TEI is the only Rust worth adopting:** it is a separate process
+  serving the same model, so it takes embedding CPU off the server's event
+  loop and worker processes entirely, and it is swappable back by config.

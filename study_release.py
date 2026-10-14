@@ -177,6 +177,7 @@ class StudyRelease:
             "translation.provider": llm["provider"],
             "translation.model": llm["model"],
             "embedding.model": self._live_embedding_model(),
+            "embedding.runtime": self._embedding_runtime(),
             "speech.stt.provider": speech["stt_provider"],
             "speech.stt.model": speech["stt_model"],
             "speech.tts.model": speech["tts_model"],
@@ -216,6 +217,20 @@ class StudyRelease:
             return {"rag_method": active.rag_method, "kg_check": active.kg_check_mode}
         except Exception:
             return {"rag_method": "unknown", "kg_check": "unknown"}
+
+    @staticmethod
+    def _embedding_runtime() -> str:
+        """The embedding runtime the server would load (config.yaml, env)."""
+        try:
+            import yaml
+
+            from retrieval.embedding_runtime import configured_runtime
+
+            config_path = Path("config.yaml")
+            config = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+            return configured_runtime(config or {})
+        except Exception:
+            return "unknown"
 
     @staticmethod
     def _module_present(module_name: str) -> bool:
@@ -291,6 +306,7 @@ class StudyRelease:
             "translation.provider": self._dig("models", "query_translation", "provider"),
             "translation.model": self._dig("models", "query_translation", "model"),
             "embedding.model": self._dig("models", "embedding", "model"),
+            "embedding.runtime": self._dig("models", "embedding", "runtime"),
             "speech.stt.provider": self._dig("models", "speech", "stt", "provider"),
             "speech.stt.model": self._dig("models", "speech", "stt", "model"),
             "speech.tts.model": self._dig("models", "speech", "tts", "model"),

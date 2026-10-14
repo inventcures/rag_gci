@@ -71,19 +71,21 @@ def read_stored_chunks(collection: Any) -> List[Dict[str, Any]]:
     return chunks
 
 
-def load_model(identity: EmbeddingIdentity, local_path: Optional[str] = None):
+def load_model(identity: EmbeddingIdentity, local_path: Optional[str] = None,
+               runtime: Optional[str] = None):
     """
-    Load the sentence-transformers model for `identity`.
+    Load the embedding model for `identity`, on the configured runtime
+    (retrieval/embedding_runtime.py; torch unless set).
 
     A local path is preferred when supplied so a 2.3 GB download is not required
     on every migration.
     """
-    from sentence_transformers import SentenceTransformer
+    from retrieval.embedding_runtime import configured_runtime, load_embedding_model
 
     source = local_path or identity.model
     if source != identity.model and Path(source).is_dir():
         logger.info("Loading embedding model from %s", source)
-    return SentenceTransformer(source)
+    return load_embedding_model(source, runtime or configured_runtime())
 
 
 def _embedding_function(identity: EmbeddingIdentity, local_model_path: Optional[str] = None):
@@ -108,6 +110,7 @@ def reindex_with_identity(
     identity: EmbeddingIdentity,
     local_model_path: Optional[str] = None,
     batch_size: int = 32,
+    runtime: Optional[str] = None,
 ) -> ReindexResult:
     """
     Rebuild `collection_name` so its vectors come from `identity`.
@@ -133,7 +136,7 @@ def reindex_with_identity(
         )
 
     logger.info("Re-embedding %d chunks with %s", len(chunks), identity.model)
-    model = load_model(identity, local_model_path)
+    model = load_model(identity, local_model_path, runtime)
     vectors = model.encode(
         [c["text"] for c in chunks],
         batch_size=batch_size,

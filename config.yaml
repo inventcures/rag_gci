@@ -50,6 +50,11 @@ embedding:
   model: "BAAI/bge-m3"
   dimension: 1024
   batch_size: 32
+  # How the model runs, not which model: torch | onnx | openvino_int8 | tei
+  # (EMBEDDING_RUNTIME overrides). Change only after
+  # scripts/embedding_runtime_parity.py passes, and reindex if it says the
+  # vectors changed. Rollback is setting this back to torch.
+  runtime: "torch"
   # Point at a local copy to avoid re-downloading 2.3 GB on every migration:
   #   EMBEDDING_MODEL_PATH=/srv/models/bge-m3
   # Frozen corpus vectors are ~263 KB at int8, so shipping them to the Android

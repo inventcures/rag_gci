@@ -215,6 +215,7 @@ from participants import ephemeral, is_person
 from llm import get_llm_client
 from llm.client import GENERATION_FAILED_ANSWER, LLMStreamError, in_voice_turn, within_voice_deadline
 from answer_stream import AnswerStream, active_stream
+from retrieval.embedding_runtime import configured_runtime, load_embedding_model
 from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexMismatchError,
@@ -851,6 +852,9 @@ class SimpleRAGPipeline:
         # Previously three places disagreed: config.yaml, the model-loading branch
         # below, and whatever the live collection happened to contain.
         self.embedding_identity = load_identity_from_config(config)
+        # How the model runs (torch, onnx, openvino_int8, tei); not which
+        # model. retrieval/embedding_runtime.py.
+        self.embedding_runtime = configured_runtime(config)
         
         # Storage paths
         self.vector_db_path = self.data_dir / "chroma_db"
@@ -920,12 +924,10 @@ class SimpleRAGPipeline:
             local_path = os.getenv("EMBEDDING_MODEL_PATH")
             source = local_path or model_name
 
-            if os.path.isdir(source):
-                logger.info(f"Loading embedding model from local path: {source}")
-                self.embedding_model = SentenceTransformer(source)
-            else:
-                logger.info(f"Loading embedding model: {model_name}")
-                self.embedding_model = SentenceTransformer(model_name)
+            if not os.path.isdir(source):
+                source = model_name
+            logger.info(f"Loading embedding model: {source} (runtime {self.embedding_runtime})")
+            self.embedding_model = load_embedding_model(source, self.embedding_runtime)
 
             self.embedding_model_name = model_name
             logger.info(

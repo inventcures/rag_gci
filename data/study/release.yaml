@@ -86,6 +86,7 @@ models:
     # for the previous English-only bge-small-en-v1.5, which scored 0.00 on
     # every one of the ten Indic languages (ADR 0003).
     measured_mean_hit_at_5: 0.960
+    runtime: "torch"   # retrieval/embedding_runtime.py; see ticket 17 in docs/decisions/latency.md
     self_hosted: true
     multilingual: true
   speech:

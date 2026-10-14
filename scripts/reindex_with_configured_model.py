@@ -114,12 +114,14 @@ def main() -> int:
 
     print("\nReindexing from source documents...")
     from reindex_service import reindex_with_identity
+    from retrieval.embedding_runtime import configured_runtime
 
     result = reindex_with_identity(
         chroma_path=args.chroma_path,
         collection_name=COLLECTION_NAME,
         identity=identity,
         local_model_path=os.environ.get("EMBEDDING_MODEL_PATH") or None,
+        runtime=configured_runtime(config),
     )
     if result.error:
         print(f"\nReindex failed: {result.error}")
