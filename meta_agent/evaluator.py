@@ -2,12 +2,13 @@
 
 import json
 import logging
-import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+from llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +63,6 @@ class ResponseEvaluator:
     def __init__(self, evaluations_dir: str = EVALUATIONS_DIR):
         self._dir = Path(evaluations_dir)
         self._dir.mkdir(parents=True, exist_ok=True)
-        self._groq_api_key = os.getenv("GROQ_API_KEY")
-        self._groq_model = "llama-3.1-8b-instant"
 
     async def evaluate_response(
         self,
@@ -105,12 +104,7 @@ class ResponseEvaluator:
         response: str,
         sources: Optional[List[Dict]],
     ) -> Optional[Dict[str, float]]:
-        if not self._groq_api_key:
-            return None
-
         try:
-            import aiohttp
-
             source_text = ""
             if sources:
                 source_text = f"\nSources cited: {len(sources)}"
@@ -128,36 +122,24 @@ class ResponseEvaluator:
                 '- "overall": Weighted average\n\nJSON:'
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._groq_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._groq_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.1,
-                        "max_tokens": 256,
-                    },
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        return None
-                    data = await resp.json()
-                    raw = data["choices"][0]["message"]["content"].strip()
-                    start = raw.find("{")
-                    end = raw.rfind("}") + 1
-                    if start >= 0 and end > start:
-                        parsed = json.loads(raw[start:end])
-                        return {
-                            "relevance": min(1.0, max(0.0, float(parsed.get("relevance", 0.5)))),
-                            "safety": min(1.0, max(0.0, float(parsed.get("safety", 0.5)))),
-                            "completeness": min(1.0, max(0.0, float(parsed.get("completeness", 0.5)))),
-                            "citation": min(1.0, max(0.0, float(parsed.get("citation", 0.5)))),
-                            "overall": min(1.0, max(0.0, float(parsed.get("overall", 0.5)))),
-                        }
+            # None sends the caller to the rule-based scores.
+            resp = await get_llm_client().generate(
+                prompt, max_tokens=256, temperature=0.1, json_mode=True, purpose="meta_evaluate"
+            )
+            if not resp.ok:
+                return None
+            raw = resp.text.strip()
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(raw[start:end])
+                return {
+                    "relevance": min(1.0, max(0.0, float(parsed.get("relevance", 0.5)))),
+                    "safety": min(1.0, max(0.0, float(parsed.get("safety", 0.5)))),
+                    "completeness": min(1.0, max(0.0, float(parsed.get("completeness", 0.5)))),
+                    "citation": min(1.0, max(0.0, float(parsed.get("citation", 0.5)))),
+                    "overall": min(1.0, max(0.0, float(parsed.get("overall", 0.5)))),
+                }
         except Exception as e:
             logger.debug(f"LLM evaluation failed: {e}")
 

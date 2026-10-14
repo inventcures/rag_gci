@@ -24,7 +24,6 @@ class Context1Config:
     max_hops: int = 4
     chroma_persist_dir: str = "./data/chroma_db"
     collection_name: str = "rag_documents"
-    groq_model: str = "llama-3.1-8b-instant"
     enabled: bool = True
     recall_weight: float = 16.0
     precision_weight: float = 1.0

@@ -141,11 +141,15 @@ class StudyRelease:
         """
         speech = self._speech_models()
         retrieval = self._retrieval_settings()
+        llm = self._llm_settings()
         return {
-            "llm.provider": os.getenv("GENAI_LLM_PROVIDER", "gemini").lower(),
-            "llm.model": os.getenv("GENAI_GEMINI_MODEL", "gemini-3.1-flash-lite"),
-            "translation.provider": "groq" if os.getenv("GROQ_API_KEY") else "unset",
-            "translation.model": "llama-3.1-8b-instant",
+            "llm.provider": llm["provider"],
+            "llm.model": llm["model"],
+            "llm.location": llm["location"],
+            "llm.fallback": llm["fallback"],
+            # Translation uses the same shared client as answers.
+            "translation.provider": llm["provider"],
+            "translation.model": llm["model"],
             "embedding.model": self._live_embedding_model(),
             "speech.stt.provider": speech["stt_provider"],
             "speech.stt.model": speech["stt_model"],
@@ -155,6 +159,23 @@ class StudyRelease:
             "retrieval.kg_check": retrieval["kg_check"],
             "commit": self._git_commit(),
         }
+
+    @staticmethod
+    def _llm_settings() -> Dict[str, Any]:
+        """The shared LLM client's settings (llm/client.py), as the server loads them."""
+        try:
+            from llm.client import load_llm_settings
+
+            d = load_llm_settings().describe()
+            fb = d.get("fallback")
+            return {
+                "provider": d["provider"],
+                "model": d["model"],
+                "location": d["location"],
+                "fallback": f"{fb['provider']}:{fb['model']}" if fb else "none",
+            }
+        except Exception:
+            return {"provider": "unknown", "model": "unknown", "location": "unknown", "fallback": "unknown"}
 
     @staticmethod
     def _retrieval_settings() -> Dict[str, str]:
@@ -234,6 +255,8 @@ class StudyRelease:
         recorded: Dict[str, Any] = {
             "llm.provider": self._dig("models", "llm", "provider"),
             "llm.model": self._dig("models", "llm", "model"),
+            "llm.location": self._dig("models", "llm", "region"),
+            "llm.fallback": self._dig("models", "llm", "fallback"),
             "translation.provider": self._dig("models", "query_translation", "provider"),
             "translation.model": self._dig("models", "query_translation", "model"),
             "embedding.model": self._dig("models", "embedding", "model"),

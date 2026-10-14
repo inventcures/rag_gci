@@ -2,12 +2,12 @@
 
 import json
 import logging
-import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from llm import get_llm_client
 from meta_agent.safety_constraints import SafetyConstraintChecker, SAFETY_CONSTRAINTS
 from meta_agent.evaluator import ResponseEvaluator, EvaluationResult, EvaluatedResponse
 from meta_agent.improvement_archive import ImprovementArchive, Improvement
@@ -53,8 +53,6 @@ class ClinicalMetaAgent:
         self._sandbox = sandbox or ImprovementSandbox(min_improvement_threshold=improvement_threshold)
         self._safety_checker = safety_checker or SafetyConstraintChecker()
         self._threshold = improvement_threshold
-        self._groq_api_key = os.getenv("GROQ_API_KEY")
-        self._groq_model = "llama-3.1-8b-instant"
 
         self._strategy_weights = {
             "prompt_modification": 0.4,
@@ -189,12 +187,7 @@ class ClinicalMetaAgent:
         patterns: Dict[str, Any],
         low_scoring: List[EvaluatedResponse],
     ) -> List[Improvement]:
-        if not self._groq_api_key:
-            return self._rule_based_improvements(patterns)
-
         try:
-            import aiohttp
-
             prompt = (
                 "As a clinical AI improvement agent, suggest improvements "
                 "to address these patterns in low-scoring responses. "
@@ -205,42 +198,30 @@ class ClinicalMetaAgent:
                 f"Example low queries: {[r.query[:100] for r in low_scoring[:3]]}\n\nJSON:"
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._groq_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._groq_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.3,
-                        "max_tokens": 512,
-                    },
-                    timeout=aiohttp.ClientTimeout(total=20),
-                ) as resp:
-                    if resp.status != 200:
-                        return self._rule_based_improvements(patterns)
+            # No LLM configured or the call failed: rule-based improvements.
+            resp = await get_llm_client().generate(
+                prompt, max_tokens=512, temperature=0.3, purpose="meta_improve"
+            )
+            if not resp.ok:
+                return self._rule_based_improvements(patterns)
 
-                    data = await resp.json()
-                    raw = data["choices"][0]["message"]["content"].strip()
-                    start = raw.find("[")
-                    end = raw.rfind("]") + 1
-                    if start >= 0 and end > start:
-                        parsed = json.loads(raw[start:end])
-                        return [
-                            Improvement(
-                                id=str(uuid.uuid4()),
-                                domain=item.get("domain", "general"),
-                                change_type=item.get("change_type", "prompt_modification"),
-                                description=item.get("description", ""),
-                                before_metrics={},
-                                after_metrics={},
-                                improvement_delta=0.0,
-                            )
-                            for item in parsed
-                        ]
+            raw = resp.text.strip()
+            start = raw.find("[")
+            end = raw.rfind("]") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(raw[start:end])
+                return [
+                    Improvement(
+                        id=str(uuid.uuid4()),
+                        domain=item.get("domain", "general"),
+                        change_type=item.get("change_type", "prompt_modification"),
+                        description=item.get("description", ""),
+                        before_metrics={},
+                        after_metrics={},
+                        improvement_delta=0.0,
+                    )
+                    for item in parsed
+                ]
         except Exception as e:
             logger.debug(f"LLM improvement generation failed: {e}")
 

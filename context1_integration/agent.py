@@ -1,6 +1,5 @@
 """Context-1 agentic multi-hop retrieval agent."""
 
-import os
 import json
 import logging
 from dataclasses import dataclass, field
@@ -13,6 +12,7 @@ from context1_integration.tools import (
     TokenBudgetTracker,
     _estimate_tokens,
 )
+from llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,6 @@ class Context1RetrievalAgent:
         knowledge_graph_rag=None,
     ):
         self._config = config
-        self._groq_api_key = os.getenv("GROQ_API_KEY")
         self._tools: Optional[Context1Tools] = None
         self._chroma_collection = chroma_collection
         self._kg_rag = knowledge_graph_rag
@@ -172,43 +171,28 @@ class Context1RetrievalAgent:
         )
 
     async def _decompose_query(self, query: str) -> List[str]:
-        """Use Groq LLM to decompose a complex query into subqueries."""
-        if not self._groq_api_key:
-            return self._rule_based_decompose(query)
-
+        """Use the shared LLM to decompose a complex query into subqueries."""
         try:
-            import aiohttp
-
             prompt = (
                 "Decompose this clinical query into 2-4 independent subqueries "
                 "for document retrieval. Return ONLY a JSON array of strings.\n\n"
                 f"Query: {query}\n\nSubqueries:"
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._groq_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._config.groq_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.2,
-                        "max_tokens": 256,
-                    },
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        logger.warning(f"Groq decompose failed: {resp.status}")
-                        return self._rule_based_decompose(query)
+            resp = await get_llm_client().generate(
+                prompt, max_tokens=256, temperature=0.2, purpose="context1_decompose"
+            )
+            if not resp.ok:
+                logger.warning(f"LLM decompose failed: {resp.error}")
+                return self._rule_based_decompose(query)
 
-                    data = await resp.json()
-                    raw = data["choices"][0]["message"]["content"].strip()
-                    subqueries = json.loads(raw)
-                    if isinstance(subqueries, list) and all(isinstance(s, str) for s in subqueries):
-                        return subqueries
+            raw = resp.text.strip()
+            # Tolerate a fenced or prefixed array.
+            start = raw.find("[")
+            end = raw.rfind("]") + 1
+            subqueries = json.loads(raw[start:end] if start >= 0 and end > start else raw)
+            if isinstance(subqueries, list) and all(isinstance(s, str) for s in subqueries):
+                return subqueries
         except Exception as e:
             logger.warning(f"LLM decomposition failed, using rule-based: {e}")
 
@@ -221,12 +205,10 @@ class Context1RetrievalAgent:
         current_chunks: List[ChunkResult],
     ) -> Optional[str]:
         """Generate a follow-up subquery based on retrieved context."""
-        if not self._groq_api_key or not current_chunks:
+        if not current_chunks:
             return None
 
         try:
-            import aiohttp
-
             context_summary = " ".join(
                 c.text[:200] for c in current_chunks[-3:]
             )
@@ -240,24 +222,11 @@ class Context1RetrievalAgent:
                 "Follow-up query:"
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._groq_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._config.groq_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.3,
-                        "max_tokens": 64,
-                    },
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return data["choices"][0]["message"]["content"].strip()
+            resp = await get_llm_client().generate(
+                prompt, max_tokens=64, temperature=0.3, purpose="context1_follow_up"
+            )
+            if resp.ok:
+                return resp.text.strip()
         except Exception as e:
             logger.debug(f"Follow-up generation failed: {e}")
 

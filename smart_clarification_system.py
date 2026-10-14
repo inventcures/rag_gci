@@ -3,15 +3,15 @@ Smart Clarification System for Healthcare Queries
 Intelligently determines when clarifying questions are needed and limits them to 2-3 essential questions
 """
 
-import os
 import json
 import logging
 import re
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
-import requests
 from datetime import datetime, timedelta
+
+from llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,9 @@ class ClarificationState:
 class SmartClarificationSystem:
     """Intelligent system to determine when and what to ask for clarification"""
     
-    def __init__(self, groq_api_key: str):
-        self.groq_api_key = groq_api_key
+    def __init__(self, groq_api_key: Optional[str] = None):
+        # groq_api_key is accepted for old callers and ignored: the LLM call
+        # goes through the shared client (llm/client.py).
         self.user_states: Dict[str, ClarificationState] = {}
         
         # Medical context patterns that often need clarification
@@ -232,25 +233,12 @@ Examples that NEED clarification:
 - "My medicine isn't working" (which medicine? what condition? how long taking?)
 - "I feel sick" (what symptoms? how long? severity?)"""
 
-            # Call Groq API
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.groq_api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "llama-3.1-8b-instant",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "max_tokens": 500
-                },
-                timeout=10
+            response = await get_llm_client().generate(
+                prompt, max_tokens=500, temperature=0.3, json_mode=True, purpose="clarification"
             )
             
-            if response.status_code == 200:
-                result = response.json()
-                content = result["choices"][0]["message"]["content"].strip()
+            if response.ok:
+                content = response.text.strip()
                 
                 # Extract JSON from response
                 try:

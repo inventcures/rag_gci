@@ -3,17 +3,28 @@
 
 # API Keys (set these as environment variables for security)
 api_keys:
-  groq_api_key: ${GROQ_API_KEY}  # For LLM and STT
   twilio_account_sid: ${TWILIO_ACCOUNT_SID}  # Twilio Account SID
   twilio_auth_token: ${TWILIO_AUTH_TOKEN}  # Twilio Auth Token
 
 # LLM Configuration
 llm:
-  provider: "groq"  # groq, openai, azure, ollama
-  model: "llama-3.1-8b-instant"  # Free tier model on Groq
-  temperature: 0.7
-  max_tokens: 1024
-  
+  # Every text-generation call goes through llm/client.py. Environment wins over
+  # this block (LLM_MODEL, LLM_LOCATION, LLM_FALLBACK_ENABLED, LLM_FALLBACK_MODEL).
+  # Vertex AI when GOOGLE_CLOUD_PROJECT is set, else the Gemini API (GEMINI_API_KEY).
+  # gemini-3.5-flash is the newest Flash served from India (ADR 0007). Switching to
+  # gemini-3.8-flash is one line here, but 3.8 has no Asia-Pacific region, so it
+  # sends questions outside India and changes the study release fingerprint.
+  model: "gemini-3.5-flash"
+  location: "asia-south1"
+  timeout_s: 45
+  fallback:
+    # DeepSeek is hosted in China and is not on the approved processor list.
+    # Leave disabled for the study release; needs DEEPSEEK_API_KEY when enabled.
+    enabled: false
+    provider: "deepseek"
+    model: "deepseek-flash"
+    base_url: "https://api.deepseek.com"
+
 # Embedding Configuration
 # Model pinned by ADR 0003, chosen by measurement: mean hit@5 0.96 across the eleven
 # supported languages, against 0.09 for the English-only bge-small-en-v1.5 this

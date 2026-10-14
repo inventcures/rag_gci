@@ -204,6 +204,7 @@ from retrieval.router import (
 from retrieval.graph_store import Neo4jGraphStore
 from retrieval.kg_check import KGCrossReferenceChecker
 from retrieval.audit import record_retrieval
+from llm import get_llm_client
 from retrieval_index import (
     IndexMismatchError,
     check_live_index,
@@ -815,27 +816,14 @@ class SimpleRAGPipeline:
         # How often the translation fallback fired. The rate is the evidence that
         # cross-language retrieval is working; a high rate would mean it is not.
         self.translation_fallback_count = 0
-        self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.gemini_api_key = os.getenv("GEMINI_API_KEY")
-        self.translation_model = "llama-3.1-8b-instant"  # Model for query translation (still Groq)
+        # Every text-LLM call goes through the shared client (llm/client.py):
+        # Gemini primary, DeepSeek fallback only when enabled. These attributes
+        # describe it for logs and scripts; they do not choose anything.
+        self.llm = get_llm_client()
+        self.llm_provider = "gemini"
+        self.response_model = self.llm.settings.model
+        logger.info("LLM: %s", self.llm.settings.describe())
 
-        # LLM provider for response generation: "gemini" (default) or "groq" or "medgemma".
-        # Override with GENAI_LLM_PROVIDER env var.
-        self.llm_provider = os.getenv("GENAI_LLM_PROVIDER", "gemini").lower()
-        self.gemini_model = os.getenv("GENAI_GEMINI_MODEL", "gemini-3.1-flash-lite")
-
-        use_medgemma = os.getenv("USE_MEDGEMMA", "false").lower() == "true"
-        if use_medgemma:
-            self.llm_provider = "medgemma"
-            self.response_model = "medgemma"
-            logger.info("🩺 MedGemma selected for response generation")
-        elif self.llm_provider == "gemini":
-            self.response_model = self.gemini_model
-            logger.info(f"💎 Gemini ({self.gemini_model}) selected for response generation")
-        else:
-            self.response_model = "qwen/qwen3-32b"
-            logger.info("🧠 Qwen3-32B (Groq) selected for response generation")
-        
         # Document metadata and conversation storage
         self.document_metadata = self._load_metadata()
         self.conversations = self._load_conversations()
@@ -1465,9 +1453,7 @@ class SimpleRAGPipeline:
             #
             # Translating first was correct while the index was English-only and
             # necessary for anything Indic. It is now a wasted LLM round-trip on
-            # every query, it discards the better signal when it succeeds, and it
-            # reintroduces a Groq dependency that the release record flags as
-            # defective.
+            # every query, and it discards the better signal when it succeeds.
             query_for_search = question
             if source_language != "en" and self._cross_language_retrieval_is_weak(question):
                 logger.info(
@@ -1719,7 +1705,7 @@ class SimpleRAGPipeline:
                 except Exception as e:
                     logger.warning(f"Failed to inject patient context: {e}")
 
-            # Generate answer using Groq with citation instructions
+            # Generate answer with citation instructions
             generation_started = time.perf_counter()
             answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
             stage_ms["generation"] = round((time.perf_counter() - generation_started) * 1000, 1)
@@ -1906,108 +1892,28 @@ class SimpleRAGPipeline:
         # No thinking tags found, return as-is
         return response
 
-    async def _call_gemini_api(
-        self,
-        prompt: str,
-        max_tokens: int = 2048,
-        temperature: float = 0.3,
-    ) -> Optional[str]:
-        """
-        Call Google's Gemini API for text generation. Returns the response
-        text on success, None on failure (caller should handle fallback).
-
-        Uses google-generativeai-style REST endpoint:
-        https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
-        """
-        if not self.gemini_api_key:
-            logger.error("GEMINI_API_KEY not configured")
-            return None
-
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.gemini_model}:generateContent?key={self.gemini_api_key}"
-        )
-        payload = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": max_tokens,
-            },
-        }
-        try:
-            response = requests.post(
-                url,
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=45,
-            )
-            if response.status_code != 200:
-                logger.error(
-                    f"Gemini API error: {response.status_code} - {response.text[:500]}"
-                )
-                return None
-            data = response.json()
-            candidates = data.get("candidates", [])
-            if not candidates:
-                logger.error(f"Gemini API returned no candidates: {data}")
-                return None
-            parts = candidates[0].get("content", {}).get("parts", [])
-            text = "".join(p.get("text", "") for p in parts).strip()
-            if not text:
-                logger.warning(f"Gemini API returned empty text: {data}")
-                return None
-            return text
-        except Exception as e:
-            logger.error(f"Gemini API call failed: {e}")
-            return None
-
     async def _call_llm(
         self,
         prompt: str,
         max_tokens: int = 2048,
         temperature: float = 0.3,
+        purpose: str = "answer",
     ) -> tuple:
         """
-        Provider-agnostic LLM call. Returns (text, provider_name).
-        Routes based on self.llm_provider; falls back to Groq if Gemini fails.
+        Generate with the shared client. Returns (text, model) on success and
+        ("Error: ...", "error") on failure, the contract callers already rely on.
         """
-        # Try Gemini first if configured
-        if self.llm_provider == "gemini" and self.gemini_api_key:
-            text = await self._call_gemini_api(prompt, max_tokens, temperature)
-            if text:
-                return text, "gemini"
-            logger.warning("Gemini call failed; falling back to Groq")
-
-        # Groq path (default fallback)
-        if not self.groq_api_key:
-            return "Error: no LLM provider configured", "error"
-
-        try:
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.groq_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "qwen/qwen3-32b",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                },
-                timeout=45,
-            )
-            if response.status_code == 200:
-                raw = response.json()["choices"][0]["message"]["content"].strip()
-                return self._extract_and_log_thinking(raw), "groq"
-            logger.error(f"Groq API error: {response.status_code} - {response.text[:500]}")
-            return f"Error generating response: {response.status_code}", "error"
-        except Exception as e:
-            logger.error(f"Groq call failed: {e}")
-            return f"Error generating answer: {e}", "error"
+        llm = getattr(self, "llm", None) or get_llm_client()
+        response = await llm.generate(
+            prompt, max_tokens=max_tokens, temperature=temperature, purpose=purpose
+        )
+        if not response.ok:
+            logger.error("LLM call failed (%s): %s", purpose, response.error)
+            return f"Error generating response: {response.error}", "error"
+        return self._extract_and_log_thinking(response.text), response.model
 
     async def _generate_answer(self, question: str, context: str) -> str:
-        """Generate answer using configured LLM provider (Gemini default, Groq fallback)."""
+        """Generate answer with the shared LLM client (llm/client.py)."""
         try:
             prompt = f"""You are an expert palliative care physician answering a question for a community health worker or family caregiver in India.
 
@@ -2075,21 +1981,16 @@ ANSWER (2-3 paragraphs):"""
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> tuple:
         """Generate an answer with citations.
 
-        Routes through the provider-agnostic helper below, Gemini first. An earlier
-        version guarded on GROQ_API_KEY before reaching that routing, so a
-        deployment configured for Gemini with no Groq key returned
-        "GROQ_API_KEY not configured" without ever attempting a Gemini call.
+        Routes through the shared LLM client (llm/client.py): Gemini, then the
+        DeepSeek fallback only when llm.fallback.enabled is set.
 
         Returns: (answer, model_used)
         """
         try:
-            if not (self.gemini_api_key or self.groq_api_key):
-                return "Error: no LLM provider configured", "error"
-            
             # Create citation mapping
             citation_text = self._format_citation_context(context, metadatas)
             
-            # Unified detailed prompt (Gemini default, Groq fallback) — 2-3 paragraphs
+            # Unified detailed prompt — 2-3 paragraphs
             if should_fuse:
                 instructions = (
                     "SYNTHESIS MODE: Multiple related medical contexts are provided. "
@@ -2133,15 +2034,9 @@ QUESTION: {question}
 
 ANSWER (2-3 paragraphs followed by Sources line):"""
             
-            # Route via provider-agnostic helper (Gemini default, Groq fallback)
-            if self.response_model == "medgemma":
-                answer, model_used = await self._call_medgemma_endpoint(prompt, citation_text, question)
-                if answer.startswith("Error"):
-                    return answer, "error"
-            else:
-                answer, model_used = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
-                if answer.startswith("Error"):
-                    return answer, model_used
+            answer, model_used = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
+            if model_used == "error":
+                return answer, model_used
             
             # Debug: Log what the LLM generated
             logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")
@@ -2161,219 +2056,6 @@ ANSWER (2-3 paragraphs followed by Sources line):"""
         except Exception as e:
             logger.error(f"Error generating answer with citations: {e}")
             return f"Error generating answer: {str(e)}", "error"
-    
-    async def _call_medgemma_endpoint(self, prompt: str, citation_text: str, question: str) -> tuple:
-        """Call MedGemma endpoint with HuggingFace native format, fallback to Groq if unavailable
-        Returns: (response_text, model_used)"""
-        try:
-            logger.info("🩺 Using MedGemma for response generation...")
-            logger.info(f"🔍 Debug: citation_text = {citation_text[:100]}...")
-            logger.info(f"🔍 Debug: question = {question[:50]}...")
-            
-            # Create enhanced prompt for MedGemma with examples and medical structure
-            citation_format = "[ Sources : doc_name: pg 1,2,3 ; other_doc: pg 4,5 ]"
-            logger.info(f"🔍 Debug: citation_format = {citation_format}")
-            
-            try:
-                # Build prompt using string concatenation to avoid f-string issues with { Sources }
-                prompt_parts = [
-                    "You are a medical expert providing evidence-based palliative care guidance. Analyze the provided medical literature and give structured, actionable advice.",
-                    "",
-                    "DOSE RULE: Name medicines and when they are used, but never give a dose, amount, strength, frequency or schedule. Tell the user to confirm the dose with their doctor or nurse.",
-                    "",
-                    "CITATION REQUIREMENTS:",
-                    "- ONLY cite at the END of your response - NO inline citations in the text",
-                    "- End your response with: " + citation_format,
-                    "- Multiple pages from same document: separate with commas", 
-                    "- Multiple documents: separate with semicolons",
-                    "",
-                    "EXAMPLE FORMAT:",
-                    "Question: How to manage pain in bedridden patients?",
-                    "Medical Context: [Document: pain management guide, Page 23] Pain assessment should be done every 4 hours using standardized scales. Repositioning every 2 hours prevents pressure sores.",
-                    "",
-                    "Response:",
-                    "*Pain Assessment:*",
-                    "• Use 0-10 pain scale every 4 hours",
-                    "• Document pain triggers and relief patterns",
-                    "",
-                    "*Positioning Care:*",
-                    "• Reposition patient every 2 hours",
-                    "• Use pressure-relieving mattress",
-                    "• Check skin integrity at pressure points",
-                    "",
-                    "*Medication Protocol:*",
-                    "• Start with regular paracetamol; confirm the dose with the patient's doctor or nurse",
-                    "• Add weak opioids if pain >4/10",
-                    "",
-                    "[ Sources : pain_management_guide: pg 23 ]",
-                    "",
-                    "EXAMPLE 2:",
-                    "Question: How to provide tracheostomy care?",
-                    "Medical Context: [Document: nursing handbook, Page 67] Suction tracheostomy when secretions accumulate. Clean around stoma twice daily.",
-                    "",
-                    "Response:",
-                    "*Suctioning Technique:*",
-                    "• Suction when secretions visible or audible",
-                    "• Use sterile technique, limit to 15 seconds",
-                    "• Pre-oxygenate before suctioning",
-                    "",
-                    "*Daily Stoma Care:*",
-                    "• Clean around stoma twice daily with saline",
-                    "• Change tracheostomy ties when soiled",
-                    "• Monitor for signs of infection",
-                    "",
-                    "[ Sources : nursing_handbook: pg 67 ]",
-                    "",
-                    "NOW ANSWER THIS QUESTION:",
-                    "",
-                    "MEDICAL LITERATURE:",
-                    citation_text,
-                    "",
-                    "QUESTION: " + question,
-                    "",
-                    "STRUCTURED MEDICAL RESPONSE (UNDER 1500 CHARS):"
-                ]
-                
-                english_enforced_prompt = "\n".join(prompt_parts)
-                logger.info("🔍 Debug: Prompt creation successful")
-                
-            except Exception as prompt_error:
-                logger.error(f"🔍 Debug: Prompt creation failed: {prompt_error}")
-                return f"Error creating prompt: {prompt_error}", "error"
-            
-            # Format prompt for MedGemma (using the same format as test script)
-            try:
-                formatted_prompt = f"<start_of_turn>user\n{english_enforced_prompt}<end_of_turn>\n<start_of_turn>model\n"
-                logger.info("🔍 Debug: Formatted prompt creation successful")
-            except Exception as format_error:
-                logger.error(f"🔍 Debug: Formatted prompt creation failed: {format_error}")
-                return f"Error formatting prompt: {format_error}", "error"
-            
-            # Debug: Log prompt details to identify 422 cause
-            logger.info(f"🔍 MedGemma prompt length: {len(formatted_prompt)} chars")
-            logger.info(f"🔍 MedGemma prompt preview: {formatted_prompt[:200]}...")
-            
-            # Truncate if too long to prevent 422 errors
-            MAX_PROMPT_LENGTH = 8000  # Higher limit for better quality responses
-            if len(formatted_prompt) > MAX_PROMPT_LENGTH:
-                logger.warning(f"⚠️ Truncating long prompt from {len(formatted_prompt)} to {MAX_PROMPT_LENGTH} chars")
-                # Truncate but preserve the format
-                truncated_content = english_enforced_prompt[:MAX_PROMPT_LENGTH-200]  # Leave room for formatting
-                formatted_prompt = f"<start_of_turn>user\n{truncated_content}<end_of_turn>\n<start_of_turn>model\n"
-            
-            headers = {
-                "Content-Type": "application/json"
-            }
-            
-            # Use HuggingFace native format (matching the working test script)
-            payload = {
-                "inputs": formatted_prompt,
-                "parameters": {
-                    "max_new_tokens": 512,
-                    "temperature": 0.2,  # Match closer to test script values
-                    "top_p": 0.9,        # Match test script
-                    "do_sample": True,
-                    "return_full_text": False,
-                    "stop": ["<end_of_turn>"],  # Keep only the basic stop token like test script
-                    "repetition_penalty": 1.1
-                },
-                "options": {
-                    "use_cache": False,
-                    "wait_for_model": True,
-                    "use_gpu": True
-                },
-                "stream": False
-            }
-            
-            medgemma_url = "https://izqynpy6ktzegc74.us-east4.gcp.endpoints.huggingface.cloud"
-            
-            # Try MedGemma endpoint first
-            logger.info(f"🩺 Calling MedGemma endpoint: {medgemma_url}")
-            response = requests.post(
-                medgemma_url,
-                headers=headers,
-                json=payload,
-                timeout=120
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                logger.info(f"✅ MedGemma response received successfully")
-                
-                if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
-                    generated_text = result[0]["generated_text"].strip()
-                    
-                    # Check for Hindi response and fallback if detected
-                    if self._contains_non_english_script(generated_text):
-                        logger.warning("⚠️ MedGemma responded in Hindi, falling back to Groq...")
-                        return await self._fallback_to_groq(prompt)
-                    
-                    logger.info(f"🩺 MedGemma generated response: {generated_text[:100]}...")
-                    return generated_text, "medgemma"
-                else:
-                    logger.error(f"❌ Unexpected MedGemma response format: {result}")
-                    return await self._fallback_to_groq(prompt)
-            else:
-                logger.error(f"❌ MedGemma API error: {response.status_code} - {response.text}")
-                logger.info("🔄 Falling back to Groq API...")
-                return await self._fallback_to_groq(prompt)
-                
-        except Exception as e:
-            logger.error(f"❌ MedGemma endpoint error: {e}")
-            logger.info("🔄 Falling back to Groq API...")
-            return await self._fallback_to_groq(prompt)
-    
-    def _contains_non_english_script(self, text: str) -> bool:
-        """Check if text contains non-English scripts (Hindi, etc.)"""
-        try:
-            import unicodedata
-            for char in text:
-                script = unicodedata.name(char, '').split(' ')[0] if unicodedata.name(char, '') else ''
-                if any(non_eng in script for non_eng in ['DEVANAGARI', 'BENGALI', 'TAMIL', 'GUJARATI']):
-                    return True
-            return False
-        except:
-            # Fallback: simple check for common Hindi characters
-            hindi_chars = ['ह', 'न', 'म', 'स', 'त', 'े', 'ा', 'ि', 'ी', 'ु', 'ू', 'ं', 'ः']
-            return any(char in text for char in hindi_chars)
-    
-    async def _fallback_to_groq(self, prompt: str) -> tuple:
-        """Fallback to Groq API when MedGemma fails"""
-        try:
-            logger.info("🔄 Using Groq fallback...")
-            
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": self.response_model,  # Use configured response model
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.2,
-                "max_tokens": 512
-            }
-            
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                raw_answer = result["choices"][0]["message"]["content"].strip()
-                answer = self._extract_and_log_thinking(raw_answer)
-                logger.info("✅ Groq fallback successful")
-                return answer, "qwen3"
-            else:
-                logger.error(f"Groq fallback error: {response.status_code} - {response.text}")
-                return f"Error generating response: {response.status_code}", "error"
-                
-        except Exception as e:
-            logger.error(f"Groq fallback error: {e}")
-            return f"Error calling fallback API: {str(e)}", "error"
     
     def _format_citation_context(self, context: str, metadatas: List[Dict]) -> str:
         """Format context with clear source indicators for citation"""
@@ -2497,9 +2179,6 @@ ANSWER (2-3 paragraphs followed by Sources line):"""
     async def translate_query_to_english(self, query: str, source_language: str) -> Dict[str, Any]:
         """Translate query from local language to English for better embedding matching"""
         try:
-            if not self.groq_api_key:
-                return {"status": "error", "error": "GROQ_API_KEY not configured"}
-            
             # Language mapping for better translation prompts
             language_names = {
                 "hi": "Hindi",
@@ -2530,48 +2209,27 @@ CRITICAL REQUIREMENTS:
 
 Respond with ONLY the English translation, no explanations or additional text."""
 
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
+            translated_query, model = await self._call_llm(
+                prompt, max_tokens=500, temperature=0.1, purpose="query_translation"
+            )
+            if model == "error":
+                return {"status": "error", "error": translated_query}
+            translated_query = translated_query.strip()
+            logger.info(f"Query translation: {source_lang_name} '{query}' -> English '{translated_query}'")
+            return {
+                "status": "success",
+                "translated_query": translated_query,
+                "original_query": query
             }
-            
-            data = {
-                "model": self.translation_model,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.1,
-                "max_tokens": 500
-            }
-            
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-                async with session.post("https://api.groq.com/openai/v1/chat/completions", 
-                                       headers=headers, json=data) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        translated_query = result['choices'][0]['message']['content'].strip()
-                        logger.info(f"Query translation: {source_lang_name} '{query}' -> English '{translated_query}'")
-                        return {
-                            "status": "success", 
-                            "translated_query": translated_query,
-                            "original_query": query
-                        }
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"Query translation API error {response.status}: {error_text}")
-                        return {"status": "error", "error": f"Translation API error: {response.status}"}
-                        
+
         except Exception as e:
             logger.error(f"Query translation error: {str(e)}")
             # Fallback: use original query if translation fails
             return {"status": "fallback", "translated_query": query, "original_query": query}
 
     async def translate_text(self, text: str, target_language: str) -> Dict[str, Any]:
-        """Translate text to target language using Groq API"""
+        """Translate text to target language with the shared LLM client"""
         try:
-            if not self.groq_api_key:
-                return {"status": "error", "error": "GROQ_API_KEY not configured"}
-            
             # Language mapping for better translation prompts
             language_names = {
                 "hi": "Hindi",
@@ -2604,51 +2262,24 @@ English Text to Translate:
 
 {target_lang_name} Translation (UNDER 1500 CHARS):"""
 
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": self.translation_model,  # Good multilingual model
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "temperature": 0.1,  # Very low temperature for consistent translations
-                "max_tokens": 512  # Keep within WhatsApp limits
-            }
-            
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
+            translated_text, model = await self._call_llm(
+                prompt, max_tokens=512, temperature=0.1, purpose="answer_translation"
             )
-            
-            if response.status_code == 200:
-                result = response.json()
-                translated_text = result["choices"][0]["message"]["content"].strip()
-                
-                logger.info(f"🌐 TRANSLATION: {target_language}")
-                logger.info(f"  📏 Original length: {len(text)}")
-                logger.info(f"  📏 Translated length: {len(translated_text)}")
-                
-                return {
-                    "status": "success",
-                    "translated_text": translated_text,
-                    "target_language": target_language,
-                    "original_text": text
-                }
-            else:
-                logger.error(f"Translation API error: {response.status_code} - {response.text}")
-                return {
-                    "status": "error",
-                    "error": f"Translation failed: {response.status_code}"
-                }
-                
+            if model == "error":
+                return {"status": "error", "error": f"Translation failed: {translated_text}"}
+            translated_text = translated_text.strip()
+
+            logger.info(f"🌐 TRANSLATION: {target_language}")
+            logger.info(f"  📏 Original length: {len(text)}")
+            logger.info(f"  📏 Translated length: {len(translated_text)}")
+
+            return {
+                "status": "success",
+                "translated_text": translated_text,
+                "target_language": target_language,
+                "original_text": text
+            }
+
         except Exception as e:
             logger.error(f"Translation error: {e}")
             return {"status": "error", "error": str(e)}
