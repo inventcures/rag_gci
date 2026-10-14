@@ -370,12 +370,12 @@ class PromptNoLongerAsksForDoses(unittest.TestCase):
             self.assertIn("QUALITY REQUIREMENTS", prompt)
             self.assertIn("QUESTION: q?", prompt)
 
-    def test_medgemma_example_carries_no_dose(self):
+    def test_medgemma_path_is_gone(self):
+        # Its prompt carried a dosed worked example; every answer now goes
+        # through the shared LLM client and the prompt above.
         from simple_rag_server import SimpleRAGPipeline
 
-        source = inspect.getsource(SimpleRAGPipeline._call_medgemma_endpoint)
-        self.assertNotIn("500mg", source)
-        self.assertIn("DOSE RULE", source)
+        self.assertFalse(hasattr(SimpleRAGPipeline, "_call_medgemma_endpoint"))
 
 
 # ---------------------------------------------------------------------------
