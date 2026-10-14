@@ -14,11 +14,12 @@ Usage:
     errors = config.validate()
 """
 
-import os
 import logging
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Dict, Any, List
+
+from llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -48,34 +49,29 @@ class TreeBuildConfig:
 
 @dataclass
 class LLMConfig:
-    """Configuration for LLM provider (Groq or OpenAI)."""
-    provider: str = "groq"
-    model: str = ""
+    """
+    Generation settings for PageIndex LLM calls.
+
+    Which model answers is not set here: every call goes through the shared
+    client (llm/client.py: Gemini, optional DeepSeek fallback), and
+    `provider` / `effective_model` report that client's settings.
+    """
     temperature: float = 0.0
     max_tokens: int = 4096
-    max_retries: int = 3
-    request_timeout: int = 120
     rate_limit_rpm: int = 30
 
     @property
+    def provider(self) -> str:
+        return get_llm_client().settings.describe()["provider"]
+
+    @property
     def effective_model(self) -> str:
-        if self.model:
-            return self.model
-        if self.provider == "openai":
-            return "gpt-4o"
-        return "qwen/qwen3-32b"
+        return get_llm_client().settings.model
 
     @property
-    def api_key(self) -> str:
-        if self.provider == "openai":
-            return os.getenv("OPENAI_API_KEY", "")
-        return os.getenv("GROQ_API_KEY", "")
-
-    @property
-    def base_url(self) -> str:
-        if self.provider == "openai":
-            return "https://api.openai.com/v1"
-        return "https://api.groq.com/openai/v1"
+    def is_configured(self) -> bool:
+        s = get_llm_client().settings
+        return s.transport != "unconfigured" or (s.fallback_enabled and bool(s.fallback_api_key))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -83,10 +79,8 @@ class LLMConfig:
             "model": self.effective_model,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-            "max_retries": self.max_retries,
-            "request_timeout": self.request_timeout,
             "rate_limit_rpm": self.rate_limit_rpm,
-            "api_key": "***" if self.api_key else "",
+            "shared_client": get_llm_client().settings.describe(),
         }
 
 
@@ -120,10 +114,7 @@ class PageIndexConfig:
     def __init__(self, root_dir: str = "./data/pageindex"):
         self.root_dir = Path(root_dir)
         self.tree_build = TreeBuildConfig()
-        self.llm = LLMConfig(
-            provider=os.getenv("PAGEINDEX_LLM_PROVIDER", "groq"),
-            model=os.getenv("PAGEINDEX_MODEL", ""),
-        )
+        self.llm = LLMConfig()
         self.search = SearchConfig()
 
     @classmethod
@@ -145,9 +136,12 @@ class PageIndexConfig:
             if hasattr(config.tree_build, key):
                 setattr(config.tree_build, key, val)
 
+        # Only generation settings are read; provider/model keys from older
+        # config files are ignored (the shared LLM client decides those).
+        llm_fields = {f.name for f in fields(LLMConfig)}
         llm = pi_settings.get("llm", {})
         for key, val in llm.items():
-            if hasattr(config.llm, key):
+            if key in llm_fields:
                 setattr(config.llm, key, val)
 
         search = pi_settings.get("search", {})
@@ -171,9 +165,10 @@ class PageIndexConfig:
 
     def validate(self) -> List[str]:
         errors = []
-        if not self.llm.api_key:
-            key_name = "OPENAI_API_KEY" if self.llm.provider == "openai" else "GROQ_API_KEY"
-            errors.append(f"LLM API key not configured (set {key_name})")
+        if not self.llm.is_configured:
+            errors.append(
+                "LLM API key not configured (set GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT)"
+            )
         if self.tree_build.max_pages_per_node < 1:
             errors.append(f"Invalid max_pages_per_node: {self.tree_build.max_pages_per_node}")
         if self.search.max_context_tokens < 100:

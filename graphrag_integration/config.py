@@ -31,6 +31,13 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
+# Gemini through GraphRAG's LiteLLM model layer, same family as the shared
+# client in llm/client.py. Used when settings.yaml leaves a model unset.
+DEFAULT_MODEL_PROVIDER = "gemini"
+DEFAULT_CHAT_MODEL = "gemini-3.5-flash"
+DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
+API_KEY_ENV = "GEMINI_API_KEY"
+
 
 @dataclass
 class ModelConfig:
@@ -39,7 +46,7 @@ class ModelConfig:
 
     Attributes:
         type: Model type ("chat" or "embedding")
-        model_provider: Provider name ("openai", "azure_openai", "litellm")
+        model_provider: LiteLLM provider name (e.g. "gemini")
         model: Model identifier
         api_key: API key for authentication
         max_tokens: Maximum tokens for generation
@@ -50,7 +57,7 @@ class ModelConfig:
         batch_size: Batch size for embeddings
     """
     type: str  # "chat" or "embedding"
-    model_provider: str  # "openai", "azure_openai", "litellm"
+    model_provider: str  # LiteLLM provider, e.g. "gemini"
     model: str
     api_key: str = ""
     max_tokens: int = 4096
@@ -294,10 +301,12 @@ class GraphRAGConfig:
         # Parse models
         models_config = settings.get("models", {})
         for model_id, model_settings in models_config.items():
+            model_type = model_settings.get("type", "chat")
+            default_model = DEFAULT_EMBEDDING_MODEL if model_type == "embedding" else DEFAULT_CHAT_MODEL
             self._models[model_id] = ModelConfig(
-                type=model_settings.get("type", "chat"),
-                model_provider=model_settings.get("model_provider", "openai"),
-                model=model_settings.get("model", "gpt-4o-mini"),
+                type=model_type,
+                model_provider=model_settings.get("model_provider", DEFAULT_MODEL_PROVIDER),
+                model=model_settings.get("model", default_model),
                 api_key=model_settings.get("api_key", ""),
                 max_tokens=model_settings.get("max_tokens", 4096),
                 temperature=model_settings.get("temperature", 0.0),
@@ -352,9 +361,9 @@ class GraphRAGConfig:
         # Return default configuration
         return ModelConfig(
             type="chat",
-            model_provider="openai",
-            model="gpt-4o-mini",
-            api_key=os.environ.get("GRAPHRAG_API_KEY", ""),
+            model_provider=DEFAULT_MODEL_PROVIDER,
+            model=DEFAULT_CHAT_MODEL,
+            api_key=os.environ.get(API_KEY_ENV, ""),
         )
 
     def get_embedding_model(self) -> ModelConfig:
@@ -370,9 +379,9 @@ class GraphRAGConfig:
         # Return default configuration
         return ModelConfig(
             type="embedding",
-            model_provider="openai",
-            model="text-embedding-3-small",
-            api_key=os.environ.get("GRAPHRAG_API_KEY", ""),
+            model_provider=DEFAULT_MODEL_PROVIDER,
+            model=DEFAULT_EMBEDDING_MODEL,
+            api_key=os.environ.get(API_KEY_ENV, ""),
         )
 
     def get_model(self, model_id: str) -> Optional[ModelConfig]:
@@ -440,12 +449,12 @@ class GraphRAGConfig:
         # Check API key for chat model
         chat_model = self.get_chat_model()
         if not chat_model.api_key:
-            errors.append("Chat model API key not configured (set GRAPHRAG_API_KEY)")
+            errors.append(f"Chat model API key not configured (set {API_KEY_ENV})")
 
         # Check API key for embedding model
         embedding_model = self.get_embedding_model()
         if not embedding_model.api_key:
-            errors.append("Embedding model API key not configured (set GRAPHRAG_API_KEY)")
+            errors.append(f"Embedding model API key not configured (set {API_KEY_ENV})")
 
         # Check entity types
         if not self.extraction.entity_types:

@@ -75,10 +75,46 @@ def test_config_model_access():
 
     assert chat_model.type == "chat", f"Expected 'chat', got '{chat_model.type}'"
     assert embedding_model.type == "embedding", f"Expected 'embedding', got '{embedding_model.type}'"
-    assert chat_model.model == "gpt-4o-mini"
-    assert embedding_model.model == "text-embedding-3-small"
+    assert chat_model.model_provider == "gemini"
+    assert chat_model.model == "gemini-3.5-flash"
+    assert embedding_model.model_provider == "gemini"
+    assert embedding_model.model == "gemini-embedding-001"
 
     print("PASS: Model access")
+    return True
+
+
+def test_config_default_models_are_gemini():
+    """Without a models block, chat and embedding default to Gemini with GEMINI_API_KEY."""
+    from graphrag_integration.config import GraphRAGConfig
+
+    old_key = os.environ.get("GEMINI_API_KEY")
+    os.environ["GEMINI_API_KEY"] = "test_key"
+    try:
+        config = GraphRAGConfig(root_dir="./data/graphrag", settings={})
+        chat_model = config.get_chat_model()
+        embedding_model = config.get_embedding_model()
+        assert (chat_model.model_provider, chat_model.model) == ("gemini", "gemini-3.5-flash")
+        assert (embedding_model.model_provider, embedding_model.model) == ("gemini", "gemini-embedding-001")
+        assert chat_model.api_key == "test_key"
+        assert embedding_model.api_key == "test_key"
+
+        # A models block that omits model/provider still gets Gemini per type.
+        config = GraphRAGConfig(root_dir="./data/graphrag", settings={
+            "models": {
+                "default_chat_model": {"type": "chat"},
+                "default_embedding_model": {"type": "embedding"},
+            }
+        })
+        assert config.get_chat_model().model == "gemini-3.5-flash"
+        assert config.get_embedding_model().model == "gemini-embedding-001"
+    finally:
+        if old_key is None:
+            del os.environ["GEMINI_API_KEY"]
+        else:
+            os.environ["GEMINI_API_KEY"] = old_key
+
+    print("PASS: Default models are Gemini")
     return True
 
 
@@ -118,7 +154,8 @@ def test_config_validation_with_api_key():
     from graphrag_integration.config import GraphRAGConfig
 
     # Set API key
-    os.environ["GRAPHRAG_API_KEY"] = "test_key"
+    old_key = os.environ.get("GEMINI_API_KEY")
+    os.environ["GEMINI_API_KEY"] = "test_key"
 
     yaml_path = Path("./data/graphrag/settings.yaml")
     if yaml_path.exists():
@@ -130,7 +167,10 @@ def test_config_validation_with_api_key():
         assert len(api_key_errors) == 0, f"Unexpected API key errors: {api_key_errors}"
 
     # Clean up
-    del os.environ["GRAPHRAG_API_KEY"]
+    if old_key is None:
+        del os.environ["GEMINI_API_KEY"]
+    else:
+        os.environ["GEMINI_API_KEY"] = old_key
 
     print("PASS: Validation with API key")
     return True
@@ -148,8 +188,8 @@ def test_config_dataclasses():
     # Test ModelConfig
     model = ModelConfig(
         type="chat",
-        model_provider="openai",
-        model="gpt-4o-mini",
+        model_provider="gemini",
+        model="gemini-3.5-flash",
         api_key="test",
     )
     assert model.type == "chat"
@@ -234,6 +274,7 @@ def run_all_tests():
         test_config_from_yaml,
         test_config_env_substitution,
         test_config_model_access,
+        test_config_default_models_are_gemini,
         test_config_paths,
         test_config_validation,
         test_config_validation_with_api_key,

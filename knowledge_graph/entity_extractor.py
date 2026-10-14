@@ -17,13 +17,14 @@ Entity categories:
 - Advance Care Planning (DNR, advance directives, goals of care)
 """
 
-import os
 import json
 import logging
 import re
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+
+from llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -199,36 +200,22 @@ class EntityExtractor:
 
     def __init__(
         self,
-        llm_provider: str = "groq",
+        llm_provider: str = "default",
         use_patterns: bool = True
     ):
         """
         Initialize entity extractor.
 
         Args:
-            llm_provider: LLM provider ("groq", "openai", or "none")
+            llm_provider: "none" for patterns only; any other value uses the
+                shared LLM client (llm/client.py: Gemini, optional DeepSeek
+                fallback). Legacy provider names are accepted and mean the
+                same as "default".
             use_patterns: Whether to also use pattern matching
         """
         self.llm_provider = llm_provider
         self.use_patterns = use_patterns
-
-        # Initialize LLM client
-        self._groq_client = None
-        self._openai_client = None
-
-        if llm_provider == "groq" and os.getenv("GROQ_API_KEY"):
-            try:
-                from groq import AsyncGroq
-                self._groq_client = AsyncGroq()
-            except ImportError:
-                logger.warning("groq package not installed")
-
-        elif llm_provider == "openai" and os.getenv("OPENAI_API_KEY"):
-            try:
-                from openai import AsyncOpenAI
-                self._openai_client = AsyncOpenAI()
-            except ImportError:
-                logger.warning("openai package not installed")
+        self.use_llm = str(llm_provider).lower() != "none"
 
         # Initialize comprehensive palliative care patterns
         self._init_symptom_patterns()
@@ -621,8 +608,9 @@ class EntityExtractor:
             pattern_entities = self._extract_with_patterns(text)
             entities.extend(pattern_entities)
 
-        # LLM-based extraction (more accurate, requires API)
-        if use_llm and (self._groq_client or self._openai_client):
+        # LLM-based extraction (more accurate, requires API). If the LLM is
+        # unconfigured or fails, the pattern entities above stand alone.
+        if use_llm and self.use_llm:
             try:
                 llm_entities, llm_relationships = await self._extract_with_llm(text)
                 entities.extend(llm_entities)
@@ -755,33 +743,18 @@ class EntityExtractor:
         """Extract entities using LLM."""
         prompt = ENTITY_EXTRACTION_PROMPT.format(text=text[:4000])
 
-        try:
-            if self._groq_client:
-                response = await self._groq_client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,
-                    max_tokens=2000,
-                )
-                content = response.choices[0].message.content
-
-            elif self._openai_client:
-                response = await self._openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,
-                    max_tokens=2000,
-                )
-                content = response.choices[0].message.content
-
-            else:
-                return [], []
-
-            return self._parse_llm_response(content)
-
-        except Exception as e:
-            logger.error(f"LLM extraction error: {e}")
+        response = await get_llm_client().generate(
+            prompt,
+            max_tokens=2000,
+            temperature=0.1,
+            json_mode=True,
+            purpose="kg_entity_extraction",
+        )
+        if not response.ok:
+            logger.debug(f"LLM extraction unavailable: {response.error}")
             return [], []
+
+        return self._parse_llm_response(response.text)
 
     def _parse_llm_response(
         self,

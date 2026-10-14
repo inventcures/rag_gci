@@ -10,7 +10,7 @@ Components:
     - PageIndexTreeBuilder: Document -> tree indexing
     - PageIndexQueryEngine: Tree-based search and retrieval
     - PageIndexStorage: Tree JSON persistence
-    - LLMAdapter: Groq/OpenAI LLM interface
+    - LLMAdapter: Chat interface over the shared LLM client (llm/client.py)
 
 Usage:
     from pageindex_integration import (
