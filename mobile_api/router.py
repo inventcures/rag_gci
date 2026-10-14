@@ -78,6 +78,26 @@ _study_logger = get_study_logger()
 _evaluation_exporter = EvaluationExporter()
 
 
+def _as_unix(value) -> float:
+    """updated_at is stored as an ISO string; the response wants a timestamp."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(value).timestamp()
+    except (TypeError, ValueError):
+        return time.time()
+
+
+async def _require_own_patient(memory_manager, user: AuthenticatedUser, patient_id: str) -> None:
+    """404 unless the patient is on this user's care team.
+
+    404 rather than 403, so the API does not confirm that another care team's
+    patient id exists."""
+    if memory_manager is None or not await memory_manager.user_owns_patient(user.user_id, patient_id):
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+
 # -- Health -----------------------------------------------------------------
 
 @mobile_router.get("/health")
@@ -344,7 +364,7 @@ async def sync_push(
         medication_manager=medication_manager,
         evaluation_logger=_interaction_logger,
     )
-    result = await batch_processor.process_push(request.model_dump(), user_id=user.user_id)
+    result = await batch_processor.process_push(request.model_dump(), user_id=user.user_id, role=user.role)
 
     return SyncPushResponse(
         accepted=result["accepted"],
@@ -399,7 +419,8 @@ async def get_patient(
     user: AuthenticatedUser = Depends(require_auth),
     memory_manager=Depends(get_memory_manager),
 ):
-    record = await memory_manager.get_patient_record(patient_id)
+    await _require_own_patient(memory_manager, user, patient_id)
+    record = await memory_manager.get_record(patient_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Patient not found")
 
@@ -411,7 +432,7 @@ async def get_patient(
         observations=record_dict.get("observations", []),
         care_team=[c.to_dict() if hasattr(c, "to_dict") else c for c in care_team],
         medication_reminders=[],
-        last_updated=record_dict.get("updated_at", time.time()),
+        last_updated=_as_unix(record_dict.get("updated_at")),
     )
 
 
@@ -435,17 +456,22 @@ async def create_observation(
     user: AuthenticatedUser = Depends(require_auth),
     memory_manager=Depends(get_memory_manager),
 ):
-    observation = await memory_manager.add_observation(
-        patient_id=request.patient_id,
-        category=request.category,
-        entity_name=request.entity_name,
-        value=request.value,
-        value_text=request.value_text,
-        severity=request.severity,
-        source_type="app",
-        reported_by=user.role,
-    )
-    obs_id = observation.observation_id if hasattr(observation, "observation_id") else str(uuid.uuid4())
+    if memory_manager is None:
+        raise HTTPException(status_code=503, detail="Patient records not available")
+    try:
+        obs_id = await memory_manager.add_observation_from_sync({
+            "observation_id": str(uuid.uuid4()),
+            "patient_id": request.patient_id,
+            "category": request.category,
+            "entity_name": request.entity_name,
+            "value": request.value,
+            "value_text": request.value_text or "",
+            "severity": request.severity,
+            "timestamp": request.timestamp or time.time(),
+            "reported_by": user.role,
+        }, source="app", user_id=user.user_id, role=user.role)
+    except PermissionError:
+        raise HTTPException(status_code=404, detail="Patient not found")
     return ObservationResponse(observation_id=obs_id, status="created")
 
 
@@ -496,6 +522,7 @@ async def get_adherence(
     patient_id: str,
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    await _require_own_patient(get_memory_manager(), user, patient_id)
     from mobile_api.dependencies import get_medication_manager
     medication_manager = get_medication_manager()
     if medication_manager is None:
@@ -512,8 +539,7 @@ async def get_care_team(
     user: AuthenticatedUser = Depends(require_auth),
     memory_manager=Depends(get_memory_manager),
 ):
-    if memory_manager is None:
-        return {"care_team": []}
+    await _require_own_patient(memory_manager, user, patient_id)
     try:
         team = await memory_manager.get_care_team(patient_id)
         return {"care_team": [m.to_dict() if hasattr(m, "to_dict") else m for m in team]}
@@ -528,8 +554,7 @@ async def add_care_team_member(
     user: AuthenticatedUser = Depends(require_auth),
 ):
     memory_manager = get_memory_manager()
-    if memory_manager is None:
-        return {"status": "added", "patient_id": patient_id, "member_name": request.name}
+    await _require_own_patient(memory_manager, user, patient_id)
     try:
         from personalization.longitudinal_memory import CareTeamMember
         member = CareTeamMember(
@@ -648,8 +673,7 @@ async def export_fhir(
         from personalization.fhir_adapter import FHIRAdapter
         adapter = FHIRAdapter()
         memory_manager = get_memory_manager()
-        if memory_manager is None:
-            raise HTTPException(status_code=503, detail="Memory manager not available for FHIR export")
+        await _require_own_patient(memory_manager, user, patient_id)
         bundle = await adapter.export_patient_bundle(
             patient_id=patient_id,
             longitudinal_manager=memory_manager,
@@ -692,6 +716,7 @@ async def get_patient_insights(
     patient_id: str,
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    await _require_own_patient(get_memory_manager(), user, patient_id)
     try:
         from mobile_api.dependencies import get_memory_agents_query
         query_agent = get_memory_agents_query()
@@ -716,6 +741,7 @@ async def query_patient_memory(
     request: PatientMemoryQueryRequest,
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    await _require_own_patient(get_memory_manager(), user, patient_id)
     try:
         from mobile_api.dependencies import get_memory_agents_query
         query_agent = get_memory_agents_query()

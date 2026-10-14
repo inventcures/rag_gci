@@ -23,7 +23,16 @@ class DeltaTracker:
         care_team = []
         reminders = []
 
-        if self.memory_manager:
+        if self.memory_manager and hasattr(self.memory_manager, "get_changes_for_user"):
+            # One owner-scoped pass over the store instead of three full scans.
+            try:
+                changes = await self.memory_manager.get_changes_for_user(user_id, since_timestamp)
+                patients = changes["patients"]
+                observations = changes["observations"]
+                care_team = changes["care_team"]
+            except Exception as e:
+                logger.warning(f"Failed to get patient deltas: {e}")
+        elif self.memory_manager:
             try:
                 patients = await self.memory_manager.get_patients_modified_since(
                     user_id=user_id,

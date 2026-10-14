@@ -5063,7 +5063,9 @@ def main():
                 init_mobile_deps(
                     rag_pipeline=rag_pipeline,
                     safety_manager=get_safety_manager() if SAFETY_ENHANCEMENTS_AVAILABLE else None,
-                    memory_manager=LongitudinalMemoryManager() if LONGITUDINAL_MEMORY_AVAILABLE else None,
+                    # The answer path's store, not a second one: the app and
+                    # the answer path read and write the same records.
+                    memory_manager=getattr(rag_pipeline, "longitudinal_manager", None),
                     medication_manager=_med_manager,
                 )
                 app.include_router(mobile_router)

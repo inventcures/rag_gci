@@ -14,6 +14,7 @@ adapted for compassionate palliative care.
 
 import json
 import logging
+import os
 import hashlib
 from typing import Optional, List, Dict, Any, Set, Tuple
 from dataclasses import dataclass, field
@@ -1312,6 +1313,9 @@ class LongitudinalMemoryManager:
 
         self._cache: Dict[str, LongitudinalPatientRecord] = {}
         self._lock = asyncio.Lock()
+        # path -> (mtime_ns, size, summary): what the mobile views need from a
+        # file, re-read only when the file changes.
+        self._summaries: Dict[str, Tuple[int, int, Dict[str, Any]]] = {}
 
         logger.info(
             f"LongitudinalMemoryManager initialized - "
@@ -1532,8 +1536,12 @@ class LongitudinalMemoryManager:
             record.updated_at = datetime.now()
 
             try:
-                async with aiofiles.open(file_path, "w") as f:
+                # Write then rename, so a concurrent reader (the mobile sync
+                # scan) sees the old file or the new one, never half of one.
+                tmp_path = file_path.with_name(file_path.name + ".tmp")
+                async with aiofiles.open(tmp_path, "w") as f:
                     await f.write(json.dumps(record.to_dict(), indent=2))
+                os.replace(tmp_path, file_path)
                 self._cache[record.patient_id] = record
                 logger.debug(f"Saved longitudinal record for {record.patient_id}")
             except Exception as e:
@@ -1897,107 +1905,171 @@ class LongitudinalMemoryManager:
             "cached_records": len(self._cache)
         }
 
-    async def get_observations_modified_since(
-        self, user_id: str, since: float
-    ) -> List[Dict[str, Any]]:
-        """Return observations modified after the given Unix timestamp (for mobile sync)."""
-        since_dt = datetime.fromtimestamp(since)
+    # -- Mobile views: each user sees only the patients they care for --------
+    #
+    # A patient belongs to the users on its care team (provider_id is the
+    # mobile user id). Records nobody owns are visible to no mobile user; an
+    # admin assigns them through the care team.
+
+    _SYNC_SLACK_SECONDS = 2.0
+
+    @staticmethod
+    def owner_ids(data: Dict[str, Any]) -> Set[str]:
+        """Mobile user ids on a record's care team (dict or record)."""
+        if isinstance(data, LongitudinalPatientRecord):
+            return {m.provider_id for m in data.care_team if m.provider_id}
+        return {m.get("provider_id") for m in data.get("care_team", [])
+                if isinstance(m, dict) and m.get("provider_id")}
+
+    @staticmethod
+    def _patient_header(data: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "patient_id": data.get("patient_id"),
+            "primary_condition": data.get("primary_condition"),
+            "condition_stage": data.get("condition_stage"),
+            "care_location": data.get("care_location"),
+            "total_observations": data.get("total_observations", 0),
+            "updated_at": data.get("updated_at"),
+        }
+
+    def _record_files(self):
+        return self.storage_path.glob("*_longitudinal.json")
+
+    def _summary(self, file_path: Path, stat: Optional[os.stat_result] = None,
+                 data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """Owners and list fields for one file, parsed only when it changed."""
+        try:
+            stat = stat or file_path.stat()
+        except OSError:
+            return None
+        key = str(file_path)
+        cached = self._summaries.get(key)
+        if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+            return cached[2]
+        data = data if data is not None else self._read_json(file_path)
+        if data is None:
+            return None
+        summary = {"owners": frozenset(self.owner_ids(data)), "header": self._patient_header(data)}
+        self._summaries[key] = (stat.st_mtime_ns, stat.st_size, summary)
+        return summary
+
+    @staticmethod
+    def _read_json(file_path: Path) -> Optional[Dict[str, Any]]:
+        try:
+            content = file_path.read_text(encoding="utf-8")
+            return json.loads(content) if content else None
+        except (OSError, ValueError) as e:
+            logger.error(f"Error reading {file_path.name}: {e}")
+            return None
+
+    def _patients_for_user(self, user_id: str) -> List[Dict[str, Any]]:
         results = []
-        for file_path in self.storage_path.glob("*_longitudinal.json"):
-            try:
-                async with aiofiles.open(file_path, "r") as f:
-                    content = await f.read()
-                    if not content:
-                        continue
-                    data = json.loads(content)
-                    record = LongitudinalPatientRecord.from_dict(data)
-                    for obs in record.observations:
-                        if obs.timestamp > since_dt:
-                            results.append(obs.to_dict())
-            except Exception as e:
-                logger.error(f"Error reading observations from {file_path}: {e}")
+        for file_path in self._record_files():
+            summary = self._summary(file_path)
+            if summary and user_id in summary["owners"]:
+                results.append(dict(summary["header"]))
         return results
 
-    async def get_patients_modified_since(
-        self, user_id: str, since: float
-    ) -> List[Dict[str, Any]]:
-        """Return patient records modified after the given Unix timestamp."""
+    def _changes_for_user(self, user_id: str, since: float) -> Dict[str, List[Dict[str, Any]]]:
         since_dt = datetime.fromtimestamp(since)
-        results = []
-        for file_path in self.storage_path.glob("*_longitudinal.json"):
+        patients: List[Dict[str, Any]] = []
+        observations: List[Dict[str, Any]] = []
+        care_team: List[Dict[str, Any]] = []
+        for file_path in self._record_files():
             try:
-                async with aiofiles.open(file_path, "r") as f:
-                    content = await f.read()
-                    if not content:
-                        continue
-                    data = json.loads(content)
-                    updated = datetime.fromisoformat(data.get("updated_at", "2000-01-01"))
-                    if updated > since_dt:
-                        results.append({
-                            "patient_id": data.get("patient_id"),
-                            "primary_condition": data.get("primary_condition"),
-                            "condition_stage": data.get("condition_stage"),
-                            "care_location": data.get("care_location"),
-                            "updated_at": data.get("updated_at"),
-                        })
-            except Exception as e:
-                logger.error(f"Error reading patient from {file_path}: {e}")
-        return results
-
-    async def get_care_team_modified_since(
-        self, user_id: str, since: float
-    ) -> List[Dict[str, Any]]:
-        """Return care team members modified after the given Unix timestamp."""
-        results = []
-        for file_path in self.storage_path.glob("*_longitudinal.json"):
+                stat = file_path.stat()
+            except OSError:
+                continue
+            # Every change rewrites the file, so an older file has nothing new.
+            if stat.st_mtime < since - self._SYNC_SLACK_SECONDS:
+                continue
+            cached = self._summaries.get(str(file_path))
+            if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+                if user_id not in cached[2]["owners"]:
+                    continue
+            data = self._read_json(file_path)
+            summary = self._summary(file_path, stat, data)
+            if data is None or not summary or user_id not in summary["owners"]:
+                continue
             try:
-                async with aiofiles.open(file_path, "r") as f:
-                    content = await f.read()
-                    if not content:
-                        continue
-                    data = json.loads(content)
-                    for member_data in data.get("care_team", []):
-                        if isinstance(member_data, dict):
-                            results.append(member_data)
-            except Exception as e:
-                logger.error(f"Error reading care team from {file_path}: {e}")
-        return results
+                updated = datetime.fromisoformat(data.get("updated_at") or "2000-01-01")
+            except ValueError:
+                updated = datetime.now()
+            if updated > since_dt:
+                header = self._patient_header(data)
+                header.pop("total_observations", None)
+                patients.append(header)
+            for obs in data.get("observations", []):
+                try:
+                    if datetime.fromisoformat(obs["timestamp"]) > since_dt:
+                        observations.append(obs)
+                except (KeyError, TypeError, ValueError):
+                    continue
+            care_team.extend(m for m in data.get("care_team", []) if isinstance(m, dict))
+        return {"patients": patients, "observations": observations, "care_team": care_team}
 
     async def get_patients_for_user(self, user_id: str) -> List[Dict[str, Any]]:
-        """Return all patient records (for mobile patient list)."""
-        results = []
-        for file_path in self.storage_path.glob("*_longitudinal.json"):
-            try:
-                async with aiofiles.open(file_path, "r") as f:
-                    content = await f.read()
-                    if not content:
-                        continue
-                    data = json.loads(content)
-                    results.append({
-                        "patient_id": data.get("patient_id"),
-                        "primary_condition": data.get("primary_condition"),
-                        "condition_stage": data.get("condition_stage"),
-                        "care_location": data.get("care_location"),
-                        "total_observations": data.get("total_observations", 0),
-                        "updated_at": data.get("updated_at"),
-                    })
-            except Exception as e:
-                logger.error(f"Error reading patient from {file_path}: {e}")
-        return results
+        """The patients on this user's care teams (mobile patient list)."""
+        return await asyncio.to_thread(self._patients_for_user, user_id)
+
+    async def get_changes_for_user(self, user_id: str, since: float) -> Dict[str, List[Dict[str, Any]]]:
+        """One pass for sync pull: patients, observations and care team changed
+        since `since`, for this user's patients only. Files untouched since then
+        are skipped on their modification time without being parsed."""
+        return await asyncio.to_thread(self._changes_for_user, user_id, since)
+
+    async def get_patients_modified_since(self, user_id: str, since: float) -> List[Dict[str, Any]]:
+        return (await self.get_changes_for_user(user_id, since))["patients"]
+
+    async def get_observations_modified_since(self, user_id: str, since: float) -> List[Dict[str, Any]]:
+        return (await self.get_changes_for_user(user_id, since))["observations"]
+
+    async def get_care_team_modified_since(self, user_id: str, since: float) -> List[Dict[str, Any]]:
+        return (await self.get_changes_for_user(user_id, since))["care_team"]
+
+    async def get_record(self, patient_id: str) -> Optional[LongitudinalPatientRecord]:
+        """The stored record, or None. Unlike get_or_create_record, never creates."""
+        if patient_id in self._cache:
+            return self._cache[patient_id]
+        return await self._load_record(patient_id)
+
+    async def user_owns_patient(self, user_id: str, patient_id: str) -> bool:
+        record = await self.get_record(patient_id)
+        return record is not None and user_id in self.owner_ids(record)
+
+    async def claim_or_check(self, user_id: str, patient_id: str, role: str = "asha_worker") -> LongitudinalPatientRecord:
+        """The record for a write by this user: a new patient becomes theirs;
+        an existing one must already be theirs (PermissionError otherwise)."""
+        record = await self.get_record(patient_id)
+        if record is None:
+            record = await self.get_or_create_record(patient_id)
+            record.add_care_team_member(CareTeamMember(provider_id=user_id, name=role, role=role))
+            return record
+        if user_id not in self.owner_ids(record):
+            raise PermissionError("patient belongs to another care team")
+        return record
 
     async def add_observation_from_sync(
-        self, observation_data: Dict[str, Any], source: str = "mobile_sync"
-    ) -> None:
-        """Ingest an observation from mobile sync. Deduplicates by observation_id."""
+        self, observation_data: Dict[str, Any], source: str = "mobile_sync",
+        user_id: Optional[str] = None, role: str = "asha_worker",
+    ) -> Optional[str]:
+        """Ingest an observation from mobile sync. Deduplicates by observation_id.
+
+        With user_id, the write is checked: a new patient becomes this user's,
+        another care team's patient raises PermissionError. Returns the
+        observation id."""
         patient_id = observation_data.get("patient_id")
         if not patient_id:
-            return
+            return None
 
-        record = await self.get_or_create_record(patient_id)
+        if user_id:
+            record = await self.claim_or_check(user_id, patient_id, role)
+        else:
+            record = await self.get_or_create_record(patient_id)
         obs_id = observation_data.get("observation_id", "")
         existing_ids = {o.observation_id for o in record.observations}
         if obs_id in existing_ids:
-            return
+            return obs_id
 
         ts = observation_data.get("timestamp")
         if isinstance(ts, (int, float)) and ts > 1e12:
@@ -2021,6 +2093,7 @@ class LongitudinalMemoryManager:
 
         record.add_observation(observation)
         await self.save_record(record)
+        return observation.observation_id
 
     async def cleanup_expired(self) -> int:
         """Clean up records older than retention period."""

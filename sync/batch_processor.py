@@ -15,15 +15,20 @@ class BatchProcessor:
         self.medication_manager = medication_manager
         self.evaluation_logger = evaluation_logger
 
-    async def process_push(self, push_data: dict, user_id: str) -> dict:
+    async def process_push(self, push_data: dict, user_id: str, role: str = "asha_worker") -> dict:
         accepted = 0
         rejected = 0
         conflicts = []
 
         for obs in (push_data.get("observations") or [])[:MAX_BATCH_SIZE]:
             try:
-                await self.memory_manager.add_observation_from_sync(obs, source="mobile_sync")
+                # Owner-checked: a new patient becomes this user's; another
+                # care team's patient is rejected.
+                await self.memory_manager.add_observation_from_sync(
+                    obs, source="mobile_sync", user_id=user_id, role=role)
                 accepted += 1
+            except PermissionError:
+                rejected += 1
             except Exception as e:
                 logger.warning(f"Rejected observation {obs.get('observation_id')}: {e}")
                 rejected += 1

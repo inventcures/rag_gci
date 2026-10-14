@@ -64,3 +64,36 @@ Each entry: what was decided, the alternatives, and why.
   cannot be split after the fact.
 - **Not verified against a live Bolna call** (no Bolna key in this
   environment). Check one call's request body once a key is available.
+
+## 04: Mobile shows only the caller's patients
+
+- **Ownership = the care team.** A patient belongs to the app users whose user
+  id is a `provider_id` on its care team. No new field, and the admin UI's
+  care-team tab is already the way to assign a patient.
+- **A write to a new patient id makes it the writer's; a write to another care
+  team's patient is rejected** (sync push counts it as rejected; POST
+  `/observation` answers 404).
+- **Records with no app user on the care team are visible to no app user.**
+  This hides records created before this change from the app until an admin
+  adds the ASHA Worker to the care team. Claiming them on first write would let
+  any user take over any existing patient. Revisit if pre-study app records
+  need migrating (the store was empty in this repo).
+- **404, not 403, for another care team's patient**, so the API does not
+  confirm the id exists.
+- **Every per-patient endpoint checks ownership**: patient detail, care team
+  (read and add), adherence, FHIR export, insights, memory query. FHIR import is
+  not checked yet: it writes, it does not read, and it needs its own decision on
+  who owns imported patients.
+- **One store.** The app now gets the answer path's `LongitudinalMemoryManager`
+  (`data/longitudinal`) instead of a second instance on
+  `data/longitudinal_memory`. Two instances also had two in-memory caches that
+  could disagree.
+- **Delta by file modification time** (2-second slack), then per-observation
+  `timestamp > last_sync_at` as before. An observation pushed late with an old
+  timestamp is still not pulled by another device; that was true before and
+  needs a per-observation modified time to fix.
+- **Saves are atomic** (write to `.tmp`, then rename) so the sync scan never
+  reads half a file.
+- Also fixed in passing: GET `/patient/{id}` called a method that did not
+  exist, and POST `/observation` called `add_observation` with the wrong
+  arguments. Both always failed.
