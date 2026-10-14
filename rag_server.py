@@ -34,7 +34,6 @@ from ktem.embeddings.manager import EmbeddingManager
 from ktem.rerankings.manager import RerankingManager
 
 # Additional imports for WhatsApp and audio processing
-import requests
 import tempfile
 import base64
 from io import BytesIO
@@ -263,21 +262,26 @@ class AdminUI:
                     with gr.Row():
                         with gr.Column():
                             gr.Markdown("### LLM Settings")
+                            # Text LLM calls go through the shared client (llm/client.py):
+                            # Gemini primary, optional DeepSeek fallback, set by env/config.yaml.
+                            from llm import load_llm_settings
+
+                            llm_settings = load_llm_settings()
                             llm_provider = gr.Dropdown(
-                                choices=["openai", "azure", "ollama", "groq"],
+                                choices=["gemini"],
                                 label="LLM Provider",
-                                value="groq"
+                                value="gemini"
                             )
                             
                             llm_model = gr.Textbox(
                                 label="Model Name",
-                                value="llama-3.1-8b-instant"
+                                value=llm_settings.model
                             )
                         
                         with gr.Column():
                             gr.Markdown("### Embedding Settings")
                             embedding_provider = gr.Dropdown(
-                                choices=["openai", "fastembed", "local"],
+                                choices=["fastembed", "local"],
                                 label="Embedding Provider",
                                 value="fastembed"
                             )
@@ -371,48 +375,42 @@ class AdminUI:
 
 
 class STTService:
-    """Speech-to-Text service using free APIs"""
+    """Speech-to-Text service using Sarvam Saaras (India-hosted)"""
     
     def __init__(self):
-        self.groq_api_key = os.getenv("GROQ_API_KEY")
-        if not self.groq_api_key:
-            logger.warning("GROQ_API_KEY not found. STT will not work.")
+        from sarvam_integration.client import SarvamClient
+
+        self.sarvam = SarvamClient()
+        if not self.sarvam.is_available():
+            logger.warning("SARVAM_API_KEY not found. STT will not work.")
     
     async def transcribe_audio(self, audio_file_path: str, language: str = "hi") -> Dict[str, Any]:
         """Transcribe audio file to text"""
         try:
-            if not self.groq_api_key:
-                return {"status": "error", "error": "GROQ_API_KEY not configured"}
-            
-            # Use Groq's Whisper API for transcription
-            url = "https://api.groq.com/openai/v1/audio/transcriptions"
-            
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}"
-            }
-            
+            if not self.sarvam.is_available():
+                return {"status": "error", "error": "SARVAM_API_KEY not configured"}
+
+            from sarvam_integration.config import SARVAM_STT_LANGUAGES
+
+            code = "od" if language == "or" else language
+            bcp47 = language if "-" in language else f"{code}-IN"
+            if bcp47 not in SARVAM_STT_LANGUAGES:
+                bcp47 = "hi-IN"
+
             with open(audio_file_path, 'rb') as audio_file:
-                files = {
-                    "file": audio_file,
-                    "model": (None, "whisper-large-v3"),
-                    "language": (None, language),
-                    "response_format": (None, "json")
+                audio_bytes = audio_file.read()
+
+            result = await self.sarvam.speech_to_text(audio_bytes, language=bcp47, with_timestamps=False)
+            if result.success:
+                return {
+                    "status": "success",
+                    "text": result.transcript or "",
+                    "language": language
                 }
-                
-                response = requests.post(url, headers=headers, files=files)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    return {
-                        "status": "success",
-                        "text": result.get("text", ""),
-                        "language": language
-                    }
-                else:
-                    return {
-                        "status": "error",
-                        "error": f"Groq API error: {response.status_code} - {response.text}"
-                    }
+            return {
+                "status": "error",
+                "error": f"Sarvam STT error: {result.error}"
+            }
                     
         except Exception as e:
             logger.error(f"STT error: {e}")

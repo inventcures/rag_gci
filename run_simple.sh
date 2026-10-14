@@ -104,10 +104,20 @@ if [ ! -f ".env" ]; then
 # SIMPLE RAG SERVER CONFIGURATION
 # ===================================
 
-# GROQ API KEY (Required)
-# Get from: https://console.groq.com/
-# Sign up free, go to API Keys, create new key
-GROQ_API_KEY=gsk_your_actual_groq_api_key_here_it_starts_with_gsk
+# TEXT LLM (Required) - Gemini primary, see llm/client.py
+# Either Vertex AI (region-pinned with LLM_LOCATION):
+GOOGLE_CLOUD_PROJECT=
+LLM_LOCATION=asia-south1
+# or the Gemini API: https://aistudio.google.com/apikey
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Optional DeepSeek fallback, used only when Gemini fails
+LLM_FALLBACK_ENABLED=false
+LLM_FALLBACK_MODEL=deepseek-flash
+DEEPSEEK_API_KEY=
+
+# SARVAM (speech-to-text for voice notes): https://dashboard.sarvam.ai/
+SARVAM_API_KEY=your_sarvam_api_key_here
 
 # TWILIO CREDENTIALS (Optional - for WhatsApp bot)
 # Get from: https://www.twilio.com/try-twilio  
@@ -123,8 +133,8 @@ DEBUG=true
 EOF
     
     echo -e "${YELLOW}📝 Created .env template. Please update with your actual API keys:${NC}"
-    echo "   1. Get Groq API key from: https://console.groq.com/"
-    echo "   2. Replace 'gsk_your_actual_groq_api_key_here_it_starts_with_gsk' with your key"
+    echo "   1. Set GOOGLE_CLOUD_PROJECT (Vertex AI) or GEMINI_API_KEY"
+    echo "   2. Set SARVAM_API_KEY for voice-note transcription"
     echo "   3. (Optional) Add Twilio credentials for WhatsApp bot"
     echo ""
 fi
@@ -133,10 +143,10 @@ fi
 if [ -f ".env" ]; then
     source .env
     
-    if [ -z "$GROQ_API_KEY" ] || [ "$GROQ_API_KEY" = "your_groq_api_key_here" ]; then
-        echo -e "${YELLOW}⚠️ GROQ_API_KEY not set in .env file${NC}"
-        echo "Get your free API key from: https://groq.com/"
-        echo "Then update .env file with your key"
+    if [ -z "$GOOGLE_CLOUD_PROJECT" ] && { [ -z "$GEMINI_API_KEY" ] || [ "$GEMINI_API_KEY" = "your_gemini_api_key_here" ]; }; then
+        echo -e "${YELLOW}⚠️ Gemini not configured in .env file${NC}"
+        echo "Set GOOGLE_CLOUD_PROJECT (Vertex AI) or GEMINI_API_KEY (https://aistudio.google.com/apikey)"
+        echo "Then update .env file"
         echo ""
     fi
 fi

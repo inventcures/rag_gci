@@ -127,13 +127,15 @@ class RAGServerSetup:
             with open(settings_file, 'r') as f:
                 settings = yaml.safe_load(f) or {}
             
+            from llm import load_llm_settings
+
             # Update key settings for local development
             updates = {
                 'data_dir': str(self.data_dir),
                 'upload_dir': str(self.uploads_dir),
                 'llm': {
-                    'provider': 'groq',
-                    'model': 'llama-3.1-8b-instant'
+                    'provider': 'gemini',
+                    'model': load_llm_settings().model
                 },
                 'embedding': {
                     'provider': 'fastembed',
@@ -167,10 +169,21 @@ class RAGServerSetup:
 # FULL RAG SERVER CONFIGURATION
 # ===================================
 
-# GROQ API KEY (Required)
-# Get from: https://console.groq.com/
-# Sign up free, go to API Keys, create new key
-GROQ_API_KEY=gsk_your_actual_groq_api_key_here_it_starts_with_gsk
+# TEXT LLM (Required) - Gemini primary, see llm/client.py
+# Either Vertex AI (region-pinned with LLM_LOCATION):
+GOOGLE_CLOUD_PROJECT=
+LLM_LOCATION=asia-south1
+# or the Gemini API: https://aistudio.google.com/apikey
+GEMINI_API_KEY=your_gemini_api_key_here
+# LLM_MODEL=gemini-3.5-flash
+
+# Optional DeepSeek fallback, used only when Gemini fails
+LLM_FALLBACK_ENABLED=false
+LLM_FALLBACK_MODEL=deepseek-flash
+DEEPSEEK_API_KEY=
+
+# SARVAM (speech-to-text for voice notes): https://dashboard.sarvam.ai/
+SARVAM_API_KEY=your_sarvam_api_key_here
 
 # TWILIO CREDENTIALS (Optional - for WhatsApp bot)
 # Get from: https://www.twilio.com/try-twilio
@@ -204,8 +217,8 @@ MAX_CHUNKS_PER_DOC=100
             
             print(f"   Created .env file at: {env_file}")
             print("   📝 Please update with your actual API keys:")
-            print("   1. Get Groq API key from: https://console.groq.com/")
-            print("   2. Replace 'gsk_your_actual_groq_api_key_here_it_starts_with_gsk' with your key")
+            print("   1. Set GOOGLE_CLOUD_PROJECT (Vertex AI) or GEMINI_API_KEY")
+            print("   2. Set SARVAM_API_KEY for voice-note transcription")
             print("   3. (Optional) Add Twilio credentials for WhatsApp bot")
         else:
             print("   .env file already exists")

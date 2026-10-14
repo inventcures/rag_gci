@@ -230,22 +230,22 @@ async def main() -> int:
     load_dotenv()
     from simple_rag_server import SimpleRAGPipeline  # noqa
 
-    # CLI: --provider {gemini,groq,medgemma}  --only VID1,VID2,VID3
-    provider_arg = None
+    from llm import load_llm_settings
+
+    # CLI: --only VID1,VID2,VID3
+    # The LLM is no longer chosen here: every call goes through the shared client
+    # (llm/client.py, Gemini with optional DeepSeek fallback), set by env/config.yaml.
     only_ids = None
     for i, arg in enumerate(sys.argv):
-        if arg == "--provider" and i + 1 < len(sys.argv):
-            provider_arg = sys.argv[i + 1].lower()
-        elif arg == "--only" and i + 1 < len(sys.argv):
+        if arg == "--only" and i + 1 < len(sys.argv):
             only_ids = set(sys.argv[i + 1].split(","))
 
-    if provider_arg:
-        os.environ["GENAI_LLM_PROVIDER"] = provider_arg
-        logger.info(f"Overriding LLM provider via --provider: {provider_arg}")
+    llm_settings = load_llm_settings()
+    provider = "gemini"  # output filename suffix, read by review_app
+    logger.info("LLM: %s", llm_settings.describe())
 
     logger.info("Initializing SimpleRAGPipeline...")
     rag_pipeline = SimpleRAGPipeline()
-    provider = rag_pipeline.llm_provider  # "gemini" / "groq" / "medgemma"
 
     vignettes = load_vignettes()
     if not vignettes:
@@ -256,10 +256,8 @@ async def main() -> int:
         logger.info("Filtered to %d vignettes: %s", len(vignettes), sorted(vignettes))
     logger.info("Loaded %d vignettes; provider=%s", len(vignettes), provider)
 
-    # Inter-request spacing: Groq rate-limits at 6000 TPM (need ~30s gap);
-    # Gemini 2.5 Flash free tier is 10 RPM (need ~6s gap). Configurable.
-    default_delay = 6 if provider == "gemini" else 30
-    INTER_REQUEST_DELAY_S = float(os.environ.get("RAG_RUNNER_DELAY_S", default_delay))
+    # Inter-request spacing for Gemini rate limits (~6s gap). Configurable.
+    INTER_REQUEST_DELAY_S = float(os.environ.get("RAG_RUNNER_DELAY_S", 6))
     MAX_RETRIES = 2
 
     results = []
@@ -284,6 +282,7 @@ async def main() -> int:
         # provider-suffixed filename so multiple LLM outputs per vignette
         # can coexist for side-by-side review.
         result["provider"] = provider
+        result["model"] = llm_settings.model
         # Mirror the version directory, or v2 would overwrite v1.
         version = v.get("_version", "v1")
         out_dir = OUTPUTS_DIR / version

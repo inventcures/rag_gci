@@ -163,9 +163,9 @@ class RAGPipelineTest:
         
         try:
             # Check if API key is available
-            if not os.getenv("GROQ_API_KEY"):
+            if not os.getenv("SARVAM_API_KEY"):
                 self.test_results["stt_service"] = False
-                print("❌ STT test skipped - GROQ_API_KEY not set")
+                print("❌ STT test skipped - SARVAM_API_KEY not set")
                 return
             
             # Test language detection
@@ -318,8 +318,10 @@ class RAGPipelineTest:
             print("\n❌ Multiple tests failed. Please check your setup and configuration.")
         
         print("\n📋 Next Steps:")
-        if not os.getenv("GROQ_API_KEY"):
-            print("• Set GROQ_API_KEY in .env file for full functionality")
+        if not (os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GEMINI_API_KEY")):
+            print("• Set GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY in .env file for full functionality")
+        if not os.getenv("SARVAM_API_KEY"):
+            print("• Set SARVAM_API_KEY in .env file for voice-note transcription")
         
         print("• Upload your documents via the admin UI")
         print("• Test with real queries")

@@ -1,57 +1,33 @@
 #!/usr/bin/env python3
 """
-Check available models in Groq API
+Show the configured text LLM (Gemini primary, optional DeepSeek fallback) and
+make one test call through the shared client in llm/client.py.
 """
 
-import requests
-import os
+import asyncio
+import json
+
 from dotenv import load_dotenv
+
+from llm import LLMClient, load_llm_settings
 
 load_dotenv()
 
-def check_groq_models():
-    """Check available models in Groq"""
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        print("❌ GROQ_API_KEY not found")
-        return
-    
-    headers = {
-        "Authorization": f"Bearer {groq_api_key}",
-        "Content-Type": "application/json"
-    }
-    
-    try:
-        print("🔍 Checking available models in Groq...")
-        response = requests.get(
-            "https://api.groq.com/openai/v1/models",
-            headers=headers,
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            models = response.json()
-            print("✅ Available models:")
-            
-            reasoning_models = []
-            for model in models.get("data", []):
-                model_id = model.get("id", "")
-                print(f"  🔹 {model_id}")
-                
-                # Look for reasoning-capable models
-                if any(keyword in model_id.lower() for keyword in ["qwen", "reasoning", "think", "llama-3", "mixtral"]):
-                    reasoning_models.append(model_id)
-            
-            print(f"\n🧠 Recommended reasoning models:")
-            for model in reasoning_models:
-                print(f"  ⭐ {model}")
-                
-        else:
-            print(f"❌ Failed to get models: {response.status_code}")
-            print(f"📄 Response: {response.text}")
-            
-    except Exception as e:
-        print(f"❌ Error: {e}")
+
+def main() -> None:
+    settings = load_llm_settings()
+    print(json.dumps(settings.describe(), indent=2))
+    print(f"settings source: {settings.source}")
+
+    response = asyncio.run(
+        LLMClient(settings).generate("Reply with the single word: ok", max_tokens=16, purpose="check")
+    )
+    if response.ok:
+        via = " (fallback)" if response.used_fallback else ""
+        print(f"✅ {response.provider}/{response.model}{via} answered in {response.latency_ms:.0f} ms: {response.text!r}")
+    else:
+        print(f"❌ No model answered: {response.error}")
+
 
 if __name__ == "__main__":
-    check_groq_models()
+    main()

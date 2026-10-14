@@ -79,10 +79,10 @@ fi
 if [ -f ".env" ]; then
     source .env
     
-    if [ -z "$GROQ_API_KEY" ] || [ "$GROQ_API_KEY" = "your_groq_api_key_here" ]; then
-        echo -e "${YELLOW}⚠️ GROQ_API_KEY not set in .env file${NC}"
-        echo "Get your free API key from: https://groq.com/"
-        echo "Then update .env file with your key"
+    if [ -z "$GOOGLE_CLOUD_PROJECT" ] && { [ -z "$GEMINI_API_KEY" ] || [ "$GEMINI_API_KEY" = "your_gemini_api_key_here" ]; }; then
+        echo -e "${YELLOW}⚠️ Gemini not configured in .env file${NC}"
+        echo "Set GOOGLE_CLOUD_PROJECT (Vertex AI) or GEMINI_API_KEY (https://aistudio.google.com/apikey)"
+        echo "Then update .env file"
         echo ""
     fi
 fi

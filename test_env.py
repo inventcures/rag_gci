@@ -54,7 +54,7 @@ def test_env_loading():
     
     # Test variables
     test_vars = {
-        "GROQ_API_KEY": "Groq API Key",
+        "GEMINI_API_KEY": "Gemini API Key (or GOOGLE_CLOUD_PROJECT for Vertex AI)",
         "TWILIO_ACCOUNT_SID": "Twilio Account SID", 
         "TWILIO_AUTH_TOKEN": "Twilio Auth Token",
         "TWILIO_WHATSAPP_FROM": "Twilio WhatsApp From"
@@ -64,6 +64,9 @@ def test_env_loading():
     
     for var_name, description in test_vars.items():
         value = os.getenv(var_name)
+        if var_name == "GEMINI_API_KEY" and not value and os.getenv("GOOGLE_CLOUD_PROJECT"):
+            print(f"   ✅ GOOGLE_CLOUD_PROJECT: {os.getenv('GOOGLE_CLOUD_PROJECT')} (Vertex AI)")
+            continue
         if value:
             # Mask sensitive data
             if 'API_KEY' in var_name or 'TOKEN' in var_name:
