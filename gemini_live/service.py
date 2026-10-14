@@ -1576,7 +1576,10 @@ Please prioritize their safety and provide clear, calm guidance.
                 return
 
             # Smart classification: check if this query should trigger RAG
-            should_query, reason = self.service.query_classifier.should_query_rag(query_text)
+            # Embeds the transcript: in a worker thread, not on the loop that
+            # carries this call's audio.
+            should_query, reason = await asyncio.to_thread(
+                self.service.query_classifier.should_query_rag, query_text)
 
             if not should_query:
                 # Check if it's low similarity - might be out of scope for palliative care

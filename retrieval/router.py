@@ -33,6 +33,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from retrieval.embedder import vector_search
 from retrieval.fusion import reciprocal_rank_fusion
 from retrieval.graph_store import Fact, GraphUnavailable
 from retrieval.settings import RetrievalSettings
@@ -155,15 +156,14 @@ def _redact_doses(text: str) -> str:
 class VectorRetriever:
     name = "vector"
 
-    def __init__(self, vector_db: Any):
+    def __init__(self, vector_db: Any, embedder: Any = None):
         self.vector_db = vector_db
+        self.embedder = embedder
 
     async def retrieve(self, query: str, top_k: int) -> List[Passage]:
-        # Chroma's query is synchronous; a worker thread lets the graph
-        # retrievers run alongside it instead of after it.
-        results = await asyncio.to_thread(
-            self.vector_db.query, query_texts=[query], n_results=top_k
-        )
+        # Off the event loop, so the graph retrievers run alongside it; the
+        # embedder's cache means the probe's embedding is reused here.
+        results = await vector_search(self.vector_db, self.embedder, query, top_k)
         docs = (results.get("documents") or [[]])[0] or []
         metas = (results.get("metadatas") or [[]])[0] or []
         dists = (results.get("distances") or [[]])[0] or [0.0] * len(docs)

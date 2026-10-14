@@ -116,3 +116,34 @@ Each entry: what was decided, the alternatives, and why.
   the record is activated and signed: the app will then open, where before it
   never could. That is the intended behaviour, but the ticket asks the study
   team to confirm it, so it is flagged on the PR.
+
+## 06: Embed once, off the event loop, with one model
+
+- **Search by `query_embeddings`, embedded by the collection's own embedding
+  function in a worker thread** (`retrieval/embedder.py`). Same function, same
+  vectors as `query_texts`; a test on a real Chroma collection checks ids and
+  distances are identical.
+- **One bge-m3 instance.** Chroma's `SentenceTransformerEmbeddingFunction`
+  caches models by name in a class dict; the server seeds it with the model it
+  already loaded (from `EMBEDDING_MODEL_PATH` when set), so the collection's
+  function no longer loads a second copy from the hub. The function's persisted
+  config still names `BAAI/bge-m3`, so the existing collection opens without an
+  embedding-function conflict. Expected saving is one model copy (about 2.2 GB
+  for bge-m3 in fp32); not measured here because the hub is blocked in this
+  environment and bge-m3 cannot be downloaded.
+- **The probe is the main search.** A non-English question is searched once
+  with `top_k`; the probe reads the top distance from that result and the vector
+  path reuses it. Translation triggers on the same threshold (1.5) and the same
+  top-1 distance. The one theoretical difference: Chroma's HNSW search with k=5
+  explores at least as many candidates as k=1, so its top-1 can only be equal
+  or closer. On a corpus of a few hundred chunks HNSW is effectively exact.
+- **Exact-text cache, 512 entries, in process.** Covers repeated questions and
+  the routed methods' second look at the same text. Not shared across workers
+  (ticket 18).
+- **Removed per-query debug work**: a `vector_db.count()` SQLite call and a list
+  of every document id, run on every query for a DEBUG log line.
+- **The Live classifier's embedding moved off the loop** (`should_query_rag` in
+  a thread). It already shared the pipeline's model.
+- **Not verified here:** the retrieval harness's hit@5 in the eleven languages
+  (needs bge-m3 and the corpus). By construction the vectors are identical; run
+  `evaluation/retrieval_eval` once on a machine with the model to confirm.

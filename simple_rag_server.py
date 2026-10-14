@@ -204,6 +204,7 @@ from retrieval.router import (
 from retrieval.graph_store import Neo4jGraphStore
 from retrieval.kg_check import KGCrossReferenceChecker
 from retrieval.audit import record_retrieval
+from retrieval.embedder import QueryEmbedder, share_loaded_model, vector_search
 from llm import get_llm_client
 from observability import record_span, span, trace_request
 from retrieval_index import (
@@ -905,11 +906,16 @@ class SimpleRAGPipeline:
             logger.info("Initializing vector database...")
             chroma_client = chromadb.PersistentClient(path=str(self.vector_db_path))
             
-            # Create or get collection
-            # Create embedding function based on the model we're using
+            # The collection's embedding function reuses the model loaded above
+            # (one copy in memory, no hub download when EMBEDDING_MODEL_PATH is
+            # set). Its config still names the configured model, which is what
+            # the collection was created with.
+            share_loaded_model(self.embedding_model_name, self.embedding_model)
             embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name=self.embedding_model_name
             )
+            # Questions are embedded once, off the event loop, by this.
+            self.query_embedder = QueryEmbedder(embedding_func)
 
             self.vector_db = chroma_client.get_or_create_collection(
                 name="documents",
@@ -1322,7 +1328,7 @@ class SimpleRAGPipeline:
             router = getattr(self, "retrieval_router", None) or RetrievalRouter(settings)
             router.settings = settings
             if getattr(self, "vector_db", None) is not None:
-                router.attach("vector", VectorRetriever(self.vector_db))
+                router.attach("vector", VectorRetriever(self.vector_db, getattr(self, "query_embedder", None)))
             if pageindex_engine is not None:
                 router.attach("pageindex", PageIndexRetriever(pageindex_engine))
             if getattr(self, "graph_store", None) is not None:
@@ -1460,21 +1466,6 @@ class SimpleRAGPipeline:
                         "timestamp": datetime.now().isoformat(),
                     }
             
-            # Check if we have any documents indexed
-            total_docs = len(self.document_metadata)
-            logger.debug(f"Query: '{question}' - Total documents in metadata: {total_docs}")
-            
-            # Debug: Print all document IDs in metadata
-            doc_ids = list(self.document_metadata.keys())
-            logger.debug(f"Document IDs in metadata: {doc_ids}")
-            
-            # Debug: Check vector database collection count
-            try:
-                db_count = self.vector_db.count()
-                logger.debug(f"Vector database contains {db_count} documents")
-            except Exception as e:
-                logger.warning(f"Could not get vector DB count: {e}")
-            
             # Cross-language retrieval is the default (ADR 0003). The query is
             # embedded as written and searched against the multilingual index.
             # Translation is a fallback for weak evidence, never the default path.
@@ -1483,7 +1474,16 @@ class SimpleRAGPipeline:
             # necessary for anything Indic. It is now a wasted LLM round-trip on
             # every query, and it discards the better signal when it succeeds.
             query_for_search = question
-            if source_language != "en" and self._cross_language_retrieval_is_weak(question):
+            # The probe's search is the main search for the question as
+            # written: when translation is not needed, the vector path reuses
+            # it rather than embedding and searching a second time.
+            prefetched = None
+            if source_language != "en":
+                weak, prefetched = await self._cross_language_probe(question, top_k)
+            else:
+                weak = False
+            if weak:
+                prefetched = None
                 logger.info(
                     "Cross-language retrieval looks weak for %s; retrying in English",
                     source_language,
@@ -1590,10 +1590,12 @@ class SimpleRAGPipeline:
                 logger.info(f"Using hybrid (vector + PageIndex) retrieval for: {query_for_search[:80]}")
 
                 async def _do_vector_search():
-                    return self.vector_db.query(query_texts=[query_for_search], n_results=top_k)
+                    with span("search", n_results=top_k):
+                        return await self._vector_search(query_for_search, top_k)
 
                 async def _do_tree_search():
-                    return await _pageindex_engine.search(query_for_search)
+                    with span("pageindex.search"):
+                        return await _pageindex_engine.search(query_for_search)
 
                 vector_results, pi_result = await asyncio.gather(
                     _do_vector_search(), _do_tree_search()
@@ -1645,11 +1647,12 @@ class SimpleRAGPipeline:
 
             else:
                 # Default: existing vector search (unchanged)
-                with span("search", n_results=top_k):
-                    search_results = self.vector_db.query(
-                        query_texts=[query_for_search],
-                        n_results=top_k
-                    )
+                with span("search", n_results=top_k) as search_span:
+                    if prefetched is not None and query_for_search == question:
+                        search_results = prefetched
+                        search_span.set(reused_probe=True)
+                    else:
+                        search_results = await self._vector_search(query_for_search, top_k)
 
                 logger.debug(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
                 if search_results.get('documents'):
@@ -1993,32 +1996,38 @@ ANSWER (2-3 paragraphs):"""
     # newly invented one.
     CROSS_LANGUAGE_FALLBACK_DISTANCE = 1.5
 
-    def _cross_language_retrieval_is_weak(self, question: str) -> bool:
+    async def _vector_search(self, text: str, n_results: int) -> Dict[str, Any]:
+        """Vector search for `text`, embedded once and off the event loop."""
+        return await vector_search(self.vector_db, getattr(self, "query_embedder", None), text, n_results)
+
+    async def _cross_language_probe(self, question: str, n_results: int = 1) -> tuple:
         """
         Probe whether searching the query as written is likely to fail.
 
-        Runs a single top-1 query and compares its distance against the same
-        threshold the retrieval path uses to decide relevance. One extra vector
-        search over a few hundred chunks is cheap; translating is an LLM call.
+        Searches the question as written and compares the top distance against
+        the same threshold the retrieval path uses to decide relevance. The
+        search is the real one (n_results), so the vector path reuses it and the
+        question is embedded once. Translating is an LLM call; this is not.
 
-        Returns True only when a translation is worth attempting. Any inability
-        to probe is treated as "not weak", because defaulting to translating would
-        put the cost back on every query.
+        Returns (weak, results). weak is True only when a translation is worth
+        attempting. Any inability to probe is "not weak" with no results,
+        because defaulting to translating would put the cost back on every
+        query.
         """
         if self.vector_db is None:
-            return False
+            return False, None
         try:
             with span("probe"):
-                probe = self.vector_db.query(query_texts=[question], n_results=1)
+                probe = await self._vector_search(question, n_results)
             distances = (probe.get("distances") or [[]])[0]
         except Exception:
             logger.debug("Cross-language probe failed; assuming retrieval is fine")
-            return False
+            return False, None
 
         if not distances:
             # Nothing matched at all, which is the clearest possible weak signal.
-            return True
-        return float(distances[0]) > self.CROSS_LANGUAGE_FALLBACK_DISTANCE
+            return True, probe
+        return float(distances[0]) > self.CROSS_LANGUAGE_FALLBACK_DISTANCE, probe
 
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> tuple:
         """Generate an answer with citations.

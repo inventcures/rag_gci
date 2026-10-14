@@ -15,6 +15,7 @@ by subclassing `Collection` and overriding a ten-argument method with a two-argu
 one, which would be an unsound override even where it happens to run.
 """
 
+import asyncio
 import os
 import sys
 import unittest
@@ -56,6 +57,11 @@ class _RealCollectionFactory:
         return client.get_or_create_collection(name="probe_test")
 
 
+def weak(p, question):
+    """The probe's verdict (the probe also returns its search result)."""
+    return asyncio.run(p._cross_language_probe(question))[0]
+
+
 def _pipeline(distances=(0.4,)):
     """A pipeline holding a real collection, with only the probe stubbed."""
     p = SimpleRAGPipeline.__new__(SimpleRAGPipeline)
@@ -70,22 +76,22 @@ class TestWeaknessProbe(unittest.TestCase):
     def test_close_match_is_not_weak(self):
         p = _pipeline()
         with patch.object(p.vector_db, "query", return_value=_result([0.4]), create=True):
-            self.assertFalse(p._cross_language_retrieval_is_weak("दर्द कैसे नियंत्रित करें"))
+            self.assertFalse(weak(p, "दर्द कैसे नियंत्रित करें"))
 
     def test_far_match_is_weak(self):
         p = _pipeline()
         with patch.object(p.vector_db, "query", return_value=_result([1.9]), create=True):
-            self.assertTrue(p._cross_language_retrieval_is_weak("অজানা প্রশ্ন"))
+            self.assertTrue(weak(p, "অজানা প্রশ্ন"))
 
     def test_boundary_matches_the_relevance_threshold(self):
         p = _pipeline()
         with patch.object(p.vector_db, "query", return_value=_result([1.5]), create=True):
-            self.assertFalse(p._cross_language_retrieval_is_weak("x"))
+            self.assertFalse(weak(p, "x"))
 
     def test_no_matches_at_all_is_weak(self):
         p = _pipeline()
         with patch.object(p.vector_db, "query", return_value=_result([]), create=True):
-            self.assertTrue(p._cross_language_retrieval_is_weak("anything"))
+            self.assertTrue(weak(p, "anything"))
 
     def test_probe_failure_assumes_retrieval_is_fine(self):
         """Defaulting to translating would put the cost back on every query."""
@@ -93,12 +99,12 @@ class TestWeaknessProbe(unittest.TestCase):
         with patch.object(
             p.vector_db, "query", side_effect=RuntimeError("unavailable"), create=True
         ):
-            self.assertFalse(p._cross_language_retrieval_is_weak("anything"))
+            self.assertFalse(weak(p, "anything"))
 
     def test_no_collection_is_not_weak(self):
         p = _pipeline()
         p.vector_db = None
-        self.assertFalse(p._cross_language_retrieval_is_weak("anything"))
+        self.assertFalse(weak(p, "anything"))
 
 
 class TestTranslationOnlyWhenWeak(unittest.TestCase):
@@ -119,7 +125,7 @@ class TestTranslationOnlyWhenWeak(unittest.TestCase):
             return {"status": "success", "translated_query": "translated"}
 
         with probe, patch.object(p, "translate_query_to_english", fake_translate):
-            self.assertFalse(p._cross_language_retrieval_is_weak("question"))
+            self.assertFalse(weak(p, "question"))
             self.assertEqual(calls, [], "translation ran despite strong retrieval")
 
     def test_weak_retrieval_reaches_translation(self):
@@ -131,7 +137,7 @@ class TestTranslationOnlyWhenWeak(unittest.TestCase):
             return {"status": "success", "translated_query": "translated"}
 
         with probe, patch.object(p, "translate_query_to_english", fake_translate):
-            self.assertTrue(p._cross_language_retrieval_is_weak("question"))
+            self.assertTrue(weak(p, "question"))
 
     def test_failed_translation_is_not_counted_as_a_fallback(self):
         """The counter measures fallback use, not translation attempts."""
