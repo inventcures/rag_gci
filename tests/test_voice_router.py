@@ -174,15 +174,27 @@ class Reporting(unittest.TestCase):
 
     def test_rate_is_reported_so_the_claim_is_measurable(self):
         handler = FakeHandler()
-        router = vr.VoiceRouter(handler, live_service_factory=None)
+        router = vr.VoiceRouter(handler, live_service_factory=lambda s: FakeLive())
         session = VoiceSession()
-        for _ in range(3):
-            asyncio.run(router.route(session, b"\x00"))
+        down = vr.LiveAvailability(available=False, reason="live_sdk_unavailable: test")
+        with unittest.mock.patch.object(vr.LiveAvailability, "probe", return_value=down):
+            for _ in range(3):
+                asyncio.run(router.route(session, b"\x00"))
 
         report = router.report()
         self.assertEqual(report["fallback"], 3)
         self.assertEqual(report["fallback_rate"], 1.0)
         self.assertEqual(report["live"], 0)
+
+    def test_a_channel_without_live_is_not_counted_as_live_failing(self):
+        handler = FakeHandler()
+        router = vr.VoiceRouter(handler, live_service_factory=None)
+        outcome = asyncio.run(router.route(VoiceSession(), b"\x00"))
+        self.assertEqual(require_turn(outcome).fallback_reason, "live_not_offered")
+        self.assertEqual(handler.voice_paths, [VOICE_PATH_FALLBACK])
+        report = router.report()
+        self.assertEqual(report["live_not_offered"], 1)
+        self.assertIsNone(report["fallback_rate"])
 
     def test_no_traffic_reports_no_rate_rather_than_a_zero(self):
         # A rate of 0.0 with no calls is a claim that Live never fell back, which

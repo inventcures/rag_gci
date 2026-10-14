@@ -46,7 +46,6 @@ import base64
 import json
 
 from study_logging import get_study_logger
-from voice_live_adapter import build_live_service_factory
 from voice_router import VoiceRouter, set_voice_router
 from voice_session import (
     VOICE_PATH_FALLBACK,
@@ -62,6 +61,16 @@ from sync.delta_tracker import DeltaTracker
 from sync.batch_processor import BatchProcessor
 
 logger = logging.getLogger(__name__)
+
+# MOBILE_LIVE_NOTE: mobile voice turns are answered on the Sarvam path (STT,
+# the shared answer path, TTS), with no Gemini Live attempt first. The Live
+# adapter these routes used to try called the Live service with arguments it
+# does not accept, so every turn opened a failed attempt, recorded
+# `session_open_failed` and then fell back. Live as a transcriber would add a
+# second connection and send audio abroad for a transcript Sarvam already
+# gives in India; Live's real advantage, duplex speech, needs a protocol
+# change on this socket, not an adapter. The router records these turns as
+# fallback with reason `live_not_offered`. docs/decisions/latency.md, ticket 15.
 
 mobile_router = APIRouter(prefix="/api/mobile/v1", tags=["mobile"])
 
@@ -272,10 +281,8 @@ async def voice_query(
         study_logger=None,
         synthesise=_synthesise_voice,
     )
-    voice_router = VoiceRouter(
-        handler=handler,
-        live_service_factory=build_live_service_factory(handler),
-    )
+    # No Live attempt: see MOBILE_LIVE_NOTE.
+    voice_router = VoiceRouter(handler=handler)
 
     try:
         outcome = await voice_router.route(session, audio_bytes)
@@ -822,10 +829,8 @@ async def websocket_voice(
         study_logger=_study_logger,
         synthesise=_synthesise_voice,
     )
-    router = VoiceRouter(
-        handler=handler,
-        live_service_factory=build_live_service_factory(handler),
-    )
+    # No Live attempt: see MOBILE_LIVE_NOTE.
+    router = VoiceRouter(handler=handler)
     # Registered so the admin dashboard can read the fallback rate for a session
     # that is not yet serving traffic. Without it the panel reported zero forever.
     set_voice_router(router)
@@ -835,7 +840,7 @@ async def websocket_voice(
             json.dumps({
                 "type": "ready",
                 "session_id": session.session_id,
-                "voice_path": VOICE_PATH_LIVE,
+                "voice_path": VOICE_PATH_FALLBACK,
                 "language": session.language,
                 "accepts": "audio",
             })

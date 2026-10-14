@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from .config import get_stt_model, get_tts_model, TTS_FALLBACK_MODEL
 from observability import traced
 
+from .http import borrowed_session
+
 logger = logging.getLogger(__name__)
 
 SARVAM_API_BASE = "https://api.sarvam.ai"
@@ -127,7 +129,7 @@ class SarvamClient:
                 form_data.add_field("mode", mode)
             form_data.add_field("with_timestamps", str(with_timestamps).lower())
 
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/speech-to-text",
                     headers=self.headers,
@@ -233,7 +235,7 @@ class SarvamClient:
 
         headers = {**self.headers, "Content-Type": "application/json"}
 
-        async with aiohttp.ClientSession() as session:
+        async with borrowed_session() as session:
             async with session.post(
                 f"{self.base_url}/text-to-speech",
                 headers=headers,
@@ -308,7 +310,7 @@ class SarvamClient:
 
             headers = {**self.headers, "Content-Type": "application/json"}
 
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/translate",
                     headers=headers,
@@ -368,7 +370,7 @@ class SarvamClient:
 
             headers = {**self.headers, "Content-Type": "application/json"}
 
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/speech-to-text-batch",
                     headers=headers,
@@ -400,7 +402,7 @@ class SarvamClient:
                 "speaker": "priya",
                 "model": TTS_FALLBACK_MODEL,
             }
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/text-to-speech",
                     headers=headers,

@@ -5088,6 +5088,12 @@ def main():
                 get_safety_manager().response_optimizer.flush()
             except Exception:
                 logger.exception("Could not flush comprehension profiles")
+        try:
+            from sarvam_integration.http import close_shared_session
+
+            await close_shared_session()
+        except Exception:
+            logger.debug("Sarvam session close failed", exc_info=True)
 
     @app.on_event("shutdown")
     async def shutdown_knowledge_graph():
