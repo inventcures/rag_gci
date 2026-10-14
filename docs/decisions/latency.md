@@ -332,3 +332,42 @@ Each entry: what was decided, the alternatives, and why.
 - **Clinician review:** a sheet with all 40 spoken answers is in project files
   (`research/latency-evals/voice-answers-review.md`). It has to be filled in
   and recorded before the release is activated.
+
+## 13: Streamed, sentence-guarded answers
+
+- **`answer_stream.py`:** the model streams; `SentenceSplitter` cuts on
+  `. ? !` and `।` (not decimals, common abbreviations or list numbers) and
+  on line ends. Each sentence is released only if the dose detector passes
+  it alone and joined to the previous sentence (a dose split across a
+  boundary). A failing sentence is dropped; at the end the redaction note
+  follows, or the Deferral if less than the guard's minimum is left. This is
+  `DosageGuard.apply`'s Redacted Answer behaviour, one sentence at a time. An
+  emergency question passes untouched, as with the whole text.
+- **The answer path streams only when a channel opts in** (`streaming_to`).
+  Retell does. The answer the pipeline returns is exactly the text sent; the
+  channel guards and sends any text added after generation on its own.
+- **Retell:** sentences go out as `content_complete: false` messages, then a
+  final message with the evidence note. A barge-in cancels the turn's task,
+  which closes the model stream; no later sentence of the old turn is sent.
+  The handler keeps what it sent as `session.last_spoken`.
+- **Acknowledgement after 1.5 s of silence, not immediately.** Measured, the
+  first sentence arrives at 1.13 s at p50; an immediate "one moment" would
+  delay the answer it announces. It still covers slow turns, and covers the
+  wait if voice thinking is ever raised to `low` (ticket 12).
+- **Study log:** Retell writes no study interaction log (only the mobile
+  routes do), so there is nothing to record the spoken text in yet.
+  `last_spoken` is what such a record must use when Retell joins the study.
+- **Web and mobile text opt-in not exposed yet.** The mechanism is one
+  `streaming_to` around `query()`, but a new endpoint changes the mobile API
+  contract the Android app is generated from. Left for when the app wants it.
+- **The model stream** (`LLMClient.stream`) has the same budget as
+  `generate`: each wait for the next piece is bounded by what is left. The
+  fallback provider is used only if Gemini fails before its first text. The
+  `llm` span records `first_text_ms`, so the trace now has time to first
+  token per purpose for streamed calls.
+- **Found, not fixed (safety code, needs its own review):** the dose detector
+  flags the Tamil word "மருந்தின்" (of the medicine) and the Hindi "अगली बार"
+  (next time) as frequencies. So the guard's own Tamil redaction note and
+  Tamil and Hindi Deferrals contain "doses" by its own test, and Tamil text
+  mentioning medicine is over-redacted. Over-redaction is the safe failure,
+  but Live's Tamil audio on WhatsApp (ticket 08) will often fall back to TTS.

@@ -59,9 +59,9 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, Iterator, List, Optional, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Optional, TypeVar
 
-from observability import current_span, span
+from observability import current_span, record_span, span
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +230,14 @@ class LLMSettings:
         return {"default_s": self.timeout_s, "translation_s": self.translation_deadline_s,
                 "answer_translation_s": self.answer_translation_deadline_s,
                 "voice_s": self.voice_deadline_s}
+
+
+class LLMStreamError(RuntimeError):
+    """A streamed generation failed; `partial` says whether text was yielded."""
+
+    def __init__(self, message: str, partial: bool):
+        super().__init__(message)
+        self.partial = partial
 
 
 @dataclass
@@ -492,6 +500,93 @@ class LLMClient:
             "", False, "none", s.model, (time.perf_counter() - started) * 1000,
             error="; ".join(errors),
         )
+
+    async def _gemini_stream(self, prompt: str, system: Optional[str], max_tokens: int,
+                             temperature: float, thinking: Optional[str]) -> AsyncIterator[Any]:
+        config = self._gemini_config(system, max_tokens, temperature, False, thinking)
+        return await self._genai_client().aio.models.generate_content_stream(
+            model=self.settings.model, contents=prompt, config=config)
+
+    async def stream(
+        self,
+        prompt: str,
+        *,
+        system: Optional[str] = None,
+        max_tokens: int = 2048,
+        temperature: float = 0.3,
+        purpose: str = "",
+        thinking: Optional[str] = None,
+    ) -> AsyncIterator[str]:
+        """Yield the answer as the model writes it, within the same budget as
+        `generate`. If Gemini fails before its first text, the fallback (when
+        enabled) answers in one piece. Raises LLMStreamError on failure.
+
+        Each wait for the next piece is bounded by what is left of the budget;
+        the span records time to first text."""
+        s = self.settings
+        level = thinking or s.thinking_for(purpose, voice=in_voice_turn())
+        budget = s.timeout_for(purpose)
+        left = remaining()
+        if left is not None:
+            budget = min(budget, left)
+        started = time.perf_counter()
+        end = started + budget
+        attrs: Dict[str, Any] = {"purpose": purpose or "call", "model": s.model, "thinking": level,
+                                 "budget_s": round(budget, 2), "streamed": True}
+        errors: List[str] = []
+        yielded = False
+        try:
+            if budget <= 0:
+                errors.append("no time left in the caller's deadline")
+            elif s.transport != "unconfigured":
+                try:
+                    chunks = await asyncio.wait_for(
+                        self._gemini_stream(prompt, system, max_tokens, temperature, level),
+                        end - time.perf_counter())
+                    iterator = chunks.__aiter__()
+                    while True:
+                        try:
+                            chunk = await asyncio.wait_for(iterator.__anext__(), end - time.perf_counter())
+                        except StopAsyncIteration:
+                            break
+                        usage = getattr(chunk, "usage_metadata", None)
+                        if usage is not None:
+                            attrs.update(output_tokens=getattr(usage, "candidates_token_count", None),
+                                         thought_tokens=getattr(usage, "thoughts_token_count", None))
+                        text = getattr(chunk, "text", None)
+                        if text:
+                            if not yielded:
+                                attrs["first_text_ms"] = round((time.perf_counter() - started) * 1000, 1)
+                                yielded = True
+                            yield text
+                    if yielded:
+                        attrs.update(ok=True, provider="gemini")
+                        return
+                    errors.append("gemini: returned no text")
+                except (Exception, asyncio.TimeoutError) as e:
+                    errors.append(f"gemini: {type(e).__name__}: {e}")
+                    logger.warning("LLM stream failed (%s): %s", purpose or "call", errors[-1])
+                    if yielded:
+                        raise LLMStreamError("; ".join(errors), partial=True) from e
+            else:
+                errors.append("gemini: no GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY")
+
+            left = end - time.perf_counter()
+            if s.fallback_enabled and s.fallback_api_key and left > 0.25:
+                try:
+                    text = await asyncio.wait_for(
+                        self._deepseek(prompt, system, max_tokens, temperature, False), left)
+                    attrs.update(ok=True, provider=s.fallback_provider, used_fallback=True,
+                                 first_text_ms=round((time.perf_counter() - started) * 1000, 1))
+                    yielded = True
+                    yield _THINK.sub("", text).strip()
+                    return
+                except Exception as e:
+                    errors.append(f"deepseek: {type(e).__name__}: {e}")
+            raise LLMStreamError("; ".join(errors), partial=False)
+        finally:
+            attrs.setdefault("ok", False)
+            record_span("llm", (time.perf_counter() - started) * 1000, **attrs)
 
     def generate_sync(self, prompt: str, **kw: Any) -> LLMResponse:
         """For the few synchronous callers. Must not be called inside a running loop."""

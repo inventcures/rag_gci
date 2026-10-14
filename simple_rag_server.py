@@ -211,7 +211,8 @@ from post_work import after_reply, stats as post_work_stats
 import ingest_jobs
 from participants import ephemeral, is_person
 from llm import get_llm_client
-from llm.client import GENERATION_FAILED_ANSWER, in_voice_turn, within_voice_deadline
+from llm.client import GENERATION_FAILED_ANSWER, LLMStreamError, in_voice_turn, within_voice_deadline
+from answer_stream import AnswerStream, active_stream
 from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexMismatchError,
@@ -2147,11 +2148,29 @@ QUALITY REQUIREMENTS:
 QUESTION: {question}
 
 SPOKEN ANSWER (60-80 words):"""
+        stream = active_stream()
+        if stream is not None:
+            return await self._stream_answer(stream, prompt, VOICE_ANSWER_MAX_TOKENS, 0.3)
         answer, model_used = await self._call_llm(
             prompt, max_tokens=VOICE_ANSWER_MAX_TOKENS, temperature=0.3)
         if model_used == "error":
             return answer, model_used
         return self._clean_inline_citations(answer).strip(), model_used
+
+    async def _stream_answer(self, stream: AnswerStream, prompt: str, max_tokens: int,
+                             temperature: float) -> tuple:
+        """Generate into the channel's AnswerStream: each sentence goes out as
+        soon as it is written and passes the Dose Boundary. Returns the text
+        that was sent, or the usual ("Error ...", "error") if nothing was."""
+        llm = getattr(self, "llm", None) or get_llm_client()
+        try:
+            text = await stream.consume(
+                llm.stream(prompt, max_tokens=max_tokens, temperature=temperature, purpose="answer"),
+                clean=self._clean_inline_citations)
+        except LLMStreamError as e:
+            logger.error("Streamed answer failed: %s", e)
+            return f"Error generating response: {e}", "error"
+        return text, llm.settings.model
 
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> tuple:
         """Generate an answer with citations.
@@ -2212,7 +2231,11 @@ QUESTION: {question}
 
 ANSWER (2-3 paragraphs followed by Sources line):"""
             
-            answer, model_used = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
+            stream = active_stream()
+            if stream is not None:
+                answer, model_used = await self._stream_answer(stream, prompt, 2048, 0.3)
+            else:
+                answer, model_used = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
             if model_used == "error":
                 return answer, model_used
             
