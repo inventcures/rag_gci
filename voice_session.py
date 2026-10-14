@@ -69,6 +69,9 @@ class VoiceTurn:
     audio_base64: Optional[str] = None
     latency_ms: int = 0
     fallback_reason: Optional[str] = None
+    # What query() retrieved with and what the K26 check found, for the log.
+    retrieval: Dict[str, Any] = field(default_factory=dict)
+    kg_check: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -262,6 +265,8 @@ class VoiceTurnHandler:
             audio_base64=audio_base64,
             latency_ms=int((time.time() - started) * 1000),
             fallback_reason=fallback_reason,
+            retrieval=dict(result.get("retrieval") or {}),
+            kg_check=dict(result.get("kg_check") or {}),
         )
 
         await self._record(session, turn)
@@ -289,7 +294,11 @@ class VoiceTurnHandler:
                 channel="voice",
                 stage_latency_ms={"response": float(turn.latency_ms)},
                 total_latency_ms=float(turn.latency_ms),
-                rag_method="vector",
+                # Whatever query() actually used, not an assumed "vector": voice
+                # runs the same configured path as web and WhatsApp.
+                rag_method=str(turn.retrieval.get("rag_method") or "vector"),
+                retrieval=turn.retrieval,
+                kg_check=turn.kg_check,
                 sources=[{"filename": ""} for _ in range(turn.source_count)],
                 safety_result={
                     "answer_kind": turn.answer_kind,

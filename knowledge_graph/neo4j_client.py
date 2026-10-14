@@ -152,7 +152,8 @@ class Neo4jClient:
         self,
         query: str,
         parameters: Optional[Dict[str, Any]] = None,
-        limit: int = 100
+        limit: int = 100,
+        raise_errors: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Execute a read-only Cypher query.
@@ -161,6 +162,8 @@ class Neo4jClient:
             query: Cypher query string
             parameters: Query parameters
             limit: Maximum results (enforced for safety)
+            raise_errors: Raise instead of returning []. The answer path needs
+                to tell "the graph has no such fact" from "the graph is down".
 
         Returns:
             List of result records as dictionaries
@@ -168,6 +171,8 @@ class Neo4jClient:
         if not self._connected:
             connected = await self.connect()
             if not connected:
+                if raise_errors:
+                    raise RuntimeError("Neo4j is not connected")
                 return []
 
         # Enforce LIMIT for safety
@@ -183,6 +188,8 @@ class Neo4jClient:
         except Exception as e:
             logger.error(f"Query execution failed: {e}")
             logger.error(f"Query: {query}")
+            if raise_errors:
+                raise
             return []
 
     async def execute_write(
