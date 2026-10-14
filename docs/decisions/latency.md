@@ -216,3 +216,21 @@ Each entry: what was decided, the alternatives, and why.
     language.
 - **Not verified against Twilio or a live Gemini session** (no Twilio keys
   here). Covered by simulated-session tests.
+
+## 09: Offline bundle built once and cached
+
+- **Bundle key = hash of language, release id, corpus version and the question
+  set.** Corpus version is the indexed document ids with their chunk counts,
+  so a re-index, an added or a removed document rebuilds. The key is the ETag.
+- **Kept in memory and on disk** (`data/cache/mobile/bundle_<lang>_<key>.json`),
+  so a restart serves the file instead of rebuilding. Older files for the
+  language are deleted when a new one is written. Writes are atomic.
+- **One build per language at a time** (per-language lock); concurrent first
+  requests wait for it. Within a build, four answers are drafted at once
+  instead of twenty in a row.
+- **Build answers use the participant id `system:offline_bundle`.** The
+  retrieval audit gets a `kind` field: `build` for these, `interaction` for
+  everything else. System ids get no per-person records.
+- **Still built on first request, not at startup.** Startup building would
+  spend twenty answers per language on every deploy, including languages no
+  one requests. Revisit if the first download's wait matters in the field.

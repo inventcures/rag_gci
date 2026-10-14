@@ -7,11 +7,12 @@ from fastapi import (
     File,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from typing import Optional
 
 from auth.middleware import require_auth, get_current_user, get_jwt_handler
@@ -653,15 +654,20 @@ async def export_evaluation_data(
 
 @mobile_router.get("/cache/bundle", response_model=CacheBundleResponse)
 async def get_cache_bundle(
+    request: Request,
     language: str = Query(...),
     user: AuthenticatedUser = Depends(require_auth),
 ):
-    rag_pipeline = get_rag_pipeline()
-    builder = CacheBundleBuilder(
-        rag_pipeline=rag_pipeline, safety_manager=get_safety_manager()
-    )
-    bundle = await builder.build_bundle(language)
-    return CacheBundleResponse(**bundle)
+    """The offline bundle, built once per language, release and corpus.
+
+    Served with an ETag: a client that already holds this bundle gets 304."""
+    builder = CacheBundleBuilder(rag_pipeline=get_rag_pipeline(), safety_manager=get_safety_manager())
+    bundle, key = await builder.get_bundle(language)
+    etag = f'"{key}"'
+    if etag in [tag.strip() for tag in request.headers.get("if-none-match", "").split(",")]:
+        return Response(status_code=304, headers={"ETag": etag})
+    body = CacheBundleResponse(**bundle).model_dump()
+    return JSONResponse(content=body, headers={"ETag": etag})
 
 
 # -- FHIR ------------------------------------------------------------------

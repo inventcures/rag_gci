@@ -13,6 +13,8 @@ from __future__ import annotations
 from typing import Optional
 
 EPHEMERAL_PREFIX = "session:"
+# Work the server does for itself (building the offline bundle), not a caller.
+SYSTEM_PREFIX = "system:"
 
 
 def ephemeral(channel: str, session_id: str) -> str:
@@ -24,6 +26,15 @@ def is_ephemeral(user_id: Optional[str]) -> bool:
     return bool(user_id) and str(user_id).startswith(EPHEMERAL_PREFIX)
 
 
+def system(purpose: str) -> str:
+    """The id for server-initiated answers, e.g. system("offline_bundle")."""
+    return f"{SYSTEM_PREFIX}{purpose}"
+
+
+def is_system(user_id: Optional[str]) -> bool:
+    return bool(user_id) and str(user_id).startswith(SYSTEM_PREFIX)
+
+
 def is_person(user_id: Optional[str]) -> bool:
     """True when per-person state (longitudinal record, profile) may be kept."""
-    return bool(user_id) and not is_ephemeral(user_id)
+    return bool(user_id) and not is_ephemeral(user_id) and not is_system(user_id)

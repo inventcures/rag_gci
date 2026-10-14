@@ -1,9 +1,13 @@
+import asyncio
 import json
+import os
 import time
 import hashlib
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 import logging
+
+from participants import system
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +49,35 @@ def _normalise_for_hash(question_text: str) -> str:
             text = text[: -len(suffix)].strip()
     return text
 
+# language -> (bundle key, bundle). One process-wide cache.
+_BUNDLES: Dict[str, Tuple[str, dict]] = {}
+_build_locks: Dict[str, asyncio.Lock] = {}
+
+
+def _read_bundle(path: Path) -> Optional[dict]:
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def _write_bundle(language: str, key: str, bundle: dict) -> None:
+    """Write atomically, then remove this language's older bundles."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = CACHE_DIR / f"bundle_{language}_{key}.json"
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(bundle, f, ensure_ascii=False)
+    os.replace(tmp, path)
+    for old in CACHE_DIR.glob(f"bundle_{language}_*.json"):
+        if old != path:
+            try:
+                old.unlink()
+            except OSError:
+                logger.warning("Could not prune old bundle %s", old.name)
+
+
 class CacheBundleBuilder:
     def __init__(self, rag_pipeline=None, kg_client=None, usage_analytics=None,
                  safety_manager=None):
@@ -57,15 +90,74 @@ class CacheBundleBuilder:
         self.kg_client = kg_client
         self.usage_analytics = usage_analytics
 
-    async def build_bundle(self, language: str) -> dict:
+    async def get_bundle(self, language: str) -> Tuple[dict, str]:
+        """The bundle for `language` and its ETag, built at most once per
+        language, release, corpus and question set.
+
+        Building runs twenty full answers; it used to run on every download.
+        Bundles are kept in memory and on disk (so a restart does not rebuild),
+        and concurrent requests for the same language share one build.
+        """
+        questions = await self._questions(language)
+        key = self._bundle_key(language, questions)
+        cached = _BUNDLES.get(language)
+        if cached and cached[0] == key:
+            return cached[1], key
+
+        async with _build_locks.setdefault(language, asyncio.Lock()):
+            cached = _BUNDLES.get(language)
+            if cached and cached[0] == key:
+                return cached[1], key
+            path = CACHE_DIR / f"bundle_{language}_{key}.json"
+            bundle = await asyncio.to_thread(_read_bundle, path)
+            if bundle is None:
+                bundle = await self.build_bundle(language, questions=questions, key=key)
+            _BUNDLES[language] = (key, bundle)
+            return bundle, key
+
+    def _bundle_key(self, language: str, questions: List[str]) -> str:
+        """What the bundle's content depends on: release, corpus, questions."""
+        from study_release import get_study_release
+
+        parts = {
+            "language": language,
+            "release": get_study_release().release_id,
+            "corpus": self._corpus_version(),
+            "questions": questions,
+        }
+        return hashlib.sha256(json.dumps(parts, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+
+    def _corpus_version(self) -> str:
+        """The indexed documents and their chunk counts; changes when the
+        corpus is re-indexed, added to or pruned."""
+        metadata = getattr(self.rag_pipeline, "document_metadata", None) or {}
+        summary = sorted((str(doc_id), (info or {}).get("chunk_count")) for doc_id, info in metadata.items())
+        return hashlib.sha256(json.dumps(summary).encode()).hexdigest()[:16]
+
+    async def _questions(self, language: str) -> List[str]:
+        queries = list(questions_for(language))
+        if self.usage_analytics:
+            try:
+                top = await self.usage_analytics.get_top_queries(n=20, language=language)
+                if top:
+                    queries = top
+            except Exception:
+                logger.exception("Usage analytics unavailable; using the curated set")
+        return queries
+
+    async def build_bundle(self, language: str, questions: Optional[List[str]] = None,
+                           key: Optional[str] = None) -> dict:
         """Build a complete offline cache bundle for the given language."""
+        questions = questions if questions is not None else await self._questions(language)
+        key = key or self._bundle_key(language, questions)
         bundle_version = time.strftime("%Y%m%d-%H%M%S")
 
-        queries = await self._build_query_cache(language)
+        queries = await self._build_query_cache(language, questions)
         treatments = await self._build_treatment_cache()
 
         bundle = {
             "version": bundle_version,
+            "bundle_key": key,
             "language": language,
             "questions_translated": has_translation(language),
             "question_count": len(queries),
@@ -82,50 +174,48 @@ class CacheBundleBuilder:
             },
         }
 
-        filepath = CACHE_DIR / f"bundle_{language}_{bundle_version}.json"
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(bundle, f, ensure_ascii=False, indent=2)
-
+        await asyncio.to_thread(_write_bundle, language, key, bundle)
         logger.info(f"Built cache bundle for {language}: {len(queries)} queries, {len(treatments)} treatments")
         return bundle
 
-    async def _build_query_cache(self, language: str) -> List[dict]:
+    # Answers drafted at once while building a bundle.
+    BUILD_CONCURRENCY = 4
+
+    async def _build_query_cache(self, language: str, queries: Optional[List[str]] = None) -> List[dict]:
         """Pre-compute responses for the twenty anticipated questions."""
-        queries = list(questions_for(language))
+        queries = queries if queries is not None else await self._questions(language)
         if not has_translation(language):
             logger.warning(
                 "No translated question set for %s; bundle will be in English and "
                 "will not match a non-English query. Recorded so this is visible "
                 "rather than mistaken for a translation failure.", language,
             )
+        if not self.rag_pipeline:
+            return []
 
-        if self.usage_analytics:
-            try:
-                top = await self.usage_analytics.get_top_queries(n=20, language=language)
-                if top:
-                    queries = top
-            except Exception:
-                logger.exception("Usage analytics unavailable; using the curated set")
+        limit = asyncio.Semaphore(self.BUILD_CONCURRENCY)
 
-        cached_queries = []
-        for query_text in queries:
-            try:
-                if self.rag_pipeline:
+        async def one(query_text: str) -> Optional[dict]:
+            async with limit:
+                try:
                     # SimpleRAGPipeline.query's real signature; it returns a dict.
+                    # The system id marks these as build rows in the retrieval
+                    # audit, and keeps them out of per-person records.
                     result = await self.rag_pipeline.query(
                         question=query_text,
+                        user_id=system("offline_bundle"),
                         source_language=language,
                     )
                     answer = (result or {}).get("answer") or ""
                     if (result or {}).get("status", "success") != "success" or not answer:
-                        continue
+                        return None
                     safety = self._safety_manager().process_response(
                         query=query_text,
                         response=answer,
                         sources=result.get("sources") or [],
                         language=language,
                     )
-                    cached_queries.append({
+                    return {
                         "query_hash": hashlib.sha256(
                             _normalise_for_hash(query_text).encode()
                         ).hexdigest(),
@@ -134,11 +224,13 @@ class CacheBundleBuilder:
                         "response_text": safety.response,
                         "evidence_level": safety.evidence_level,
                         "sources": result.get("sources") or [],
-                    })
-            except Exception as e:
-                logger.warning(f"Failed to cache query '{query_text}': {e}")
+                    }
+                except Exception as e:
+                    logger.warning(f"Failed to cache query '{query_text}': {e}")
+                    return None
 
-        return cached_queries
+        entries = await asyncio.gather(*(one(q) for q in queries))
+        return [entry for entry in entries if entry is not None]
 
     def _safety_manager(self):
         """The injected safety manager, else the process-wide one."""
