@@ -31,17 +31,17 @@ class CallerId(unittest.TestCase):
         self.assertEqual(first, second)
 
     def test_call_id_when_the_number_is_missing(self):
-        self.assertEqual(bolna_caller_id({"execution_id": "e1"}), "bolna_e1")
-        self.assertEqual(bolna_caller_id({"call_sid": "CA1"}), "bolna_CA1")
+        self.assertEqual(bolna_caller_id({"execution_id": "e1"}), "session:bolna:e1")
+        self.assertEqual(bolna_caller_id({"call_sid": "CA1"}), "session:bolna:CA1")
 
     def test_unfilled_templates_are_not_identities(self):
         caller = bolna_caller_id({"from_number": "%(from_number)s", "execution_id": "e9"})
-        self.assertEqual(caller, "bolna_e9")
+        self.assertEqual(caller, "session:bolna:e9")
 
     def test_no_identity_is_never_shared(self):
         a = bolna_caller_id({"source": "bolna_call"})
         b = bolna_caller_id({"source": "bolna_call"})
-        self.assertTrue(a.startswith("bolna_anon_"))
+        self.assertTrue(a.startswith("session:bolna:anon_"))
         self.assertNotEqual(a, b)
 
     def test_pseudonyms_differ_in_the_study_log(self):

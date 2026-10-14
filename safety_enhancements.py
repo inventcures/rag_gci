@@ -971,6 +971,8 @@ class ResponseLengthOptimizer:
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
         self.profiles: Dict[str, ComprehensionProfile] = {}
+        self._save_lock = threading.Lock()
+        self._save_timer = None
         self._load_profiles()
     
     def _load_profiles(self):
@@ -998,7 +1000,7 @@ class ResponseLengthOptimizer:
         try:
             profiles_file = self.storage_path / "profiles.json"
             data = []
-            for profile in self.profiles.values():
+            for profile in list(self.profiles.values()):
                 data.append({
                     "user_id": profile.user_id,
                     "level": profile.level.value,
@@ -1007,13 +1009,20 @@ class ResponseLengthOptimizer:
                     "question_types": profile.question_types,
                     "last_updated": profile.last_updated.isoformat(),
                 })
-            with open(profiles_file, 'w') as f:
+            tmp = profiles_file.with_name(profiles_file.name + ".tmp")
+            with open(tmp, 'w') as f:
                 json.dump(data, f, indent=2)
+            os.replace(tmp, profiles_file)
         except Exception as e:
             logger.error(f"Failed to save profiles: {e}")
     
     def analyze_user_message(self, user_id: str, message: str):
         """Analyze user message to update comprehension profile"""
+        from participants import is_person
+
+        if not is_person(user_id):
+            # A per-call session id would get a profile nobody reads again.
+            return
         # Calculate message complexity metrics
         word_count = len(message.split())
         sentence_count = len([s for s in message.split('.') if s.strip()])
@@ -1062,6 +1071,26 @@ class ResponseLengthOptimizer:
             )
             self.profiles[user_id] = profile
         
+        self._schedule_save()
+
+    # Saves are coalesced and written from a timer thread: the whole file is
+    # rewritten, so doing it per message, on the event loop, cost every turn.
+    SAVE_DELAY_SECONDS = 1.0
+
+    def _schedule_save(self) -> None:
+        with self._save_lock:
+            if self._save_timer is not None and self._save_timer.is_alive():
+                return
+            self._save_timer = threading.Timer(self.SAVE_DELAY_SECONDS, self._save_profiles)
+            self._save_timer.daemon = True
+            self._save_timer.start()
+
+    def flush(self) -> None:
+        """Write pending profile changes now (shutdown, tests)."""
+        with self._save_lock:
+            timer, self._save_timer = self._save_timer, None
+        if timer is not None:
+            timer.cancel()
         self._save_profiles()
     
     def get_user_level(self, user_id: str) -> UserComprehensionLevel:

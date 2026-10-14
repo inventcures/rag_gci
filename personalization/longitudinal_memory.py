@@ -1312,7 +1312,9 @@ class LongitudinalMemoryManager:
         self.default_rules = self._get_default_monitoring_rules()
 
         self._cache: Dict[str, LongitudinalPatientRecord] = {}
-        self._lock = asyncio.Lock()
+        # One lock per patient: saves for different patients do not queue
+        # behind each other.
+        self._locks: Dict[str, asyncio.Lock] = {}
         # path -> (mtime_ns, size, summary): what the mobile views need from a
         # file, re-read only when the file changes.
         self._summaries: Dict[str, Tuple[int, int, Dict[str, Any]]] = {}
@@ -1531,21 +1533,25 @@ class LongitudinalMemoryManager:
         record: LongitudinalPatientRecord
     ) -> None:
         """Save record to storage."""
-        async with self._lock:
+        lock = self._locks.setdefault(record.patient_id, asyncio.Lock())
+        async with lock:
             file_path = self._get_patient_path(record.patient_id)
             record.updated_at = datetime.now()
 
             try:
-                # Write then rename, so a concurrent reader (the mobile sync
-                # scan) sees the old file or the new one, never half of one.
-                tmp_path = file_path.with_name(file_path.name + ".tmp")
-                async with aiofiles.open(tmp_path, "w") as f:
-                    await f.write(json.dumps(record.to_dict(), indent=2))
-                os.replace(tmp_path, file_path)
+                await asyncio.to_thread(self._write_atomic, file_path, record.to_dict())
                 self._cache[record.patient_id] = record
                 logger.debug(f"Saved longitudinal record for {record.patient_id}")
             except Exception as e:
                 logger.error(f"Error saving longitudinal record: {e}")
+
+    @staticmethod
+    def _write_atomic(file_path: Path, data: Dict[str, Any]) -> None:
+        """Write then rename, so a concurrent reader (the mobile sync scan) sees
+        the old file or the new one, never half of one."""
+        tmp_path = file_path.with_name(file_path.name + ".tmp")
+        tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp_path, file_path)
 
     async def add_observation(
         self,

@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from observability import trace_request
+from participants import ephemeral
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +242,7 @@ class VoiceTurnHandler:
 
         result = await self.rag_pipeline.query(
             question=transcript,
-            user_id=f"voice__{session.session_id}",
+            user_id=session.participant_id or ephemeral("mobile_voice", session.session_id),
             source_language=session.language,
         )
         raw_answer = result.get("answer", "") or ""

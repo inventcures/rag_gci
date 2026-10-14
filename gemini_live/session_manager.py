@@ -224,6 +224,8 @@ class SessionManager:
                 model=requested_model
             )
 
+            session.participant_id = user_id
+
             # Connect the session
             await session.connect()
 

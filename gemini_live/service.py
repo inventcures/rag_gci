@@ -16,6 +16,8 @@ import asyncio
 import logging
 import re
 from typing import Optional, Dict, Any, AsyncGenerator, List, Set
+
+from participants import ephemeral
 from datetime import datetime
 import numpy as np
 
@@ -909,7 +911,7 @@ CONVERSATION STYLE:
             result = await self.rag_pipeline.query(
                 question=query_context,
                 conversation_id=session.session_id,
-                user_id=session.session_id,
+                user_id=session.rag_user_id,
                 top_k=self.config.rag_top_k
             )
 
@@ -1039,6 +1041,11 @@ class GeminiLiveSession:
         "રોકો", "બસ",
     }
 
+    # The person behind the session (e.g. the WhatsApp number), set by the
+    # session manager. Without it the session is ephemeral: answers are logged
+    # against the session, but no per-person record is kept.
+    participant_id: Optional[str] = None
+
     def __init__(
         self,
         service: GeminiLiveService,
@@ -1116,6 +1123,11 @@ class GeminiLiveSession:
         self.resumption_handle: Optional[str] = None
 
         logger.debug(f"GeminiLiveSession created: {session_id}")
+
+    @property
+    def rag_user_id(self) -> str:
+        """Who the answer path keys on: the person, else this session only."""
+        return self.participant_id or ephemeral("gemini_live", self.session_id)
 
     async def connect(self) -> None:
         """
@@ -1390,7 +1402,7 @@ class GeminiLiveSession:
 
     async def _handle_tool_call(self, tool_call) -> None:
         """Serve the model's RAG tool call inside a per-turn trace."""
-        with trace_request("gemini_live", user_id=self.session_id, name="tool_call"):
+        with trace_request("gemini_live", user_id=self.rag_user_id, name="tool_call"):
             await self._serve_tool_call(tool_call)
 
     async def _serve_tool_call(self, tool_call) -> None:
@@ -1435,7 +1447,7 @@ class GeminiLiveSession:
             result = await self.service.rag_pipeline.query(
                 question=query,
                 conversation_id=self.session_id,
-                user_id=self.session_id,
+                user_id=self.rag_user_id,
                 top_k=self.service.config.rag_top_k,
             )
         except Exception as e:
@@ -1524,7 +1536,7 @@ class GeminiLiveSession:
                 safety_wrapper = get_voice_safety_wrapper()
                 
                 safety_result = await safety_wrapper.check_voice_query(
-                    user_id=self.session_id,
+                    user_id=self.rag_user_id,
                     transcript=query_text,
                     language=self.language,
                     call_id=self.session_id,
@@ -1617,7 +1629,7 @@ Please prioritize their safety and provide clear, calm guidance.
             result = await self.service.rag_pipeline.query(
                 question=query_text,
                 conversation_id=self.session_id,
-                user_id=self.session_id,
+                user_id=self.rag_user_id,
                 top_k=self.service.config.rag_top_k
             )
 

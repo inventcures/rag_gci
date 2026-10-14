@@ -147,3 +147,41 @@ Each entry: what was decided, the alternatives, and why.
 - **Not verified here:** the retrieval harness's hit@5 in the eleven languages
   (needs bge-m3 and the corpus). By construction the vectors are identical; run
   `evaluation/retrieval_eval` once on a machine with the model to confirm.
+
+## 07: Side work runs after the reply
+
+- **`post_work.after_reply(name, fn)`**: supervised asyncio tasks, held so they
+  are not collected mid-flight, each in a `post.<name>` span of the request's
+  trace. Failures are logged and counted; `/health` shows the counts. Shutdown
+  drains them (10 s). Chosen over FastAPI `BackgroundTasks` because the answer
+  path is shared by sockets and webhooks, not only HTTP routes.
+- **Moved after the reply:** conversation history, observation extraction, the
+  answer-path record (the retrieval audit row), the shadow-mode KG check, and
+  the study logger's analytics and expert-sampling fan-out.
+- **Stays before the reply:** the study interaction row
+  (`StudyInteractionLogger.write`), the Dose Boundary, and KG checks in `flag`
+  and `block` mode, which can change the answer. The retrieval and K26 record
+  is still attached to the result before the reply; only writing it moves.
+- **Shadow KG check:** the reply carries `{"mode": "shadow", "status":
+  "pending"}`; the audit row gets the finished check.
+- **Observation extraction reads the question only** (`Patient: <question>`).
+  Extracting from the generated answer recorded the assistant's words as the
+  patient's observations. Nothing found means nothing written: no record is
+  created.
+- **Conversation history is an append-only JSONL** next to the old JSON file
+  (`conversations.jsonl`), written from a worker thread. The legacy JSON is
+  still read at startup, then the log. Memory keeps the last 50 turns per
+  conversation; the full history stays on disk.
+- **Per-call ids are marked ephemeral** (`participants.ephemeral()`, prefix
+  `session:`): Retell calls without a number, Bolna call ids, mobile voice
+  sessions without a signed-in user, Gemini Live sessions without a known
+  person. They are still traced and logged, but get no longitudinal record and
+  no comprehension profile. Gemini Live sessions opened through the session
+  manager now carry the person (the WhatsApp number), matching the text path.
+  Mobile voice now keys on the signed-in user, matching mobile text.
+- **Comprehension profiles are saved from a timer thread, coalesced (1 s), and
+  atomically**, instead of rewriting every profile on the event loop per
+  message.
+- **Longitudinal saves lock per patient and write in a worker thread.**
+- **`observations_extracted` is gone from the query result**: it is not known
+  at reply time, and nothing read it.

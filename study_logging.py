@@ -37,6 +37,7 @@ silently change what was recorded.
 
 import hashlib
 import hmac
+import functools
 import json
 import logging
 import os
@@ -450,9 +451,14 @@ class StudyInteractionLogger:
             entry.occurred_at, tz=timezone.utc
         ).isoformat()
 
+        # The interaction row is written before the caller hears the answer.
+        # The analytics and expert-sampling fan-out is not part of that row,
+        # so it runs after the reply.
         self.write(entry)
 
-        await self._fan_out(entry)
+        from post_work import after_reply
+
+        after_reply("study_fan_out", functools.partial(self._fan_out, entry))
         return entry
 
     async def _fan_out(self, entry: InteractionLog) -> None:

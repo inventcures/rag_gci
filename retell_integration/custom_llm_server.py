@@ -31,6 +31,7 @@ from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
 from observability import trace_request
+from participants import ephemeral
 
 logger = logging.getLogger(__name__)
 
@@ -408,7 +409,9 @@ class RetellCustomLLMHandler:
                     self.rag_pipeline.query(
                         question=user_query,
                         conversation_id=session.call_id,
-                        user_id=session.call_id,
+                        # The caller's number when Retell gives it; otherwise
+                        # the call, which keeps no per-person record.
+                        user_id=session.from_number or ephemeral("retell", session.call_id),
                         source_language=session.language,
                         top_k=3,
                     ),

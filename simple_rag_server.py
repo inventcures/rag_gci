@@ -9,6 +9,8 @@ import os
 import sys
 import json
 import asyncio
+import functools
+import threading
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
@@ -205,6 +207,8 @@ from retrieval.graph_store import Neo4jGraphStore
 from retrieval.kg_check import KGCrossReferenceChecker
 from retrieval.audit import record_retrieval
 from retrieval.embedder import QueryEmbedder, share_loaded_model, vector_search
+from post_work import after_reply, stats as post_work_stats
+from participants import ephemeral, is_person
 from llm import get_llm_client
 from observability import record_span, span, trace_request
 from retrieval_index import (
@@ -246,6 +250,9 @@ except ImportError as e:
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Conversation history appends come from worker threads.
+_conversation_log_lock = threading.Lock()
 
 
 class SimpleDocumentProcessor:
@@ -789,8 +796,9 @@ def bolna_caller_id(data: Dict[str, Any]) -> str:
         value = str(data.get(key) or "").strip()
         # An unfilled template ("%(from_number)s") is not an identity.
         if value and "%(" not in value:
-            return f"bolna_{value}"
-    return f"bolna_anon_{uuid.uuid4().hex[:12]}"
+            # A number is a person; a call id is one call (no per-person record).
+            return f"bolna_{value}" if key == "from_number" else ephemeral("bolna", value)
+    return ephemeral("bolna", f"anon_{uuid.uuid4().hex[:12]}")
 
 
 async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
@@ -1104,20 +1112,43 @@ class SimpleRAGPipeline:
         with open(self.metadata_file, 'w') as f:
             json.dump(self.document_metadata, f, indent=2)
     
+    # Turns kept in memory per conversation; the full history is on disk.
+    CONVERSATION_MEMORY_TURNS = 50
+
     def _load_conversations(self) -> Dict:
-        """Load conversations from file"""
+        """History from the legacy JSON file, then the append-only log.
+
+        A torn last line (a crash mid-append) is skipped; every earlier line
+        still loads."""
+        conversations: Dict[str, List[Dict[str, Any]]] = {}
         if self.conversation_file.exists():
             try:
                 with open(self.conversation_file, 'r') as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-    
-    def _save_conversations(self):
-        """Save conversations to file"""
-        with open(self.conversation_file, 'w') as f:
-            json.dump(self.conversations, f, indent=2)
+                    conversations = json.load(f)
+            except (OSError, ValueError):
+                logger.warning("Could not read %s; continuing with the log only", self.conversation_file)
+        log = self.conversation_file.with_suffix(".jsonl")
+        if log.exists():
+            with open(log, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        row = json.loads(line)
+                        conversations.setdefault(row["conversation_id"], []).append(row["turn"])
+                    except (ValueError, KeyError, TypeError):
+                        continue
+        return {cid: turns[-self.CONVERSATION_MEMORY_TURNS:] for cid, turns in conversations.items()}
+
+    def _remember_turn(self, conversation_id: str, entry: Dict[str, Any]) -> None:
+        turns = self.conversations.setdefault(conversation_id, [])
+        turns.append(entry)
+        del turns[:-self.CONVERSATION_MEMORY_TURNS]
+
+    def _append_conversation(self, conversation_id: str, entry: Dict[str, Any]) -> None:
+        """Append one turn as one line (runs in a worker thread)."""
+        line = json.dumps({"conversation_id": conversation_id, "turn": entry}, ensure_ascii=False)
+        with _conversation_log_lock:
+            with open(self.conversation_file.with_suffix(".jsonl"), 'a', encoding='utf-8') as f:
+                f.write(line + "\n")
     
     async def remove_document(self, doc_id: str) -> Dict[str, Any]:
         """Remove a document from the RAG index"""
@@ -1382,18 +1413,34 @@ class SimpleRAGPipeline:
             )
             if isinstance(result, dict):
                 answer_span.set(status=str(result.get("status", "")))
+            record = None
             try:
                 with span("record"):
-                    await self._record_answer_path(settings, trace, result, user_id)
+                    record = await self._answer_path_record(settings, trace, result)
             except Exception:
                 # The record is evidence, not part of the answer; losing it must
                 # never cost the user their answer.
                 logger.exception("Answer-path record failed; answer returned unrecorded")
+
+            # Bookkeeping runs after the reply: the caller does not wait for it.
+            for name, work in trace.pop("post_work", []):
+                after_reply(name, work)
+            if record is not None:
+                retrieval, kg_check = record
+                shadow = trace.pop("shadow_kg_check", None)
+
+                async def persist():
+                    if shadow is not None:
+                        await shadow(retrieval, kg_check)
+                    self._persist_answer_path(retrieval, kg_check, result, user_id)
+
+                after_reply("record", persist)
             return result
 
-    async def _record_answer_path(self, settings, trace: Dict[str, Any], result: Dict[str, Any],
-                                  user_id: Optional[str]) -> None:
-        """Attach and log the retrieval and K26 record for one interaction."""
+    async def _answer_path_record(self, settings, trace: Dict[str, Any],
+                                  result: Dict[str, Any]) -> tuple:
+        """Build the retrieval and K26 record for one interaction and attach it
+        to the result. Persisting it happens after the reply."""
         retrieval = trace.get("retrieval") or {
             "rag_method": settings.rag_method,
             "retrievers_active": [],
@@ -1406,7 +1453,15 @@ class SimpleRAGPipeline:
         }
         retrieval["kg_version"] = trace.get("kg_version") or await self._answer_path_kg_version(settings)
         kg_check = trace.get("kg_check") or {"mode": settings.kg_check_mode, "status": "skipped"}
+        if isinstance(result, dict):
+            result.setdefault("retrieval", retrieval)
+            result.setdefault("kg_check", kg_check)
+        return retrieval, kg_check
 
+    @staticmethod
+    def _persist_answer_path(retrieval: Dict[str, Any], kg_check: Dict[str, Any],
+                             result: Any, user_id: Optional[str]) -> None:
+        """Log and append the answer-path record (after the reply)."""
         logger.info(
             "Answer path: method=%s active=%s failed=%s kg_check=%s/%s timings_ms=%s",
             retrieval.get("rag_method"), retrieval.get("retrievers_active"),
@@ -1419,9 +1474,6 @@ class SimpleRAGPipeline:
             kg_check=kg_check,
             status=str(result.get("status", "")) if isinstance(result, dict) else "",
         )
-        if isinstance(result, dict):
-            result.setdefault("retrieval", retrieval)
-            result.setdefault("kg_check", kg_check)
 
     async def _query_impl(self, question: str, conversation_id: Optional[str] = None,
                           user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en",
@@ -1754,7 +1806,24 @@ class SimpleRAGPipeline:
             # K26: cross-reference the drafted answer's clinical claims against
             # the knowledge graph. Off by default; never fails the turn.
             checker = getattr(self, "kg_checker", None)
-            if settings.kg_check_enabled and checker is not None and model_used != "error":
+            if (settings.kg_check_enabled and checker is not None and model_used != "error"
+                    and settings.kg_check_mode == "shadow"):
+                # Shadow mode never changes the answer, so the caller does not
+                # wait for it: it runs after the reply, before the record.
+                trace["kg_check"] = {"mode": "shadow", "status": "pending"}
+                drafted = answer
+
+                async def shadow_check(retrieval, kg_check):
+                    with span("kg_check", mode="shadow"):
+                        _, kg_result = await checker.check(drafted)
+                    kg_check.clear()
+                    kg_check.update(kg_result.to_dict())
+                    if kg_result.kg_version:
+                        retrieval["kg_version"] = kg_result.kg_version
+                    retrieval["stage_latency_ms"]["kg_check"] = round(kg_result.latency_ms, 1)
+
+                trace["shadow_kg_check"] = shadow_check
+            elif settings.kg_check_enabled and checker is not None and model_used != "error":
                 with span("kg_check", mode=settings.kg_check_mode):
                     answer, kg_result = await checker.check(answer)
                 trace["kg_check"] = kg_result.to_dict()
@@ -1783,44 +1852,35 @@ class SimpleRAGPipeline:
                 if source not in sources:
                     sources.append(source)
             
-            # Store conversation
-            if conversation_id:
-                if conversation_id not in self.conversations:
-                    self.conversations[conversation_id] = []
+            post_work = trace.setdefault("post_work", [])
 
-                self.conversations[conversation_id].append({
+            # Conversation history: kept in memory for the next turn, appended
+            # to disk after the reply (one line, never a whole-file rewrite).
+            if conversation_id:
+                entry = {
                     "timestamp": datetime.now().isoformat(),
                     "user_id": user_id,
                     "question": question,
                     "answer": answer,
-                    "sources": sources
-                })
+                    "sources": sources,
+                }
+                self._remember_turn(conversation_id, entry)
+                post_work.append(("conversation", functools.partial(
+                    asyncio.to_thread, self._append_conversation, conversation_id, entry)))
 
-                with span("post.save_conversations", turns=len(self.conversations)):
-                    self._save_conversations()
-
-            # V25: Extract observations from conversation (async, non-blocking)
-            observations_extracted = 0
-            if user_id and self.cross_modal_aggregator:
-                try:
-                    # Combine question and answer for extraction
-                    conversation_text = f"Patient: {question}\nAssistant: {answer}"
-                    with span("post.observations"):
-                        observations = await self.cross_modal_aggregator.process_conversation(
-                            patient_id=user_id,
-                            conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                            transcript=conversation_text,
-                            source_type=DataSourceType.WEB_CHAT,
-                            metadata={
-                                "language": source_language,
-                                "speaker_role": "patient"
-                            }
-                        )
-                    observations_extracted = len(observations)
-                    if observations:
-                        logger.info(f"🔍 Extracted {len(observations)} observations from conversation")
-                except Exception as e:
-                    logger.warning(f"Failed to extract observations: {e}")
+            # V25: observations come from what the caller said (the question),
+            # never from the generated answer, after the reply, and only for a
+            # person: a per-call session id would get a record nobody reads.
+            if is_person(user_id) and self.cross_modal_aggregator:
+                aggregator = self.cross_modal_aggregator
+                post_work.append(("observations", functools.partial(
+                    aggregator.process_conversation,
+                    patient_id=user_id,
+                    conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                    transcript=f"Patient: {question}",
+                    source_type=DataSourceType.WEB_CHAT,
+                    metadata={"language": source_language, "speaker_role": "patient"},
+                )))
 
             # =================================================================
             # SAFETY ENHANCEMENTS: Post-processing
@@ -1851,7 +1911,6 @@ class SimpleRAGPipeline:
                 "conversation_id": conversation_id,
                 "timestamp": datetime.now().isoformat(),
                 "patient_context_used": bool(patient_context),
-                "observations_extracted": observations_extracted,
                 "safety_enhancements": {
                     "evidence_badge": SAFETY_ENHANCEMENTS_AVAILABLE,
                     "response_optimized": SAFETY_ENHANCEMENTS_AVAILABLE and user_id is not None,
@@ -4925,6 +4984,19 @@ def main():
             kg_enabled = False
 
     @app.on_event("shutdown")
+    async def finish_post_reply_work():
+        """Let bookkeeping scheduled after recent replies finish before exit."""
+        import post_work
+
+        if not await post_work.drain(timeout=10.0):
+            logger.warning("Shutdown with post-reply work still running: %s", post_work.stats())
+        if SAFETY_ENHANCEMENTS_AVAILABLE:
+            try:
+                get_safety_manager().response_optimizer.flush()
+            except Exception:
+                logger.exception("Could not flush comprehension profiles")
+
+    @app.on_event("shutdown")
     async def shutdown_knowledge_graph():
         """Cleanup Knowledge Graph service on shutdown."""
         nonlocal kg_rag
@@ -5448,7 +5520,8 @@ def main():
             "whatsapp_bot": "configured" if whatsapp_bot else "not configured",
             "gemini_live": gemini_status,
             "ngrok_url": ngrok_manager.ngrok_url,
-            "stats": stats.get("stats", {})
+            "stats": stats.get("stats", {}),
+            "post_reply_work": post_work_stats(),
         }
     
     @app.post("/api/query")
