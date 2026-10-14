@@ -47,10 +47,11 @@ jobs:
 
       - name: Install CPU-only dependencies
         # CPU torch keeps the install to minutes; the eval runs on CPU anyway,
-        # which is also how the server runs it. Pillow as in requirements.txt:
-        # EmbeddingGemma 2's processor imports PIL even for text-only use.
+        # which is also how the server runs it. Pillow and torchvision as in
+        # requirements.txt: EmbeddingGemma 2's processor imports both even for
+        # text-only use.
         run: |
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install "sentence-transformers>=6.1.0" transformers "chromadb>=1.5.0" pyyaml numpy "Pillow>=10.1.0"
 
       - uses: actions/cache@v4
