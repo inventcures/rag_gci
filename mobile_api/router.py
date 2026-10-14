@@ -343,9 +343,11 @@ async def release_status():
     the client was stamping `release_approved` onto every interaction from a
     hardcoded constant, which made the field decorative.
     """
-    from study_release import StudyRelease
+    from study_release import get_study_release
 
-    return StudyRelease().client_view()
+    # The loaded release record, not an empty StudyRelease(): that always
+    # reported draft and unapproved. Drift is cached on the release.
+    return get_study_release().client_view()
 
 
 # -- Sync -------------------------------------------------------------------

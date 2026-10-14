@@ -97,3 +97,22 @@ Each entry: what was decided, the alternatives, and why.
 - Also fixed in passing: GET `/patient/{id}` called a method that did not
   exist, and POST `/observation` called `add_observation` with the wrong
   arguments. Both always failed.
+
+## 05: Release status reflects the approved record
+
+- **The endpoint serves the loaded release singleton** (`get_study_release()`),
+  the same object the server stamps onto every interaction, instead of an
+  empty `StudyRelease()`.
+- **Drift is cached on the release.** `verify_on_startup` computes it (it
+  already ran at boot), `client_view` reuses it, `refresh_drift()` or
+  `reload_study_release()` recomputes. A per-request git call and Chroma client
+  on an unauthenticated endpoint was both slow and an easy way to load the
+  server.
+- **Still unauthenticated**, as before: the app needs the gate before it has a
+  session, and the payload carries no participant data.
+- **Gate behaviour change, study team sign-off pending.** With today's
+  `release.yaml` (status `draft`, approvals unsigned) the app sees exactly what
+  it saw before: not usable with participants. The difference appears only once
+  the record is activated and signed: the app will then open, where before it
+  never could. That is the intended behaviour, but the ticket asks the study
+  team to confirm it, so it is flagged on the PR.

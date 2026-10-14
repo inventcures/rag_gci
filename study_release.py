@@ -89,6 +89,20 @@ class StudyRelease:
     """The approved release record, plus drift detection against the live system."""
     record: Dict[str, Any] = field(default_factory=dict)
     path: Path = DEFAULT_RELEASE_PATH
+    # Drift needs git and the vector store, so it is computed once (at startup,
+    # or on first use) and reused until refresh_drift() or a reload.
+    _drift: Optional[List["DriftFinding"]] = field(default=None, repr=False, compare=False)
+
+    def drift(self) -> List["DriftFinding"]:
+        """Drift findings, computed once and cached."""
+        if self._drift is None:
+            self._drift = self.check_drift()
+        return self._drift
+
+    def refresh_drift(self) -> List["DriftFinding"]:
+        """Recompute drift (after a deploy or a vector-store rebuild)."""
+        self._drift = self.check_drift()
+        return self._drift
 
     # -- identity ----------------------------------------------------------
     @property
@@ -325,8 +339,11 @@ class StudyRelease:
         approved by the leads and not yet activated for participants, and the app
         needs both: the first says the record is signed, the second says the study
         has actually opened it.
+
+        Uses the cached drift: this is served per request, and computing drift
+        runs git and opens the vector store.
         """
-        findings = self.check_drift()
+        findings = self.drift()
         return {
             "release_id": self.release_id,
             "release_name": self.release_name,
@@ -350,7 +367,7 @@ class StudyRelease:
         worse outcome than an unrecorded release.
         """
         log = target_logger or logger
-        findings = self.check_drift()
+        findings = self.refresh_drift()
 
         banner = {
             "release_id": self.release_id,
