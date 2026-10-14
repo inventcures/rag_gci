@@ -972,6 +972,7 @@ class ResponseLengthOptimizer:
         
         self.profiles: Dict[str, ComprehensionProfile] = {}
         self._save_lock = threading.Lock()
+        self._write_lock = threading.Lock()
         self._save_timer = None
         self._load_profiles()
     
@@ -1009,10 +1010,11 @@ class ResponseLengthOptimizer:
                     "question_types": profile.question_types,
                     "last_updated": profile.last_updated.isoformat(),
                 })
-            tmp = profiles_file.with_name(profiles_file.name + ".tmp")
-            with open(tmp, 'w') as f:
-                json.dump(data, f, indent=2)
-            os.replace(tmp, profiles_file)
+            tmp = profiles_file.with_name(f"{profiles_file.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+            with self._write_lock:
+                with open(tmp, 'w') as f:
+                    json.dump(data, f, indent=2)
+                os.replace(tmp, profiles_file)
         except Exception as e:
             logger.error(f"Failed to save profiles: {e}")
     

@@ -8,6 +8,9 @@ Now with Gemini Live API support for real-time voice conversations.
 import os
 import json
 import asyncio
+import functools
+import uuid
+from collections import OrderedDict
 import tempfile
 import logging
 from typing import Dict, Any, Optional, List
@@ -23,6 +26,9 @@ from fastapi import FastAPI, Request, HTTPException, Form
 from fastapi.responses import JSONResponse, Response
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
+
+from observability import span, trace_request
+from post_work import after_reply
 import edge_tts
 
 # Import the smart clarification system
@@ -330,10 +336,12 @@ class TwilioWhatsAppAPI:
             
             # Send message using Twilio
             logger.info("  📤 Sending text message via Twilio...")
-            message_obj = self.client.messages.create(
+            # The Twilio client is synchronous HTTP: off the event loop.
+            message_obj = await asyncio.to_thread(
+                self.client.messages.create,
                 body=message,
                 from_=self.from_number,
-                to=to
+                to=to,
             )
             logger.info(f"  ✅ Twilio text message created: {message_obj.sid}")
             logger.info(f"  📊 Message status: {message_obj.status}")
@@ -395,10 +403,11 @@ class TwilioWhatsAppAPI:
             
             # Send message with media using Twilio
             logger.info("  📤 Sending message via Twilio...")
-            message_obj = self.client.messages.create(
+            message_obj = await asyncio.to_thread(
+                self.client.messages.create,
                 media_url=[public_url],
                 from_=self.from_number,
-                to=to
+                to=to,
             )
             logger.info(f"  ✅ Twilio message created: {message_obj.sid}")
             logger.info(f"  📊 Message status: {message_obj.status}")
@@ -434,7 +443,7 @@ class TwilioWhatsAppAPI:
             # Check credentials
             logger.info(f"  🔑 Checking credentials:")
             logger.info(f"    Client: {'✅ Present' if self.client else '❌ Missing'}")
-            logger.info(f"    Account SID: {'✅ Present' if self.account_sid else '❌ Missing'} ({self.account_sid[:10]}... if present)")
+            logger.info(f"    Account SID: {'✅ Present' if self.account_sid else '❌ Missing'}")
             logger.info(f"    Auth Token: {'✅ Present' if self.auth_token else '❌ Missing'} ({'*' * 10 if self.auth_token else 'None'})")
             
             if not self.client or not self.account_sid or not self.auth_token:
@@ -481,7 +490,7 @@ class TwilioWhatsAppAPI:
                             ext = '.ogg'  # Default for WhatsApp voice messages
                         
                         logger.info(f"  📎 File extension determined: {ext}")
-                        temp_file = temp_dir / f"download_{timestamp}{ext}"
+                        temp_file = temp_dir / f"download_{timestamp}_{uuid.uuid4().hex[:8]}{ext}"
                         logger.info(f"  📄 Target file: {temp_file}")
                         
                         # Save file
@@ -571,6 +580,10 @@ class EnhancedWhatsAppBot:
 
         # Simple conversation history (last 5 messages per user)
         self.conversation_history = {}
+
+        # Twilio retries a webhook it did not see acknowledged; message ids
+        # already accepted are not processed twice.
+        self._seen_message_ids: "OrderedDict[str, None]" = OrderedDict()
         
         # Initialize Safety Enhancements
         self.safety_manager = None
@@ -712,26 +725,12 @@ class EnhancedWhatsAppBot:
             Body: str = Form(None),
             MediaUrl0: str = Form(None),
             MediaContentType0: str = Form(None),
-            NumMedia: str = Form("0")
+            NumMedia: str = Form("0"),
+            MessageSid: str = Form(None),
         ):
-            """Handle incoming Twilio WhatsApp messages"""
-            try:
-                logger.info(f"Received message from {From} to {To}")
-                
-                # Create TwiML response
-                resp = MessagingResponse()
-                
-                # Process the message
-                await self._process_twilio_message(From, To, Body, MediaUrl0, MediaContentType0, NumMedia)
-                
-                # Return empty TwiML response (we'll send responses separately)
-                return Response(content=str(resp), media_type="application/xml")
-                
-            except Exception as e:
-                logger.error(f"Webhook error: {e}")
-                resp = MessagingResponse()
-                resp.message("Sorry, I'm experiencing technical difficulties.")
-                return Response(content=str(resp), media_type="application/xml")
+            """Acknowledge Twilio at once; the reply is sent from the background."""
+            self.accept_twilio_message(MessageSid, From, To, Body, MediaUrl0, MediaContentType0, NumMedia)
+            return Response(content=str(MessagingResponse()), media_type="application/xml")
         
         @app.get("/media/{filename}")
         async def serve_media(filename: str):
@@ -771,6 +770,28 @@ class EnhancedWhatsAppBot:
         
         return app
     
+    SEEN_MESSAGE_IDS = 4096
+
+    def accept_twilio_message(self, message_sid: Optional[str], from_number: str, to_number: str,
+                              body: Optional[str], media_url: Optional[str],
+                              media_content_type: Optional[str], num_media: Optional[str]) -> bool:
+        """Schedule one webhook's message for processing and return at once.
+
+        Twilio waits on the webhook; answering inside it held Twilio for the
+        whole RAG, translation and TTS, and a slow answer was retried as a
+        duplicate. Returns False for a message id already accepted."""
+        if message_sid:
+            if message_sid in self._seen_message_ids:
+                logger.info("Duplicate WhatsApp webhook ignored")
+                return False
+            self._seen_message_ids[message_sid] = None
+            while len(self._seen_message_ids) > self.SEEN_MESSAGE_IDS:
+                self._seen_message_ids.popitem(last=False)
+        after_reply("whatsapp_message", functools.partial(
+            self._process_twilio_message, from_number, to_number, body,
+            media_url, media_content_type, num_media or "0"))
+        return True
+
     async def _process_twilio_message(self, from_number: str, to_number: str, body: str, 
                                     media_url: str, media_content_type: str, num_media: str):
         """Process incoming Twilio WhatsApp message"""
@@ -791,22 +812,19 @@ class EnhancedWhatsAppBot:
             has_text = body and body.strip()
             has_media = media_url and int(num_media) > 0
             
-            logger.info(f"  🎯 Decision: has_text={has_text}, has_media={has_media}")
+            logger.info(f"  🎯 Decision: has_text={bool(has_text)}, has_media={bool(has_media)}")
             
-            if has_text:
-                logger.info("  ➡️ Routing to TEXT message handler")
-                await self._handle_twilio_text_message(clean_from, body.strip())
-            
-            elif has_media:
-                logger.info("  ➡️ Routing to MEDIA message handler")
-                await self._handle_twilio_media_message(clean_from, media_url, media_content_type)
-            
-            else:
-                logger.info("  ➡️ Unknown message type, sending help message")
-                await self.twilio_api.send_text_message(
-                    from_number,
-                    "I can only process text messages and audio messages. Please send a text question or voice message."
-                )
+            with trace_request("whatsapp", user_id=clean_from, name="message",
+                               kind="text" if has_text else "media" if has_media else "other"):
+                if has_text:
+                    await self._handle_twilio_text_message(clean_from, body.strip())
+                elif has_media:
+                    await self._handle_twilio_media_message(clean_from, media_url, media_content_type)
+                else:
+                    await self.twilio_api.send_text_message(
+                        from_number,
+                        "I can only process text messages and audio messages. Please send a text question or voice message."
+                    )
                 
         except Exception as e:
             logger.error(f"❌ Error processing Twilio message: {e}", exc_info=True)
@@ -910,7 +928,6 @@ class EnhancedWhatsAppBot:
                         from_number, 
                         "✅ Thank you for the additional information! Let me find the best answer for you..."
                     )
-                    await asyncio.sleep(1)
                 
             # Query RAG pipeline (with potentially enhanced query)
             logger.info(f"  🔍 About to query RAG pipeline with text: '{text}', user_id: '{from_number}', language: '{user_lang}'")
@@ -1017,124 +1034,30 @@ class EnhancedWhatsAppBot:
             # Update user's language preference
             self.user_preferences[from_number] = {"language": detected_language}
 
-            # Send transcription confirmation
-            lang_name = stt_result.get("language_name", "Unknown")
-            confirmation_msg = f"🎯 Understood ({lang_name}): {text}"
-            confirmation_msg = self._ensure_whatsapp_length_limit(confirmation_msg)
-            await self.twilio_api.send_text_message(from_number, confirmation_msg)
-
-            # Query RAG pipeline
-            result = await self._guarded_query(
+            # The answer is drafted while the confirmation is being sent.
+            answer_task = asyncio.create_task(self._guarded_query(
                 text, from_number, detected_language, answer_language="en"
-            )
+            ))
+            lang_name = stt_result.get("language_name", "Unknown")
+            confirmation_msg = self._ensure_whatsapp_length_limit(f"🎯 Understood ({lang_name}): {text}")
+            try:
+                with span("send.text"):
+                    await self.twilio_api.send_text_message(from_number, confirmation_msg)
+            except BaseException:
+                answer_task.cancel()
+                raise
+            result = await answer_task
 
             if result["status"] == "success":
-                response_text = result["answer"]
-
-                # Add model indicator to response text but keep under 1550 characters
-                model_used = result.get("model_used", "unknown")
-                model_indicator = f"\n\n(model {model_used} used)"
-                
-                # Ensure total message stays under 1550 chars for English
-                max_response_length = 1550 - len("🇬🇧 English:\n") - len(model_indicator)
-                display_text = response_text
-                if len(display_text) > max_response_length:
-                    display_text = display_text[:max_response_length-3] + "..."
-                
-                response_with_model = f"🇬🇧 English:\n{display_text}{model_indicator}"
-                
-                # ALWAYS LOG ENGLISH RESPONSE (regardless of Twilio success/failure)
-                logger.info("  📤 MEDIA STEP 1: Preparing English response...")
-                logger.info(f"  📄 ENGLISH TEXT BEING SENT:")
-                logger.info(f"  📄 ****************************************************")
-                logger.info(f"  📄 {response_with_model}")
-                logger.info(f"  📄 ****************************************************")
-                
-                # Send English response first
-                await self.twilio_api.send_text_message(from_number, response_with_model)
-                await asyncio.sleep(1)
-
-                # Translate and send in detected language
-                if detected_language != "en":
-                    translation_result = await self.rag_pipeline.translate_text(result["answer"], detected_language)  # Use original answer for translation
-                    
-                    if translation_result["status"] == "success":
-                        translated_text = translation_result["translated_text"]
-                        
-                        # Language flag mapping
-                        flag_map = {"hi": "🇮🇳", "bn": "🇧🇩", "ta": "🇮🇳", "gu": "🇮🇳"}
-                        flag = flag_map.get(detected_language, "🌐")
-                        lang_name = self.stt_service.supported_languages.get(detected_language, detected_language)
-                        
-                        # Add model indicator and ensure under 1550 chars for translated response
-                        header = f"{flag} {lang_name}:\n"
-                        max_translated_length = 1550 - len(header) - len(model_indicator)
-                        if len(translated_text) > max_translated_length:
-                            translated_text = translated_text[:max_translated_length-3] + "..."
-                        
-                        translated_with_model = f"{header}{translated_text}{model_indicator}"
-                        
-                        # ALWAYS LOG TRANSLATED RESPONSE (regardless of Twilio success/failure)
-                        logger.info("  📤 MEDIA STEP 2: Preparing translated response...")
-                        logger.info(f"  📄 TRANSLATED TEXT BEING SENT ({lang_name}):")
-                        logger.info(f"  📄 ****************************************************")
-                        logger.info(f"  📄 {translated_with_model}")
-                        logger.info(f"  📄 ****************************************************")
-                        
-                        await self.twilio_api.send_text_message(from_number, translated_with_model)
-                        await asyncio.sleep(1)
-                        
-                        # Use original translated text for audio (without model indicator)
-                        audio_text = translation_result["translated_text"]
-                    else:
-                        # Fallback to original text if translation fails (without model indicator)
-                        audio_text = result["answer"]
-                else:
-                    # Use original answer for English audio (without model indicator)
-                    audio_text = result["answer"]
-
-                # Generate and send audio response in the detected language
-                tts_result = await self.tts_service.synthesize_speech(
-                    audio_text, detected_language
-                )
-
-                if tts_result.get("audio_available"):
-                    # Store audio file for serving
-                    filename = Path(tts_result["audio_file"]).name
-                    self.media_files[filename] = tts_result["audio_file"]
-                    
-                    # Set public URL
-                    public_url = f"{os.getenv('PUBLIC_BASE_URL', 'http://localhost:8000')}/media/{filename}"
-                    
-                    await self.twilio_api.send_audio_message(
-                        from_number,
-                        tts_result["audio_file"],
-                        public_url
-                    )
+                await self._deliver_answer(from_number, result, detected_language, speak=True)
             else:
-                rag_error = result.get("error", "Unknown error")
-                rag_traceback = result.get("traceback", "")
-                logger.error(f"❌ RAG pipeline returned status={result.get('status')}: {rag_error}")
-                if rag_traceback:
-                    logger.error(f"❌ RAG traceback:\n{rag_traceback}")
-
+                logger.error(f"❌ RAG pipeline returned status={result.get('status')}: {result.get('error')}")
                 error_msg = "Sorry, I encountered an error processing your question."
                 await self.twilio_api.send_text_message(from_number, error_msg)
-
-                # Send error in detected language
                 if detected_language != "en":
-                    tts_result = await self.tts_service.synthesize_speech(
-                        error_msg, detected_language
-                    )
-                    if tts_result.get("audio_available"):
-                        filename = Path(tts_result["audio_file"]).name
-                        self.media_files[filename] = tts_result["audio_file"]
-                        public_url = f"{os.getenv('PUBLIC_BASE_URL', 'http://localhost:8000')}/media/{filename}"
-                        await self.twilio_api.send_audio_message(
-                            from_number,
-                            tts_result["audio_file"],
-                            public_url
-                        )
+                    speech = await self._speak(error_msg, detected_language)
+                    if speech.get("audio_available"):
+                        await self._send_audio_file(from_number, speech["audio_file"])
 
         except Exception as e:
             logger.error(f"Error handling Twilio media message: {e}")
@@ -1146,14 +1069,14 @@ class EnhancedWhatsAppBot:
         """
         Handle media message using Gemini Live for real-time voice processing.
 
-        This method provides native voice-to-voice AI processing:
-        1. Downloads audio from Twilio
-        2. Converts to PCM format for Gemini
-        3. Gets/creates a Gemini Live session
-        4. Injects RAG context for grounded responses
-        5. Streams audio to Gemini and collects response
-        6. Converts response audio to MP3 for WhatsApp
-        7. Sends back audio and transcription
+        1. Downloads the note and converts it to PCM
+        2. Transcribes it (Sarvam), for grounding and for the Dose Boundary
+        3. Concurrently: confirms what was heard, opens the Live session, and
+           drafts the guarded answer, which is injected as grounding
+        4. Sends the note to Live and collects its reply up to turn completion,
+           within the voice deadline
+        5. Sends Live's audio only if its transcript passes the Dose Boundary;
+           otherwise sends and speaks the guarded answer
         """
         logger.info("🚀 GEMINI LIVE VOICE PROCESSING:")
         logger.debug(f"  📱 From: {from_number}")
@@ -1181,144 +1104,83 @@ class EnhancedWhatsAppBot:
             gemini_lang = self._get_gemini_language(user_lang)
             logger.info(f"  🌐 Language: {user_lang} -> Gemini: {gemini_lang}")
 
-            # Step 4: Get or create Gemini session for this user
-            logger.info("  🤖 Step 4: Getting/creating Gemini session...")
-            session = await self.gemini_session_manager.get_or_create_session(
-                user_id=from_number,
-                language=gemini_lang,
-                voice="Aoede"  # Warm, empathetic voice for healthcare
-            )
-            logger.info(f"  ✅ Session ready, is_active: {session.is_active}")
-
-            # Step 5: Inject RAG context (get relevant medical documents)
-            logger.info("  📚 Step 5: Injecting RAG context...")
-            # First, we need to transcribe to get the query text for RAG
-            # We'll use the STT service for this
+            # Step 4: transcribe (for grounding and for the Dose Boundary on
+            # what Live will say). Without a transcript nothing can be checked,
+            # so the traditional pipeline takes over.
             stt_result = await self.stt_service.transcribe_audio(audio_file_path)
+            if stt_result.get("status") != "success":
+                raise GeminiLiveError("transcription failed; cannot ground or check the reply")
+            query_text = stt_result["text"]
+            detected_lang = stt_result.get("detected_language", user_lang)
+            self.user_preferences[from_number] = {"language": detected_lang}
+            gemini_lang = self._get_gemini_language(detected_lang)
+            self._update_conversation_history(from_number, f"User (voice): {query_text}")
 
-            if stt_result["status"] == "success":
-                query_text = stt_result["text"]
-                detected_lang = stt_result.get("detected_language", user_lang)
-                logger.info(f"  🎤 Transcribed query: '{query_text}'")
-                logger.info(f"  🌐 Detected language: {detected_lang}")
+            # Step 5, concurrently: confirm what was heard, open the Live
+            # session, and draft the guarded answer that grounds it.
+            lang_name = stt_result.get("language_name", "Unknown")
+            confirmation_msg = self._ensure_whatsapp_length_limit(f"🎯 Understood ({lang_name}): {query_text}")
 
-                # Update user's language preference based on detection
-                self.user_preferences[from_number] = {"language": detected_lang}
-                gemini_lang = self._get_gemini_language(detected_lang)
+            async def confirm():
+                with span("send.text"):
+                    await self.twilio_api.send_text_message(from_number, confirmation_msg)
 
-                # Send transcription confirmation
-                lang_name = stt_result.get("language_name", "Unknown")
-                confirmation_msg = f"🎯 Understood ({lang_name}): {query_text}"
-                confirmation_msg = self._ensure_whatsapp_length_limit(confirmation_msg)
-                await self.twilio_api.send_text_message(from_number, confirmation_msg)
+            async def open_session():
+                with span("live.session"):
+                    return await self.gemini_session_manager.get_or_create_session(
+                        user_id=from_number, language=gemini_lang, voice="Aoede")
 
-                # Inject RAG context using query text
-                context_injected = await self.gemini_service.inject_rag_context(
-                    session, query_text
-                )
-                if context_injected:
-                    logger.info("  ✅ RAG context injected successfully")
-                else:
-                    logger.info("  ℹ️ No relevant RAG context found or injection skipped")
-            else:
-                query_text = None
-                detected_lang = user_lang
-                logger.warning(f"  ⚠️ STT failed, proceeding without RAG context: {stt_result}")
+            _, session, grounding = await asyncio.gather(
+                confirm(), open_session(),
+                self._guarded_query(query_text, from_number, detected_lang, answer_language="en"),
+            )
+            if grounding.get("status") == "success":
+                await self.gemini_service.inject_guarded_answer(session, grounding)
 
-            # Step 6: Send audio to Gemini and collect response
-            logger.info("  🎙️ Step 6: Streaming audio to Gemini...")
-
-            # Split audio into chunks for streaming
-            chunks = self.audio_handler.chunk_audio(pcm_data)
-            logger.info(f"  📦 Audio split into {len(chunks)} chunks")
-
-            # Send all audio chunks
-            for i, chunk in enumerate(chunks):
+            # Step 6: the voice note to Live, then its reply, which ends on
+            # turn completion (not when the session closes) or at the deadline.
+            for chunk in self.audio_handler.chunk_audio(pcm_data):
                 await session.send_audio(chunk)
-                if (i + 1) % 10 == 0:
-                    logger.info(f"  📤 Sent chunk {i + 1}/{len(chunks)}")
+            await session.end_audio()
+            with span("live.reply") as reply_span:
+                try:
+                    reply_audio = await asyncio.wait_for(
+                        self._collect_live_turn(session), timeout=self.live_reply_deadline_s())
+                except asyncio.TimeoutError:
+                    # Past the deadline the guarded answer is sent instead.
+                    reply_audio = b""
+                    reply_span.set(deadline_missed=True)
+            spoken = session.get_response_transcription(clear=True).strip()
 
-            logger.info("  ✅ All audio chunks sent")
+            # Step 7: the Dose Boundary on what Live said. Live's audio is sent
+            # only when its transcript passes; otherwise the guarded answer is
+            # sent and spoken instead, never the Live audio.
+            from safety_enhancements import guard_query_result
 
-            # Step 7: Receive audio response from Gemini
-            logger.info("  🎧 Step 7: Receiving audio response from Gemini...")
-            response_audio_chunks = []
-            response_text = None
+            check = {"status": "success", "answer": spoken, "sources": grounding.get("sources", [])}
+            safety = guard_query_result(check, query=query_text, language=detected_lang) if spoken else None
+            if not reply_audio or safety is None or safety.dosage_blocked:
+                logger.warning("Live reply %s; sending the guarded answer instead",
+                               "redacted by the Dose Boundary" if safety is not None and safety.dosage_blocked
+                               else "unverifiable (no audio or no transcript)")
+                fallback = check if safety is not None and safety.dosage_blocked else grounding
+                if fallback.get("status") != "success" or not fallback.get("answer"):
+                    raise GeminiLiveError("no guarded answer to send")
+                await self._deliver_answer(from_number, fallback, detected_lang, speak=True)
+                return
 
-            async for response in session.receive_audio():
-                if isinstance(response, bytes):
-                    response_audio_chunks.append(response)
-                elif isinstance(response, dict):
-                    # Handle text/transcription response
-                    if "text" in response:
-                        response_text = response["text"]
-                    elif "transcription" in response:
-                        response_text = response["transcription"]
-
-            if response_audio_chunks:
-                response_audio = b"".join(response_audio_chunks)
-                logger.info(f"  ✅ Received response audio: {len(response_audio)} bytes")
-            else:
-                logger.warning("  ⚠️ No audio response received from Gemini")
-                response_audio = None
-
-            # Step 8: Convert response audio to MP3 and send
-            if response_audio:
-                logger.info("  🔄 Step 8: Converting response to MP3...")
-                mp3_file_path = await asyncio.to_thread(
-                    self.audio_handler.convert_from_pcm,
-                    response_audio,
-                    "mp3"
-                )
-                logger.info(f"  ✅ MP3 created: {mp3_file_path}")
-
-                # Store file for serving
-                filename = Path(mp3_file_path).name
-                self.media_files[filename] = mp3_file_path
-
-                # Send audio response
-                public_url = f"{os.getenv('PUBLIC_BASE_URL', 'http://localhost:8000')}/media/{filename}"
-                await self.twilio_api.send_audio_message(
-                    from_number,
-                    mp3_file_path,
-                    public_url
-                )
-                logger.info("  ✅ Audio response sent to WhatsApp")
-
-            # Step 9: Send text transcription if available
-            if response_text:
-                logger.info("  📝 Step 9: Sending text transcription...")
-                # Ensure under WhatsApp limit
-                response_text = self._ensure_whatsapp_length_limit(response_text)
-                await self.twilio_api.send_text_message(from_number, response_text)
-                logger.info("  ✅ Text response sent")
-
-                # Also send translation if not in English
-                if detected_lang != "en":
-                    translation_result = await self.rag_pipeline.translate_text(
-                        response_text, detected_lang
-                    )
-                    if translation_result["status"] == "success":
-                        translated_text = translation_result["translated_text"]
-                        flag_map = {"hi": "🇮🇳", "bn": "🇧🇩", "ta": "🇮🇳", "gu": "🇮🇳", "mr": "🇮🇳"}
-                        flag = flag_map.get(detected_lang, "🌐")
-                        lang_name = self.stt_service.supported_languages.get(
-                            detected_lang, detected_lang
-                        )
-                        translated_msg = f"{flag} {lang_name}:\n{translated_text}"
-                        translated_msg = self._ensure_whatsapp_length_limit(translated_msg)
-                        await self.twilio_api.send_text_message(from_number, translated_msg)
-                        logger.info(f"  ✅ Translated response sent ({lang_name})")
-
-            # Update conversation history
-            if query_text:
-                self._update_conversation_history(from_number, f"User (voice): {query_text}")
-            if response_text:
-                self._update_conversation_history(
-                    from_number, f"Bot (Gemini Live): {response_text[:100]}..."
-                )
-
-            logger.info("  🎉 Gemini Live processing complete!")
+            # Step 8: the reply text goes out while the audio is converted.
+            mp3_task = asyncio.create_task(asyncio.to_thread(
+                self.audio_handler.convert_from_pcm, reply_audio, "mp3"))
+            try:
+                with span("send.text"):
+                    await self.twilio_api.send_text_message(
+                        from_number, self._ensure_whatsapp_length_limit(check["answer"]))
+            except BaseException:
+                mp3_task.cancel()
+                raise
+            await self._send_audio_file(from_number, await mp3_task)
+            self._update_conversation_history(from_number, f"Bot (Gemini Live): {check['answer'][:100]}...")
 
         finally:
             # Cleanup downloaded audio file
@@ -1327,6 +1189,27 @@ class EnhancedWhatsAppBot:
                 logger.info(f"  🗑️ Cleaned up: {audio_file_path}")
             except Exception as cleanup_error:
                 logger.warning(f"  ⚠️ Cleanup failed: {cleanup_error}")
+
+    @staticmethod
+    def live_reply_deadline_s() -> float:
+        """How long a voice note waits for Live's reply before the traditional
+        pipeline answers instead."""
+        return float(os.getenv("WHATSAPP_LIVE_REPLY_DEADLINE_S", "20"))
+
+    @staticmethod
+    async def _collect_live_turn(session) -> bytes:
+        """Audio of Live's reply, up to its turn completion (or interruption)."""
+        chunks = []
+        stream = session.receive_audio()
+        try:
+            async for item in stream:
+                if item == session.TURN_COMPLETE or item == session.INTERRUPTED:
+                    break
+                if isinstance(item, bytes):
+                    chunks.append(item)
+        finally:
+            await stream.aclose()
+        return b"".join(chunks)
 
     async def _handle_text_message(self, message: dict, from_number: str):
         """Handle text message"""
@@ -1584,7 +1467,6 @@ Example: /lang hi"""
                         
                         # Process original query without clarification
                         if original_query:
-                            await asyncio.sleep(1)
                             # Re-trigger processing but skip clarification
                             await self._process_query_directly(from_number, original_query)
                         return
@@ -1657,84 +1539,91 @@ Example: /lang hi"""
         """Send RAG response with bilingual support"""
         try:
             if result["status"] == "success":
-                response_text = result["answer"]
-                logger.info(f"  ✅ RAG Query successful, response length: {len(response_text)}")
-
-                # Ensure response fits Twilio's WhatsApp character limit
-                response_text = self._ensure_whatsapp_length_limit(response_text)
-
-                logger.info(f"  🌐 User language preference: {user_lang}")
-
-                # Add model indicator to response text but keep under 1550 characters
-                model_used = result.get("model_used", "unknown")
-                model_indicator = f"\n\n(model {model_used} used)"
-                
-                # Ensure total message stays under 1550 chars
-                max_response_length = 1550 - len("🇬🇧 English:\n") - len(model_indicator)
-                if len(response_text) > max_response_length:
-                    response_text = response_text[:max_response_length-3] + "..."
-                
-                response_with_model = f"🇬🇧 English:\n{response_text}{model_indicator}"
-                
-                # Send English response FIRST  
-                logger.info("  📤 STEP 1: Sending English response...")
-                text_result = await self.twilio_api.send_text_message(from_number, response_with_model)
-                logger.info(f"  📤 Text message result: {text_result}")
-                
-                # Check if text was sent successfully
-                text_sent_successfully = text_result.get("status") == "success"
-                if text_sent_successfully:
-                    logger.info("  ✅ English message sent successfully!")
-                else:
-                    logger.error(f"  ❌ English message failed: {text_result}")
-
-                # Add delay between messages
-                await asyncio.sleep(1)
-
-                # If user language is not English, translate and send in target language
-                if user_lang != "en":
-                    logger.info(f"  🌐 STEP 2: Translating to {user_lang}...")
-                    translation_result = await self.rag_pipeline.translate_text(response_text, user_lang)
-                    
-                    if translation_result["status"] == "success":
-                        translated_text = translation_result["translated_text"]
-                        
-                        # Language flag mapping
-                        flag_map = {
-                            "hi": "🇮🇳", "bn": "🇧🇩", "ta": "🇮🇳", "gu": "🇮🇳"
-                        }
-                        flag = flag_map.get(user_lang, "🌐")
-                        lang_name = self.stt_service.supported_languages.get(user_lang, user_lang)
-                        
-                        # Add model indicator and ensure under 1550 chars
-                        header = f"{flag} {lang_name}:\n"
-                        max_translated_length = 1550 - len(header) - len(model_indicator)
-                        if len(translated_text) > max_translated_length:
-                            translated_text = translated_text[:max_translated_length-3] + "..."
-                        
-                        translated_with_model = f"{header}{translated_text}{model_indicator}"
-                        
-                        # Send translated response
-                        logger.info(f"  📤 STEP 2: Sending {lang_name} response...")
-                        trans_result = await self.twilio_api.send_text_message(from_number, translated_with_model)
-                        logger.info(f"  📤 Translation result: {trans_result}")
-                    else:
-                        logger.error(f"  ❌ Translation failed: {translation_result}")
-
-                # Update conversation history with response
-                self._update_conversation_history(from_number, f"Bot: {response_text[:100]}...")
-                
+                await self._deliver_answer(from_number, result, user_lang, speak=False)
             else:
-                logger.error(f"  ❌ RAG Query failed: {result}")
+                logger.error(f"  ❌ RAG Query failed: {result.get('error')}")
                 await self.twilio_api.send_text_message(
                     from_number,
                     "I'm having trouble finding information right now. Please try again or ask a different question."
                 )
-        
         except Exception as e:
             logger.error(f"Error sending RAG response: {e}")
             await self._send_error_message(from_number)
-    
+
+    LANGUAGE_FLAGS = {"hi": "🇮🇳", "bn": "🇧🇩", "ta": "🇮🇳", "gu": "🇮🇳", "mr": "🇮🇳"}
+
+    def _with_header(self, header: str, text: str, footer: str) -> str:
+        """header + text + footer within Twilio's WhatsApp limit."""
+        room = self.whatsapp_char_limit - len(header) - len(footer)
+        if len(text) > room:
+            text = text[:room - 3] + "..."
+        return f"{header}{text}{footer}"
+
+    async def _speak(self, text: str, language: str) -> Dict[str, Any]:
+        with span("tts", language=language):
+            return await self.tts_service.synthesize_speech(text, language)
+
+    async def _send_audio_file(self, from_number: str, audio_file: str) -> None:
+        filename = Path(audio_file).name
+        self.media_files[filename] = audio_file
+        public_url = f"{os.getenv('PUBLIC_BASE_URL', 'http://localhost:8000')}/media/{filename}"
+        with span("send.audio"):
+            await self.twilio_api.send_audio_message(from_number, audio_file, public_url)
+
+    async def _deliver_answer(self, from_number: str, result: Dict[str, Any], language: str,
+                              speak: bool) -> None:
+        """English text, then the user's language, then (speak) audio.
+
+        Messages go out in that order, but each next step's work (translation,
+        speech synthesis) starts while the previous message is being sent,
+        instead of after it and a fixed pause. `result` has already passed the
+        Dose Boundary, so the translation and the audio carry guarded text.
+        """
+        answer = result["answer"]
+        footer = f"\n\n(model {result.get('model_used', 'unknown')} used)"
+        english = self._with_header("🇬🇧 English:\n", self._ensure_whatsapp_length_limit(answer), footer)
+
+        translation_task = None
+        speech_task = None
+        if language != "en":
+            translation_task = asyncio.create_task(self._translate(answer, language))
+        elif speak:
+            speech_task = asyncio.create_task(self._speak(answer, language))
+        try:
+            with span("send.text"):
+                await self.twilio_api.send_text_message(from_number, english)
+
+            if translation_task is not None:
+                translation = await translation_task
+                spoken_text = answer
+                if translation.get("status") == "success":
+                    spoken_text = translation["translated_text"]
+                if speak:
+                    speech_task = asyncio.create_task(self._speak(spoken_text, language))
+                if translation.get("status") == "success":
+                    flag = self.LANGUAGE_FLAGS.get(language, "🌐")
+                    name = self.stt_service.supported_languages.get(language, language)
+                    with span("send.text"):
+                        await self.twilio_api.send_text_message(
+                            from_number, self._with_header(f"{flag} {name}:\n", spoken_text, footer))
+                else:
+                    logger.error(f"  ❌ Translation failed: {translation.get('error')}")
+
+            if speech_task is not None:
+                speech = await speech_task
+                if speech.get("audio_available"):
+                    await self._send_audio_file(from_number, speech["audio_file"])
+        finally:
+            for task in (translation_task, speech_task):
+                if task is not None and not task.done():
+                    task.cancel()
+
+        self._update_conversation_history(from_number, f"Bot: {answer[:100]}...")
+
+    async def _translate(self, text: str, language: str) -> Dict[str, Any]:
+        with span("translate", language=language):
+            return await self.rag_pipeline.translate_text(text, language)
+
     async def _send_typing_indicator(self, to_number: str):
         """Send typing indicator (Twilio doesn't support this)"""
         # Twilio WhatsApp doesn't support typing indicators

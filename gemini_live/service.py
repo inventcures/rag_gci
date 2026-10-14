@@ -507,7 +507,7 @@ class GeminiLiveService:
 
     Provides:
     - create_session(): Create new voice conversation session
-    - inject_rag_context(): Add RAG context to session
+    - inject_guarded_answer(): Ground a session in a guarded answer
     - Active session management
     """
 
@@ -876,76 +876,41 @@ CONVERSATION STYLE:
             ),
         )
 
-    async def inject_rag_context(
+    async def inject_guarded_answer(
         self,
         session: "GeminiLiveSession",
-        query_context: str
+        result: Dict[str, Any],
     ) -> bool:
         """
-        Inject RAG-retrieved context into an active session.
+        Ground a session in an answer that has passed the Dose Boundary.
 
-        Queries the RAG pipeline and sends relevant context to the
-        Gemini session as a text message for grounding.
+        `result` is a `query()` result after `guard_query_result`: its answer is
+        what the user may hear. Injecting that, rather than raw retrieved
+        chunks, keeps dose wording in a source document out of what Live
+        reads. (This used to inject `context_used`, which is a chunk count.)
 
-        Args:
-            session: Active GeminiLiveSession
-            query_context: Query to search RAG for relevant context
-
-        Returns:
-            True if context was injected, False otherwise
+        Returns True if something was injected.
         """
-        if not self.rag_pipeline:
-            logger.debug("No RAG pipeline configured, skipping context injection")
+        if not self.config.rag_context_enabled or not session.is_active:
             return False
-
-        if not self.config.rag_context_enabled:
-            logger.debug("RAG context injection disabled")
+        answer = (result or {}).get("answer") or ""
+        if result.get("status") != "success" or not answer.strip():
             return False
-
-        if not session.is_active:
-            logger.warning("Cannot inject context into inactive session")
-            return False
-
-        try:
-            # Query RAG for relevant documents
-            result = await self.rag_pipeline.query(
-                question=query_context,
-                conversation_id=session.session_id,
-                user_id=session.rag_user_id,
-                top_k=self.config.rag_top_k
-            )
-
-            if result.get("status") != "success":
-                logger.warning(f"RAG query failed: {result.get('error')}")
-                return False
-
-            context_used = result.get("context_used", "")
-            if not context_used:
-                logger.debug("No relevant RAG context found")
-                return False
-
-            # Format context message
-            context_message = f"""[MEDICAL KNOWLEDGE BASE CONTEXT]
-The following information from verified medical documents may be relevant to the user's query:
-
-{context_used}
-
-Use this information to provide accurate, evidence-based responses.
-When using specific information from this context, mention the source.
-[END CONTEXT]"""
-
-            # Send to session
-            await session.send_text(context_message)
-
-            logger.info(
-                f"Injected RAG context into session {session.session_id} "
-                f"({len(context_used)} chars)"
-            )
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to inject RAG context: {e}")
-            return False
+        sources = sorted({
+            str(src.get("filename") or src.get("title") or "")
+            for src in result.get("sources") or [] if isinstance(src, dict)
+        } - {""})
+        source_line = f"Sources: {', '.join(sources)}\n" if sources else ""
+        # Context only: the reply is to the caller's voice note, not to this.
+        await session.send_text(
+            "[VERIFIED ANSWER FROM THE MEDICAL KNOWLEDGE BASE]\n"
+            f"{answer}\n{source_line}"
+            "Answer the caller from this. Do not add medication doses.\n"
+            "[END]",
+            turn_complete=False,
+        )
+        logger.info(f"Injected guarded answer into session {session.session_id} ({len(answer)} chars)")
+        return True
 
     async def close_session(self, session_id: str) -> None:
         """
@@ -1294,8 +1259,10 @@ class GeminiLiveSession:
                             mime_type=f"audio/pcm;rate={INPUT_SAMPLE_RATE}"
                         )
                     )
+                elif isinstance(data, dict) and data.get("audio_stream_end"):
+                    await self._session.send_realtime_input(audio_stream_end=True)
                 elif isinstance(data, dict) and "text" in data:
-                    await self._send_text_now(data["text"], turn_complete=True)
+                    await self._send_text_now(data["text"], turn_complete=data.get("turn_complete", True))
 
                 self.last_activity = datetime.now()
 
@@ -1708,19 +1675,26 @@ Please use this information to provide an accurate, grounded response. Mention t
 
         await self._audio_in_queue.put(audio_chunk)
 
-    async def send_text(self, text: str) -> None:
+    async def end_audio(self) -> None:
+        """Mark the end of a finite recording (a voice note), so the server
+        ends the user's turn now instead of waiting for silence."""
+        self._require_running()
+        await self._audio_in_queue.put({"audio_stream_end": True})
+
+    async def send_text(self, text: str, turn_complete: bool = True) -> None:
         """
         Send text message to Gemini via queue.
 
         Args:
             text: Text message to send
+            turn_complete: False to add context without asking for a reply
 
         Raises:
             GeminiLiveError: If session not connected
         """
         self._require_running()
 
-        await self._audio_in_queue.put({"text": text})
+        await self._audio_in_queue.put({"text": text, "turn_complete": turn_complete})
         logger.debug(f"Queued text for session {self.session_id}: {text[:50]}...")
 
     async def receive_audio(self) -> AsyncGenerator[bytes, None]:

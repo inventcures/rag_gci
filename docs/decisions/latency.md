@@ -185,3 +185,34 @@ Each entry: what was decided, the alternatives, and why.
 - **Longitudinal saves lock per patient and write in a worker thread.**
 - **`observations_extracted` is gone from the query result**: it is not known
   at reply time, and nothing read it.
+
+## 08: WhatsApp acks fast and runs its steps concurrently
+
+- **Both `/webhook` routes acknowledge Twilio immediately** and hand the message
+  to `post_work.after_reply`. Each message gets its own `whatsapp` trace.
+- **Dedupe on Twilio's `MessageSid`**, last 4,096 ids in memory. In-process
+  only: with several workers (ticket 18) this needs a shared store.
+- **Message order is kept** (English, then the user's language, then audio),
+  but the translation starts while the English text is being sent, and speech
+  synthesis starts while the translated text is being sent. The voice-note
+  confirmation is sent while the answer is drafted. All fixed one-second
+  sleeps are gone. Twilio's synchronous client runs in a worker thread.
+- **Live voice notes:**
+  - The reply is collected until `TURN_COMPLETE` (or `INTERRUPTED`), within
+    `WHATSAPP_LIVE_REPLY_DEADLINE_S` (default 20 s). The old loop compared
+    against string markers that never matched, so it ran until the session
+    closed. The note is ended with `audio_stream_end` so Live does not wait for
+    silence.
+  - Grounding is the guarded answer (after `guard_query_result`), sent as
+    context with `turn_complete=False`, so Live does not reply to the grounding
+    itself. It used to inject `context_used`, which is a chunk count.
+  - **Live's audio is sent only if its output transcript passes the Dose
+    Boundary.** If the transcript has a dose, or there is no transcript or no
+    audio, or the deadline passes, the guarded text is sent and spoken with TTS
+    instead. Audio cannot be redacted, so unverifiable audio is never sent.
+  - Transcription failure now goes straight to the traditional pipeline:
+    without a transcript the reply cannot be grounded or checked.
+  - No separate translation of Live's reply: Live already speaks the user's
+    language.
+- **Not verified against Twilio or a live Gemini session** (no Twilio keys
+  here). Covered by simulated-session tests.

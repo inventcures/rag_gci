@@ -7868,36 +7868,18 @@ def main():
             Body: str = Form(None),
             MediaUrl0: str = Form(None),
             MediaContentType0: str = Form(None),
-            NumMedia: str = Form("0")
+            NumMedia: str = Form("0"),
+            MessageSid: str = Form(None),
         ):
-            """Handle Twilio WhatsApp webhook"""
-            try:
-                from twilio.twiml.messaging_response import MessagingResponse
-                
-                # Detailed logging of webhook data
-                logger.info("🔔 WEBHOOK RECEIVED:")
-                logger.debug(f"  📱 From: {From}")
-                logger.info(f"  📍 To: {To}")
-                logger.debug(f"  💬 Body: '{Body}' (length: {len(Body) if Body else 0})")
-                logger.info(f"  🎵 MediaUrl0: {MediaUrl0}")
-                logger.info(f"  📋 MediaContentType0: {MediaContentType0}")
-                logger.info(f"  🔢 NumMedia: {NumMedia}")
-                logger.info(f"  🎯 Has Media: {bool(MediaUrl0)}")
-                logger.info(f"  🎯 Is Audio: {MediaContentType0 and MediaContentType0.startswith('audio/') if MediaContentType0 else False}")
-                
-                # Process the message
-                await whatsapp_bot._process_twilio_message(From, To, Body, MediaUrl0, MediaContentType0, NumMedia)
-                
-                # Return empty TwiML response
-                resp = MessagingResponse()
-                return Response(content=str(resp), media_type="application/xml")
-                
-            except Exception as e:
-                logger.error(f"❌ Webhook error: {e}", exc_info=True)
-                from twilio.twiml.messaging_response import MessagingResponse
-                resp = MessagingResponse()
-                resp.message("Sorry, I'm experiencing technical difficulties.")
-                return Response(content=str(resp), media_type="application/xml")
+            """Acknowledge Twilio at once; the reply is sent from the background.
+
+            Answering inside the webhook held Twilio for the whole answer, and a
+            slow one was retried as a duplicate message."""
+            from twilio.twiml.messaging_response import MessagingResponse
+
+            whatsapp_bot.accept_twilio_message(
+                MessageSid, From, To, Body, MediaUrl0, MediaContentType0, NumMedia)
+            return Response(content=str(MessagingResponse()), media_type="application/xml")
         
         @app.get("/media/{filename}")
         async def serve_media(filename: str):
