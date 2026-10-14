@@ -7,7 +7,7 @@ Inspired by OncoGraph's Neo4jExecutor pattern.
 
 import os
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 
@@ -233,7 +233,8 @@ class Neo4jClient:
         self,
         label: str,
         properties: Dict[str, Any],
-        unique_key: str = "name"
+        unique_key: str = "name",
+        extra_labels: Sequence[str] = (),
     ) -> Dict[str, Any]:
         """
         Create or merge a node.
@@ -242,6 +243,8 @@ class Neo4jClient:
             label: Node label (e.g., "Symptom", "Medication")
             properties: Node properties
             unique_key: Property to use for uniqueness
+            extra_labels: Labels added after the merge (not part of the
+                match, so an existing node is not duplicated)
 
         Returns:
             Created/merged node data
@@ -250,9 +253,10 @@ class Neo4jClient:
         if not unique_value:
             return {"error": f"Missing unique key: {unique_key}"}
 
+        add_labels = "".join(f" SET n:{extra}" for extra in extra_labels)
         query = f"""
         MERGE (n:{label} {{{unique_key}: $unique_value}})
-        SET n += $properties
+        SET n += $properties{add_labels}
         RETURN n
         """
 

@@ -17,12 +17,18 @@ dependency should do.
 """
 
 import importlib.util
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
 
 TESTS_DIR = Path(__file__).parent
+
+# Every query() in the suite writes timing spans (observability/tracing.py). Keep
+# them out of the working tree; tests that read traces set their own TRACE_DIR.
+os.environ.setdefault("TRACE_DIR", tempfile.mkdtemp(prefix="palli-traces-"))
 
 # Modules whose imports require an optional dependency that is not installed.
 # They are skipped rather than allowed to abort collection for everything else.

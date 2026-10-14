@@ -248,7 +248,10 @@ def get_palli_sahayak_agent_config(
             "query": "%(user_query)s",
             "language": "%(user_language)s",
             "context": "%(conversation_context)s",
-            "source": "bolna_call"
+            "source": "bolna_call",
+            # System variables: one participant per caller, not one for all.
+            "from_number": "%(from_number)s",
+            "execution_id": "%(execution_id)s"
         },
         "headers": {
             "Content-Type": "application/json"

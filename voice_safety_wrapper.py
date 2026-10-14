@@ -46,6 +46,12 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Voice answers are generated at 60-80 words (simple_rag_server.
+# VOICE_ANSWER_INSTRUCTION), about 30-37 s of speech. Channels still truncate,
+# at 60 s (~130 words, 720 characters), as a safety net only: an answer that
+# reaches it was not written for voice.
+VOICE_SAFETY_NET_S = 60
+
 
 class VoiceSafetyEvent(Enum):
     """Safety events that can occur during voice interactions"""
@@ -373,69 +379,11 @@ This is an emergency. Please call 108 immediately for an ambulance.
         Returns:
             Optimized voice response
         """
-        # Get user's comprehension level
-        level = self.response_optimizer.get_user_level(user_id)
-        
-        # Estimate words for duration (average ~130 words per minute)
-        max_words = (max_duration_seconds / 60) * 130
-        
-        # Clean response for voice
-        voice_response = self._clean_for_voice(response)
-        
-        # Truncate if too long
-        words = voice_response.split()
-        if len(words) > max_words:
-            # Find last complete sentence
-            truncated = " ".join(words[:int(max_words)])
-            last_sentence_end = max(
-                truncated.rfind('.'),
-                truncated.rfind('!'),
-                truncated.rfind('?')
-            )
-            if last_sentence_end > len(truncated) * 0.7:
-                voice_response = truncated[:last_sentence_end + 1]
-            else:
-                voice_response = truncated + "."
-        
-        # A character budget as well as a word budget.
-        #
-        # Word counting alone does not bound duration. A single long token is one
-        # word, so it passes any word limit intact: "A" * 3000 is one word and would
-        # be read out as 3000 characters of nothing. Speech synthesis has no way to
-        # pronounce that within the stated time, and the caller's duration promise
-        # is already broken.
-        max_chars = int(max_duration_seconds * 12)
-        if len(voice_response) > max_chars:
-            voice_response = voice_response[:max_chars].rstrip()
-            # Never end mid-word, which is audible as a stumble.
-            if " " in voice_response:
-                voice_response = voice_response.rsplit(" ", 1)[0]
-            voice_response = voice_response.rstrip(",;: ") + "."
-
-        return voice_response
+        return fit_for_voice(response, max_duration_seconds)
     
     def _clean_for_voice(self, text: str) -> str:
         """Clean text for voice output"""
-        # Remove markdown formatting
-        text = text.replace("**", "").replace("*", "")
-        text = text.replace("```", "").replace("`", "")
-        
-        # Remove citation brackets for voice
-        import re
-        text = re.sub(r'\[.*?\]', '', text)
-        text = re.sub(r'\(.*?\)', '', text)
-        
-        # Remove URLs
-        text = re.sub(r'http[s]?://\S+', '', text)
-        
-        # Clean up extra whitespace
-        text = " ".join(text.split())
-        
-        # Replace bullet points with spoken equivalents
-        text = text.replace("•", "Also, ")
-        text = text.replace("- ", "Also, ")
-        
-        return text.strip()
+        return clean_for_voice(text)
     
     def add_evidence_to_voice(
         self,
@@ -662,3 +610,75 @@ class SarvamSafetyIntegration:
             }
 
         return {"override": False, "transcript": safety_result.modified_transcript}
+
+
+def fit_for_voice(response: str, max_duration_seconds: int = VOICE_SAFETY_NET_S) -> str:
+    """Clean `response` for speech and cut it, at a sentence end where possible,
+    to what can be spoken in `max_duration_seconds`."""
+    # Estimate words for duration (average ~130 words per minute)
+    max_words = (max_duration_seconds / 60) * 130
+    
+    # Clean response for voice
+    voice_response = clean_for_voice(response)
+    
+    # Truncate if too long
+    words = voice_response.split()
+    if len(words) > max_words:
+        # Find last complete sentence
+        truncated = " ".join(words[:int(max_words)])
+        last_sentence_end = max(
+            truncated.rfind('.'),
+            truncated.rfind('!'),
+            truncated.rfind('?')
+        )
+        if last_sentence_end > len(truncated) * 0.7:
+            voice_response = truncated[:last_sentence_end + 1]
+        else:
+            voice_response = truncated + "."
+    
+    # A character budget as well as a word budget.
+    #
+    # Word counting alone does not bound duration. A single long token is one
+    # word, so it passes any word limit intact: "A" * 3000 is one word and would
+    # be read out as 3000 characters of nothing. Speech synthesis has no way to
+    # pronounce that within the stated time, and the caller's duration promise
+    # is already broken.
+    max_chars = int(max_duration_seconds * 12)
+    if len(voice_response) > max_chars:
+        voice_response = voice_response[:max_chars].rstrip()
+        # Never end mid-word, which is audible as a stumble.
+        if " " in voice_response:
+            voice_response = voice_response.rsplit(" ", 1)[0]
+        voice_response = voice_response.rstrip(",;: ") + "."
+
+    return voice_response
+
+
+def clean_for_voice(text: str) -> str:
+    """Clean text for voice output"""
+    # Remove markdown formatting
+    text = text.replace("**", "").replace("*", "")
+    text = text.replace("```", "").replace("`", "")
+    
+    import re
+    # The Dose Boundary's redaction note is an italic parenthesised sentence,
+    # _(...)_. It must be heard, so it is unwrapped before brackets are removed.
+    text = re.sub(r'_\((.*?)\)_', r'\1', text, flags=re.DOTALL)
+
+    # Remove citation brackets for voice
+    text = re.sub(r'\[.*?\]', '', text)
+    text = re.sub(r'\(.*?\)', '', text)
+    
+    # Remove URLs
+    text = re.sub(r'http[s]?://\S+', '', text)
+    
+    # Clean up extra whitespace, and the space a removed citation leaves
+    # before punctuation
+    text = " ".join(text.split())
+    text = re.sub(r'\s+([.,;:!?।])', r'\1', text)
+    
+    # Replace bullet points with spoken equivalents
+    text = text.replace("•", "Also, ")
+    text = text.replace("- ", "Also, ")
+    
+    return text.strip()

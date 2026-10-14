@@ -36,7 +36,7 @@ from mobile_api.dependencies import init_dependencies  # noqa: E402
 from mobile_api.router import mobile_router  # noqa: E402
 from safety_enhancements import SafetyEnhancementsManager  # noqa: E402
 from voice_provider import VoiceProviderControl  # noqa: E402
-from voice_session import VOICE_PATH_FALLBACK, VOICE_PATH_LIVE  # noqa: E402
+from voice_session import VOICE_PATH_FALLBACK  # noqa: E402
 
 PCM = b"\x00\x01\x02\x03" * 64  # stand-in for a real 16 kHz mono recording
 DOSE_ANSWER = (
@@ -225,110 +225,50 @@ class VoiceEndpointIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.rag.calls, [], "empty audio reached the pipeline")
 
 
-class FakeLiveSession:
+class MobileVoiceDoesNotTryLive(unittest.IsolatedAsyncioTestCase):
     """
-    The shape GeminiLiveTurnAdapter actually consumes.
+    The mobile voice route answers on the Sarvam path, without a Live attempt.
 
-    The adapter transcribes through a Live service, then hands the transcript to the
-    real VoiceTurnHandler. So the answer in this test is built by the real handler
-    and really passes the dose boundary, rather than the test asserting a canned
-    turn that already says what it should say.
-    """
-
-    transcript = "kya dena chahiye?"
-
-    async def connect(self):
-        pass
-
-    async def send_audio(self, audio, language=None):
-        self.audio = audio
-        self.language = language
-
-    async def wait_for_transcription(self, timeout):
-        return self.transcript
-
-    async def disconnect(self):
-        pass
-
-
-class LiveService:
-    def is_available(self):
-        return True
-
-    async def create_session(self, language="en-IN", **kwargs):
-        return FakeLiveSession()
-
-
-class LivePathIntegration(unittest.IsolatedAsyncioTestCase):
-    """
-    The same endpoint, arbitrated to Live.
-
-    Separate from the class above so the fallback stub cannot mask a Live-specific
-    regression.
+    The Live adapter it used to try first called the Live service with
+    arguments the real one does not accept, so every mobile turn opened (and
+    failed) a Live attempt before falling back, and recorded
+    `session_open_failed`. The fakes here accepted those arguments, which is
+    why no test caught it. Live is reported available, so only the route's own
+    wiring keeps it off.
     """
 
-    async def asyncSetUp(self):
-        self.rag = RealisticRag()
-        self.stt = FakeStt()
-        self.app = build_app(self.rag)
-
-    async def test_a_live_turn_is_labelled_live_and_still_filtered(self):
+    async def test_turn_goes_straight_to_sarvam_and_says_why(self):
         import mobile_api.router as router_module
+        from fastapi.testclient import TestClient
+
+        rag, stt, recorded = RealisticRag(), FakeStt(), []
 
         async def fake_record(**kwargs):
-            pass
+            recorded.append(kwargs)
 
-        with mock.patch("sarvam_integration.SarvamClient", return_value=self.stt), \
+        def no_live(*a, **kw):
+            raise AssertionError("the mobile route opened a Live service")
+
+        with mock.patch("sarvam_integration.SarvamClient", return_value=stt), \
              mock.patch.object(router_module._study_logger, "record", new=fake_record), \
-             mock.patch.object(
-                 vr.LiveAvailability, "probe",
-                 return_value=vr.LiveAvailability(available=True),
-             ):
-            from voice_live_adapter import GeminiLiveTurnAdapter
+             mock.patch.object(vr.LiveAvailability, "probe",
+                               return_value=vr.LiveAvailability(available=True)), \
+             mock.patch("gemini_live.service.GeminiLiveService.__init__", no_live):
+            rag.answer = DOSE_ANSWER
+            with TestClient(build_app(rag)).websocket_connect(
+                "/api/mobile/v1/ws/voice?language=hi-IN"
+            ) as ws:
+                ready = ws.receive_json()
+                ws.send_text(json.dumps({"type": "audio", "language": "hi-IN",
+                                         "audio_base64": base64.b64encode(PCM).decode()}))
+                reply = ws.receive_json()
 
-            with mock.patch(
-                "mobile_api.router.build_live_service_factory",
-                lambda handler: (lambda s: GeminiLiveTurnAdapter(LiveService(), handler, s)),
-            ):
-                from fastapi.testclient import TestClient
-
-                self.rag.answer = DOSE_ANSWER
-                with TestClient(self.app).websocket_connect(
-                    "/api/mobile/v1/ws/voice?language=hi-IN"
-                ) as ws:
-                    ws.receive_json()
-                    ws.send_text(
-                        json.dumps(
-                            {
-                                "type": "audio",
-                                "audio_base64": base64.b64encode(PCM).decode(),
-                                "language": "hi-IN",
-                            }
-                        )
-                    )
-                    reply = ws.receive_json()
-
-        self.assertEqual(reply["voice_path"], VOICE_PATH_LIVE)
-        # Live produced the transcript, and it is the one on the record.
-        self.assertEqual(reply["transcript"], "kya dena chahiye?")
-        # And the answer still came through the shared handler, so the dose
-        # boundary applied even though the words were drafted upstream.
+        self.assertEqual(ready["voice_path"], VOICE_PATH_FALLBACK)
+        self.assertEqual(reply["voice_path"], VOICE_PATH_FALLBACK)
+        self.assertEqual(reply["fallback_reason"], "live_not_offered")
+        self.assertEqual(len(stt.calls), 1)
         self.assertNotEqual(reply["answer_kind"], "ANSWER")
-
-
-def _live_turn(language):
-    """A Live turn built by the shared handler, so the boundary really ran."""
-    from voice_session import VoiceTurn
-
-    return VoiceTurn(
-        transcript="kya dena chahiye?",
-        answer=DOSE_ANSWER,
-        answer_kind="REDACTED_ANSWER",
-        evidence_level="B",
-        emergency_level="none",
-        source_count=1,
-        voice_path=VOICE_PATH_LIVE,
-    )
+        self.assertTrue(recorded and recorded[-1]["provider"] == VOICE_PATH_FALLBACK)
 
 
 if __name__ == "__main__":

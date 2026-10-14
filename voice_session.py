@@ -29,6 +29,7 @@ Frame protocol, JSON both ways:
                         {"type": "error", "message": "..."}
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -36,6 +37,11 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional
+
+from llm.client import GENERATION_FAILED_ANSWER, within_voice_deadline
+from observability import trace_request
+from voice_safety_wrapper import fit_for_voice
+from participants import ephemeral
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +222,18 @@ class VoiceTurnHandler:
         voice_path: str = VOICE_PATH_LIVE,
         fallback_reason: Optional[str] = None,
     ) -> VoiceTurn:
+        """Answer one spoken question, inside a per-turn trace (see _handle)."""
+        with trace_request("mobile_voice", user_id=f"voice__{session.session_id}",
+                           name="voice_turn", voice_path=voice_path):
+            return await self._handle(session, transcript, voice_path, fallback_reason)
+
+    async def _handle(
+        self,
+        session: VoiceSession,
+        transcript: str,
+        voice_path: str = VOICE_PATH_LIVE,
+        fallback_reason: Optional[str] = None,
+    ) -> VoiceTurn:
         """
         Answer one spoken question.
 
@@ -225,11 +243,16 @@ class VoiceTurnHandler:
         """
         started = time.time()
 
-        result = await self.rag_pipeline.query(
-            question=transcript,
-            user_id=f"voice__{session.session_id}",
-            source_language=session.language,
-        )
+        try:
+            result = await within_voice_deadline(lambda: self.rag_pipeline.query(
+                question=transcript,
+                user_id=session.participant_id or ephemeral("mobile_voice", session.session_id),
+                source_language=session.language,
+            ))
+        except asyncio.TimeoutError:
+            # Same answer the pipeline gives when the model runs out of time.
+            logger.warning("Voice turn missed the voice deadline for %s", session.session_id)
+            result = {"answer": GENERATION_FAILED_ANSWER, "sources": [], "model_used": "error"}
         raw_answer = result.get("answer", "") or ""
         sources = result.get("sources", []) or []
 
@@ -242,15 +265,20 @@ class VoiceTurnHandler:
 
         answer_kind = _answer_kind(safety)
 
+        # What is spoken is what is shown and recorded: the guarded answer,
+        # cleaned for speech and capped as a safety net (it is generated at
+        # voice length; see voice_safety_wrapper.VOICE_SAFETY_NET_S).
+        spoken = fit_for_voice(safety.response)
+
         audio_base64 = None
         if self.synthesise is not None:
-            audio_base64 = await self.synthesise(safety.response, session.language)
+            audio_base64 = await self.synthesise(spoken, session.language)
 
-        session.record_turn(transcript, safety.response)
+        session.record_turn(transcript, spoken)
 
         turn = VoiceTurn(
             transcript=transcript,
-            answer=safety.response,
+            answer=spoken,
             answer_kind=answer_kind,
             evidence_level=str(getattr(safety, "evidence_level", "E")),
             emergency_level=str(getattr(safety, "emergency_level", "none")),

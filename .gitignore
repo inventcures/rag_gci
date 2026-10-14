@@ -27,6 +27,7 @@ data/metrics/
 data/study/logs/
 data/study/drift/
 data/study/retrieval/
+data/traces/
 
 # Voice provider selection and its audit trail.
 # Runtime state, not source. Both are recreated on first change, and the audit

@@ -120,9 +120,21 @@ def test_repr_reports_shared_client(adapter, fake_client):
     assert "gemini-3.5-flash" in r
 
 
-def test_rate_limit_interval():
-    adapter = LLMAdapter(LLMConfig(rate_limit_rpm=60))
-    assert adapter._min_interval == pytest.approx(1.0, abs=0.01)
+def test_rate_limit_is_a_window_not_a_gap():
+    """Calls up to the per-minute limit go at once; the next waits for the window."""
+    import time
 
-    adapter2 = LLMAdapter(LLMConfig(rate_limit_rpm=30))
-    assert adapter2._min_interval == pytest.approx(2.0, abs=0.01)
+    adapter = LLMAdapter(LLMConfig(rate_limit_rpm=2))
+    adapter._window_s = 0.3
+
+    async def three():
+        started = time.monotonic()
+        stamps = []
+        for _ in range(3):
+            await adapter._rate_limit()
+            stamps.append(time.monotonic() - started)
+        return stamps
+
+    stamps = asyncio.run(three())
+    assert stamps[1] < 0.05
+    assert stamps[2] >= 0.25

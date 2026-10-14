@@ -15,6 +15,7 @@ Usage:
     ])
 """
 
+import collections
 import logging
 import asyncio
 import time
@@ -39,8 +40,14 @@ class LLMAdapter:
 
     def __init__(self, config: LLMConfig):
         self._config = config
-        self._last_request_time = 0.0
-        self._min_interval = 60.0 / max(config.rate_limit_rpm, 1)
+        # Up to `rate_limit_rpm` calls in any 60 s window. A minimum gap
+        # between calls (60/rpm, 2 s at the default) serialised the
+        # per-document calls of one query: ten documents took 18 s of
+        # waiting before any LLM time, past the fused-mode timeout.
+        self._window_s = 60.0
+        self._rpm = max(config.rate_limit_rpm, 1)
+        self._sent: "collections.deque[float]" = collections.deque()
+        self._lock = asyncio.Lock()
 
     @staticmethod
     def _split_messages(messages: List[Dict[str, str]]) -> Tuple[Optional[str], str]:
@@ -68,11 +75,15 @@ class LLMAdapter:
         }
 
     async def _rate_limit(self) -> None:
-        now = time.time()
-        elapsed = now - self._last_request_time
-        if elapsed < self._min_interval:
-            await asyncio.sleep(self._min_interval - elapsed)
-        self._last_request_time = time.time()
+        async with self._lock:
+            while True:
+                now = time.monotonic()
+                while self._sent and now - self._sent[0] >= self._window_s:
+                    self._sent.popleft()
+                if len(self._sent) < self._rpm:
+                    self._sent.append(now)
+                    return
+                await asyncio.sleep(self._window_s - (now - self._sent[0]))
 
     async def chat_async(
         self,

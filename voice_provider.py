@@ -23,6 +23,7 @@ make a deliberate choice look like a fault, or a fault look like a choice.
 """
 
 import json
+import os
 import logging
 import threading
 import time
@@ -75,13 +76,25 @@ class VoiceProviderControl:
         self.audit_path = audit_path
         self._lock = threading.Lock()
         self._cache: Optional[VoiceProviderSetting] = None
+        self._cache_stamp: Optional[tuple] = None
 
     def current(self) -> VoiceProviderSetting:
+        """The selection, re-read when the file changes: another server
+        process may have switched it (one stat call per voice turn)."""
         with self._lock:
-            if self._cache is not None:
+            stamp = self._stamp()
+            if self._cache is not None and stamp == self._cache_stamp:
                 return self._cache
             self._cache = self._read()
+            self._cache_stamp = stamp
             return self._cache
+
+    def _stamp(self) -> Optional[tuple]:
+        try:
+            st = self.path.stat()
+            return (st.st_mtime_ns, st.st_size)
+        except OSError:
+            return None
 
     def _read(self) -> VoiceProviderSetting:
         try:
@@ -126,7 +139,7 @@ class VoiceProviderControl:
             raise ValueError("a reason is required when changing the voice provider")
 
         with self._lock:
-            before = self._cache or self._read()
+            before = self._read()  # the file, not this process's cache
             if before.provider == provider:
                 # A no-op change would put a meaningless entry in the audit trail.
                 return before
@@ -139,11 +152,13 @@ class VoiceProviderControl:
                 previous_provider=before.provider,
             )
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(
-                json.dumps(setting.to_dict(), indent=2), encoding="utf-8"
-            )
+            # Written whole then renamed, so another process never reads half.
+            tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.tmp")
+            tmp.write_text(json.dumps(setting.to_dict(), indent=2), encoding="utf-8")
+            os.replace(tmp, self.path)
             self._audit(setting)
             self._cache = setting
+            self._cache_stamp = self._stamp()
 
             logger.warning(
                 "Voice provider changed %s -> %s by %s: %s",

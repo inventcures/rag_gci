@@ -46,6 +46,8 @@ from typing import Dict, List, Tuple
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from observability import trace_request  # noqa: E402
+
 # Fixed question set: the vignette themes the study cares about (pain, opioid
 # side effects, breathlessness, nausea, terminal care), phrased the way ASHA
 # workers and caregivers ask. Each carries a draft answer for --pipeline offline
@@ -218,7 +220,10 @@ async def run(args) -> str:
         for _ in range(args.reps):
             for question, _ in QUESTIONS:
                 started = time.perf_counter()
-                result = await pipeline.query(question)
+                # Each run is a trace too (channel "benchmark/<config>"), so
+                # scripts/trace_summary.py breaks the same runs down per stage.
+                with trace_request(f"benchmark/{label}", name="benchmark"):
+                    result = await pipeline.query(question)
                 wall = (time.perf_counter() - started) * 1000
                 timings = result.get("retrieval", {}).get("stage_latency_ms", {})
                 for key in ("retrieval", "generation", "kg_check"):
@@ -266,6 +271,9 @@ def main() -> None:
     logging.disable(logging.WARNING)
     table = asyncio.run(run(args))
     print(table)
+    from observability import trace_dir
+
+    print(f"\nPer-stage traces: {trace_dir()} (summarise with scripts/trace_summary.py)")
     if args.out:
         args.out.write_text(table + "\n", encoding="utf-8")
 

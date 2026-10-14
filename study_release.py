@@ -61,6 +61,16 @@ DRIFT_DIR = Path("./data/study/drift")
 # mis-parsed nested lists and was replaced rather than debugged.
 
 
+def compact_mapping(mapping: Any) -> Optional[str]:
+    """`{"b": 2, "a": "x"}` -> "a=x,b=2", so a recorded mapping and the live
+    one compare as one value. Numbers compare by value (7 == 7.0)."""
+    if not isinstance(mapping, dict):
+        return None
+    def value(v: Any) -> str:
+        return f"{float(v):g}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)
+    return ",".join(f"{k}={value(v)}" for k, v in sorted(mapping.items()))
+
+
 def load_yaml(path: Path) -> Dict[str, Any]:
     """Parse the release record."""
     import yaml
@@ -89,6 +99,20 @@ class StudyRelease:
     """The approved release record, plus drift detection against the live system."""
     record: Dict[str, Any] = field(default_factory=dict)
     path: Path = DEFAULT_RELEASE_PATH
+    # Drift needs git and the vector store, so it is computed once (at startup,
+    # or on first use) and reused until refresh_drift() or a reload.
+    _drift: Optional[List["DriftFinding"]] = field(default=None, repr=False, compare=False)
+
+    def drift(self) -> List["DriftFinding"]:
+        """Drift findings, computed once and cached."""
+        if self._drift is None:
+            self._drift = self.check_drift()
+        return self._drift
+
+    def refresh_drift(self) -> List["DriftFinding"]:
+        """Recompute drift (after a deploy or a vector-store rebuild)."""
+        self._drift = self.check_drift()
+        return self._drift
 
     # -- identity ----------------------------------------------------------
     @property
@@ -147,10 +171,13 @@ class StudyRelease:
             "llm.model": llm["model"],
             "llm.location": llm["location"],
             "llm.fallback": llm["fallback"],
+            "llm.thinking": llm["thinking"],
+            "llm.deadlines": llm["deadlines"],
             # Translation uses the same shared client as answers.
             "translation.provider": llm["provider"],
             "translation.model": llm["model"],
             "embedding.model": self._live_embedding_model(),
+            "embedding.runtime": self._embedding_runtime(),
             "speech.stt.provider": speech["stt_provider"],
             "speech.stt.model": speech["stt_model"],
             "speech.tts.model": speech["tts_model"],
@@ -173,9 +200,12 @@ class StudyRelease:
                 "model": d["model"],
                 "location": d["location"],
                 "fallback": f"{fb['provider']}:{fb['model']}" if fb else "none",
+                "thinking": compact_mapping(d.get("thinking")),
+                "deadlines": compact_mapping(d.get("deadlines")),
             }
         except Exception:
-            return {"provider": "unknown", "model": "unknown", "location": "unknown", "fallback": "unknown"}
+            return {"provider": "unknown", "model": "unknown", "location": "unknown", "fallback": "unknown",
+                    "thinking": "unknown", "deadlines": "unknown"}
 
     @staticmethod
     def _retrieval_settings() -> Dict[str, str]:
@@ -187,6 +217,20 @@ class StudyRelease:
             return {"rag_method": active.rag_method, "kg_check": active.kg_check_mode}
         except Exception:
             return {"rag_method": "unknown", "kg_check": "unknown"}
+
+    @staticmethod
+    def _embedding_runtime() -> str:
+        """The embedding runtime the server would load (config.yaml, env)."""
+        try:
+            import yaml
+
+            from retrieval.embedding_runtime import configured_runtime
+
+            config_path = Path("config.yaml")
+            config = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+            return configured_runtime(config or {})
+        except Exception:
+            return "unknown"
 
     @staticmethod
     def _module_present(module_name: str) -> bool:
@@ -257,9 +301,12 @@ class StudyRelease:
             "llm.model": self._dig("models", "llm", "model"),
             "llm.location": self._dig("models", "llm", "region"),
             "llm.fallback": self._dig("models", "llm", "fallback"),
+            "llm.thinking": compact_mapping(self._dig("models", "llm", "thinking")),
+            "llm.deadlines": compact_mapping(self._dig("models", "llm", "deadlines")),
             "translation.provider": self._dig("models", "query_translation", "provider"),
             "translation.model": self._dig("models", "query_translation", "model"),
             "embedding.model": self._dig("models", "embedding", "model"),
+            "embedding.runtime": self._dig("models", "embedding", "runtime"),
             "speech.stt.provider": self._dig("models", "speech", "stt", "provider"),
             "speech.stt.model": self._dig("models", "speech", "stt", "model"),
             "speech.tts.model": self._dig("models", "speech", "tts", "model"),
@@ -325,8 +372,11 @@ class StudyRelease:
         approved by the leads and not yet activated for participants, and the app
         needs both: the first says the record is signed, the second says the study
         has actually opened it.
+
+        Uses the cached drift: this is served per request, and computing drift
+        runs git and opens the vector store.
         """
-        findings = self.check_drift()
+        findings = self.drift()
         return {
             "release_id": self.release_id,
             "release_name": self.release_name,
@@ -350,7 +400,7 @@ class StudyRelease:
         worse outcome than an unrecorded release.
         """
         log = target_logger or logger
-        findings = self.check_drift()
+        findings = self.refresh_drift()
 
         banner = {
             "release_id": self.release_id,

@@ -841,6 +841,10 @@ class CrossModalAggregator:
                 logger.warning(f"Unsupported source type for conversation: {source_type}")
                 return []
 
+            if not observations:
+                # Nothing to store: no record is created and nothing is written.
+                return []
+
             # Add metadata and store
             timestamp = datetime.now()
             for i, obs in enumerate(observations):

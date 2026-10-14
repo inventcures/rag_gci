@@ -19,6 +19,9 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 from .config import get_stt_model, get_tts_model, TTS_FALLBACK_MODEL
+from observability import traced
+
+from .http import borrowed_session
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +90,7 @@ class SarvamClient:
         """Check if Sarvam client is configured with API key."""
         return bool(self.api_key)
 
+    @traced("sarvam.stt")
     async def speech_to_text(
         self,
         audio_data: bytes,
@@ -125,7 +129,7 @@ class SarvamClient:
                 form_data.add_field("mode", mode)
             form_data.add_field("with_timestamps", str(with_timestamps).lower())
 
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/speech-to-text",
                     headers=self.headers,
@@ -153,6 +157,7 @@ class SarvamClient:
             logger.error(f"Sarvam STT failed: {e}")
             return SarvamSTTResult(success=False, error=str(e))
 
+    @traced("sarvam.tts")
     async def text_to_speech(
         self,
         text: str,
@@ -230,7 +235,7 @@ class SarvamClient:
 
         headers = {**self.headers, "Content-Type": "application/json"}
 
-        async with aiohttp.ClientSession() as session:
+        async with borrowed_session() as session:
             async with session.post(
                 f"{self.base_url}/text-to-speech",
                 headers=headers,
@@ -272,6 +277,7 @@ class SarvamClient:
                 logger.error(f"Sarvam TTS failed: {error_msg}")
                 return SarvamTTSResult(success=False, error=error_msg)
 
+    @traced("sarvam.translate")
     async def translate(
         self,
         text: str,
@@ -304,7 +310,7 @@ class SarvamClient:
 
             headers = {**self.headers, "Content-Type": "application/json"}
 
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/translate",
                     headers=headers,
@@ -364,7 +370,7 @@ class SarvamClient:
 
             headers = {**self.headers, "Content-Type": "application/json"}
 
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/speech-to-text-batch",
                     headers=headers,
@@ -396,7 +402,7 @@ class SarvamClient:
                 "speaker": "priya",
                 "model": TTS_FALLBACK_MODEL,
             }
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.post(
                     f"{self.base_url}/text-to-speech",
                     headers=headers,

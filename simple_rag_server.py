@@ -9,6 +9,8 @@ import os
 import sys
 import json
 import asyncio
+import functools
+import threading
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
@@ -19,6 +21,7 @@ import hashlib
 import uuid
 import subprocess
 import time
+import shlex
 import signal
 import shutil
 
@@ -40,6 +43,7 @@ try:
         GeminiLiveSession,
         GeminiLiveError,
         SessionManager,
+        PreConnect,
         AudioHandler,
         get_config as get_gemini_config,
     )
@@ -48,6 +52,7 @@ except ImportError:
     GEMINI_LIVE_AVAILABLE = False
     GeminiLiveService = None
     SessionManager = None
+    PreConnect = None
 
 # Bolna.ai integration imports (for voice AI helpline)
 try:
@@ -204,7 +209,16 @@ from retrieval.router import (
 from retrieval.graph_store import Neo4jGraphStore
 from retrieval.kg_check import KGCrossReferenceChecker
 from retrieval.audit import record_retrieval
+from retrieval.embedder import QueryEmbedder, share_loaded_model, vector_search
+from post_work import after_reply, stats as post_work_stats
+import ingest_jobs
+from participants import ephemeral, is_person
 from llm import get_llm_client
+from llm.client import GENERATION_FAILED_ANSWER, LLMStreamError, in_voice_turn, within_voice_deadline
+from answer_stream import AnswerStream, active_stream
+from retrieval.embedding_runtime import configured_runtime, load_embedding_model
+from study_logging import append_line
+from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexMismatchError,
     check_live_index,
@@ -244,6 +258,9 @@ except ImportError as e:
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Conversation history appends come from worker threads.
+_conversation_log_lock = threading.Lock()
 
 
 class SimpleDocumentProcessor:
@@ -771,6 +788,45 @@ ANSWER_PARAGRAPH_1_INSTRUCTION = (
     "with the patient's doctor or nurse."
 )
 
+# Voice turns (within_voice_deadline): an answer written for listening. The
+# first sentence keeps paragraph 1's meaning, including the dose referral.
+VOICE_ANSWER_INSTRUCTION = (
+    "LENGTH AND STRUCTURE (SPOKEN ANSWER):\n"
+    "- This answer will be spoken aloud on a phone call. Write 60 to 80 words: "
+    "three to five short, plain sentences. No lists, headings, markdown, symbols, "
+    "brackets or source citations.\n"
+    "- First: the direct clinical answer. Name the medicines (and the route, e.g. "
+    "by mouth or under the skin, where it matters) and say when each is used. Never "
+    "give a dose, amount, strength, frequency, schedule or titration step, even if "
+    "the medical context contains one; instead tell the caller to confirm the dose "
+    "with the patient's doctor or nurse.\n"
+    "- Then: the one most important thing to do now, for the caller's setting.\n"
+    "- Last: the warning sign that means they must call the doctor or go to "
+    "hospital, when there is one."
+)
+VOICE_ANSWER_MAX_TOKENS = 300
+
+_BOLNA_IDENTITY_KEYS = ("from_number", "execution_id", "call_sid", "call_id")
+
+
+def bolna_caller_id(data: Dict[str, Any]) -> str:
+    """The participant id for one Bolna request.
+
+    Bolna fills system variables (from_number, execution_id, call_sid) into the
+    custom function's params. The caller's number keeps one participant across
+    calls; a call id keeps at least one call together. With none of them the
+    request gets a one-off id, never a shared one: before this every Bolna
+    caller was "bolna_bolna_call" and they all shared one history.
+    """
+    for key in _BOLNA_IDENTITY_KEYS:
+        value = str(data.get(key) or "").strip()
+        # An unfilled template ("%(from_number)s") is not an identity.
+        if value and "%(" not in value:
+            # A number is a person; a call id is one call (no per-person record).
+            return f"bolna_{value}" if key == "from_number" else ephemeral("bolna", value)
+    return ephemeral("bolna", f"anon_{uuid.uuid4().hex[:12]}")
+
+
 async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
                            language: str = "en") -> Dict[str, Any]:
     """
@@ -798,6 +854,9 @@ class SimpleRAGPipeline:
         # Previously three places disagreed: config.yaml, the model-loading branch
         # below, and whatever the live collection happened to contain.
         self.embedding_identity = load_identity_from_config(config)
+        # How the model runs (torch, onnx, openvino_int8, tei); not which
+        # model. retrieval/embedding_runtime.py.
+        self.embedding_runtime = configured_runtime(config)
         
         # Storage paths
         self.vector_db_path = self.data_dir / "chroma_db"
@@ -824,7 +883,9 @@ class SimpleRAGPipeline:
         self.response_model = self.llm.settings.model
         logger.info("LLM: %s", self.llm.settings.describe())
 
-        # Document metadata and conversation storage
+        # Document metadata and conversation storage. `_writer` marks this
+        # process's lines in the shared conversation log.
+        self._writer = f"{os.getpid()}-{uuid.uuid4().hex[:8]}"
         self.document_metadata = self._load_metadata()
         self.conversations = self._load_conversations()
 
@@ -867,12 +928,10 @@ class SimpleRAGPipeline:
             local_path = os.getenv("EMBEDDING_MODEL_PATH")
             source = local_path or model_name
 
-            if os.path.isdir(source):
-                logger.info(f"Loading embedding model from local path: {source}")
-                self.embedding_model = SentenceTransformer(source)
-            else:
-                logger.info(f"Loading embedding model: {model_name}")
-                self.embedding_model = SentenceTransformer(model_name)
+            if not os.path.isdir(source):
+                source = model_name
+            logger.info(f"Loading embedding model: {source} (runtime {self.embedding_runtime})")
+            self.embedding_model = load_embedding_model(source, self.embedding_runtime)
 
             self.embedding_model_name = model_name
             logger.info(
@@ -882,13 +941,18 @@ class SimpleRAGPipeline:
             
             # Initialize ChromaDB
             logger.info("Initializing vector database...")
-            chroma_client = chromadb.PersistentClient(path=str(self.vector_db_path))
+            chroma_client = chroma_client_for(self.vector_db_path)
             
-            # Create or get collection
-            # Create embedding function based on the model we're using
+            # The collection's embedding function reuses the model loaded above
+            # (one copy in memory, no hub download when EMBEDDING_MODEL_PATH is
+            # set). Its config still names the configured model, which is what
+            # the collection was created with.
+            share_loaded_model(self.embedding_model_name, self.embedding_model)
             embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name=self.embedding_model_name
             )
+            # Questions are embedded once, off the event loop, by this.
+            self.query_embedder = QueryEmbedder(embedding_func)
 
             self.vector_db = chroma_client.get_or_create_collection(
                 name="documents",
@@ -1077,20 +1141,81 @@ class SimpleRAGPipeline:
         with open(self.metadata_file, 'w') as f:
             json.dump(self.document_metadata, f, indent=2)
     
+    # Turns kept in memory per conversation; the full history is on disk.
+    CONVERSATION_MEMORY_TURNS = 50
+
     def _load_conversations(self) -> Dict:
-        """Load conversations from file"""
+        """History from the legacy JSON file, then the append-only log.
+
+        A torn last line (a crash mid-append) is skipped; every earlier line
+        still loads. Where the log was read up to is kept, so turns other
+        server processes append later can be picked up (_catch_up)."""
+        conversations: Dict[str, List[Dict[str, Any]]] = {}
         if self.conversation_file.exists():
             try:
                 with open(self.conversation_file, 'r') as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-    
-    def _save_conversations(self):
-        """Save conversations to file"""
-        with open(self.conversation_file, 'w') as f:
-            json.dump(self.conversations, f, indent=2)
+                    conversations = json.load(f)
+            except (OSError, ValueError):
+                logger.warning("Could not read %s; continuing with the log only", self.conversation_file)
+        self._log_offset = 0
+        self._read_log_rows(conversations, skip_own=False)
+        return {cid: turns[-self.CONVERSATION_MEMORY_TURNS:] for cid, turns in conversations.items()}
+
+    def _read_log_rows(self, conversations: Dict[str, List[Dict[str, Any]]], skip_own: bool) -> int:
+        """Add the log's complete lines past `_log_offset` to `conversations`;
+        returns how many were added. A line still being written (no newline
+        yet) is left for next time."""
+        conversation_file = getattr(self, "conversation_file", None)
+        if conversation_file is None:
+            return 0
+        log = Path(conversation_file).with_suffix(".jsonl")
+        offset = getattr(self, "_log_offset", 0)
+        try:
+            if log.stat().st_size <= offset:
+                return 0
+            with open(log, 'rb') as f:
+                f.seek(offset)
+                data = f.read()
+        except OSError:
+            return 0
+        end = data.rfind(b"\n") + 1
+        self._log_offset = offset + end
+        writer = getattr(self, "_writer", None)
+        added = 0
+        for line in data[:end].splitlines():
+            try:
+                row = json.loads(line)
+                if skip_own and row.get("w") == writer:
+                    continue  # already in memory: this process wrote it
+                conversations.setdefault(row["conversation_id"], []).append(row["turn"])
+                added += 1
+            except (ValueError, KeyError, TypeError, AttributeError):
+                continue
+        return added
+
+    def _catch_up_conversations(self) -> None:
+        """Turns other server processes appended since this one last looked.
+
+        With several workers, a caller's next turn can land on a different
+        process than the last; the log on disk is the shared history, and
+        this reads only what was added (usually nothing: one stat call)."""
+        added = self._read_log_rows(self.conversations, skip_own=True)
+        if added:
+            for turns in self.conversations.values():
+                del turns[:-self.CONVERSATION_MEMORY_TURNS]
+
+    def _remember_turn(self, conversation_id: str, entry: Dict[str, Any]) -> None:
+        turns = self.conversations.setdefault(conversation_id, [])
+        turns.append(entry)
+        del turns[:-self.CONVERSATION_MEMORY_TURNS]
+
+    def _append_conversation(self, conversation_id: str, entry: Dict[str, Any]) -> None:
+        """Append one turn as one line (runs in a worker thread)."""
+        line = json.dumps({"conversation_id": conversation_id, "turn": entry,
+                           "w": getattr(self, "_writer", None)}, ensure_ascii=False)
+        with _conversation_log_lock:
+            # One write per line, so another worker's line cannot split it.
+            append_line(self.conversation_file.with_suffix(".jsonl"), line)
     
     async def remove_document(self, doc_id: str) -> Dict[str, Any]:
         """Remove a document from the RAG index"""
@@ -1140,8 +1265,15 @@ class SimpleRAGPipeline:
                 "traceback": traceback.format_exc()
             }
     
+    # Chunks embedded and added per worker-thread call while indexing.
+    INDEX_BATCH = 32
+
     async def add_documents(self, file_paths: List[str], metadata: Optional[Dict] = None) -> Dict[str, Any]:
-        """Add documents to the RAG index"""
+        """Add documents to the RAG index.
+
+        Copying, parsing, chunking, embedding and verification are blocking
+        work; each runs in a worker thread, the embedding in batches, so live
+        calls keep their event loop while a guideline is indexed."""
         try:
             results = []
             
@@ -1150,11 +1282,9 @@ class SimpleRAGPipeline:
                     logger.warning(f"File not found: {file_path}")
                     continue
                 
-                # Copy to permanent storage first
-                permanent_path = self._copy_to_permanent_storage(file_path)
-                
-                # Process document from permanent storage
-                doc_result = self.document_processor.process_file(permanent_path)
+                with span("ingest.parse"):
+                    permanent_path = await asyncio.to_thread(self._copy_to_permanent_storage, file_path)
+                    doc_result = await asyncio.to_thread(self.document_processor.process_file, permanent_path)
                 
                 if doc_result["status"] != "success":
                     results.append({
@@ -1193,13 +1323,16 @@ class SimpleRAGPipeline:
                 
                 # Add to vector database with error handling
                 try:
-                    self.vector_db.add(
-                        documents=chunks,
-                        metadatas=chunk_metadata,
-                        ids=chunk_ids
-                    )
-                    # Force persistence after adding
-                    self._persist_vector_db()
+                    with span("ingest.embed", chunks=len(chunks)):
+                        for start in range(0, len(chunks), self.INDEX_BATCH):
+                            stop = start + self.INDEX_BATCH
+                            await asyncio.to_thread(
+                                self.vector_db.add,
+                                documents=chunks[start:stop],
+                                metadatas=chunk_metadata[start:stop],
+                                ids=chunk_ids[start:stop],
+                            )
+                    await asyncio.to_thread(self._persist_vector_db)
                 except Exception as e:
                     logger.error(f"Error adding document to vector DB: {e}")
                     results.append({
@@ -1222,14 +1355,14 @@ class SimpleRAGPipeline:
                 }
                 
                 # Verify the document was properly indexed
-                if self._verify_document_in_vector_db(doc_id):
+                if await asyncio.to_thread(self._verify_document_in_vector_db, doc_id):
                     results.append({
                         "file_path": file_path,
                         "status": "success",
                         "doc_id": doc_id,
                         "chunks": len(chunks)
                     })
-                    logger.info(f"Successfully indexed and verified: {file_path} ({len(chunks)} chunks)")
+                    logger.info(f"Successfully indexed and verified: {Path(file_path).name} ({len(chunks)} chunks)")
 
                     # Trigger PageIndex tree building if enabled (non-blocking)
                     if _pageindex_enabled and _pageindex_builder:
@@ -1252,10 +1385,10 @@ class SimpleRAGPipeline:
                         "status": "error",
                         "error": "Document indexing verification failed"
                     })
-                    logger.error(f"Document indexing verification failed for: {file_path}")
+                    logger.error(f"Document indexing verification failed for: {Path(file_path).name}")
             
             # Save metadata
-            self._save_metadata()
+            await asyncio.to_thread(self._save_metadata)
             
             return {
                 "status": "success",
@@ -1301,7 +1434,7 @@ class SimpleRAGPipeline:
             router = getattr(self, "retrieval_router", None) or RetrievalRouter(settings)
             router.settings = settings
             if getattr(self, "vector_db", None) is not None:
-                router.attach("vector", VectorRetriever(self.vector_db))
+                router.attach("vector", VectorRetriever(self.vector_db, getattr(self, "query_embedder", None)))
             if pageindex_engine is not None:
                 router.attach("pageindex", PageIndexRetriever(pageindex_engine))
             if getattr(self, "graph_store", None) is not None:
@@ -1342,25 +1475,47 @@ class SimpleRAGPipeline:
         the stages and appends the per-interaction retrieval record (active
         retrievers, KG version, fusion settings, K26 check) to the release log.
         """
-        started = time.perf_counter()
-        settings = get_active_settings()
-        trace: Dict[str, Any] = {"stage_latency_ms": {}}
-        result = await self._query_impl(
-            question, conversation_id=conversation_id, user_id=user_id,
-            top_k=top_k, source_language=source_language, _trace=trace,
-        )
-        trace["stage_latency_ms"]["total"] = round((time.perf_counter() - started) * 1000, 1)
-        try:
-            await self._record_answer_path(settings, trace, result, user_id)
-        except Exception:
-            # The record is evidence, not part of the answer; losing it must
-            # never cost the user their answer.
-            logger.exception("Answer-path record failed; answer returned unrecorded")
-        return result
+        with trace_request("direct", user_id=user_id, name="answer",
+                           language=source_language, top_k=top_k) as answer_span:
+            settings = get_active_settings()
+            trace: Dict[str, Any] = {"stage_latency_ms": {}}
+            result = await self._query_impl(
+                question, conversation_id=conversation_id, user_id=user_id,
+                top_k=top_k, source_language=source_language, _trace=trace,
+            )
+            trace["stage_latency_ms"]["total"] = round(
+                (time.perf_counter() - answer_span.started) * 1000, 1
+            )
+            if isinstance(result, dict):
+                answer_span.set(status=str(result.get("status", "")))
+            record = None
+            try:
+                with span("record"):
+                    record = await self._answer_path_record(settings, trace, result)
+            except Exception:
+                # The record is evidence, not part of the answer; losing it must
+                # never cost the user their answer.
+                logger.exception("Answer-path record failed; answer returned unrecorded")
 
-    async def _record_answer_path(self, settings, trace: Dict[str, Any], result: Dict[str, Any],
-                                  user_id: Optional[str]) -> None:
-        """Attach and log the retrieval and K26 record for one interaction."""
+            # Bookkeeping runs after the reply: the caller does not wait for it.
+            for name, work in trace.pop("post_work", []):
+                after_reply(name, work)
+            if record is not None:
+                retrieval, kg_check = record
+                shadow = trace.pop("shadow_kg_check", None)
+
+                async def persist():
+                    if shadow is not None:
+                        await shadow(retrieval, kg_check)
+                    self._persist_answer_path(retrieval, kg_check, result, user_id)
+
+                after_reply("record", persist)
+            return result
+
+    async def _answer_path_record(self, settings, trace: Dict[str, Any],
+                                  result: Dict[str, Any]) -> tuple:
+        """Build the retrieval and K26 record for one interaction and attach it
+        to the result. Persisting it happens after the reply."""
         retrieval = trace.get("retrieval") or {
             "rag_method": settings.rag_method,
             "retrievers_active": [],
@@ -1373,7 +1528,15 @@ class SimpleRAGPipeline:
         }
         retrieval["kg_version"] = trace.get("kg_version") or await self._answer_path_kg_version(settings)
         kg_check = trace.get("kg_check") or {"mode": settings.kg_check_mode, "status": "skipped"}
+        if isinstance(result, dict):
+            result.setdefault("retrieval", retrieval)
+            result.setdefault("kg_check", kg_check)
+        return retrieval, kg_check
 
+    @staticmethod
+    def _persist_answer_path(retrieval: Dict[str, Any], kg_check: Dict[str, Any],
+                             result: Any, user_id: Optional[str]) -> None:
+        """Log and append the answer-path record (after the reply)."""
         logger.info(
             "Answer path: method=%s active=%s failed=%s kg_check=%s/%s timings_ms=%s",
             retrieval.get("rag_method"), retrieval.get("retrievers_active"),
@@ -1386,9 +1549,6 @@ class SimpleRAGPipeline:
             kg_check=kg_check,
             status=str(result.get("status", "")) if isinstance(result, dict) else "",
         )
-        if isinstance(result, dict):
-            result.setdefault("retrieval", retrieval)
-            result.setdefault("kg_check", kg_check)
 
     async def _query_impl(self, question: str, conversation_id: Optional[str] = None,
                           user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en",
@@ -1404,13 +1564,16 @@ class SimpleRAGPipeline:
             safety_result = None
             if SAFETY_ENHANCEMENTS_AVAILABLE and user_id:
                 safety_manager = get_safety_manager()
+                if conversation_id:
+                    self._catch_up_conversations()
                 conversation_history = self.conversations.get(conversation_id, []) if conversation_id else []
-                safety_result = await safety_manager.process_query(
-                    user_id=user_id,
-                    query=question,
-                    language=source_language,
-                    conversation_history=conversation_history
-                )
+                with span("safety_pre"):
+                    safety_result = await safety_manager.process_query(
+                        user_id=user_id,
+                        query=question,
+                        language=source_language,
+                        conversation_history=conversation_history
+                    )
                 
                 # Handle emergency or handoff
                 if not safety_result["should_respond"]:
@@ -1432,21 +1595,6 @@ class SimpleRAGPipeline:
                         "timestamp": datetime.now().isoformat(),
                     }
             
-            # Check if we have any documents indexed
-            total_docs = len(self.document_metadata)
-            logger.info(f"Query: '{question}' - Total documents in metadata: {total_docs}")
-            
-            # Debug: Print all document IDs in metadata
-            doc_ids = list(self.document_metadata.keys())
-            logger.info(f"Document IDs in metadata: {doc_ids}")
-            
-            # Debug: Check vector database collection count
-            try:
-                db_count = self.vector_db.count()
-                logger.info(f"Vector database contains {db_count} documents")
-            except Exception as e:
-                logger.warning(f"Could not get vector DB count: {e}")
-            
             # Cross-language retrieval is the default (ADR 0003). The query is
             # embedded as written and searched against the multilingual index.
             # Translation is a fallback for weak evidence, never the default path.
@@ -1455,17 +1603,27 @@ class SimpleRAGPipeline:
             # necessary for anything Indic. It is now a wasted LLM round-trip on
             # every query, and it discards the better signal when it succeeds.
             query_for_search = question
-            if source_language != "en" and self._cross_language_retrieval_is_weak(question):
+            # The probe's search is the main search for the question as
+            # written: when translation is not needed, the vector path reuses
+            # it rather than embedding and searching a second time.
+            prefetched = None
+            if source_language != "en":
+                weak, prefetched = await self._cross_language_probe(question, top_k)
+            else:
+                weak = False
+            if weak:
+                prefetched = None
                 logger.info(
                     "Cross-language retrieval looks weak for %s; retrying in English",
                     source_language,
                 )
-                translation_result = await self.translate_query_to_english(
-                    question, source_language
-                )
+                with span("translate", language=source_language):
+                    translation_result = await self.translate_query_to_english(
+                        question, source_language
+                    )
                 if translation_result["status"] in ["success", "fallback"]:
                     query_for_search = translation_result["translated_query"]
-                    logger.info(
+                    logger.debug(
                         "Translation fallback used for: '%s'", query_for_search
                     )
                     self.translation_fallback_count += 1
@@ -1496,7 +1654,8 @@ class SimpleRAGPipeline:
             router = getattr(self, "retrieval_router", None)
             if _rag_method in ROUTED_METHODS:
                 if router is not None:
-                    routed = await router.retrieve(query_for_search, top_k, method=_rag_method)
+                    with span("router.retrieve", method=_rag_method):
+                        routed = await router.retrieve(query_for_search, top_k, method=_rag_method)
                 if routed is None:
                     trace["retrieval"] = {
                         "rag_method": "vector",
@@ -1508,7 +1667,9 @@ class SimpleRAGPipeline:
             if routed is not None:
                 trace["retrieval"] = routed.record()
                 if not routed.passages:
-                    stage_ms["retrieval"] = round((time.perf_counter() - retrieval_started) * 1000, 1)
+                    stage_ms["retrieval"] = round(record_span(
+                        "retrieve", (time.perf_counter() - retrieval_started) * 1000, method=_rag_method,
+                    ), 1)
                     return {
                         "status": "success",
                         "answer": "I could not find any supporting documents in my corpus. Please consult a qualified medical doctor or visit the nearest hospital.",
@@ -1528,7 +1689,8 @@ class SimpleRAGPipeline:
             elif _rag_method == "pageindex" and _pageindex_enabled and _pageindex_engine:
                 # PageIndex tree-based retrieval
                 logger.info(f"Using PageIndex tree-based retrieval for: {query_for_search[:80]}")
-                pi_result = await _pageindex_engine.search(query_for_search)
+                with span("pageindex.search"):
+                    pi_result = await _pageindex_engine.search(query_for_search)
                 context_text = pi_result.context
 
                 if not context_text:
@@ -1557,10 +1719,12 @@ class SimpleRAGPipeline:
                 logger.info(f"Using hybrid (vector + PageIndex) retrieval for: {query_for_search[:80]}")
 
                 async def _do_vector_search():
-                    return self.vector_db.query(query_texts=[query_for_search], n_results=top_k)
+                    with span("search", n_results=top_k):
+                        return await self._vector_search(query_for_search, top_k)
 
                 async def _do_tree_search():
-                    return await _pageindex_engine.search(query_for_search)
+                    with span("pageindex.search"):
+                        return await _pageindex_engine.search(query_for_search)
 
                 vector_results, pi_result = await asyncio.gather(
                     _do_vector_search(), _do_tree_search()
@@ -1612,20 +1776,22 @@ class SimpleRAGPipeline:
 
             else:
                 # Default: existing vector search (unchanged)
-                search_results = self.vector_db.query(
-                    query_texts=[query_for_search],
-                    n_results=top_k
-                )
+                with span("search", n_results=top_k) as search_span:
+                    if prefetched is not None and query_for_search == question:
+                        search_results = prefetched
+                        search_span.set(reused_probe=True)
+                    else:
+                        search_results = await self._vector_search(query_for_search, top_k)
 
-                logger.info(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
+                logger.debug(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
                 if search_results.get('documents'):
-                    logger.info(f"First result set has {len(search_results['documents'][0])} documents")
+                    logger.debug(f"First result set has {len(search_results['documents'][0])} documents")
                     if search_results.get('metadatas') and search_results['metadatas'][0]:
                         first_meta = search_results['metadatas'][0][0] if search_results['metadatas'][0] else {}
-                        logger.info(f"First result metadata sample: {first_meta}")
+                        logger.debug(f"First result metadata sample: {first_meta}")
                     if search_results.get('distances'):
                         distances = search_results['distances'][0]
-                        logger.info(f"Search distances: {distances[:3]}...")
+                        logger.debug(f"Search distances: {distances[:3]}...")
 
                 if not search_results['documents'] or not search_results['documents'][0]:
                     logger.warning("No search results found in vector database")
@@ -1645,13 +1811,13 @@ class SimpleRAGPipeline:
                 relevant_metadatas = []
 
                 for i, (context, meta, distance) in enumerate(zip(contexts, metadatas, distances)):
-                    logger.info(f"Context {i}: distance={distance:.4f}, threshold={relevance_threshold}")
+                    logger.debug(f"Context {i}: distance={distance:.4f}, threshold={relevance_threshold}")
                     if distance <= relevance_threshold:
                         relevant_contexts.append(context)
                         relevant_metadatas.append(meta)
-                        logger.info(f"  ✅ Context {i} ACCEPTED (distance {distance:.4f} <= {relevance_threshold})")
+                        logger.debug(f"  ✅ Context {i} ACCEPTED (distance {distance:.4f} <= {relevance_threshold})")
                     else:
-                        logger.info(f"  ❌ Context {i} REJECTED (distance {distance:.4f} > {relevance_threshold})")
+                        logger.debug(f"  ❌ Context {i} REJECTED (distance {distance:.4f} > {relevance_threshold})")
 
                 logger.info(f"Total relevant contexts found: {len(relevant_contexts)}/{len(contexts)}")
 
@@ -1676,7 +1842,10 @@ class SimpleRAGPipeline:
                     for doc, meta in zip(filtered_contexts, filtered_metadatas)
                 ])
 
-            stage_ms["retrieval"] = round((time.perf_counter() - retrieval_started) * 1000, 1)
+            stage_ms["retrieval"] = round(record_span(
+                "retrieve", (time.perf_counter() - retrieval_started) * 1000,
+                method=_rag_method, chunks=len(relevant_contexts or filtered_metadatas),
+            ), 1)
             if "retrieval" not in trace:
                 trace["retrieval"] = {
                     "rag_method": _rag_method,
@@ -1690,13 +1859,14 @@ class SimpleRAGPipeline:
             patient_context = ""
             if user_id and self.context_injector:
                 try:
-                    patient_context = await self.context_injector.inject_context(
-                        user_id=user_id,
-                        question=question,
-                        max_length=500  # Keep context concise
-                    )
+                    with span("patient_context"):
+                        patient_context = await self.context_injector.inject_context(
+                            user_id=user_id,
+                            question=question,
+                            max_length=500  # Keep context concise
+                        )
                     if patient_context:
-                        logger.info(f"🧠 Injected patient context for user {user_id} ({len(patient_context)} chars)")
+                        logger.info(f"🧠 Injected patient context ({len(patient_context)} chars)")
                         context_text = f"""--- Patient History ---
 {patient_context}
 
@@ -1706,15 +1876,38 @@ class SimpleRAGPipeline:
                     logger.warning(f"Failed to inject patient context: {e}")
 
             # Generate answer with citation instructions
-            generation_started = time.perf_counter()
-            answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
-            stage_ms["generation"] = round((time.perf_counter() - generation_started) * 1000, 1)
+            with span("generate") as generation_span:
+                answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
+            stage_ms["generation"] = round(generation_span.ms, 1)
+            if model_used == "error":
+                # The model failed or ran out of the caller's time. The caller
+                # hears the fallback, never the error text.
+                logger.error("Answer generation failed, sending the fallback answer: %s", answer)
+                answer = GENERATION_FAILED_ANSWER
 
             # K26: cross-reference the drafted answer's clinical claims against
             # the knowledge graph. Off by default; never fails the turn.
             checker = getattr(self, "kg_checker", None)
-            if settings.kg_check_enabled and checker is not None and model_used != "error":
-                answer, kg_result = await checker.check(answer)
+            if (settings.kg_check_enabled and checker is not None and model_used != "error"
+                    and settings.kg_check_mode == "shadow"):
+                # Shadow mode never changes the answer, so the caller does not
+                # wait for it: it runs after the reply, before the record.
+                trace["kg_check"] = {"mode": "shadow", "status": "pending"}
+                drafted = answer
+
+                async def shadow_check(retrieval, kg_check):
+                    with span("kg_check", mode="shadow"):
+                        _, kg_result = await checker.check(drafted)
+                    kg_check.clear()
+                    kg_check.update(kg_result.to_dict())
+                    if kg_result.kg_version:
+                        retrieval["kg_version"] = kg_result.kg_version
+                    retrieval["stage_latency_ms"]["kg_check"] = round(kg_result.latency_ms, 1)
+
+                trace["shadow_kg_check"] = shadow_check
+            elif settings.kg_check_enabled and checker is not None and model_used != "error":
+                with span("kg_check", mode=settings.kg_check_mode):
+                    answer, kg_result = await checker.check(answer)
                 trace["kg_check"] = kg_result.to_dict()
                 if kg_result.kg_version:
                     trace["kg_version"] = kg_result.kg_version
@@ -1741,57 +1934,55 @@ class SimpleRAGPipeline:
                 if source not in sources:
                     sources.append(source)
             
-            # Store conversation
-            if conversation_id:
-                if conversation_id not in self.conversations:
-                    self.conversations[conversation_id] = []
+            post_work = trace.setdefault("post_work", [])
 
-                self.conversations[conversation_id].append({
+            # Conversation history: kept in memory for the next turn, appended
+            # to disk after the reply (one line, never a whole-file rewrite).
+            if conversation_id:
+                entry = {
                     "timestamp": datetime.now().isoformat(),
                     "user_id": user_id,
                     "question": question,
                     "answer": answer,
-                    "sources": sources
-                })
+                    "sources": sources,
+                }
+                self._remember_turn(conversation_id, entry)
+                post_work.append(("conversation", functools.partial(
+                    asyncio.to_thread, self._append_conversation, conversation_id, entry)))
 
-                self._save_conversations()
-
-            # V25: Extract observations from conversation (async, non-blocking)
-            observations_extracted = 0
-            if user_id and self.cross_modal_aggregator:
-                try:
-                    # Combine question and answer for extraction
-                    conversation_text = f"Patient: {question}\nAssistant: {answer}"
-                    observations = await self.cross_modal_aggregator.process_conversation(
-                        patient_id=user_id,
-                        conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                        transcript=conversation_text,
-                        source_type=DataSourceType.WEB_CHAT,
-                        metadata={
-                            "language": source_language,
-                            "speaker_role": "patient"
-                        }
-                    )
-                    observations_extracted = len(observations)
-                    if observations:
-                        logger.info(f"🔍 Extracted {len(observations)} observations from conversation for user {user_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to extract observations: {e}")
+            # V25: observations come from what the caller said (the question),
+            # never from the generated answer, after the reply, and only for a
+            # person: a per-call session id would get a record nobody reads.
+            if is_person(user_id) and self.cross_modal_aggregator:
+                aggregator = self.cross_modal_aggregator
+                post_work.append(("observations", functools.partial(
+                    aggregator.process_conversation,
+                    patient_id=user_id,
+                    conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                    transcript=f"Patient: {question}",
+                    source_type=DataSourceType.WEB_CHAT,
+                    metadata={"language": source_language, "speaker_role": "patient"},
+                )))
 
             # =================================================================
             # SAFETY ENHANCEMENTS: Post-processing
             # =================================================================
             
-            # 1. Add evidence badge
+            # 1. Evidence badge. Text answers get the badge appended. A voice
+            # answer does not: the badge is a formatted block nobody should
+            # hear, and it sat at the end where voice truncation cut it. Voice
+            # channels speak a short note from the badge's fields instead.
+            evidence_badge = None
             if SAFETY_ENHANCEMENTS_AVAILABLE:
                 safety_manager = get_safety_manager()
-                answer = safety_manager.add_evidence_badge(
-                    query=question,
-                    sources=sources,
-                    distances=distances,
-                    answer=answer,
-                    language=source_language
-                )
+                try:
+                    badge = safety_manager.evidence_system.calculate_evidence_badge(
+                        question, sources, distances, answer)
+                    evidence_badge = badge.to_dict()
+                    if not in_voice_turn():
+                        answer = f"{answer}\n{badge.format_for_user(source_language)}"
+                except Exception:
+                    logger.warning("Evidence badge failed", exc_info=True)
             
             # 2. Optimize response length for user comprehension
             if SAFETY_ENHANCEMENTS_AVAILABLE and user_id:
@@ -1807,9 +1998,8 @@ class SimpleRAGPipeline:
                 "conversation_id": conversation_id,
                 "timestamp": datetime.now().isoformat(),
                 "patient_context_used": bool(patient_context),
-                "observations_extracted": observations_extracted,
                 "safety_enhancements": {
-                    "evidence_badge": SAFETY_ENHANCEMENTS_AVAILABLE,
+                    "evidence_badge": evidence_badge,
                     "response_optimized": SAFETY_ENHANCEMENTS_AVAILABLE and user_id is not None,
                 } if SAFETY_ENHANCEMENTS_AVAILABLE else None
             }
@@ -1878,7 +2068,7 @@ class SimpleRAGPipeline:
                 thinking_preview = thinking.strip()[:500]
                 if len(thinking.strip()) > 500:
                     thinking_preview += "... [truncated]"
-                logger.info(f"🧠 Model Reasoning (block {i+1}):\n{thinking_preview}")
+                logger.debug(f"🧠 Model Reasoning (block {i+1}):\n{thinking_preview}")
 
             # Remove all <think>...</think> blocks from response
             clean_response = re.sub(think_pattern, '', response, flags=re.DOTALL)
@@ -1952,31 +2142,83 @@ ANSWER (2-3 paragraphs):"""
     # newly invented one.
     CROSS_LANGUAGE_FALLBACK_DISTANCE = 1.5
 
-    def _cross_language_retrieval_is_weak(self, question: str) -> bool:
+    async def _vector_search(self, text: str, n_results: int) -> Dict[str, Any]:
+        """Vector search for `text`, embedded once and off the event loop."""
+        return await vector_search(self.vector_db, getattr(self, "query_embedder", None), text, n_results)
+
+    async def _cross_language_probe(self, question: str, n_results: int = 1) -> tuple:
         """
         Probe whether searching the query as written is likely to fail.
 
-        Runs a single top-1 query and compares its distance against the same
-        threshold the retrieval path uses to decide relevance. One extra vector
-        search over a few hundred chunks is cheap; translating is an LLM call.
+        Searches the question as written and compares the top distance against
+        the same threshold the retrieval path uses to decide relevance. The
+        search is the real one (n_results), so the vector path reuses it and the
+        question is embedded once. Translating is an LLM call; this is not.
 
-        Returns True only when a translation is worth attempting. Any inability
-        to probe is treated as "not weak", because defaulting to translating would
-        put the cost back on every query.
+        Returns (weak, results). weak is True only when a translation is worth
+        attempting. Any inability to probe is "not weak" with no results,
+        because defaulting to translating would put the cost back on every
+        query.
         """
         if self.vector_db is None:
-            return False
+            return False, None
         try:
-            probe = self.vector_db.query(query_texts=[question], n_results=1)
+            with span("probe"):
+                probe = await self._vector_search(question, n_results)
             distances = (probe.get("distances") or [[]])[0]
         except Exception:
             logger.debug("Cross-language probe failed; assuming retrieval is fine")
-            return False
+            return False, None
 
         if not distances:
             # Nothing matched at all, which is the clearest possible weak signal.
-            return True
-        return float(distances[0]) > self.CROSS_LANGUAGE_FALLBACK_DISTANCE
+            return True, probe
+        return float(distances[0]) > self.CROSS_LANGUAGE_FALLBACK_DISTANCE, probe
+
+    async def _generate_voice_answer(self, question: str, citation_text: str,
+                                     context_label: str) -> tuple:
+        """A ~80-word answer for a voice turn, written for listening. Sources stay
+        in the result's `sources`; nothing is appended for a listener to hear."""
+        prompt = f"""You are an expert palliative care physician answering a question for a community health worker or family caregiver in India, on a phone call.
+
+LANGUAGE: Respond in English only.
+
+{VOICE_ANSWER_INSTRUCTION}
+
+QUALITY REQUIREMENTS:
+1. Ground every clinical claim in the provided medical context. Do not invent facts.
+2. Warm, calm, non-judgemental tone for a worried caregiver.
+3. Avoid generic deflection unless the question is outside the context. The one exception is dosing: always refer the dose to the patient's doctor or nurse.
+
+{context_label}:
+{citation_text}
+
+QUESTION: {question}
+
+SPOKEN ANSWER (60-80 words):"""
+        stream = active_stream()
+        if stream is not None:
+            return await self._stream_answer(stream, prompt, VOICE_ANSWER_MAX_TOKENS, 0.3)
+        answer, model_used = await self._call_llm(
+            prompt, max_tokens=VOICE_ANSWER_MAX_TOKENS, temperature=0.3)
+        if model_used == "error":
+            return answer, model_used
+        return self._clean_inline_citations(answer).strip(), model_used
+
+    async def _stream_answer(self, stream: AnswerStream, prompt: str, max_tokens: int,
+                             temperature: float) -> tuple:
+        """Generate into the channel's AnswerStream: each sentence goes out as
+        soon as it is written and passes the Dose Boundary. Returns the text
+        that was sent, or the usual ("Error ...", "error") if nothing was."""
+        llm = getattr(self, "llm", None) or get_llm_client()
+        try:
+            text = await stream.consume(
+                llm.stream(prompt, max_tokens=max_tokens, temperature=temperature, purpose="answer"),
+                clean=self._clean_inline_citations)
+        except LLMStreamError as e:
+            logger.error("Streamed answer failed: %s", e)
+            return f"Error generating response: {e}", "error"
+        return text, llm.settings.model
 
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> tuple:
         """Generate an answer with citations.
@@ -2004,6 +2246,9 @@ ANSWER (2-3 paragraphs):"""
                     "answer on it. Cite this source.\n"
                 )
                 context_label = "MEDICAL CONTEXT (MOST RELEVANT)"
+
+            if in_voice_turn():
+                return await self._generate_voice_answer(question, citation_text, context_label)
 
             prompt = f"""You are an expert palliative care physician answering a question for a community health worker or family caregiver in India.
 
@@ -2034,12 +2279,16 @@ QUESTION: {question}
 
 ANSWER (2-3 paragraphs followed by Sources line):"""
             
-            answer, model_used = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
+            stream = active_stream()
+            if stream is not None:
+                answer, model_used = await self._stream_answer(stream, prompt, 2048, 0.3)
+            else:
+                answer, model_used = await self._call_llm(prompt, max_tokens=2048, temperature=0.3)
             if model_used == "error":
                 return answer, model_used
             
             # Debug: Log what the LLM generated
-            logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")
+            logger.debug(f"🤖 LLM GENERATED ANSWER: '{answer}'")
             logger.info(f"🔍 Is no-answer response: {self._is_no_answer_response(answer)}")
             
             # Always clean inline citations and ensure proper end citation
@@ -4625,7 +4874,20 @@ class NgrokManager:
             self.ngrok_url = None
 
 
-def main():
+def chroma_client_for(path: Path) -> Any:
+    """The vector store client: a Chroma server when CHROMA_HOST is set
+    (required with more than one worker: each process holds its own copy of
+    a local index, and Chroma's local store is not safe for several writing
+    processes), else the local store at `path`."""
+    host = os.getenv("CHROMA_HOST")
+    if host:
+        logger.info(f"Vector store: Chroma server at {host}:{os.getenv('CHROMA_PORT', '8000')}")
+        return chromadb.HttpClient(host=host, port=int(os.getenv("CHROMA_PORT", "8000")))
+    return chromadb.PersistentClient(path=str(path))
+
+
+def _parse_args(argv: Optional[List[str]] = None) -> Any:
+    """The server's command line (also read by create_app from PALLI_SERVER_ARGS)."""
     """Main application entry point"""
     import argparse
     
@@ -4661,7 +4923,30 @@ def main():
         )
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=int(os.getenv("WEB_CONCURRENCY", "1")),
+        help=(
+            "Server processes (default 1, or WEB_CONCURRENCY). More than one needs "
+            "a shared Chroma (CHROMA_HOST) and no ngrok; see docs/howto_guide.md."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def create_app(args: Any = None) -> FastAPI:
+    """
+    Build the server: pipeline, integrations and every route.
+
+    Called once by `main()` for a single process, or by each uvicorn worker
+    (`uvicorn simple_rag_server:create_app --factory --workers N`, which is
+    what `--workers N` runs). Workers get the command line through
+    PALLI_SERVER_ARGS.
+    """
+    if args is None:
+        args = _parse_args(shlex.split(os.getenv("PALLI_SERVER_ARGS", "")))
+
 
     # Set voice provider based on argument
     voice_provider = args.provider.lower()
@@ -4784,6 +5069,9 @@ def main():
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Per-stage timing traces (observability/tracing.py): one root span per request.
+    from observability.middleware import TraceMiddleware
+    app.add_middleware(TraceMiddleware)
 
     # Gemini Live service globals
     gemini_service = None
@@ -4869,6 +5157,25 @@ def main():
         except Exception as e:
             logger.error(f"Failed to initialize Knowledge Graph: {e}")
             kg_enabled = False
+
+    @app.on_event("shutdown")
+    async def finish_post_reply_work():
+        """Let bookkeeping scheduled after recent replies finish before exit."""
+        import post_work
+
+        if not await post_work.drain(timeout=10.0):
+            logger.warning("Shutdown with post-reply work still running: %s", post_work.stats())
+        if SAFETY_ENHANCEMENTS_AVAILABLE:
+            try:
+                get_safety_manager().response_optimizer.flush()
+            except Exception:
+                logger.exception("Could not flush comprehension profiles")
+        try:
+            from sarvam_integration.http import close_shared_session
+
+            await close_shared_session()
+        except Exception:
+            logger.debug("Sarvam session close failed", exc_info=True)
 
     @app.on_event("shutdown")
     async def shutdown_knowledge_graph():
@@ -5018,7 +5325,9 @@ def main():
                 init_mobile_deps(
                     rag_pipeline=rag_pipeline,
                     safety_manager=get_safety_manager() if SAFETY_ENHANCEMENTS_AVAILABLE else None,
-                    memory_manager=LongitudinalMemoryManager() if LONGITUDINAL_MEMORY_AVAILABLE else None,
+                    # The answer path's store, not a second one: the app and
+                    # the answer path read and write the same records.
+                    memory_manager=getattr(rag_pipeline, "longitudinal_manager", None),
                     medication_manager=_med_manager,
                 )
                 app.include_router(mobile_router)
@@ -5195,6 +5504,10 @@ def main():
         model = None
         user_id = f"web_{datetime.now().timestamp()}_{id(websocket)}"
         response_task = None
+        # The Live connection opens when the config arrives, while the caller
+        # is still getting ready to speak, not when their first audio does.
+        # An unused one is closed below, or by the manager's idle cleanup.
+        preconnect = PreConnect(gemini_session_manager)
 
         logger.info(f"Voice WebSocket connected: {user_id}")
 
@@ -5221,12 +5534,16 @@ def main():
                                 "language": language,
                                 "model": model
                             })
+                            await preconnect.open(user_id, language, model)
 
                         elif msg_type == "start_audio":
                             # Create or get session for this user
                             logger.info(f"Starting audio session for {user_id}")
 
                             try:
+                                # Reuses the pre-connected session when it is
+                                # up; opens one if it failed or never started.
+                                await preconnect.settle()
                                 session = await gemini_session_manager.get_or_create_session(
                                     user_id=user_id,
                                     language=language,
@@ -5261,10 +5578,12 @@ def main():
                                 logger.info(f"Switching language from {language} to {new_language} for {user_id}")
                                 language = new_language
 
-                                # Close existing session
-                                if session:
-                                    await gemini_session_manager.close_session(user_id)
-                                    session = None
+                                # Close existing session, and reconnect in
+                                # the new language ahead of the next turn
+                                await preconnect.settle()
+                                await gemini_session_manager.close_session(user_id)
+                                session = None
+                                await preconnect.open(user_id, language, model)
 
                                 await websocket.send_json({
                                     "type": "language_changed",
@@ -5278,10 +5597,11 @@ def main():
                                 logger.info(f"Switching model from {model or 'default'} to {new_model or 'default'} for {user_id}")
                                 model = new_model
 
-                                # Close existing session; recreated on next start_audio
-                                if session:
-                                    await gemini_session_manager.close_session(user_id)
-                                    session = None
+                                # Close existing session; reconnect on the new model
+                                await preconnect.settle()
+                                await gemini_session_manager.close_session(user_id)
+                                session = None
+                                await preconnect.open(user_id, language, model)
 
                             await websocket.send_json({
                                 "type": "model_changed",
@@ -5341,7 +5661,10 @@ def main():
                 except asyncio.CancelledError:
                     pass
 
-            if session and gemini_session_manager:
+            # Let a pending pre-connect finish (cancelling it mid-way would
+            # leave a session the manager never registered), then close.
+            await preconnect.settle()
+            if gemini_session_manager:
                 try:
                     await gemini_session_manager.close_session(user_id)
                     logger.info(f"Session closed for {user_id}")
@@ -5392,7 +5715,8 @@ def main():
             "whatsapp_bot": "configured" if whatsapp_bot else "not configured",
             "gemini_live": gemini_status,
             "ngrok_url": ngrok_manager.ngrok_url,
-            "stats": stats.get("stats", {})
+            "stats": stats.get("stats", {}),
+            "post_reply_work": post_work_stats(),
         }
     
     @app.post("/api/query")
@@ -5442,25 +5766,36 @@ def main():
     
     @app.post("/api/upload")
     async def api_upload(file: UploadFile = File(...), metadata: str = Form("{}")):
-        """API endpoint for file uploads"""
+        """Save the upload and queue it for indexing; returns the job id.
+
+        Indexing runs in the background (ingest_jobs): poll
+        GET /api/upload/{job_id} for queued, running, done or failed."""
         try:
-            # Save uploaded file
-            upload_dir = Path("uploads")
-            upload_dir.mkdir(exist_ok=True)
-            
-            file_path = upload_dir / file.filename
-            with open(file_path, "wb") as f:
-                f.write(await file.read())
-            
-            # Parse metadata
             metadata_dict = json.loads(metadata) if metadata else {}
-            
-            # Index file
-            result = await rag_pipeline.add_documents([str(file_path)], metadata_dict)
-            
-            return result
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="metadata is not valid JSON")
+        upload_dir = Path("uploads")
+        file_path = upload_dir / ingest_jobs.safe_upload_name(file.filename)
+        content = await file.read()
+
+        def save() -> None:
+            upload_dir.mkdir(exist_ok=True)
+            file_path.write_bytes(content)
+
+        await asyncio.to_thread(save)
+        job_id = ingest_jobs.submit(
+            file_path.name,
+            functools.partial(rag_pipeline.add_documents, [str(file_path)], metadata_dict),
+        )
+        return {"status": "queued", "job_id": job_id, "stored_as": file_path.name}
+
+    @app.get("/api/upload/{job_id}")
+    async def api_upload_status(job_id: str):
+        """Indexing job status: queued, running, done or failed."""
+        job = ingest_jobs.status(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Unknown job")
+        return job
 
     # ==========================================================================
     # PAGEINDEX RAG ENDPOINTS
@@ -5592,8 +5927,13 @@ def main():
             "query": "How to manage pain for cancer patients?",
             "language": "hi",
             "context": "User asking about pain management",
-            "source": "bolna_call"
+            "source": "bolna_call",
+            "from_number": "+91...",       # Bolna system variable
+            "execution_id": "..."          # Bolna system variable
         }
+
+        The caller is identified by from_number (else the call id), see
+        bolna_caller_id().
 
         Response:
         {
@@ -5618,6 +5958,7 @@ def main():
             language = data.get("language", "en")
             context = data.get("context", "")
             source = data.get("source", "unknown")
+            caller_id = bolna_caller_id(data)
 
             # Enhanced logging for Bolna RAG queries
             import time as _time
@@ -5625,7 +5966,7 @@ def main():
             logger.info("=" * 60)
             logger.info("📞 BOLNA VOICE CALL - RAG QUERY")
             logger.info("=" * 60)
-            logger.info(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
+            logger.debug(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
             logger.info(f"🌐 Language: {language} | Source: {source}")
             logger.info("-" * 60)
 
@@ -5645,10 +5986,10 @@ def main():
                 safety_wrapper = get_voice_safety_wrapper()
                 
                 safety_result = await safety_wrapper.check_voice_query(
-                    user_id=f"bolna_{source}",
+                    user_id=caller_id,
                     transcript=query,
                     language=language,
-                    call_id=source
+                    call_id=caller_id
                 )
                 
                 if safety_result.should_escalate:
@@ -5675,13 +6016,18 @@ def main():
             except Exception as e:
                 logger.error(f"Bolna voice safety check error (proceeding): {e}")
 
-            # Query RAG pipeline
-            rag_result = await rag_pipeline.query(
-                question=query,
-                user_id=f"bolna_{source}",
-                source_language=language,
-                top_k=3
-            )
+            # Query RAG pipeline, within the voice deadline: Bolna is waiting
+            # on this HTTP response with a caller on the line.
+            try:
+                rag_result = await within_voice_deadline(lambda: rag_pipeline.query(
+                    question=query,
+                    user_id=caller_id,
+                    source_language=language,
+                    top_k=3
+                ))
+            except asyncio.TimeoutError:
+                logger.warning("Bolna answer missed the voice deadline; sending the fallback")
+                rag_result = {"status": "timeout"}
 
             if rag_result.get("status") == "success":
                 # Dosage boundary before the text is shortened or spoken. A
@@ -5695,15 +6041,15 @@ def main():
                 # VOICE OPTIMIZATION for Bolna Response
                 # =================================================================
                 try:
-                    from voice_safety_wrapper import get_voice_safety_wrapper
+                    from voice_safety_wrapper import VOICE_SAFETY_NET_S, get_voice_safety_wrapper
                     safety_wrapper = get_voice_safety_wrapper()
                     
                     # Optimize for voice output
                     answer = safety_wrapper.optimize_for_voice(
                         answer,
-                        user_id=f"bolna_{source}",
+                        user_id=caller_id,
                         language=language,
-                        max_duration_seconds=30
+                        max_duration_seconds=VOICE_SAFETY_NET_S
                     )
                     
                     # Add evidence warning if needed
@@ -5732,7 +6078,7 @@ def main():
                 _query_duration = _time.time() - _query_start
                 logger.info(f"✅ RAG SUCCESS ({_query_duration:.2f}s)")
                 logger.info(f"📚 Sources: {', '.join(sources[:3])}")
-                logger.info(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
+                logger.debug(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
                 logger.info(f"🎯 Confidence: {confidence:.0%}")
                 logger.info("=" * 60)
 
@@ -5983,9 +6329,8 @@ def main():
 
         Documentation: https://docs.retellai.com/api-references/llm-websocket
         """
-        await websocket.accept()
-
         if not retell_enabled or not retell_llm_handler:
+            await websocket.accept()
             await websocket.send_json({
                 "response_type": "error",
                 "content": "Retell Custom LLM not available"
@@ -5996,6 +6341,8 @@ def main():
         logger.info(f"Retell LLM WebSocket connected: call_id={call_id}")
 
         try:
+            # The handler accepts the socket itself; accepting here as well
+            # raised on every call and Retell never got an answer.
             await retell_llm_handler.handle_websocket(websocket, call_id)
         except WebSocketDisconnect:
             logger.info(f"Retell LLM WebSocket disconnected: call_id={call_id}")
@@ -7732,36 +8079,18 @@ def main():
             Body: str = Form(None),
             MediaUrl0: str = Form(None),
             MediaContentType0: str = Form(None),
-            NumMedia: str = Form("0")
+            NumMedia: str = Form("0"),
+            MessageSid: str = Form(None),
         ):
-            """Handle Twilio WhatsApp webhook"""
-            try:
-                from twilio.twiml.messaging_response import MessagingResponse
-                
-                # Detailed logging of webhook data
-                logger.info("🔔 WEBHOOK RECEIVED:")
-                logger.info(f"  📱 From: {From}")
-                logger.info(f"  📍 To: {To}")
-                logger.info(f"  💬 Body: '{Body}' (length: {len(Body) if Body else 0})")
-                logger.info(f"  🎵 MediaUrl0: {MediaUrl0}")
-                logger.info(f"  📋 MediaContentType0: {MediaContentType0}")
-                logger.info(f"  🔢 NumMedia: {NumMedia}")
-                logger.info(f"  🎯 Has Media: {bool(MediaUrl0)}")
-                logger.info(f"  🎯 Is Audio: {MediaContentType0 and MediaContentType0.startswith('audio/') if MediaContentType0 else False}")
-                
-                # Process the message
-                await whatsapp_bot._process_twilio_message(From, To, Body, MediaUrl0, MediaContentType0, NumMedia)
-                
-                # Return empty TwiML response
-                resp = MessagingResponse()
-                return Response(content=str(resp), media_type="application/xml")
-                
-            except Exception as e:
-                logger.error(f"❌ Webhook error: {e}", exc_info=True)
-                from twilio.twiml.messaging_response import MessagingResponse
-                resp = MessagingResponse()
-                resp.message("Sorry, I'm experiencing technical difficulties.")
-                return Response(content=str(resp), media_type="application/xml")
+            """Acknowledge Twilio at once; the reply is sent from the background.
+
+            Answering inside the webhook held Twilio for the whole answer, and a
+            slow one was retried as a duplicate message."""
+            from twilio.twiml.messaging_response import MessagingResponse
+
+            whatsapp_bot.accept_twilio_message(
+                MessageSid, From, To, Body, MediaUrl0, MediaContentType0, NumMedia)
+            return Response(content=str(MessagingResponse()), media_type="application/xml")
         
         @app.get("/media/{filename}")
         async def serve_media(filename: str):
@@ -7799,6 +8128,49 @@ def main():
     if web_client_path.exists():
         app.mount("/voice", StaticFiles(directory="web_client", html=True), name="voice")
         logger.info("🎤 Voice interface available at /voice")
+
+    # What main() reports at startup.
+    app.state.whatsapp_bot = whatsapp_bot
+    app.state.twilio_configured = twilio_configured
+    app.state.ngrok_manager = ngrok_manager
+    return app
+
+
+def main():
+    args = _parse_args()
+
+    if args.workers > 1:
+        if not os.getenv("CHROMA_HOST"):
+            raise SystemExit(
+                "--workers > 1 needs a Chroma server (set CHROMA_HOST): the local "
+                "store is not safe for several processes. See docs/howto_guide.md."
+            )
+        logger.warning(
+            "Multi-worker mode: conversation history, the study log and the voice "
+            "provider switch are shared between workers; WhatsApp preferences, "
+            "ingest job status, handoff requests, reminders and webhook call "
+            "records are still per worker (docs/decisions/latency.md, ticket 18)."
+        )
+        # Each worker builds its own app from the same command line. ngrok
+        # is per process, so it is not started here: give WhatsApp a stable
+        # public URL (PUBLIC_BASE_URL) instead.
+        os.environ["PALLI_SERVER_ARGS"] = shlex.join(sys.argv[1:])
+        logger.info(f"Starting {args.workers} workers on {args.host}:{args.port}")
+        uvicorn.run(
+            "simple_rag_server:create_app",
+            factory=True,
+            workers=args.workers,
+            host=args.host,
+            port=args.port,
+            log_level="info",
+        )
+        return
+
+    app = create_app(args)
+    whatsapp_bot = app.state.whatsapp_bot
+    twilio_configured = app.state.twilio_configured
+    ngrok_manager = app.state.ngrok_manager
+    web_client_path = Path("web_client")
 
     # Start ngrok if not disabled and WhatsApp is configured
     ngrok_url = None

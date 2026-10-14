@@ -137,7 +137,9 @@ class SarvamVoiceProvider:
     async def serve(self, audio: bytes) -> ProviderOutcome:
         started = time.time()
         try:
-            turn = await self.handler.handle_audio(self.session, audio)
+            # Labelled as the path it is, so the turn's trace says fallback.
+            turn = await self.handler.handle_audio(
+                self.session, audio, voice_path=VOICE_PATH_FALLBACK)
         except Exception as exc:  # noqa: BLE001
             return ProviderOutcome(
                 turn=None, turn_latency_s=time.time() - started,
@@ -213,6 +215,12 @@ class VoiceRouter:
             self._count("operator_forced_fallback")
             return await self._fallback(session, audio, "operator_forced_fallback")
 
+        if not self.live_service_factory:
+            # The channel does not offer Live at all (mobile, ticket 15): not
+            # a degradation, and recorded as such.
+            self._count("live_not_offered")
+            return await self._fallback(session, audio, "live_not_offered")
+
         if not use_live:
             self._count("live_unavailable")
             return await self._fallback(session, audio, availability.reason or "live_unavailable")
@@ -249,7 +257,9 @@ class VoiceRouter:
         rate says it does not, and is worth more than any single successful call.
         """
         live = self.stats.get("live", 0)
-        fallback = self.stats.get("fallback", 0)
+        # Turns on a channel that never offers Live say nothing about whether
+        # Live works, so they stay out of the rate (reported separately).
+        fallback = self.stats.get("fallback", 0) - self.stats.get("live_not_offered", 0)
         total = live + fallback
         return {
             "live": live,
@@ -261,6 +271,7 @@ class VoiceRouter:
                 if k.startswith("live_to_fallback:")
             },
             "operator_forced": self.stats.get("operator_forced_fallback", 0),
+            "live_not_offered": self.stats.get("live_not_offered", 0),
             "selected_provider": self.control.current().provider,
             "live_selected": self.control.current().live_enabled,
             "live_available": LiveAvailability.probe().available,

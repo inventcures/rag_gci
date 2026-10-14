@@ -552,6 +552,24 @@ class QueryEndToEnd(unittest.TestCase):
         for stage in ("retrieval", "generation", "kg_check", "total"):
             self.assertIn(stage, row["retrieval"]["stage_latency_ms"])
 
+    def test_shadow_check_runs_after_the_reply_and_lands_in_the_record(self):
+        import post_work
+
+        p = make_pipeline(answer=CONTRADICTED_ANSWER)
+        self.configure(p, method="vector", kg_check="shadow")
+
+        async def go():
+            result = await p.query("constipation?")
+            at_reply = dict(result["kg_check"])
+            await post_work.drain()
+            return at_reply
+
+        at_reply = run(go())
+        self.assertEqual(at_reply, {"mode": "shadow", "status": "pending"})
+        row = self.audit_rows()[0]
+        self.assertEqual(row["kg_check"]["action"], "logged")
+        self.assertIn("kg_check", row["retrieval"]["stage_latency_ms"])
+
     def test_kg_check_runs_on_the_vector_path_too(self):
         p = make_pipeline(answer=CONTRADICTED_ANSWER)
         self.configure(p, method="vector", kg_check="shadow")

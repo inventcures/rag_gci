@@ -24,12 +24,18 @@ Response Types to Retell:
 import json
 import logging
 import asyncio
-from typing import Dict, Any, Optional
+import time
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
+from answer_stream import AnswerStream, streaming_to
+from llm.client import voice_deadline_s, within_voice_deadline
+from observability import record_span, trace_request
+from participants import ephemeral
+from voice_safety_wrapper import VOICE_SAFETY_NET_S, clean_for_voice
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +71,12 @@ class RetellSession:
     agent_id: str = ""
     from_number: str = ""
     to_number: str = ""
+    # The turn being answered. A newer response_required cancels it, so a
+    # barge-in never gets the stale answer.
+    current_task: Optional["asyncio.Task"] = None
+    current_response_id: int = -1
+    # Everything sent for the current turn, in order, as the caller heard it.
+    last_spoken: str = ""
 
     def get_conversation_context(self, max_turns: int = 5) -> str:
         """Get recent conversation context as string."""
@@ -124,21 +136,33 @@ class RetellCustomLLMHandler:
         self.query_classifier = query_classifier
         self.response_timeout = response_timeout
         self.max_response_tokens = max_response_tokens
+        # Silence before the acknowledgement, if no sentence is ready by then.
+        # Measured first sentences arrive at ~1.0 s (docs/latency/retell-stream-13.md);
+        # an earlier acknowledgement would only queue ahead of the answer.
+        self.ack_after_s = 1.5
         self.active_sessions: Dict[str, RetellSession] = {}
 
     async def handle_websocket(
         self,
         websocket: WebSocket,
-        call_id: str
+        call_id: str,
+        accepted: bool = False,
     ) -> None:
         """
         Main WebSocket handler for Retell Custom LLM protocol.
 
+        The receive loop never waits on an answer: each response_required runs
+        as its own task, so ping_pong keeps flowing during retrieval (Retell
+        reconnects after missing pongs) and a newer question cancels the older
+        answer.
+
         Args:
             websocket: FastAPI WebSocket connection
             call_id: Unique call identifier from URL path
+            accepted: True when the caller already accepted the socket
         """
-        await websocket.accept()
+        if not accepted:
+            await websocket.accept()
 
         # Create session
         session = RetellSession(call_id=call_id, websocket=websocket)
@@ -168,7 +192,7 @@ class RetellCustomLLMHandler:
                     await self._handle_update_only(session, message)
 
                 elif interaction_type in ("response_required", "reminder_required"):
-                    await self._handle_response_required(session, message)
+                    self._start_turn(session, message)
 
                 else:
                     logger.warning(f"Unknown Retell interaction type: {interaction_type}")
@@ -183,10 +207,26 @@ class RetellCustomLLMHandler:
             logger.error(f"Retell LLM WebSocket error for {call_id}: {e}")
 
         finally:
-            # Cleanup session
-            if call_id in self.active_sessions:
-                del self.active_sessions[call_id]
-                logger.info(f"Cleaned up Retell session: {call_id}")
+            self.end_session(call_id)
+
+    def _start_turn(self, session: RetellSession, message: Dict[str, Any]) -> None:
+        """Answer a turn in the background, cancelling any older turn still running."""
+        response_id = message.get("response_id", 0)
+        if session.current_task is not None and not session.current_task.done():
+            session.current_task.cancel()
+        session.current_response_id = response_id
+        session.current_task = asyncio.create_task(
+            self._handle_response_required(session, message)
+        )
+
+    def end_session(self, call_id: str) -> None:
+        """Drop a call's session and cancel its in-flight turn. Safe to call twice."""
+        session = self.active_sessions.pop(call_id, None)
+        if session is None:
+            return
+        if session.current_task is not None and not session.current_task.done():
+            session.current_task.cancel()
+        logger.info(f"Cleaned up Retell session: {call_id}")
 
     async def _send_config(self, websocket: WebSocket) -> None:
         """Send initial configuration to Retell."""
@@ -235,7 +275,6 @@ class RetellCustomLLMHandler:
         logger.info(
             f"Retell call details - ID: {session.call_id}, "
             f"Agent: {session.agent_id}, "
-            f"From: {session.from_number}, "
             f"Language: {session.language}"
         )
 
@@ -251,6 +290,29 @@ class RetellCustomLLMHandler:
             session.conversation_history = transcript
 
     async def _handle_response_required(
+        self,
+        session: RetellSession,
+        message: Dict[str, Any]
+    ) -> None:
+        """One Retell turn, inside a per-turn trace (see _respond)."""
+        with trace_request("retell", user_id=session.call_id, name="voice_turn"):
+            try:
+                await self._respond(session, message)
+            except asyncio.CancelledError:
+                logger.info(f"Retell turn {message.get('response_id')} superseded")
+                raise
+            except Exception as e:
+                # A turn must never die silently: the caller would hear nothing.
+                logger.error(f"Retell turn failed: {type(e).__name__}: {e}")
+                try:
+                    await self._send_response(
+                        session.websocket, message.get("response_id", 0),
+                        self._get_error_message(session.language), content_complete=True,
+                    )
+                except Exception:
+                    pass
+
+    async def _respond(
         self,
         session: RetellSession,
         message: Dict[str, Any]
@@ -276,7 +338,7 @@ class RetellCustomLLMHandler:
         logger.info("RETELL CUSTOM LLM - RAG QUERY")
         logger.info("=" * 60)
         logger.info(f"Call ID: {session.call_id}")
-        logger.info(f"Query: {user_query[:100]}{'...' if len(user_query) > 100 else ''}")
+        logger.debug(f"Query: {user_query[:100]}{'...' if len(user_query) > 100 else ''}")
         logger.info(f"Language: {session.language}")
 
         # Handle empty or very short queries
@@ -352,97 +414,7 @@ class RetellCustomLLMHandler:
 
         # Query RAG pipeline
         if self.rag_pipeline:
-            try:
-                # Get conversation context for better responses
-                context = session.get_conversation_context(max_turns=3)
-
-                result = await asyncio.wait_for(
-                    self.rag_pipeline.query(
-                        question=user_query,
-                        conversation_id=session.call_id,
-                        user_id=session.call_id,
-                        source_language=session.language,
-                        top_k=3,
-                        conversation_context=context
-                    ),
-                    timeout=self.response_timeout
-                )
-
-                if result.get("status") == "success":
-                    answer = result.get("answer", "")
-                    sources = result.get("sources", [])
-                    
-                    # =================================================================
-                    # VOICE OPTIMIZATION & SAFETY
-                    # =================================================================
-                    try:
-                        from voice_safety_wrapper import get_voice_safety_wrapper
-                        safety_wrapper = get_voice_safety_wrapper()
-                        
-                        # Optimize for voice output
-                        answer = safety_wrapper.optimize_for_voice(
-                            answer,
-                            user_id=session.from_number or session.call_id,
-                            language=session.language,
-                            max_duration_seconds=30
-                        )
-                        
-                        # Add evidence warning if needed
-                        evidence_badge = result.get("safety_enhancements", {}).get("evidence_badge")
-                        if evidence_badge:
-                            answer = safety_wrapper.add_evidence_to_voice(
-                                answer, evidence_badge, session.language
-                            )
-                            
-                    except Exception as e:
-                        logger.warning(f"Voice optimization error (proceeding): {e}")
-                        # Fallback: simple truncation
-                        if len(answer) > 500:
-                            answer = answer[:500] + "..."
-
-                    # Log success
-                    source_names = ", ".join([
-                        s.get("filename", "Unknown")[:30]
-                        for s in sources[:3]
-                    ])
-                    logger.info(f"RAG SUCCESS - Sources: {source_names}")
-                    logger.info(f"Answer preview: {answer[:100]}...")
-
-                    # Send response
-                    await self._send_response(
-                        session.websocket,
-                        response_id,
-                        answer,
-                        content_complete=True
-                    )
-                else:
-                    # RAG query failed - graceful fallback
-                    error = result.get("error", "Unknown error")
-                    logger.warning(f"RAG query failed: {error}")
-                    await self._send_response(
-                        session.websocket,
-                        response_id,
-                        self._get_fallback_message(session.language),
-                        content_complete=True
-                    )
-
-            except asyncio.TimeoutError:
-                logger.error(f"RAG query timeout for call {session.call_id}")
-                await self._send_response(
-                    session.websocket,
-                    response_id,
-                    self._get_timeout_message(session.language),
-                    content_complete=True
-                )
-
-            except Exception as e:
-                logger.error(f"RAG query error: {e}")
-                await self._send_response(
-                    session.websocket,
-                    response_id,
-                    self._get_error_message(session.language),
-                    content_complete=True
-                )
+            await self._answer(session, response_id, user_query)
         else:
             # No RAG pipeline - basic response
             await self._send_response(
@@ -453,6 +425,130 @@ class RetellCustomLLMHandler:
             )
 
         logger.info("=" * 60)
+
+    async def _answer(self, session: RetellSession, response_id: int, user_query: str) -> None:
+        """Answer one turn, speaking sentences as they are written.
+
+        Each sentence goes to Retell as soon as it is written and passes the
+        Dose Boundary (answer_stream). If none is ready within `ack_after_s`
+        the caller hears a short acknowledgement first. What was sent, in
+        order, is kept as `session.last_spoken`."""
+        websocket = session.websocket
+        spoken: List[str] = []
+        session.last_spoken = ""
+
+        async def say(text: str, complete: bool) -> None:
+            if text:
+                spoken.append(text)
+            session.last_spoken = " ".join(spoken)
+            await self._send_response(websocket, response_id, text + ("" if complete else " "),
+                                      content_complete=complete)
+
+        stream = AnswerStream(
+            lambda sentence: say(clean_for_voice(sentence), False),
+            query=user_query, language=session.language,
+            max_words=int(VOICE_SAFETY_NET_S / 60 * 130),
+        )
+
+        async def acknowledge() -> None:
+            await asyncio.sleep(self.ack_after_s)
+            if not spoken:
+                await say(self._get_ack_message(session.language), False)
+                record_span("first_speech", (time.perf_counter() - stream.started) * 1000, kind="ack")
+
+        ack = asyncio.create_task(acknowledge())
+        try:
+            with streaming_to(stream):
+                # The voice deadline (llm.deadlines.voice_s) bounds the
+                # model call; a turn past it gets the spoken timeout message.
+                result = await within_voice_deadline(
+                    lambda: self.rag_pipeline.query(
+                        question=user_query,
+                        conversation_id=session.call_id,
+                        # The caller's number when Retell gives it; otherwise
+                        # the call, which keeps no per-person record.
+                        user_id=session.from_number or ephemeral("retell", session.call_id),
+                        source_language=session.language,
+                        top_k=3,
+                    ),
+                    min(self.response_timeout, voice_deadline_s()),
+                )
+            ack.cancel()
+            if stream.first_sent_s is not None:
+                record_span("first_speech", stream.first_sent_s * 1000, kind="sentence",
+                            redacted=stream.redacted)
+
+            if stream.sent:
+                await say(self._streamed_tail(session, stream, result, user_query), True)
+                return
+
+            if result.get("status") == "success":
+                # Dose Boundary before anything is spoken, exactly as Bolna
+                # and the web API do. A guard failure raises, which sends
+                # the error message, never the unguarded draft.
+                from safety_enhancements import guard_query_result
+                guard_query_result(result, query=user_query, language=session.language)
+                answer = self._for_voice(session, result, result.get("answer", ""))
+                sources = result.get("sources", [])
+                source_names = ", ".join(s.get("filename", "Unknown")[:30] for s in sources[:3])
+                logger.info(f"RAG SUCCESS - Sources: {source_names}")
+                await say(answer, True)
+            else:
+                # RAG query failed - graceful fallback
+                logger.warning(f"RAG query failed: {result.get('error', 'Unknown error')}")
+                await say(self._get_fallback_message(session.language), True)
+
+        except asyncio.CancelledError:
+            raise
+
+        except asyncio.TimeoutError:
+            logger.error(f"RAG query timeout for call {session.call_id}")
+            # Sentences already spoken stand; the turn just ends.
+            await say("" if stream.sent else self._get_timeout_message(session.language), True)
+
+        except Exception as e:
+            logger.error(f"RAG query error: {e}")
+            await say("" if stream.sent else self._get_error_message(session.language), True)
+
+        finally:
+            ack.cancel()
+
+    def _streamed_tail(self, session: RetellSession, stream: AnswerStream,
+                       result: Dict[str, Any], user_query: str) -> str:
+        """What follows the streamed sentences: any answer text added after
+        generation (guarded on its own), then the spoken evidence note."""
+        final = result.get("answer", "") if result.get("status") == "success" else ""
+        remainder = final[len(stream.text):].strip() if final.startswith(stream.text) else ""
+        if remainder:
+            from safety_enhancements import guard_query_result
+            tail = {"status": "success", "answer": remainder, "sources": []}
+            guard_query_result(tail, query=user_query, language=session.language)
+            remainder = clean_for_voice(tail["answer"])
+        return self._evidence_note(session, result, remainder)
+
+    def _evidence_note(self, session: RetellSession, result: Dict[str, Any], answer: str) -> str:
+        badge = (result.get("safety_enhancements") or {}).get("evidence_badge")
+        if not isinstance(badge, dict):
+            return answer
+        from voice_safety_wrapper import get_voice_safety_wrapper
+        return get_voice_safety_wrapper().add_evidence_to_voice(answer, badge, session.language).strip()
+
+    def _for_voice(self, session: RetellSession, result: Dict[str, Any], answer: str) -> str:
+        """A whole (unstreamed) answer cleaned and capped for speech, with the
+        evidence note after the cap so it is never cut."""
+        try:
+            from voice_safety_wrapper import get_voice_safety_wrapper
+            answer = get_voice_safety_wrapper().optimize_for_voice(
+                answer,
+                user_id=session.from_number or session.call_id,
+                language=session.language,
+                max_duration_seconds=VOICE_SAFETY_NET_S,
+            )
+        except Exception as e:
+            logger.warning(f"Voice optimization error (proceeding): {e}")
+            if len(answer) > 500:
+                answer = answer[:500] + "..."
+        return self._evidence_note(session, result, answer)
 
     def _extract_user_text(self, transcript: list) -> str:
         """
@@ -525,6 +621,16 @@ class RetellCustomLLMHandler:
             "en": "I'm having trouble finding information on this. Please consult your healthcare provider.",
             "mr": "मला या विषयावर माहिती शोधण्यात अडचण येत आहे. कृपया आपल्या डॉक्टरांचा सल्ला घ्या।",
             "ta": "இதற்கான தகவலைக் கண்டறிவதில் சிரமம். உங்கள் மருத்துவரை அணுகவும்."
+        }
+        return messages.get(language, messages["en"])
+
+    def _get_ack_message(self, language: str) -> str:
+        """Spoken while the first sentence of the answer is being written."""
+        messages = {
+            "hi": "एक पल, मैं देखती हूँ।",
+            "en": "One moment, let me check.",
+            "mr": "एक क्षण, मी पाहते.",
+            "ta": "ஒரு நிமிடம், பார்க்கிறேன்.",
         }
         return messages.get(language, messages["en"])
 

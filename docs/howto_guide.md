@@ -989,13 +989,26 @@ Add to crontab:
 
 ### 9.6 Performance Tuning
 
-#### Embedding Model Selection
+#### Embedding Runtime
 
-| Model | Quality | Speed | Memory |
-|-------|---------|-------|--------|
-| all-MiniLM-L6-v2 | Good | Fast | Low |
-| all-mpnet-base-v2 | Better | Medium | Medium |
-| embeddinggemma | Best | Slow | High |
+The model is fixed at bge-m3 (ADR 0003); how it runs is configurable:
+
+```yaml
+embedding:
+  runtime: "torch"   # torch | onnx | openvino_int8 | tei  (EMBEDDING_RUNTIME overrides)
+```
+
+Switch only after the parity gate passes on the server itself, and reindex
+if it says the vectors changed:
+
+```bash
+EMBEDDING_MODEL_PATH=/srv/models/bge-m3 python scripts/embedding_runtime_parity.py \
+    --runtimes torch onnx openvino_int8 --out docs/latency/embedding-runtime-17.md
+```
+
+`onnx` needs `optimum[onnxruntime]`, `openvino_int8` needs `optimum[openvino]`
+and the int8 export, `tei` needs a text-embeddings-inference sidecar at
+`EMBEDDING_TEI_URL`. Rollback is `runtime: "torch"`.
 
 #### Chunk Size Optimization
 
@@ -1053,9 +1066,19 @@ Verify signatures in webhook handler.
 #### Horizontal Scaling
 
 ```bash
-# Run multiple workers
-gunicorn simple_rag_server:app -w 4 -k uvicorn.workers.UvicornWorker
+# Two server processes; needs a Chroma server, since the local store is
+# not safe for several processes
+chroma run --path ./data/chroma_db --port 8000 &
+CHROMA_HOST=127.0.0.1 CHROMA_PORT=8000 python simple_rag_server.py --workers 2 --no-ngrok
+# (equivalently: uvicorn simple_rag_server:create_app --factory --workers 2)
 ```
+
+Shared between workers: conversation history (the append-only log), the
+study log, and the voice provider switch. Still per worker, so not yet
+safe to split across processes: WhatsApp language preferences and message
+de-duplication, upload job status, human handoff requests, medication
+reminders, comprehension profiles, and webhook call records. ngrok is not
+started with more than one worker; give WhatsApp a stable public URL.
 
 #### Database Scaling
 
@@ -1287,6 +1310,16 @@ Content-Type: multipart/form-data
 file: <binary>
 metadata: {"category": "medical"}
 ```
+
+Returns `{"status": "queued", "job_id": "...", "stored_as": "..."}` at once; the
+document is indexed in the background, one upload at a time.
+
+#### Upload Status
+```http
+GET /api/upload/{job_id}
+```
+
+Reports `queued`, `running`, `done` or `failed`, with the indexing result or error.
 
 #### List Documents
 ```http

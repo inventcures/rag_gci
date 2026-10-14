@@ -18,6 +18,7 @@ from typing import Optional, AsyncIterator, AsyncGenerator
 
 from .client import SarvamSTTResult, SARVAM_API_BASE
 from .config import get_stt_model
+from .http import borrowed_session
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class SarvamStreamingClient:
         headers = {"api-subscription-key": self.api_key}
 
         try:
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.ws_connect(
                     ws_url,
                     headers=headers,
@@ -142,7 +143,7 @@ class SarvamStreamingClient:
         headers = {"api-subscription-key": self.api_key}
 
         try:
-            async with aiohttp.ClientSession() as session:
+            async with borrowed_session() as session:
                 async with session.ws_connect(
                     SARVAM_WS_TTS,
                     headers=headers,

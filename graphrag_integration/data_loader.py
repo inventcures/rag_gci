@@ -23,7 +23,9 @@ Usage:
     stats = await loader.get_stats()
 """
 
+import asyncio
 import logging
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
@@ -76,6 +78,17 @@ class GraphRAGDataLoader:
         self._documents = None
         self._embeddings = None
         self._loaded = False
+        # Lowercased search rows, built once per loaded table (see
+        # _entity_rows): the per-query scans used DataFrame.iterrows on the
+        # event loop, which blocked every other caller for the whole scan.
+        self._entity_index = None
+        self._relationship_index = None
+        # When nothing was found to load, retry at most this often rather
+        # than re-reading the directory on every query.
+        self._next_load_attempt = 0.0
+
+    # Seconds between load attempts while no index exists.
+    LOAD_RETRY_S = 60.0
 
     async def load_all(self) -> bool:
         """
@@ -86,7 +99,15 @@ class GraphRAGDataLoader:
         """
         if self._loaded:
             return True
+        if time.monotonic() < self._next_load_attempt:
+            return False
+        loaded = await asyncio.to_thread(self._load_all_sync)
+        if not loaded:
+            self._next_load_attempt = time.monotonic() + self.LOAD_RETRY_S
+        return loaded
 
+    def _load_all_sync(self) -> bool:
+        """Read the parquet tables (in a worker thread)."""
         try:
             import pandas as pd
         except ImportError:
@@ -140,6 +161,12 @@ class GraphRAGDataLoader:
                 loaded_any = True
 
             self._loaded = loaded_any
+            # The search rows too, here in the loading thread, so the first
+            # query does not build them.
+            if self._entities is not None:
+                self._entity_rows()
+            if self._relationships is not None:
+                self._relationship_rows()
 
         except Exception as e:
             logger.error(f"Failed to load data: {e}")
@@ -172,37 +199,50 @@ class GraphRAGDataLoader:
         if self._entities is None or len(self._entities) == 0:
             return []
 
+        return await asyncio.to_thread(self._search_entities_sync, query, top_k, entity_type)
+
+    def _entity_rows(self) -> List[tuple]:
+        """(title, description) lowercased, type, and the row, per entity."""
+        if self._entity_index is None or self._entity_index[0] is not self._entities:
+            rows = []
+            for row in self._entities.to_dict("records"):
+                title = str(row.get("title", row.get("name", ""))).lower()
+                rows.append((title, str(row.get("description", "")).lower(), row.get("type", ""), row))
+            self._entity_index = (self._entities, rows)
+        return self._entity_index[1]
+
+    def _relationship_rows(self) -> List[tuple]:
+        """(source, target) lowercased, and the row, per relationship."""
+        if self._relationship_index is None or self._relationship_index[0] is not self._relationships:
+            rows = [(str(r.get("source", "")).lower(), str(r.get("target", "")).lower(), r)
+                    for r in self._relationships.to_dict("records")]
+            self._relationship_index = (self._relationships, rows)
+        return self._relationship_index[1]
+
+    def _search_entities_sync(
+        self, query: str, top_k: int, entity_type: Optional[str]
+    ) -> List[Dict[str, Any]]:
         query_lower = query.lower()
-        query_words = query_lower.split()
+        words = [w for w in query_lower.split() if len(w) >= 3]  # skip very short words
         matches = []
 
-        for _, row in self._entities.iterrows():
-            score = 0.0
-
-            # Get entity fields
-            title = str(row.get("title", row.get("name", ""))).lower()
-            description = str(row.get("description", "")).lower()
-            entity_type_val = row.get("type", "")
-
+        for title, description, entity_type_val, row in self._entity_rows():
             # Filter by entity type if specified
             if entity_type is not None and entity_type_val != entity_type:
                 continue
 
-            # Exact match in title (highest score)
+            score = 0.0
+            # Exact match in title (highest score), then in description
             if query_lower in title:
                 score += 3.0
-
-            # Exact match in description
             if query_lower in description:
                 score += 1.5
-
             # Word matches
-            for word in query_words:
-                if len(word) >= 3:  # Skip very short words
-                    if word in title:
-                        score += 0.5
-                    if word in description:
-                        score += 0.25
+            for word in words:
+                if word in title:
+                    score += 0.5
+                if word in description:
+                    score += 0.25
 
             if score > 0:
                 matches.append({
@@ -269,24 +309,22 @@ class GraphRAGDataLoader:
         if self._relationships is None or len(self._relationships) == 0:
             return []
 
-        matches = []
+        return await asyncio.to_thread(self._relationships_sync, entity_name)
+
+    def _relationships_sync(self, entity_name: str) -> List[Dict[str, Any]]:
         entity_lower = entity_name.lower()
-
-        for _, row in self._relationships.iterrows():
-            source = str(row.get("source", "")).lower()
-            target = str(row.get("target", "")).lower()
-
-            if entity_lower in source or entity_lower in target:
-                matches.append({
-                    "source": row.get("source", ""),
-                    "target": row.get("target", ""),
-                    "type": row.get("type", row.get("description", "")),
-                    "description": row.get("description", ""),
-                    "weight": float(row.get("weight", row.get("rank", 1.0))),
-                    "id": row.get("id", row.get("human_readable_id", "")),
-                })
-
-        return matches
+        return [
+            {
+                "source": row.get("source", ""),
+                "target": row.get("target", ""),
+                "type": row.get("type", row.get("description", "")),
+                "description": row.get("description", ""),
+                "weight": float(row.get("weight", row.get("rank", 1.0))),
+                "id": row.get("id", row.get("human_readable_id", "")),
+            }
+            for source, target, row in self._relationship_rows()
+            if entity_lower in source or entity_lower in target
+        ]
 
     async def get_community_report(
         self,
@@ -420,6 +458,7 @@ class GraphRAGDataLoader:
             True if reload was successful
         """
         self._loaded = False
+        self._next_load_attempt = 0.0
         self._entities = None
         self._relationships = None
         self._communities = None

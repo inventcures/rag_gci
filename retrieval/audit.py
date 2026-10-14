@@ -39,6 +39,7 @@ def record_retrieval(
 ) -> Optional[Dict[str, Any]]:
     """Append one row. Returns the row written, or None on failure."""
     try:
+        from participants import is_system
         from study_logging import pseudonymise
         from study_release import get_study_release
 
@@ -50,6 +51,9 @@ def record_retrieval(
             "release_id": stamp.get("release_id"),
             "release_name": stamp.get("release_name"),
             "participant_id": pseudonymise(user_id or ""),
+            # "build" rows (the offline bundle) are the server answering itself,
+            # not an interaction; the analysis counts "interaction" rows only.
+            "kind": "build" if is_system(user_id) else "interaction",
             "status": status,
             "retrieval": retrieval,
             "kg_check": kg_check or {},

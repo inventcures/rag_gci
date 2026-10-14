@@ -177,6 +177,8 @@ curl -X POST "http://localhost:8000/api/query" \
 curl -X POST "http://localhost:8000/api/upload" \
   -F "file=@your_document.pdf" \
   -F "metadata={\"category\": \"test\"}"
+# -> {"status": "queued", "job_id": "...", "stored_as": "..."}; indexing runs in the background
+curl "http://localhost:8000/api/upload/<job_id>"   # queued, running, done or failed
 ```
 
 ### WhatsApp Integration Setup (via Twilio)

@@ -5,20 +5,29 @@ Provides token counting, tree manipulation, and context extraction helpers.
 """
 
 import copy
+import functools
 import logging
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
 
-def count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
-    """Count tokens in text using tiktoken, with char-based fallback."""
+@functools.lru_cache(maxsize=None)
+def _encoding(encoding_name: str):
+    """The tiktoken encoding, or None when it cannot be had. Looked up once:
+    a missing download used to be retried (and to raise) on every call."""
     try:
         import tiktoken
-        enc = tiktoken.get_encoding(encoding_name)
-        return len(enc.encode(text))
-    except ImportError:
-        return len(text) // 4
+        return tiktoken.get_encoding(encoding_name)
+    except Exception as e:  # not installed, or its data cannot be fetched
+        logger.warning(f"tiktoken {encoding_name} unavailable ({type(e).__name__}); counting chars/4")
+        return None
+
+
+def count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
+    """Count tokens in text using tiktoken, with char-based fallback."""
+    enc = _encoding(encoding_name)
+    return len(enc.encode(text)) if enc is not None else len(text) // 4
 
 
 def flatten_tree(tree: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
