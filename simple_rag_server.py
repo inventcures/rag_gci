@@ -772,6 +772,26 @@ ANSWER_PARAGRAPH_1_INSTRUCTION = (
     "with the patient's doctor or nurse."
 )
 
+_BOLNA_IDENTITY_KEYS = ("from_number", "execution_id", "call_sid", "call_id")
+
+
+def bolna_caller_id(data: Dict[str, Any]) -> str:
+    """The participant id for one Bolna request.
+
+    Bolna fills system variables (from_number, execution_id, call_sid) into the
+    custom function's params. The caller's number keeps one participant across
+    calls; a call id keeps at least one call together. With none of them the
+    request gets a one-off id, never a shared one: before this every Bolna
+    caller was "bolna_bolna_call" and they all shared one history.
+    """
+    for key in _BOLNA_IDENTITY_KEYS:
+        value = str(data.get(key) or "").strip()
+        # An unfilled template ("%(from_number)s") is not an identity.
+        if value and "%(" not in value:
+            return f"bolna_{value}"
+    return f"bolna_anon_{uuid.uuid4().hex[:12]}"
+
+
 async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
                            language: str = "en") -> Dict[str, Any]:
     """
@@ -5617,8 +5637,13 @@ def main():
             "query": "How to manage pain for cancer patients?",
             "language": "hi",
             "context": "User asking about pain management",
-            "source": "bolna_call"
+            "source": "bolna_call",
+            "from_number": "+91...",       # Bolna system variable
+            "execution_id": "..."          # Bolna system variable
         }
+
+        The caller is identified by from_number (else the call id), see
+        bolna_caller_id().
 
         Response:
         {
@@ -5643,6 +5668,7 @@ def main():
             language = data.get("language", "en")
             context = data.get("context", "")
             source = data.get("source", "unknown")
+            caller_id = bolna_caller_id(data)
 
             # Enhanced logging for Bolna RAG queries
             import time as _time
@@ -5670,10 +5696,10 @@ def main():
                 safety_wrapper = get_voice_safety_wrapper()
                 
                 safety_result = await safety_wrapper.check_voice_query(
-                    user_id=f"bolna_{source}",
+                    user_id=caller_id,
                     transcript=query,
                     language=language,
-                    call_id=source
+                    call_id=caller_id
                 )
                 
                 if safety_result.should_escalate:
@@ -5703,7 +5729,7 @@ def main():
             # Query RAG pipeline
             rag_result = await rag_pipeline.query(
                 question=query,
-                user_id=f"bolna_{source}",
+                user_id=caller_id,
                 source_language=language,
                 top_k=3
             )
@@ -5726,7 +5752,7 @@ def main():
                     # Optimize for voice output
                     answer = safety_wrapper.optimize_for_voice(
                         answer,
-                        user_id=f"bolna_{source}",
+                        user_id=caller_id,
                         language=language,
                         max_duration_seconds=30
                     )

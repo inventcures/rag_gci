@@ -47,3 +47,20 @@ Each entry: what was decided, the alternatives, and why.
   widening `query()` would change every channel.
 - **Not done here:** an acknowledgement chunk before the answer, and streaming.
   Both belong to ticket 13.
+
+## 03: Each Bolna caller is their own participant
+
+- **Identity order: `from_number`, then `execution_id`, `call_sid`, `call_id`.**
+  The number keeps one participant across a caller's calls, which is what the
+  study's per-participant rows and the conversation history want. A call id is
+  the fallback so one call at least stays together.
+- **No identity means a one-off id (`bolna_anon_<random>`), never a shared one.**
+  Losing history for an unidentified call is cheaper than mixing two callers.
+- **The agent config sends `from_number` and `execution_id`** as Bolna system
+  variables (`%(var)s`). Agents created before this change keep the old params
+  until they are recreated; until then their calls land on the one-off id. An
+  unfilled `%(...)s` value is treated as missing.
+- **Existing pooled `bolna_bolna_call` records are left as they are.** They
+  cannot be split after the fact.
+- **Not verified against a live Bolna call** (no Bolna key in this
+  environment). Check one call's request body once a key is available.
