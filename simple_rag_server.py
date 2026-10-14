@@ -211,6 +211,7 @@ from post_work import after_reply, stats as post_work_stats
 import ingest_jobs
 from participants import ephemeral, is_person
 from llm import get_llm_client
+from llm.client import GENERATION_FAILED_ANSWER, within_voice_deadline
 from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexMismatchError,
@@ -1811,6 +1812,11 @@ class SimpleRAGPipeline:
             with span("generate") as generation_span:
                 answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
             stage_ms["generation"] = round(generation_span.ms, 1)
+            if model_used == "error":
+                # The model failed or ran out of the caller's time. The caller
+                # hears the fallback, never the error text.
+                logger.error("Answer generation failed, sending the fallback answer: %s", answer)
+                answer = GENERATION_FAILED_ANSWER
 
             # K26: cross-reference the drafted answer's clinical claims against
             # the knowledge graph. Off by default; never fails the turn.
@@ -5830,13 +5836,18 @@ def main():
             except Exception as e:
                 logger.error(f"Bolna voice safety check error (proceeding): {e}")
 
-            # Query RAG pipeline
-            rag_result = await rag_pipeline.query(
-                question=query,
-                user_id=caller_id,
-                source_language=language,
-                top_k=3
-            )
+            # Query RAG pipeline, within the voice deadline: Bolna is waiting
+            # on this HTTP response with a caller on the line.
+            try:
+                rag_result = await within_voice_deadline(lambda: rag_pipeline.query(
+                    question=query,
+                    user_id=caller_id,
+                    source_language=language,
+                    top_k=3
+                ))
+            except asyncio.TimeoutError:
+                logger.warning("Bolna answer missed the voice deadline; sending the fallback")
+                rag_result = {"status": "timeout"}
 
             if rag_result.get("status") == "success":
                 # Dosage boundary before the text is shortened or spoken. A

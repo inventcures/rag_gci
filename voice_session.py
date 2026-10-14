@@ -29,6 +29,7 @@ Frame protocol, JSON both ways:
                         {"type": "error", "message": "..."}
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -37,6 +38,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from llm.client import GENERATION_FAILED_ANSWER, within_voice_deadline
 from observability import trace_request
 from participants import ephemeral
 
@@ -240,11 +242,16 @@ class VoiceTurnHandler:
         """
         started = time.time()
 
-        result = await self.rag_pipeline.query(
-            question=transcript,
-            user_id=session.participant_id or ephemeral("mobile_voice", session.session_id),
-            source_language=session.language,
-        )
+        try:
+            result = await within_voice_deadline(lambda: self.rag_pipeline.query(
+                question=transcript,
+                user_id=session.participant_id or ephemeral("mobile_voice", session.session_id),
+                source_language=session.language,
+            ))
+        except asyncio.TimeoutError:
+            # Same answer the pipeline gives when the model runs out of time.
+            logger.warning("Voice turn missed the voice deadline for %s", session.session_id)
+            result = {"answer": GENERATION_FAILED_ANSWER, "sources": [], "model_used": "error"}
         raw_answer = result.get("answer", "") or ""
         sources = result.get("sources", []) or []
 

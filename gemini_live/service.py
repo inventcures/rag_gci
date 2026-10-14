@@ -17,6 +17,7 @@ import logging
 import re
 from typing import Optional, Dict, Any, AsyncGenerator, List, Set
 
+from llm.client import within_voice_deadline
 from participants import ephemeral
 from datetime import datetime
 import numpy as np
@@ -1411,14 +1412,21 @@ class GeminiLiveSession:
             return no_info
 
         try:
-            result = await self.service.rag_pipeline.query(
+            # The model is waiting on this tool result with the caller silent.
+            result = await within_voice_deadline(lambda: self.service.rag_pipeline.query(
                 question=query,
                 conversation_id=self.session_id,
                 user_id=self.rag_user_id,
                 top_k=self.service.config.rag_top_k,
-            )
+            ))
+        except asyncio.TimeoutError:
+            logger.warning("RAG tool query missed the voice deadline")
+            return no_info
         except Exception as e:
             logger.error(f"RAG tool query failed: {e}")
+            return no_info
+
+        if result.get("model_used") == "error":
             return no_info
 
         if result.get("status") != "success" or not result.get("answer"):
@@ -1593,15 +1601,15 @@ Please prioritize their safety and provide clear, calm guidance.
             logger.info(f"🌐 Language: {self.language} | Session: {self.session_id[:30]}")
 
             # Query RAG pipeline with cleaned text
-            result = await self.service.rag_pipeline.query(
+            result = await within_voice_deadline(lambda: self.service.rag_pipeline.query(
                 question=query_text,
                 conversation_id=self.session_id,
                 user_id=self.rag_user_id,
                 top_k=self.service.config.rag_top_k
-            )
+            ))
 
-            if result.get("status") != "success":
-                logger.warning(f"RAG query failed: {result.get('error')}")
+            if result.get("status") != "success" or result.get("model_used") == "error":
+                logger.warning(f"RAG query failed: {result.get('error') or 'generation failed'}")
                 return
 
             context_used = result.get("context_used", 0)

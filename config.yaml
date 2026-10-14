@@ -17,6 +17,20 @@ llm:
   model: "gemini-3.5-flash"
   location: "asia-south1"
   timeout_s: 45
+  # How much the model thinks, per purpose ("default" covers the rest), and how
+  # long callers can wait. Measured in docs/latency/thinking-11.md. Both are
+  # part of the study release fingerprint (study_release.py).
+  thinking:
+    answer: low            # text channels
+    voice_answer: minimal  # answers inside a voice turn; see the decision log
+    query_translation: minimal
+    answer_translation: minimal
+    clarification: minimal
+    default: high
+  deadlines:
+    translation_s: 3          # query translation; LLM_TRANSLATION_DEADLINE_S
+    answer_translation_s: 8   # LLM_ANSWER_TRANSLATION_DEADLINE_S
+    voice_s: 7         # LLM_VOICE_DEADLINE_S; a whole voice turn
   fallback:
     # DeepSeek is hosted in China and is not on the approved processor list.
     # Leave disabled for the study release; needs DEEPSEEK_API_KEY when enabled.

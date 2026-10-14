@@ -20,6 +20,14 @@ config.yaml, built-in default.
       model: gemini-3.5-flash         # LLM_MODEL
       location: asia-south1           # LLM_LOCATION (Vertex only)
       timeout_s: 45
+      thinking:                       # per purpose; "default" for the rest
+        answer: low                   # text channels
+        voice_answer: minimal         # an answer inside a voice turn
+        query_translation: minimal
+      deadlines:
+        translation_s: 3              # query translation
+        answer_translation_s: 8       # answer translation (WhatsApp)
+        voice_s: 7                    # a whole voice turn (within_voice_deadline)
       fallback:
         enabled: false                # LLM_FALLBACK_ENABLED
         provider: deepseek
@@ -31,20 +39,27 @@ The residency position decides the defaults, not cost: see docs/adr/0007. Gemini
 the release fingerprint (study_release.py), so it shows as drift until the study
 release record is updated.
 
+Every call states how much the model thinks (`thinking_for(purpose)`) and how
+long its caller can wait. A call's budget is the smaller of its purpose's
+timeout and what is left of an enclosing `deadline(...)` (a voice turn); the
+fallback provider gets what is left of that same budget, not a fresh timeout.
+
 `generate` never raises. A failure comes back as `LLMResponse(ok=False)` with
 the reason, so a caller can degrade (template Cypher, untranslated query, the
 "consult your doctor" answer) rather than fail a user's turn.
 """
 
 import asyncio
+import contextvars
 import json
 import logging
 import os
 import re
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, Iterator, List, Optional, TypeVar
 
 from observability import span
 
@@ -56,6 +71,105 @@ DEFAULT_FALLBACK_MODEL = "deepseek-flash"
 DEFAULT_FALLBACK_BASE_URL = "https://api.deepseek.com"
 
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+THINKING_LEVELS = ("minimal", "low", "medium", "high")
+
+# How much the model thinks, per purpose. Chosen by measurement against the
+# live model (scripts/benchmark_thinking.py, docs/latency/thinking-11.md,
+# docs/decisions/latency.md#11):
+#   answer          "low": judged level with "high" (21 wins, 19 losses of 40)
+#                   at 7.5 s to first token instead of 14.2 s
+#   voice_answer    "minimal": the only level inside a voice deadline (first
+#                   token 1.0 s, whole answer 4.7 s), at a quality cost against
+#                   "high" (12 wins, 28 losses) that needs clinical review
+#   translation, clarification: "minimal"; translations were judged identical
+# Background work (graph extraction, memory, meta agents) is not on a caller's
+# clock and keeps "high". A "voice_<purpose>" entry applies inside
+# within_voice_deadline().
+DEFAULT_THINKING: Dict[str, str] = {
+    "answer": "low",
+    "voice_answer": "minimal",
+    "query_translation": "minimal",
+    "answer_translation": "minimal",
+    "clarification": "minimal",
+    "default": "high",
+}
+
+# Gemini counts thinking tokens against max_output_tokens. Without headroom a
+# thinking model spends the whole cap thinking: at the model's default level,
+# 2048-token answers came back cut off mid-sentence after ~400 characters.
+# `max_tokens` stays the visible-answer limit; the headroom is added on top.
+THINKING_HEADROOM: Dict[str, int] = {"minimal": 512, "low": 2048, "medium": 4096, "high": 8192}
+
+DEFAULT_TRANSLATION_DEADLINE_S = 3.0   # query translation: on every non-English turn
+DEFAULT_ANSWER_TRANSLATION_DEADLINE_S = 8.0  # minimal-thinking p95 was 4.5 s
+DEFAULT_VOICE_DEADLINE_S = 7.0
+
+# Absolute time.monotonic() by which the enclosing turn must have its answer.
+_deadline: "contextvars.ContextVar[Optional[float]]" = contextvars.ContextVar("llm_deadline", default=None)
+_voice_turn: "contextvars.ContextVar[bool]" = contextvars.ContextVar("llm_voice_turn", default=False)
+
+
+def in_voice_turn() -> bool:
+    """True inside within_voice_deadline(): a caller is listening."""
+    return _voice_turn.get()
+
+
+@contextmanager
+def deadline(seconds: float) -> Iterator[float]:
+    """Every LLM call inside this block finishes within `seconds` from now
+    (or the enclosing deadline, if sooner). Tasks created inside inherit it."""
+    end = time.monotonic() + seconds
+    outer = _deadline.get()
+    if outer is not None:
+        end = min(end, outer)
+    token = _deadline.set(end)
+    try:
+        yield end
+    finally:
+        _deadline.reset(token)
+
+
+def remaining() -> Optional[float]:
+    """Seconds left before the enclosing deadline, or None outside one."""
+    end = _deadline.get()
+    return None if end is None else end - time.monotonic()
+
+
+T = TypeVar("T")
+
+# What the caller hears when the model fails or a voice turn's deadline runs
+# out, in place of the error text that used to reach them.
+GENERATION_FAILED_ANSWER = (
+    "I could not prepare an answer just now. Please ask again in a moment, or "
+    "speak to your doctor, nurse or palliative care team."
+)
+
+# How long past the voice deadline a turn may run before it is abandoned. The
+# LLM call itself ends at the deadline (and the answer path then sends its
+# fallback answer); this only bounds work outside the model call.
+VOICE_GRACE_S = 1.0
+
+
+def voice_deadline_s() -> float:
+    """How long a voice turn may take to answer (llm.deadlines.voice_s)."""
+    return get_llm_client().settings.voice_deadline_s
+
+
+async def within_voice_deadline(make: Callable[[], Awaitable[T]], seconds: Optional[float] = None) -> T:
+    """Run one voice turn's answer under the voice deadline.
+
+    Model calls inside get what is left of `seconds` (llm.deadlines.voice_s by
+    default); the turn as a whole is abandoned `VOICE_GRACE_S` later with
+    asyncio.TimeoutError, which each voice channel turns into its spoken
+    fallback."""
+    seconds = voice_deadline_s() if seconds is None else seconds
+    token = _voice_turn.set(True)
+    try:
+        with deadline(seconds):
+            return await asyncio.wait_for(make(), seconds + VOICE_GRACE_S)
+    finally:
+        _voice_turn.reset(token)
 
 
 @dataclass
@@ -70,7 +184,23 @@ class LLMSettings:
     fallback_model: str = DEFAULT_FALLBACK_MODEL
     fallback_base_url: str = DEFAULT_FALLBACK_BASE_URL
     fallback_api_key: Optional[str] = None
+    thinking: Dict[str, str] = field(default_factory=lambda: dict(DEFAULT_THINKING))
+    translation_deadline_s: float = DEFAULT_TRANSLATION_DEADLINE_S
+    answer_translation_deadline_s: float = DEFAULT_ANSWER_TRANSLATION_DEADLINE_S
+    voice_deadline_s: float = DEFAULT_VOICE_DEADLINE_S
     source: Dict[str, str] = field(default_factory=dict)
+
+    def thinking_for(self, purpose: str, voice: bool = False) -> str:
+        if voice and self.thinking.get(f"voice_{purpose}"):
+            return self.thinking[f"voice_{purpose}"]
+        return self.thinking.get(purpose) or self.thinking.get("default") or "high"
+
+    def timeout_for(self, purpose: str) -> float:
+        if purpose == "query_translation":
+            return min(self.timeout_s, self.translation_deadline_s)
+        if purpose == "answer_translation":
+            return min(self.timeout_s, self.answer_translation_deadline_s)
+        return self.timeout_s
 
     @property
     def transport(self) -> str:
@@ -92,7 +222,14 @@ class LLMSettings:
                 if self.fallback_enabled
                 else None
             ),
+            "thinking": dict(sorted(self.thinking.items())),
+            "deadlines": self.deadlines(),
         }
+
+    def deadlines(self) -> Dict[str, float]:
+        return {"default_s": self.timeout_s, "translation_s": self.translation_deadline_s,
+                "answer_translation_s": self.answer_translation_deadline_s,
+                "voice_s": self.voice_deadline_s}
 
 
 @dataclass
@@ -133,7 +270,16 @@ def load_llm_settings(
     env = dict(os.environ) if env is None else env
     block = _yaml_llm_block(config_path)
     fb = block.get("fallback") or {}
+    deadlines = block.get("deadlines") or {}
     source: Dict[str, str] = {}
+
+    thinking = dict(DEFAULT_THINKING)
+    for purpose, level in (block.get("thinking") or {}).items():
+        level = str(level).strip().lower()
+        if level in THINKING_LEVELS:
+            thinking[str(purpose)] = level
+        else:
+            logger.warning("Ignoring llm.thinking.%s=%r: not one of %s", purpose, level, THINKING_LEVELS)
 
     def pick(name: str, env_key: str, yaml_value: Any, default: Any) -> Any:
         if env.get(env_key):
@@ -157,6 +303,14 @@ def load_llm_settings(
         fallback_model=str(pick("fallback_model", "LLM_FALLBACK_MODEL", fb.get("model"), DEFAULT_FALLBACK_MODEL)),
         fallback_base_url=str(fb.get("base_url", DEFAULT_FALLBACK_BASE_URL)).rstrip("/"),
         fallback_api_key=env.get("DEEPSEEK_API_KEY") or None,
+        thinking=thinking,
+        translation_deadline_s=float(pick("translation_deadline_s", "LLM_TRANSLATION_DEADLINE_S",
+                                          deadlines.get("translation_s"), DEFAULT_TRANSLATION_DEADLINE_S)),
+        answer_translation_deadline_s=float(pick(
+            "answer_translation_deadline_s", "LLM_ANSWER_TRANSLATION_DEADLINE_S",
+            deadlines.get("answer_translation_s"), DEFAULT_ANSWER_TRANSLATION_DEADLINE_S)),
+        voice_deadline_s=float(pick("voice_deadline_s", "LLM_VOICE_DEADLINE_S",
+                                    deadlines.get("voice_s"), DEFAULT_VOICE_DEADLINE_S)),
         source=source,
     )
 
@@ -180,17 +334,26 @@ class LLMClient:
                 self._genai = genai.Client(api_key=s.api_key)
         return self._genai
 
-    async def _gemini(
-        self, prompt: str, system: Optional[str], max_tokens: int, temperature: float, json_mode: bool
-    ) -> str:
+    def _gemini_config(self, system: Optional[str], max_tokens: int, temperature: float,
+                       json_mode: bool, thinking: Optional[str]):
         from google.genai import types
 
-        config = types.GenerateContentConfig(
+        # Thinking levels are a Gemini 3 setting; older models reject them.
+        think = (types.ThinkingConfig(thinking_level=thinking.upper())
+                 if thinking and self.settings.model.startswith("gemini-3") else None)
+        return types.GenerateContentConfig(
             temperature=temperature,
-            max_output_tokens=max_tokens,
+            max_output_tokens=max_tokens + (THINKING_HEADROOM.get(thinking or "", 8192) if think else 0),
             system_instruction=system or None,
             response_mime_type="application/json" if json_mode else None,
+            thinking_config=think,
         )
+
+    async def _gemini(
+        self, prompt: str, system: Optional[str], max_tokens: int, temperature: float, json_mode: bool,
+        thinking: Optional[str] = None,
+    ) -> str:
+        config = self._gemini_config(system, max_tokens, temperature, json_mode, thinking)
         response = await self._genai_client().aio.models.generate_content(
             model=self.settings.model, contents=prompt, config=config
         )
@@ -244,12 +407,20 @@ class LLMClient:
         temperature: float = 0.3,
         json_mode: bool = False,
         purpose: str = "",
+        thinking: Optional[str] = None,
     ) -> LLMResponse:
-        """Generate text. `purpose` labels the call in logs (e.g. "answer")."""
-        with span("llm", purpose=purpose or "call", model=self.settings.model) as llm_span:
+        """Generate text. `purpose` labels the call and picks its thinking level
+        and timeout; `thinking` overrides the level for this call."""
+        level = thinking or self.settings.thinking_for(purpose, voice=in_voice_turn())
+        budget = self.settings.timeout_for(purpose)
+        left = remaining()
+        if left is not None:
+            budget = min(budget, left)
+        with span("llm", purpose=purpose or "call", model=self.settings.model,
+                  thinking=level, budget_s=round(budget, 2)) as llm_span:
             response = await self._generate(
                 prompt, system=system, max_tokens=max_tokens, temperature=temperature,
-                json_mode=json_mode, purpose=purpose,
+                json_mode=json_mode, purpose=purpose, thinking=level, budget=budget,
             )
             llm_span.set(ok=response.ok, provider=response.provider,
                          used_fallback=response.used_fallback)
@@ -264,15 +435,21 @@ class LLMClient:
         temperature: float,
         json_mode: bool,
         purpose: str,
+        thinking: Optional[str] = None,
+        budget: Optional[float] = None,
     ) -> LLMResponse:
         s = self.settings
         started = time.perf_counter()
+        end = started + (s.timeout_s if budget is None else budget)
         errors: List[str] = []
 
-        if s.transport != "unconfigured":
+        if end - time.perf_counter() <= 0:
+            errors.append("no time left in the caller's deadline")
+        elif s.transport != "unconfigured":
             try:
                 text = await asyncio.wait_for(
-                    self._gemini(prompt, system, max_tokens, temperature, json_mode), s.timeout_s
+                    self._gemini(prompt, system, max_tokens, temperature, json_mode, thinking),
+                    end - time.perf_counter(),
                 )
                 return LLMResponse(
                     _THINK.sub("", text).strip(), True, "gemini", s.model,
@@ -285,12 +462,17 @@ class LLMClient:
             errors.append("gemini: no GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY")
 
         if s.fallback_enabled:
+            left = end - time.perf_counter()
             if not s.fallback_api_key:
                 errors.append("deepseek: DEEPSEEK_API_KEY not set")
+            elif left <= 0.25:
+                # The fallback shares the caller's budget; a fresh timeout here
+                # is how a voice turn used to wait 90 s.
+                errors.append("deepseek: no time left in the budget")
             else:
                 try:
                     text = await asyncio.wait_for(
-                        self._deepseek(prompt, system, max_tokens, temperature, json_mode), s.timeout_s
+                        self._deepseek(prompt, system, max_tokens, temperature, json_mode), left
                     )
                     logger.warning("LLM fallback used (%s): %s", purpose or "call", s.fallback_model)
                     return LLMResponse(

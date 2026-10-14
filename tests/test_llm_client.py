@@ -26,7 +26,7 @@ class FakeClient(LLMClient):
         self._g = gemini
         self._d = deepseek
 
-    async def _gemini(self, prompt, system, max_tokens, temperature, json_mode):
+    async def _gemini(self, prompt, system, max_tokens, temperature, json_mode, thinking=None):
         self.calls.append("gemini")
         if isinstance(self._g, BaseException):
             raise self._g

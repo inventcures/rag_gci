@@ -35,6 +35,25 @@ models:
     # The previously configured gemini-3.1-flash-lite is also unavailable in
     # Asia-Pacific, so inference was not India-resident before this decision.
     verified_asia_pacific: ["asia-south1", "asia-southeast1", "asia-northeast1", "australia-southeast1"]
+    # Thinking level per purpose and deadlines (latency ticket 11). PENDING
+    # STUDY APPROVAL: these change answer content. Before them every call ran at
+    # the model's default level, which spent the 2048-token cap on thinking and
+    # cut answers off mid-sentence after ~11 s. Measurements and the quality
+    # comparison: docs/latency/thinking-11.md; reasoning: docs/decisions/latency.md.
+    # voice_answer "minimal" lost to "high" on 28 of 40 vignettes (judged by the
+    # model) and needs clinician review before activation.
+    thinking:
+      answer: low
+      voice_answer: minimal
+      query_translation: minimal
+      answer_translation: minimal
+      clarification: minimal
+      default: high
+    deadlines:
+      default_s: 45
+      translation_s: 3
+      answer_translation_s: 8
+      voice_s: 7
   voice_primary:
     provider: "gemini_live"
     model: "gemini-3.8-live"

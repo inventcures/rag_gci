@@ -256,3 +256,42 @@ Each entry: what was decided, the alternatives, and why.
 - **Not measured with real bge-m3** (the model cannot be downloaded here). The
   loop-blocking test uses a slow fake parser and collection; the worst stall
   stays under 50 ms.
+
+## 11: Thinking level and deadlines
+
+- **Measured against the live model** (`scripts/benchmark_thinking.py`,
+  results in `docs/latency/thinking-11.md`). The default thinking level had no
+  token headroom: production answers were cut off mid-sentence after ~11.5 s.
+  `max_tokens` now means visible text; thinking headroom is added on top
+  (512 / 2048 / 4096 / 8192 by level).
+- **Answers: `low` on text, `minimal` in a voice turn.** `low` matched `high`
+  in judged quality. `minimal` is the only level that fits the voice deadline,
+  and it lost to `high` on 28 of 40 judged comparisons. We take that cost on
+  voice because the alternative is the timeout fallback on most voice turns.
+  Ticket 12 changes the voice prompt anyway; **a clinician review of voice
+  answers is required before the release is activated.** Revisit if the
+  review finds minimal-level voice answers unsafe or unhelpful: the option
+  then is `low` with ticket 13's streaming, which starts speaking at ~7.5 s.
+- **Translation and clarification: `minimal`.** Query translations were
+  judged equivalent at every level.
+- **Deadlines:** voice turn 7 s (`LLM_VOICE_DEADLINE_S`), query translation
+  3 s, answer translation 8 s (WhatsApp only; `minimal` p95 4.5 s, so 3 s
+  would have failed most), everything else 45 s. The fallback provider gets
+  what is left of the same budget, not a fresh 45 s.
+- **Voice channels:** Retell, Bolna, the Gemini Live grounding tool and
+  post-turn query, and mobile voice run their answer inside
+  `within_voice_deadline`. A turn past it gets the channel's existing spoken
+  fallback (Retell timeout message, Bolna partial answer, Live "no
+  information", mobile voice fallback answer).
+- **A failed generation no longer reaches the caller as text.** `query()` used
+  to return "Error generating response: ..." as the answer. It now returns a
+  fixed "could not prepare an answer, ask again or speak to your doctor"
+  answer, with `model_used: "error"` kept for the record.
+- **Release record:** thinking levels and deadlines are in the fingerprint
+  and in `data/study/release.yaml`, marked pending study approval. This
+  ticket changes answer content and ships in the next versioned release
+  together with 12-14.
+- **Not done here:** time to first token in the request trace. Calls are not
+  streamed until ticket 13, so the `llm` span measures the whole call (with
+  `thinking` and `budget_s` attributes). The benchmark measured first token
+  by streaming.

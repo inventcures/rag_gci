@@ -31,6 +31,7 @@ from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
 from observability import trace_request
+from llm.client import voice_deadline_s, within_voice_deadline
 from participants import ephemeral
 
 logger = logging.getLogger(__name__)
@@ -405,8 +406,10 @@ class RetellCustomLLMHandler:
         # Query RAG pipeline
         if self.rag_pipeline:
             try:
-                result = await asyncio.wait_for(
-                    self.rag_pipeline.query(
+                # The voice deadline (llm.deadlines.voice_s) bounds the
+                # model call; a turn past it gets the spoken timeout message.
+                result = await within_voice_deadline(
+                    lambda: self.rag_pipeline.query(
                         question=user_query,
                         conversation_id=session.call_id,
                         # The caller's number when Retell gives it; otherwise
@@ -415,7 +418,7 @@ class RetellCustomLLMHandler:
                         source_language=session.language,
                         top_k=3,
                     ),
-                    timeout=self.response_timeout
+                    min(self.response_timeout, voice_deadline_s()),
                 )
 
                 if result.get("status") == "success":

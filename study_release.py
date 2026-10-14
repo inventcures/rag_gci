@@ -61,6 +61,16 @@ DRIFT_DIR = Path("./data/study/drift")
 # mis-parsed nested lists and was replaced rather than debugged.
 
 
+def compact_mapping(mapping: Any) -> Optional[str]:
+    """`{"b": 2, "a": "x"}` -> "a=x,b=2", so a recorded mapping and the live
+    one compare as one value. Numbers compare by value (7 == 7.0)."""
+    if not isinstance(mapping, dict):
+        return None
+    def value(v: Any) -> str:
+        return f"{float(v):g}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)
+    return ",".join(f"{k}={value(v)}" for k, v in sorted(mapping.items()))
+
+
 def load_yaml(path: Path) -> Dict[str, Any]:
     """Parse the release record."""
     import yaml
@@ -161,6 +171,8 @@ class StudyRelease:
             "llm.model": llm["model"],
             "llm.location": llm["location"],
             "llm.fallback": llm["fallback"],
+            "llm.thinking": llm["thinking"],
+            "llm.deadlines": llm["deadlines"],
             # Translation uses the same shared client as answers.
             "translation.provider": llm["provider"],
             "translation.model": llm["model"],
@@ -187,9 +199,12 @@ class StudyRelease:
                 "model": d["model"],
                 "location": d["location"],
                 "fallback": f"{fb['provider']}:{fb['model']}" if fb else "none",
+                "thinking": compact_mapping(d.get("thinking")),
+                "deadlines": compact_mapping(d.get("deadlines")),
             }
         except Exception:
-            return {"provider": "unknown", "model": "unknown", "location": "unknown", "fallback": "unknown"}
+            return {"provider": "unknown", "model": "unknown", "location": "unknown", "fallback": "unknown",
+                    "thinking": "unknown", "deadlines": "unknown"}
 
     @staticmethod
     def _retrieval_settings() -> Dict[str, str]:
@@ -271,6 +286,8 @@ class StudyRelease:
             "llm.model": self._dig("models", "llm", "model"),
             "llm.location": self._dig("models", "llm", "region"),
             "llm.fallback": self._dig("models", "llm", "fallback"),
+            "llm.thinking": compact_mapping(self._dig("models", "llm", "thinking")),
+            "llm.deadlines": compact_mapping(self._dig("models", "llm", "deadlines")),
             "translation.provider": self._dig("models", "query_translation", "provider"),
             "translation.model": self._dig("models", "query_translation", "model"),
             "embedding.model": self._dig("models", "embedding", "model"),
