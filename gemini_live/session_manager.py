@@ -474,3 +474,39 @@ class SessionManager:
             voice=voice,
             model=model
         )
+
+
+class PreConnect:
+    """
+    Opens a caller's Live session ahead of their first audio.
+
+    The web voice client sends its config, then the caller presses the button
+    and starts talking. Connecting on the config hides the Live handshake
+    (about 0.6 s) inside that gap instead of adding it to the first answer.
+    `settle()` waits for a pending connect, so the manager's
+    `get_or_create_session` that follows reuses it; a failed one is logged
+    and the caller connects as before. An unused one is closed with the
+    caller's other sessions, or by the manager's idle cleanup.
+    """
+
+    def __init__(self, manager: "SessionManager"):
+        self.manager = manager
+        self._task: Optional[asyncio.Task] = None
+
+    async def open(self, user_id: str, language: str, model: Optional[str],
+                   voice: str = "Aoede") -> None:
+        """Start connecting (after any connect already under way)."""
+        await self.settle()
+        self._task = asyncio.create_task(self.manager.get_or_create_session(
+            user_id=user_id, language=language, voice=voice, model=model))
+
+    async def settle(self) -> None:
+        """Wait for a pending connect. Not cancelled: a connect cut off part
+        way would leave a session the manager never registered."""
+        task, self._task = self._task, None
+        if task is None:
+            return
+        try:
+            await task
+        except Exception as e:
+            logger.warning(f"Pre-connect failed: {e}")

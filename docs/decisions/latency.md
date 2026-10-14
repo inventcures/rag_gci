@@ -371,3 +371,53 @@ Each entry: what was decided, the alternatives, and why.
   Tamil and Hindi Deferrals contain "doses" by its own test, and Tamil text
   mentioning medicine is over-redacted. Over-redaction is the safe failure,
   but Live's Tamil audio on WhatsApp (ticket 08) will often fall back to TTS.
+
+## 14: Gemini Live speaks sooner, grounded on guarded output
+
+- **Pre-connect on `config` (`gemini_live.PreConnect`).** The web voice
+  client's Live session opens when its config arrives, not when its first
+  audio does, which takes the handshake (about 0.6 s) out of the first
+  answer. `start_audio` waits for a connect under way and reuses it; a failed
+  pre-connect is logged and the caller connects as before. A language or
+  model switch reconnects ahead of the next turn. Not cancelled on
+  disconnect: a connect cut off part way would leave a session the manager
+  never registered; it is awaited, then closed.
+- **Cost of an unused pre-connect:** Live bills audio and text tokens, not
+  open sockets, so a session the caller never speaks into costs nothing but
+  one connection slot. It is closed when the socket closes, or by the
+  manager's idle cleanup (14 minutes) if the close is missed.
+- **Acknowledgement in the prompt, not from the server.** The system prompt
+  now allows one short acknowledgement of a few words before the tool call
+  and nothing medical until the tool result. Measured below, the model often
+  calls the tool first anyway; when it does speak first, the caller hears it
+  well before the answer. The server cannot inject the acknowledgement
+  itself without a second voice and a second turn in the Live context.
+  Measured (`docs/latency/live-first-audio-14.md`): half the turns now
+  have first audio by about 1 s (acknowledgement or a clarifying question)
+  against 1 in 12 before; the rest are unchanged at about 3.4 s, which is
+  the tool path. A mandatory version ("always begin with...") was not
+  adopted: its run stopped after two turns on a connection failure, so it
+  is unmeasured, and the risk it adds is real. In an earlier run of the
+  adopted prompt, one turn said "let me check what the guidelines say" and
+  then described the problem ("sundowning") without calling the tool within
+  25 s. That is the ungrounded speech the grounding rule forbids, and it
+  happens without the acknowledgement too (1 in 12 "before" turns answered
+  without the tool, with a clarifying question). **Found, not fixed:** the
+  server does not notice a medical turn that ends without a tool call;
+  catching it needs a check on the turn's output transcript, its own
+  safety ticket.
+  This is a content change for the study release: `prompt_version` is still
+  "unversioned" in `data/study/release.yaml`, so the change is visible only
+  in git, and needs study approval with the rest of the prompt changes.
+- **The tool stays BLOCKING.** NON_BLOCKING would let the model keep talking
+  while retrieval runs, which is exactly the ungrounded medical speech the
+  prompt forbids; the acknowledgement gives the same audible effect safely.
+- **Classifier skipped in tool mode.** The transcript handler returns before
+  `should_query_rag` when the RAG tool is on: its embedding only fed the
+  post-turn injection, which tool mode never does.
+- **Non-tool injection now passes the Dose Boundary** (`guard_query_result`)
+  before the model sees it, as the tool path does. The tool path no longer
+  skips the guard when the service was built without a safety manager; it
+  uses the process-wide one, in the session's language.
+- **The tool answer is voice-length** already: `_run_rag_query` runs inside
+  `within_voice_deadline`, so it gets ticket 12's spoken prompt.

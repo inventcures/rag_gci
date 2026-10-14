@@ -74,6 +74,7 @@ from .service import (
 from .session_manager import (
     SessionManager,
     SessionInfo,
+    PreConnect,
 )
 
 __all__ = [
@@ -103,6 +104,7 @@ __all__ = [
     # Session management
     "SessionManager",
     "SessionInfo",
+    "PreConnect",
 ]
 
 __version__ = "0.2.0"

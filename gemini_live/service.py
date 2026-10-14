@@ -18,6 +18,7 @@ import re
 from typing import Optional, Dict, Any, AsyncGenerator, List, Set
 
 from llm.client import within_voice_deadline
+from safety_enhancements import get_safety_manager, guard_query_result
 from participants import ephemeral
 from datetime import datetime
 import numpy as np
@@ -646,6 +647,7 @@ MANDATORY KNOWLEDGE BASE GROUNDING:
 - Never answer a medical question from your own general knowledge alone. If the tool returns no relevant information, say so, give only general comfort guidance, and advise consulting their doctor.
 - When the tool returns sources, mention them naturally (e.g. "according to our palliative care guidelines").
 - Only greetings, thanks, and small talk may be answered without the tool.
+- Before calling the tool you may say one short acknowledgement of a few words, such as "Let me check that for you", in the user's language. Say nothing medical until the tool result has arrived.
 
 IMPORTANT GUIDELINES:
 1. Be warm, empathetic, and supportive in all interactions
@@ -1441,14 +1443,13 @@ class GeminiLiveSession:
         # sees a single character. Grounding the model on unsanitised retrieval text
         # and relying on its discretion afterwards is how a dose reaches a patient
         # through the route that was believed to be the safe one.
-        if self.service.safety_manager is not None:
-            safety = self.service.safety_manager.process_response(
-                query=query,
-                response=answer,
-                sources=result.get("sources", []),
-                language=getattr(self.service.config, "language", "en") or "en",
-            )
-            answer = safety.response
+        safety = (self.service.safety_manager or get_safety_manager()).process_response(
+            query=query,
+            response=answer,
+            sources=result.get("sources", []),
+            language=getattr(self, "language", None) or "en",
+        )
+        answer = safety.response
 
         logger.info(f"📚 RAG grounding: {len(answer)} chars, sources: {sources}")
         return (
@@ -1562,6 +1563,14 @@ Please prioritize their safety and provide clear, calm guidance.
                     logger.info(f"📢 Injected decline instruction for out-of-scope query (language: {self.language})")
                 return
 
+            # With tool grounding, RAG context reaches the model BEFORE it
+            # answers (via search_medical_knowledge). The classifier below
+            # only decides about the post-turn injection, which tool mode
+            # skips, so its embedding would be computed and thrown away.
+            if self._rag_tool_enabled:
+                logger.debug("RAG handled via tool call - skipping classifier and injection")
+                return
+
             # Smart classification: check if this query should trigger RAG
             # Embeds the transcript: in a worker thread, not on the loop that
             # carries this call's audio.
@@ -1585,13 +1594,6 @@ Please prioritize their safety and provide clear, calm guidance.
                 logger.info(f"⏭️ SKIPPING RAG - {reason}: \"{query_text[:50]}{'...' if len(query_text) > 50 else ''}\"")
                 return
 
-            # With tool grounding, RAG context reaches the model BEFORE it
-            # answers (via search_medical_knowledge); this post-turn
-            # injection would arrive after the reply and is skipped
-            if self._rag_tool_enabled:
-                logger.debug("RAG handled via tool call - skipping post-turn injection")
-                return
-
             self._last_rag_query = query_text
 
             logger.info(f"=" * 60)
@@ -1611,6 +1613,12 @@ Please prioritize their safety and provide clear, calm guidance.
             if result.get("status") != "success" or result.get("model_used") == "error":
                 logger.warning(f"RAG query failed: {result.get('error') or 'generation failed'}")
                 return
+
+            # The Dose Boundary before the model sees any of it, as on the
+            # tool path. A guard failure raises into the except below, which
+            # injects nothing rather than the unguarded draft.
+            guard_query_result(result, query=query_text, language=self.language,
+                               safety_manager=self.service.safety_manager)
 
             context_used = result.get("context_used", 0)
             answer = result.get("answer", "")

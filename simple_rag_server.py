@@ -42,6 +42,7 @@ try:
         GeminiLiveSession,
         GeminiLiveError,
         SessionManager,
+        PreConnect,
         AudioHandler,
         get_config as get_gemini_config,
     )
@@ -50,6 +51,7 @@ except ImportError:
     GEMINI_LIVE_AVAILABLE = False
     GeminiLiveService = None
     SessionManager = None
+    PreConnect = None
 
 # Bolna.ai integration imports (for voice AI helpline)
 try:
@@ -5414,6 +5416,10 @@ def main():
         model = None
         user_id = f"web_{datetime.now().timestamp()}_{id(websocket)}"
         response_task = None
+        # The Live connection opens when the config arrives, while the caller
+        # is still getting ready to speak, not when their first audio does.
+        # An unused one is closed below, or by the manager's idle cleanup.
+        preconnect = PreConnect(gemini_session_manager)
 
         logger.info(f"Voice WebSocket connected: {user_id}")
 
@@ -5440,12 +5446,16 @@ def main():
                                 "language": language,
                                 "model": model
                             })
+                            await preconnect.open(user_id, language, model)
 
                         elif msg_type == "start_audio":
                             # Create or get session for this user
                             logger.info(f"Starting audio session for {user_id}")
 
                             try:
+                                # Reuses the pre-connected session when it is
+                                # up; opens one if it failed or never started.
+                                await preconnect.settle()
                                 session = await gemini_session_manager.get_or_create_session(
                                     user_id=user_id,
                                     language=language,
@@ -5480,10 +5490,12 @@ def main():
                                 logger.info(f"Switching language from {language} to {new_language} for {user_id}")
                                 language = new_language
 
-                                # Close existing session
-                                if session:
-                                    await gemini_session_manager.close_session(user_id)
-                                    session = None
+                                # Close existing session, and reconnect in
+                                # the new language ahead of the next turn
+                                await preconnect.settle()
+                                await gemini_session_manager.close_session(user_id)
+                                session = None
+                                await preconnect.open(user_id, language, model)
 
                                 await websocket.send_json({
                                     "type": "language_changed",
@@ -5497,10 +5509,11 @@ def main():
                                 logger.info(f"Switching model from {model or 'default'} to {new_model or 'default'} for {user_id}")
                                 model = new_model
 
-                                # Close existing session; recreated on next start_audio
-                                if session:
-                                    await gemini_session_manager.close_session(user_id)
-                                    session = None
+                                # Close existing session; reconnect on the new model
+                                await preconnect.settle()
+                                await gemini_session_manager.close_session(user_id)
+                                session = None
+                                await preconnect.open(user_id, language, model)
 
                             await websocket.send_json({
                                 "type": "model_changed",
@@ -5560,7 +5573,10 @@ def main():
                 except asyncio.CancelledError:
                     pass
 
-            if session and gemini_session_manager:
+            # Let a pending pre-connect finish (cancelling it mid-way would
+            # leave a session the manager never registered), then close.
+            await preconnect.settle()
+            if gemini_session_manager:
                 try:
                     await gemini_session_manager.close_session(user_id)
                     logger.info(f"Session closed for {user_id}")
