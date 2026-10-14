@@ -30,7 +30,7 @@ jobs:
   measure:
     name: Embedding model gate (11 languages)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 150
     permissions:
       contents: write
     steps:
@@ -64,7 +64,7 @@ jobs:
         run: |
           set -o pipefail
           python evaluation/retrieval_eval/run_eval.py --gate \
-            --models embeddinggemma-2,bge-m3 \
+            --models embeddinggemma-2,embeddinggemma-2-qa,embeddinggemma-2-noprompt,bge-m3 \
             --out evaluation/retrieval_eval/results_adr0008.json | tee eval.txt
         env:
           PYTHONUNBUFFERED: "1"

@@ -55,6 +55,19 @@ MODELS = {
         "dim": 768,
         "note": "EmbeddingGemma 2 text path (270M), query/document prompts",
     },
+    # Prompt ablations, to tell a weak model from a wrongly prompted one.
+    "embeddinggemma-2-qa": {
+        "path": "google/embeddinggemma-2",
+        "dim": 768,
+        "note": "EmbeddingGemma 2 with the QuestionAnswering query prompt",
+        "embedding": {"query_prompt_name": "QuestionAnswering"},
+    },
+    "embeddinggemma-2-noprompt": {
+        "path": "google/embeddinggemma-2",
+        "dim": 768,
+        "note": "EmbeddingGemma 2 with no prompts (used as a symmetric model)",
+        "embedding": {"query_prompt_name": None, "document_prompt_name": None},
+    },
     "bge-m3": {
         "path": "BAAI/bge-m3",
         "dim": 1024,
@@ -276,11 +289,18 @@ def evaluate(model_name: str, corpus: List[str], queries: List[dict], top_k: int
     spec = MODELS[model_name]
     # The production embedding function, so per-model prompts and load options
     # (retrieval_embeddings.MODEL_DEFAULTS) are exactly what the server uses.
-    settings = load_embedding_settings({"embedding": {"model": spec["path"], "dimension": spec["dim"]}})
+    settings = load_embedding_settings({"embedding": {
+        "model": spec["path"], "dimension": spec["dim"], **spec.get("embedding", {}),
+    }})
     embed = PromptedSentenceTransformerEmbeddingFunction.from_settings(settings)
     t0 = time.time()
     model = embed.model
     load_s = time.time() - t0
+    prompts = getattr(model, "prompts", {}) or {}
+    for role, name in (("query", settings.query_prompt_name),
+                       ("document", settings.document_prompt_name)):
+        if name:
+            print(f"  {role} prompt {name}: {prompts.get(name)!r}", flush=True)
 
     t0 = time.time()
     doc_emb = np.asarray(embed(corpus))
