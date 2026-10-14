@@ -102,8 +102,14 @@ retrieval:
   reranking: true
   rag_method: "vector"
   # The grant describes GraphRAG and Neo4j contributing through Reciprocal Rank
-  # Fusion. On main, vector retrieval is the only method on the query path.
-  fusion: "rrf-described-not-on-query-path"
+  # Fusion. That path now exists behind --rag-method kg | graphrag | fused
+  # (RRF, k=60, retrieval/fusion.py) but this release does not enable it: vector
+  # retrieval is the only method on the query path. Turning it on changes
+  # rag_method above and shows as RELEASE DRIFT until this record is updated.
+  fusion: "none"
+  # Knowledge-graph cross-reference check of drafted answers (protocol K26):
+  # off | shadow | flag | block. Off in this release.
+  kg_check: "off"
 
 # --- Language ---------------------------------------------------------------
 enabled_languages:

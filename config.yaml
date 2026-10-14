@@ -332,6 +332,23 @@ knowledge_graph:
     layout: "cose"  # Force-directed layout
     max_nodes: 100
 
+# Answer-path retrieval (retrieval/settings.py, docs/answer_path_retrieval.md)
+# Defaults reproduce the approved study release: vector only, no claim check.
+# CLI flags (--rag-method, --kg-check) and env vars (RAG_METHOD, KG_CHECK_MODE)
+# override these.
+retrieval:
+  rag_method: vector          # vector | pageindex | hybrid | kg | graphrag | fused
+  rrf_k: 60                   # Reciprocal Rank Fusion constant (kg/graphrag/fused)
+  per_retriever_top_k: 5
+  timeouts_s:                 # a retriever that misses its timeout is left out
+    kg: 2.0
+    graphrag: 2.0
+    pageindex: 8.0
+  kg_check:                   # protocol K26: check drafted answers against Neo4j
+    mode: "off"               # off | shadow | flag | block
+    timeout_s: 1.5
+    block_unsupported: false  # block mode: also remove claims the graph can't support
+
 # Mobile API Configuration (Android App)
 mobile:
   enabled: true

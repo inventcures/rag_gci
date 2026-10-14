@@ -140,6 +140,7 @@ class StudyRelease:
         environment variable shows up here the way it shows up in an answer.
         """
         speech = self._speech_models()
+        retrieval = self._retrieval_settings()
         return {
             "llm.provider": os.getenv("GENAI_LLM_PROVIDER", "gemini").lower(),
             "llm.model": os.getenv("GENAI_GEMINI_MODEL", "gemini-3.1-flash-lite"),
@@ -150,8 +151,21 @@ class StudyRelease:
             "speech.stt.model": speech["stt_model"],
             "speech.tts.model": speech["tts_model"],
             "safety.dosage_restriction": self._module_present("dosage_guard"),
+            "retrieval.rag_method": retrieval["rag_method"],
+            "retrieval.kg_check": retrieval["kg_check"],
             "commit": self._git_commit(),
         }
+
+    @staticmethod
+    def _retrieval_settings() -> Dict[str, str]:
+        """The answer path's live retrieval settings (retrieval/settings.py)."""
+        try:
+            from retrieval.settings import get_active_settings
+
+            active = get_active_settings()
+            return {"rag_method": active.rag_method, "kg_check": active.kg_check_mode}
+        except Exception:
+            return {"rag_method": "unknown", "kg_check": "unknown"}
 
     @staticmethod
     def _module_present(module_name: str) -> bool:
@@ -227,6 +241,8 @@ class StudyRelease:
             "speech.stt.model": self._dig("models", "speech", "stt", "model"),
             "speech.tts.model": self._dig("models", "speech", "tts", "model"),
             "safety.dosage_restriction": self._dig("safety", "dosage_restriction"),
+            "retrieval.rag_method": self._dig("retrieval", "rag_method"),
+            "retrieval.kg_check": self._dig("retrieval", "kg_check"),
             "commit": self._dig("source", "commit"),
         }
 

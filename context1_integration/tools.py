@@ -6,6 +6,8 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Set
 
+from retrieval.fusion import reciprocal_rank_fusion
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,22 +69,11 @@ def _reciprocal_rank_fusion(
     ranked_lists: List[List[ChunkResult]],
     k: int = 60,
 ) -> List[ChunkResult]:
-    """Combine multiple ranked result lists using RRF."""
-    scores: Dict[str, float] = {}
-    chunk_map: Dict[str, ChunkResult] = {}
-
-    for ranked in ranked_lists:
-        for rank, chunk in enumerate(ranked):
-            rrf_score = 1.0 / (k + rank + 1)
-            scores[chunk.chunk_id] = scores.get(chunk.chunk_id, 0.0) + rrf_score
-            if chunk.chunk_id not in chunk_map or rrf_score > chunk_map[chunk.chunk_id].score:
-                chunk_map[chunk.chunk_id] = chunk
-
-    for cid, total_score in scores.items():
-        if cid in chunk_map:
-            chunk_map[cid].score = total_score
-
-    return sorted(chunk_map.values(), key=lambda c: c.score, reverse=True)
+    """Combine multiple ranked result lists using the shared RRF function."""
+    fused = reciprocal_rank_fusion(ranked_lists, key=lambda c: c.chunk_id, k=k)
+    for f in fused:
+        f.item.score = f.score
+    return [f.item for f in fused]
 
 
 class Context1Tools:

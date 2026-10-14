@@ -187,6 +187,23 @@ except ImportError as e:
 import chromadb
 from chromadb.utils import embedding_functions
 
+from retrieval.settings import (
+    ROUTED_METHODS,
+    RAG_METHODS,
+    get_active_settings,
+    load_retrieval_settings,
+    set_active_settings,
+)
+from retrieval.router import (
+    GraphRAGRetriever,
+    KnowledgeGraphRetriever,
+    PageIndexRetriever,
+    RetrievalRouter,
+    VectorRetriever,
+)
+from retrieval.graph_store import Neo4jGraphStore
+from retrieval.kg_check import KGCrossReferenceChecker
+from retrieval.audit import record_retrieval
 from retrieval_index import (
     IndexMismatchError,
     check_live_index,
@@ -1239,9 +1256,131 @@ class SimpleRAGPipeline:
                 "traceback": traceback.format_exc()
             }
     
-    async def query(self, question: str, conversation_id: Optional[str] = None, 
+    # -----------------------------------------------------------------
+    # Answer-path wiring for the knowledge graph, GraphRAG and K26 check
+    # -----------------------------------------------------------------
+    def configure_answer_path(
+        self,
+        settings=None,
+        kg_rag=None,
+        graphrag_engine=None,
+        pageindex_engine=None,
+        graph_store=None,
+    ) -> None:
+        """
+        Attach the retrievers and the KG cross-reference check that the active
+        settings ask for. Safe to call more than once (each startup hook calls it
+        as its service comes up). With default settings nothing is attached and
+        query() behaves exactly as before.
+        """
+        settings = settings or get_active_settings()
+        if graph_store is None and kg_rag is not None:
+            graph_store = Neo4jGraphStore.from_kg_rag(
+                kg_rag, version_label=settings.kg_version_label
+            )
+        if graph_store is not None:
+            self.graph_store = graph_store
+
+        if settings.is_routed:
+            router = getattr(self, "retrieval_router", None) or RetrievalRouter(settings)
+            router.settings = settings
+            if getattr(self, "vector_db", None) is not None:
+                router.attach("vector", VectorRetriever(self.vector_db))
+            if pageindex_engine is not None:
+                router.attach("pageindex", PageIndexRetriever(pageindex_engine))
+            if getattr(self, "graph_store", None) is not None:
+                router.attach("kg", KnowledgeGraphRetriever(self.graph_store))
+            if graphrag_engine is not None:
+                router.attach("graphrag", GraphRAGRetriever(graphrag_engine))
+            self.retrieval_router = router
+
+        if settings.kg_check_enabled:
+            self.kg_checker = KGCrossReferenceChecker(
+                graph=getattr(self, "graph_store", None),
+                mode=settings.kg_check_mode,
+                timeout_s=settings.kg_check_timeout_s,
+                block_unsupported=settings.kg_check_block_unsupported,
+            )
+
+    async def _answer_path_kg_version(self, settings) -> str:
+        """KG snapshot label for the log, only when the graph is on the path."""
+        uses_graph = settings.kg_check_enabled or settings.rag_method in ("kg", "fused")
+        store = getattr(self, "graph_store", None)
+        if not uses_graph:
+            return "not_in_answer_path"
+        if store is None or not store.is_available():
+            return "unavailable"
+        try:
+            return await asyncio.wait_for(store.version(), timeout=0.5)
+        except Exception:
+            return "unavailable"
+
+    async def query(self, question: str, conversation_id: Optional[str] = None,
                    user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en") -> Dict[str, Any]:
-        """Query the RAG pipeline with safety enhancements"""
+        """
+        Query the RAG pipeline with safety enhancements.
+
+        Every channel (web, WhatsApp, the Gemini Live search_medical_knowledge
+        tool, the Sarvam voice fallback, Retell) calls this one method, so the
+        retrieval settings apply to all of them identically. This wrapper times
+        the stages and appends the per-interaction retrieval record (active
+        retrievers, KG version, fusion settings, K26 check) to the release log.
+        """
+        started = time.perf_counter()
+        settings = get_active_settings()
+        trace: Dict[str, Any] = {"stage_latency_ms": {}}
+        result = await self._query_impl(
+            question, conversation_id=conversation_id, user_id=user_id,
+            top_k=top_k, source_language=source_language, _trace=trace,
+        )
+        trace["stage_latency_ms"]["total"] = round((time.perf_counter() - started) * 1000, 1)
+        try:
+            await self._record_answer_path(settings, trace, result, user_id)
+        except Exception:
+            # The record is evidence, not part of the answer; losing it must
+            # never cost the user their answer.
+            logger.exception("Answer-path record failed; answer returned unrecorded")
+        return result
+
+    async def _record_answer_path(self, settings, trace: Dict[str, Any], result: Dict[str, Any],
+                                  user_id: Optional[str]) -> None:
+        """Attach and log the retrieval and K26 record for one interaction."""
+        retrieval = trace.get("retrieval") or {
+            "rag_method": settings.rag_method,
+            "retrievers_active": [],
+        }
+        retrieval.setdefault("requested_rag_method", settings.rag_method)
+        retrieval.setdefault("fusion", settings.fusion_description())
+        retrieval["stage_latency_ms"] = {
+            **retrieval.get("stage_latency_ms", {}),
+            **trace["stage_latency_ms"],
+        }
+        retrieval["kg_version"] = trace.get("kg_version") or await self._answer_path_kg_version(settings)
+        kg_check = trace.get("kg_check") or {"mode": settings.kg_check_mode, "status": "skipped"}
+
+        logger.info(
+            "Answer path: method=%s active=%s failed=%s kg_check=%s/%s timings_ms=%s",
+            retrieval.get("rag_method"), retrieval.get("retrievers_active"),
+            retrieval.get("retrievers_failed", {}), kg_check.get("status"),
+            kg_check.get("action", "none"), retrieval["stage_latency_ms"],
+        )
+        record_retrieval(
+            user_id=user_id,
+            retrieval=retrieval,
+            kg_check=kg_check,
+            status=str(result.get("status", "")) if isinstance(result, dict) else "",
+        )
+        if isinstance(result, dict):
+            result.setdefault("retrieval", retrieval)
+            result.setdefault("kg_check", kg_check)
+
+    async def _query_impl(self, question: str, conversation_id: Optional[str] = None,
+                          user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en",
+                          _trace: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """The answer path itself. See query() for the wrapper that logs it."""
+        trace = _trace if _trace is not None else {"stage_latency_ms": {}}
+        stage_ms = trace.setdefault("stage_latency_ms", {})
+        settings = get_active_settings()
         try:
             # =================================================================
             # SAFETY ENHANCEMENTS: Pre-processing checks
@@ -1333,8 +1472,46 @@ class SimpleRAGPipeline:
             should_fuse = False
             distances = []
             relevant_metadatas = []
+            relevant_contexts = []
+            retrieval_started = time.perf_counter()
 
-            if _rag_method == "pageindex" and _pageindex_enabled and _pageindex_engine:
+            # kg / graphrag / fused: vector plus graph retrievers, fused by RRF.
+            # A None result means vector retrieval failed there, and the default
+            # vector path below runs instead, exactly as it would without a flag.
+            routed = None
+            router = getattr(self, "retrieval_router", None)
+            if _rag_method in ROUTED_METHODS:
+                if router is not None:
+                    routed = await router.retrieve(query_for_search, top_k, method=_rag_method)
+                if routed is None:
+                    trace["retrieval"] = {
+                        "rag_method": "vector",
+                        "retrievers_active": ["vector"],
+                        "fallback_reason": "router_not_configured" if router is None else "vector_failed_in_router",
+                    }
+                    logger.warning("RAG method %s unavailable; using default vector retrieval", _rag_method)
+
+            if routed is not None:
+                trace["retrieval"] = routed.record()
+                if not routed.passages:
+                    stage_ms["retrieval"] = round((time.perf_counter() - retrieval_started) * 1000, 1)
+                    return {
+                        "status": "success",
+                        "answer": "I could not find any supporting documents in my corpus. Please consult a qualified medical doctor or visit the nearest hospital.",
+                        "model_used": "system",
+                        "sources": [],
+                        "context_used": 0,
+                        "conversation_id": conversation_id,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                context_text = routed.context_text
+                filtered_metadatas = routed.metadatas
+                relevant_metadatas = filtered_metadatas
+                relevant_contexts = [p.text for p in routed.passages]
+                distances = routed.distances
+                should_fuse = len(routed.passages) > 1
+
+            elif _rag_method == "pageindex" and _pageindex_enabled and _pageindex_engine:
                 # PageIndex tree-based retrieval
                 logger.info(f"Using PageIndex tree-based retrieval for: {query_for_search[:80]}")
                 pi_result = await _pageindex_engine.search(query_for_search)
@@ -1485,6 +1662,16 @@ class SimpleRAGPipeline:
                     for doc, meta in zip(filtered_contexts, filtered_metadatas)
                 ])
 
+            stage_ms["retrieval"] = round((time.perf_counter() - retrieval_started) * 1000, 1)
+            if "retrieval" not in trace:
+                trace["retrieval"] = {
+                    "rag_method": _rag_method,
+                    "retrievers_active": {
+                        "pageindex": ["pageindex"],
+                        "hybrid": ["vector", "pageindex"],
+                    }.get(_rag_method if _pageindex_enabled else "vector", ["vector"]),
+                }
+
             # V25: Inject patient context if available
             patient_context = ""
             if user_id and self.context_injector:
@@ -1505,7 +1692,19 @@ class SimpleRAGPipeline:
                     logger.warning(f"Failed to inject patient context: {e}")
 
             # Generate answer using Groq with citation instructions
+            generation_started = time.perf_counter()
             answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
+            stage_ms["generation"] = round((time.perf_counter() - generation_started) * 1000, 1)
+
+            # K26: cross-reference the drafted answer's clinical claims against
+            # the knowledge graph. Off by default; never fails the turn.
+            checker = getattr(self, "kg_checker", None)
+            if settings.kg_check_enabled and checker is not None and model_used != "error":
+                answer, kg_result = await checker.check(answer)
+                trace["kg_check"] = kg_result.to_dict()
+                if kg_result.kg_version:
+                    trace["kg_version"] = kg_result.kg_version
+                stage_ms["kg_check"] = round(kg_result.latency_ms, 1)
             
             # DISABLED: Don't override similarity threshold with LLM's uncertainty
             # If similarity threshold passed, trust that we have relevant context
@@ -4777,9 +4976,24 @@ def main():
     )
     parser.add_argument(
         "--rag-method",
-        choices=["vector", "pageindex", "hybrid"],
-        default="vector",
-        help="RAG method: vector=ChromaDB (default), pageindex=tree-based, hybrid=both"
+        choices=list(RAG_METHODS),
+        default=None,
+        help=(
+            "RAG method: vector=ChromaDB (default), pageindex=tree-based, hybrid=both, "
+            "kg=vector+knowledge graph, graphrag=vector+GraphRAG index, "
+            "fused=vector+PageIndex+knowledge graph+GraphRAG (all RRF-fused). "
+            "Overrides RAG_METHOD and retrieval.rag_method in config.yaml."
+        )
+    )
+    parser.add_argument(
+        "--kg-check",
+        choices=["off", "shadow", "flag", "block"],
+        default=None,
+        help=(
+            "Knowledge-graph cross-reference check of drafted answers (protocol K26): "
+            "off (default), shadow=log only, flag=append a caution, block=remove "
+            "contradicted sentences. Overrides KG_CHECK_MODE and config.yaml."
+        )
     )
 
     args = parser.parse_args()
@@ -4819,9 +5033,21 @@ def main():
     _pageindex_builder = None
     _pageindex_engine = None
     _pageindex_enabled = False
-    _rag_method = getattr(args, 'rag_method', 'vector')
+    retrieval_settings = load_retrieval_settings(
+        cli_rag_method=getattr(args, 'rag_method', None),
+    )
+    if getattr(args, 'kg_check', None):
+        retrieval_settings.kg_check_mode = args.kg_check
+        retrieval_settings.source["kg_check_mode"] = "cli"
+    set_active_settings(retrieval_settings)
+    _rag_method = retrieval_settings.rag_method
+    logger.info(
+        "Retrieval settings: rag_method=%s kg_check=%s fusion=%s (sources: %s)",
+        retrieval_settings.rag_method, retrieval_settings.kg_check_mode,
+        retrieval_settings.fusion_description(), retrieval_settings.source,
+    )
 
-    if PAGEINDEX_AVAILABLE and _rag_method in ("pageindex", "hybrid"):
+    if PAGEINDEX_AVAILABLE and _rag_method in ("pageindex", "hybrid", "fused"):
         try:
             _pageindex_config = PageIndexConfig()
             _pageindex_storage = PageIndexStorage(_pageindex_config)
@@ -4840,6 +5066,14 @@ def main():
     elif _rag_method in ("pageindex", "hybrid") and not PAGEINDEX_AVAILABLE:
         logger.warning("PageIndex requested but module not available, falling back to vector")
         _rag_method = "vector"
+
+    # Keep the active settings in step with any fallback above, so the release
+    # log records the method that actually answers.
+    retrieval_settings.rag_method = _rag_method
+    rag_pipeline.configure_answer_path(
+        retrieval_settings,
+        pageindex_engine=_pageindex_engine if _pageindex_enabled else None,
+    )
 
     # Initialize ngrok manager
     ngrok_manager = NgrokManager()
@@ -4932,6 +5166,12 @@ def main():
             graphrag_enabled = True
             logger.info("GraphRAG initialized successfully")
 
+            # Answer path: attach the local-index GraphRAG retriever when the
+            # configured RAG method uses it (graphrag / fused). No-op otherwise.
+            rag_pipeline.configure_answer_path(
+                get_active_settings(), graphrag_engine=graphrag_query_engine
+            )
+
         except Exception as e:
             logger.error(f"Failed to initialize GraphRAG: {e}")
             graphrag_enabled = False
@@ -4955,6 +5195,11 @@ def main():
             else:
                 kg_enabled = True  # Still enabled for pattern-based extraction
                 logger.info("Knowledge Graph initialized (limited mode - no Neo4j)")
+
+            # Answer path: the KG retriever (kg / fused) and the K26 claim check
+            # read the graph through this store. With Neo4j down both report
+            # "unavailable" per turn and the answer goes out on the vector path.
+            rag_pipeline.configure_answer_path(get_active_settings(), kg_rag=kg_rag)
 
         except Exception as e:
             logger.error(f"Failed to initialize Knowledge Graph: {e}")

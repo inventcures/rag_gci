@@ -179,6 +179,11 @@ class InteractionLog:
     source_count: int = 0
     source_documents: List[str] = field(default_factory=list)
     corpus_chunk_count: Optional[int] = None
+    # Active retrievers, fusion settings and KG version (protocol 7.8), as
+    # SimpleRAGPipeline.query() reports them in result["retrieval"].
+    retrieval: Dict[str, Any] = field(default_factory=dict)
+    # Knowledge-graph cross-reference check of the drafted answer (K26).
+    kg_check: Dict[str, Any] = field(default_factory=dict)
 
     # -- safety (the grant's safety outcome) --
     emergency_level: str = "none"
@@ -362,6 +367,8 @@ class StudyInteractionLogger:
         provider: str = "",
         stt_model: str = "",
         tts_model: str = "",
+        retrieval: Optional[Dict[str, Any]] = None,
+        kg_check: Optional[Dict[str, Any]] = None,
     ) -> InteractionLog:
         """
         Record one interaction end to end.
@@ -401,7 +408,9 @@ class StudyInteractionLogger:
             query=scrubbed_query.text,
             response=scrubbed_response.text,
             scrubbed_fields=scrubbed_fields,
-            rag_method=rag_method,
+            rag_method=rag_method or str((retrieval or {}).get("rag_method") or ""),
+            retrieval=dict(retrieval or {}),
+            kg_check=dict(kg_check or {}),
             source_count=len(sources),
             source_documents=sorted(
                 {
@@ -537,6 +546,10 @@ def _issues_for(entry: InteractionLog) -> List[Dict[str, str]]:
         issues.append({"level": "info", "reason": "dosage_restriction_applied"})
     if entry.validation_status == "unsupported_answer":
         issues.append({"level": "error", "reason": "unsupported_answer"})
+    # K26: a claim the knowledge graph contradicts goes to the flagged tier
+    # whether or not the policy removed it, so a clinician sees what was drafted.
+    if (entry.kg_check or {}).get("contradicted"):
+        issues.append({"level": "error", "reason": "kg_contradicted_claim"})
     return issues
 
 
