@@ -2,12 +2,12 @@
 
 import json
 import logging
-import os
 import uuid
 from collections import defaultdict
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from llm import get_llm_client
 from memory_agents.memory_store import (
     MemoryStore,
     MemoryRecord,
@@ -30,8 +30,6 @@ class PatientConsolidateAgent:
 
     def __init__(self, memory_store: MemoryStore):
         self._store = memory_store
-        self._groq_api_key = os.getenv("GROQ_API_KEY")
-        self._groq_model = "llama-3.1-8b-instant"
 
     async def consolidate_patient(self, patient_id: str) -> List[ConsolidatedInsight]:
         raw_memories = await self._store.get_unconsolidated(patient_id)
@@ -116,12 +114,7 @@ class PatientConsolidateAgent:
         group_key: str,
         memories: List[MemoryRecord],
     ) -> Optional[List[ConsolidatedInsight]]:
-        if not self._groq_api_key:
-            return None
-
         try:
-            import aiohttp
-
             memory_text = "\n".join(
                 f"[{datetime.fromtimestamp(m.timestamp).strftime('%Y-%m-%d %H:%M')}] "
                 f"(importance: {m.importance_score:.1f}) {m.summary}"
@@ -139,50 +132,38 @@ class PatientConsolidateAgent:
                 f"Observations for entity group '{group_key}':\n{memory_text}\n\nJSON:"
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._groq_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._groq_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.2,
-                        "max_tokens": 512,
-                    },
-                    timeout=aiohttp.ClientTimeout(total=20),
-                ) as resp:
-                    if resp.status != 200:
-                        return None
+            # No LLM configured or the call failed: rule-based consolidation.
+            resp = await get_llm_client().generate(
+                prompt, max_tokens=512, temperature=0.2, purpose="memory_consolidate"
+            )
+            if not resp.ok:
+                return None
 
-                    data = await resp.json()
-                    raw = data["choices"][0]["message"]["content"].strip()
-                    start = raw.find("[")
-                    end = raw.rfind("]") + 1
-                    if start >= 0 and end > start:
-                        parsed = json.loads(raw[start:end])
-                    elif raw.startswith("{"):
-                        parsed = [json.loads(raw)]
-                    else:
-                        return None
+            raw = resp.text.strip()
+            start = raw.find("[")
+            end = raw.rfind("]") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(raw[start:end])
+            elif raw.startswith("{"):
+                parsed = [json.loads(raw)]
+            else:
+                return None
 
-                    now = datetime.utcnow().timestamp()
-                    source_ids = [m.id for m in memories]
-                    insights = []
-                    for item in parsed:
-                        insight = ConsolidatedInsight(
-                            id=str(uuid.uuid4()),
-                            patient_id=patient_id,
-                            insight_text=item.get("text", ""),
-                            source_memory_ids=source_ids,
-                            insight_type=item.get("type", "trend"),
-                            created_at=now,
-                        )
-                        await self._store.store_insight(insight)
-                        insights.append(insight)
-                    return insights
+            now = datetime.utcnow().timestamp()
+            source_ids = [m.id for m in memories]
+            insights = []
+            for item in parsed:
+                insight = ConsolidatedInsight(
+                    id=str(uuid.uuid4()),
+                    patient_id=patient_id,
+                    insight_text=item.get("text", ""),
+                    source_memory_ids=source_ids,
+                    insight_type=item.get("type", "trend"),
+                    created_at=now,
+                )
+                await self._store.store_insight(insight)
+                insights.append(insight)
+            return insights
 
         except Exception as e:
             logger.debug(f"LLM consolidation failed: {e}")

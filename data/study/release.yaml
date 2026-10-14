@@ -28,7 +28,8 @@ models:
     provider: "gemini"
     model: "gemini-3.5-flash"
     region: "asia-south1"          # Mumbai. Verified available (ADR 0007).
-    override_env: "GENAI_LLM_PROVIDER / GENAI_GEMINI_MODEL / VERTEX_AI_LOCATION"
+    override_env: "LLM_MODEL / LLM_LOCATION (llm/client.py; config.yaml llm:)"
+    fallback: "none"               # DeepSeek fallback off: China-hosted, not approved
     # Chosen over Gemini 3.8 Flash: 3.8, 3.7 and 3.6 have no Asia-Pacific
     # availability at all. 3.5 Flash is the newest model available in India.
     # The previously configured gemini-3.1-flash-lite is also unavailable in
@@ -50,14 +51,11 @@ models:
     trigger: "first-token timeout or per-turn stall"
     # Automatic fallback on session failure or stall. Not operator-toggleable.
   query_translation:
-    provider: "groq"
-    model: "llama-3.1-8b-instant"
-    # KNOWN DEFECT (ADR 0003): this path still calls Groq while the RAG LLM moved
-    # to Gemini. Without GROQ_API_KEY it returns status "error", which
-    # simple_rag_server.py:1261 silently treats as "search the original query",
-    # embedding untranslated Indic text with an English model. Record it so the
-    # defect is visible in the release rather than discovered in the analysis.
-    status: "defective"
+    provider: "gemini"
+    model: "gemini-3.5-flash"
+    # Uses the shared LLM client (llm/client.py), same model and region as
+    # answers. Replaces the Groq llama-3.1-8b-instant path recorded as defective
+    # in the previous release (ADR 0003).
   embedding:
     model: "BAAI/bge-m3"
     dimensions: 1024

@@ -2,11 +2,11 @@
 
 import json
 import logging
-import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from llm import get_llm_client
 from memory_agents.memory_store import MemoryStore, MemoryRecord, ConsolidatedInsight
 
 logger = logging.getLogger(__name__)
@@ -35,8 +35,6 @@ class PatientQueryAgent:
 
     def __init__(self, memory_store: MemoryStore):
         self._store = memory_store
-        self._groq_api_key = os.getenv("GROQ_API_KEY")
-        self._groq_model = "llama-3.1-8b-instant"
 
     async def query(
         self,
@@ -110,15 +108,10 @@ class PatientQueryAgent:
         memories: List[MemoryRecord],
         insights: List[ConsolidatedInsight],
     ) -> Optional[str]:
-        if not self._groq_api_key:
-            return None
-
         if not memories and not insights:
             return "No relevant patient observations or insights found for this question."
 
         try:
-            import aiohttp
-
             memory_text = "\n".join(
                 f"[Observation #{i+1}, {datetime.fromtimestamp(m.timestamp).strftime('%Y-%m-%d')}] {m.summary}"
                 for i, m in enumerate(memories[:15])
@@ -140,25 +133,11 @@ class PatientQueryAgent:
                 "Answer with citations:"
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._groq_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._groq_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.3,
-                        "max_tokens": 512,
-                    },
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        return None
-                    data = await resp.json()
-                    return data["choices"][0]["message"]["content"].strip()
+            # None sends the caller to the rule-based summary.
+            resp = await get_llm_client().generate(
+                prompt, max_tokens=512, temperature=0.3, purpose="memory_query"
+            )
+            return resp.text.strip() if resp.ok else None
 
         except Exception as e:
             logger.debug(f"LLM synthesis failed: {e}")

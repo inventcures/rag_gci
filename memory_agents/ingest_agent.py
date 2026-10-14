@@ -2,12 +2,12 @@
 
 import json
 import logging
-import os
 import re
 import uuid
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
+from llm import get_llm_client
 from memory_agents.memory_store import MemoryStore, MemoryRecord
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,6 @@ class PatientIngestAgent:
 
     def __init__(self, memory_store: MemoryStore):
         self._store = memory_store
-        self._groq_api_key = os.getenv("GROQ_API_KEY")
-        self._groq_model = "llama-3.1-8b-instant"
 
     async def ingest_observation(self, observation: Dict[str, Any]) -> MemoryRecord:
         """
@@ -106,12 +104,7 @@ class PatientIngestAgent:
         return ". ".join(parts) if parts else str(observation)
 
     async def _llm_extract(self, obs_text: str) -> Optional[Dict[str, Any]]:
-        if not self._groq_api_key:
-            return None
-
         try:
-            import aiohttp
-
             prompt = (
                 "Extract structured information from this clinical observation. "
                 "Return ONLY valid JSON with these fields:\n"
@@ -122,35 +115,23 @@ class PatientIngestAgent:
                 f"Observation: {obs_text}\n\nJSON:"
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._groq_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._groq_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.1,
-                        "max_tokens": 256,
-                    },
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        return None
-                    data = await resp.json()
-                    raw = data["choices"][0]["message"]["content"].strip()
-                    start = raw.find("{")
-                    end = raw.rfind("}") + 1
-                    if start >= 0 and end > start:
-                        parsed = json.loads(raw[start:end])
-                        return {
-                            "summary": parsed.get("summary", obs_text[:200]),
-                            "entities": parsed.get("entities", []),
-                            "topics": parsed.get("topics", []),
-                            "importance_score": min(1.0, max(0.0, float(parsed.get("importance_score", 0.5)))),
-                        }
+            # No LLM configured or the call failed: rule-based extraction.
+            resp = await get_llm_client().generate(
+                prompt, max_tokens=256, temperature=0.1, json_mode=True, purpose="memory_ingest"
+            )
+            if not resp.ok:
+                return None
+            raw = resp.text.strip()
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(raw[start:end])
+                return {
+                    "summary": parsed.get("summary", obs_text[:200]),
+                    "entities": parsed.get("entities", []),
+                    "topics": parsed.get("topics", []),
+                    "importance_score": min(1.0, max(0.0, float(parsed.get("importance_score", 0.5)))),
+                }
         except Exception as e:
             logger.debug(f"LLM extraction failed: {e}")
 

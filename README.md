@@ -59,8 +59,16 @@ pip install -r requirements.txt
 Edit `.env` file with your API keys:
 
 ```bash
-# Required for LLM and STT
-GROQ_API_KEY=your_groq_api_key_here
+# LLM (llm/client.py). Either Vertex AI, pinned to asia-south1:
+GOOGLE_CLOUD_PROJECT=your-gcp-project
+# ...or the Gemini API (not region-pinned):
+# GEMINI_API_KEY=your_gemini_api_key
+
+# Speech-to-text and the Indian-hosted voice fallback
+SARVAM_API_KEY=your_sarvam_api_key
+
+# Optional, only if llm.fallback.enabled is true (DeepSeek is hosted outside India)
+# DEEPSEEK_API_KEY=your_deepseek_api_key
 
 # Optional - for WhatsApp Bot
 WHATSAPP_VERIFY_TOKEN=your_verify_token
@@ -68,11 +76,9 @@ WHATSAPP_ACCESS_TOKEN=your_access_token
 WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 ```
 
-**Get Groq API Key**: 
-- Visit [Groq Console](https://console.groq.com/)
-- Sign up for free account
-- Generate API key
-- Free tier includes LLM access and Whisper STT
+Every text LLM call (answers, translation, graph extraction, agents) goes through
+one client, configured by the `llm:` block in `config.yaml`. See
+[docs/llm.md](docs/llm.md) for the model, the fallback, and how to switch.
 
 ### 3. Start the Server
 
@@ -240,8 +246,10 @@ result = await rag.query_with_auto_recovery("your question")
 ```yaml
 # LLM Configuration
 llm:
-  provider: "groq"
-  model: "llama-3.1-8b-instant"
+  model: "gemini-3.5-flash"     # LLM_MODEL; gemini-3.8-flash is one line away
+  location: "asia-south1"
+  fallback:
+    enabled: false              # DeepSeek; LLM_FALLBACK_ENABLED
   
 # Embedding Configuration  
 embedding:
@@ -320,9 +328,8 @@ ngrok authtoken your_auth_token
 
 ### Common Issues
 
-**"GROQ_API_KEY not configured"**
-- Set your Groq API key in `.env` file
-- Get free key from [Groq Console](https://console.groq.com/)
+**"Error generating response: gemini: no GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY"**
+- Set `GOOGLE_CLOUD_PROJECT` (Vertex AI) or `GEMINI_API_KEY` in `.env`
 
 **"kotaemon-main directory not found"**
 - Ensure Kotaemon codebase is in the project directory
@@ -370,10 +377,8 @@ Check logs in:
 
 This solution is designed to work within free tiers:
 
-### Groq (Free Tier)
-- **LLM**: 14,400 tokens/day (enough for ~100-200 queries)
-- **STT**: 100 minutes/day audio transcription
-- **Cost**: $0
+### Gemini Flash
+- **LLM**: paid per token; Flash is the low-cost tier
 
 ### Edge TTS (Free)
 - **Unlimited**: Text-to-speech generation
