@@ -434,7 +434,7 @@ class RetellCustomLLMHandler:
                     # VOICE OPTIMIZATION & SAFETY
                     # =================================================================
                     try:
-                        from voice_safety_wrapper import get_voice_safety_wrapper
+                        from voice_safety_wrapper import VOICE_SAFETY_NET_S, get_voice_safety_wrapper
                         safety_wrapper = get_voice_safety_wrapper()
                         
                         # Optimize for voice output
@@ -442,7 +442,7 @@ class RetellCustomLLMHandler:
                             answer,
                             user_id=session.from_number or session.call_id,
                             language=session.language,
-                            max_duration_seconds=30
+                            max_duration_seconds=VOICE_SAFETY_NET_S
                         )
                         
                         # Add evidence warning if needed

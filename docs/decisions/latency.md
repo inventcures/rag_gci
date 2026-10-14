@@ -295,3 +295,40 @@ Each entry: what was decided, the alternatives, and why.
   streamed until ticket 13, so the `llm` span measures the whole call (with
   `thinking` and `budget_s` attributes). The benchmark measured first token
   by streaming.
+
+## 12: Voice-length answers
+
+- **Voice turns get their own prompt** (`VOICE_ANSWER_INSTRUCTION`): 60-80
+  spoken words, no lists, markdown or citations. The first sentence keeps
+  paragraph 1's meaning, including the dose referral to the doctor or nurse.
+  A voice turn is anything inside `within_voice_deadline` (ticket 11), so
+  Retell, Bolna, the Gemini Live tool and mobile voice all get it. Text
+  channels keep the text prompt unchanged.
+- **Measured on the live model** (`docs/latency/voice-answers-12.md`):
+  output tokens down 83%, 74 words at p50 (87 max), whole answer in 1.4 s at
+  p50 against 10.6 s for the text answer. No voice answer reached the safety
+  net; 2 drafts had a dose before the guard and none after; 37 of 40 told the
+  caller to confirm the dose with the doctor or nurse.
+- **Thinking stays `minimal` on voice.** With the voice prompt it is close to
+  `high` (18 wins, 22 losses), but the judge prefers `low` (minimal lost 30 of
+  40 against it). `low` takes 6.6 s at p50 and 8.9 s at p95, past the 7 s
+  deadline. **Open for the clinical lead:** if the review prefers `low`, set
+  `llm.thinking.voice_answer: low` and `llm.deadlines.voice_s: 10`, and the
+  caller waits about 7 s for the first word instead of 1 s. Ticket 13's
+  acknowledgement fills some of that silence on Retell.
+- **The text evidence badge is not appended on voice.** It is a formatted
+  block (emoji, a rule line) that was either read aloud or cut. The badge's
+  fields now go in `safety_enhancements.evidence_badge` on every channel.
+  This field was `true` before, so Retell and Bolna crashed into their
+  fallback truncation when they read it as a dict. They now speak their short
+  evidence note when the badge says so.
+- **Truncation is a safety net at 60 s** (`VOICE_SAFETY_NET_S`, ~130 words),
+  raised from 30 s, so a voice-length answer plus its evidence note is never
+  cut. Mobile voice now applies it too: TTS gets the voice-length text, and
+  that same text is recorded and returned.
+- **The Dose Boundary's redaction note is now spoken.** The voice cleanup
+  deleted everything in parentheses, including the note `_(...)_` that follows
+  a removed dose sentence. It is unwrapped first.
+- **Clinician review:** a sheet with all 40 spoken answers is in project files
+  (`research/latency-evals/voice-answers-review.md`). It has to be filled in
+  and recorded before the release is activated.

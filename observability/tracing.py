@@ -222,6 +222,11 @@ def record_span(name: str, ms: float, **attrs: Any) -> float:
     return current.ms
 
 
+def current_span() -> Optional[Span]:
+    """The innermost open span, to add attributes from deeper code."""
+    return _current.get()
+
+
 def current_trace_id() -> Optional[str]:
     active = _current.get()
     return active.trace_id if active else None

@@ -40,8 +40,11 @@ models:
     # the model's default level, which spent the 2048-token cap on thinking and
     # cut answers off mid-sentence after ~11 s. Measurements and the quality
     # comparison: docs/latency/thinking-11.md; reasoning: docs/decisions/latency.md.
-    # voice_answer "minimal" lost to "high" on 28 of 40 vignettes (judged by the
-    # model) and needs clinician review before activation.
+    # Voice turns use a 60-80 word spoken prompt (ticket 12). With it, voice
+    # answers at "minimal" were judged close to "high" (18 wins, 22 losses of
+    # 40) and behind "low" (10 wins, 30 losses). Clinician review of the spoken
+    # answers (research/latency-evals/voice-answers-review.md) is required
+    # before activation.
     thinking:
       answer: low
       voice_answer: minimal

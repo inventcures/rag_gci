@@ -211,7 +211,7 @@ from post_work import after_reply, stats as post_work_stats
 import ingest_jobs
 from participants import ephemeral, is_person
 from llm import get_llm_client
-from llm.client import GENERATION_FAILED_ANSWER, within_voice_deadline
+from llm.client import GENERATION_FAILED_ANSWER, in_voice_turn, within_voice_deadline
 from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexMismatchError,
@@ -781,6 +781,24 @@ ANSWER_PARAGRAPH_1_INSTRUCTION = (
     "the medical context contains one; instead tell the asker to confirm the dose "
     "with the patient's doctor or nurse."
 )
+
+# Voice turns (within_voice_deadline): an answer written for listening. The
+# first sentence keeps paragraph 1's meaning, including the dose referral.
+VOICE_ANSWER_INSTRUCTION = (
+    "LENGTH AND STRUCTURE (SPOKEN ANSWER):\n"
+    "- This answer will be spoken aloud on a phone call. Write 60 to 80 words: "
+    "three to five short, plain sentences. No lists, headings, markdown, symbols, "
+    "brackets or source citations.\n"
+    "- First: the direct clinical answer. Name the medicines (and the route, e.g. "
+    "by mouth or under the skin, where it matters) and say when each is used. Never "
+    "give a dose, amount, strength, frequency, schedule or titration step, even if "
+    "the medical context contains one; instead tell the caller to confirm the dose "
+    "with the patient's doctor or nurse.\n"
+    "- Then: the one most important thing to do now, for the caller's setting.\n"
+    "- Last: the warning sign that means they must call the doctor or go to "
+    "hospital, when there is one."
+)
+VOICE_ANSWER_MAX_TOKENS = 300
 
 _BOLNA_IDENTITY_KEYS = ("from_number", "execution_id", "call_sid", "call_id")
 
@@ -1901,16 +1919,21 @@ class SimpleRAGPipeline:
             # SAFETY ENHANCEMENTS: Post-processing
             # =================================================================
             
-            # 1. Add evidence badge
+            # 1. Evidence badge. Text answers get the badge appended. A voice
+            # answer does not: the badge is a formatted block nobody should
+            # hear, and it sat at the end where voice truncation cut it. Voice
+            # channels speak a short note from the badge's fields instead.
+            evidence_badge = None
             if SAFETY_ENHANCEMENTS_AVAILABLE:
                 safety_manager = get_safety_manager()
-                answer = safety_manager.add_evidence_badge(
-                    query=question,
-                    sources=sources,
-                    distances=distances,
-                    answer=answer,
-                    language=source_language
-                )
+                try:
+                    badge = safety_manager.evidence_system.calculate_evidence_badge(
+                        question, sources, distances, answer)
+                    evidence_badge = badge.to_dict()
+                    if not in_voice_turn():
+                        answer = f"{answer}\n{badge.format_for_user(source_language)}"
+                except Exception:
+                    logger.warning("Evidence badge failed", exc_info=True)
             
             # 2. Optimize response length for user comprehension
             if SAFETY_ENHANCEMENTS_AVAILABLE and user_id:
@@ -1927,7 +1950,7 @@ class SimpleRAGPipeline:
                 "timestamp": datetime.now().isoformat(),
                 "patient_context_used": bool(patient_context),
                 "safety_enhancements": {
-                    "evidence_badge": SAFETY_ENHANCEMENTS_AVAILABLE,
+                    "evidence_badge": evidence_badge,
                     "response_optimized": SAFETY_ENHANCEMENTS_AVAILABLE and user_id is not None,
                 } if SAFETY_ENHANCEMENTS_AVAILABLE else None
             }
@@ -2103,6 +2126,33 @@ ANSWER (2-3 paragraphs):"""
             return True, probe
         return float(distances[0]) > self.CROSS_LANGUAGE_FALLBACK_DISTANCE, probe
 
+    async def _generate_voice_answer(self, question: str, citation_text: str,
+                                     context_label: str) -> tuple:
+        """A ~80-word answer for a voice turn, written for listening. Sources stay
+        in the result's `sources`; nothing is appended for a listener to hear."""
+        prompt = f"""You are an expert palliative care physician answering a question for a community health worker or family caregiver in India, on a phone call.
+
+LANGUAGE: Respond in English only.
+
+{VOICE_ANSWER_INSTRUCTION}
+
+QUALITY REQUIREMENTS:
+1. Ground every clinical claim in the provided medical context. Do not invent facts.
+2. Warm, calm, non-judgemental tone for a worried caregiver.
+3. Avoid generic deflection unless the question is outside the context. The one exception is dosing: always refer the dose to the patient's doctor or nurse.
+
+{context_label}:
+{citation_text}
+
+QUESTION: {question}
+
+SPOKEN ANSWER (60-80 words):"""
+        answer, model_used = await self._call_llm(
+            prompt, max_tokens=VOICE_ANSWER_MAX_TOKENS, temperature=0.3)
+        if model_used == "error":
+            return answer, model_used
+        return self._clean_inline_citations(answer).strip(), model_used
+
     async def _generate_answer_with_citations(self, question: str, context: str, metadatas: List[Dict], should_fuse: bool = False) -> tuple:
         """Generate an answer with citations.
 
@@ -2129,6 +2179,9 @@ ANSWER (2-3 paragraphs):"""
                     "answer on it. Cite this source.\n"
                 )
                 context_label = "MEDICAL CONTEXT (MOST RELEVANT)"
+
+            if in_voice_turn():
+                return await self._generate_voice_answer(question, citation_text, context_label)
 
             prompt = f"""You are an expert palliative care physician answering a question for a community health worker or family caregiver in India.
 
@@ -5861,7 +5914,7 @@ def main():
                 # VOICE OPTIMIZATION for Bolna Response
                 # =================================================================
                 try:
-                    from voice_safety_wrapper import get_voice_safety_wrapper
+                    from voice_safety_wrapper import VOICE_SAFETY_NET_S, get_voice_safety_wrapper
                     safety_wrapper = get_voice_safety_wrapper()
                     
                     # Optimize for voice output
@@ -5869,7 +5922,7 @@ def main():
                         answer,
                         user_id=caller_id,
                         language=language,
-                        max_duration_seconds=30
+                        max_duration_seconds=VOICE_SAFETY_NET_S
                     )
                     
                     # Add evidence warning if needed

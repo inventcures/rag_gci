@@ -61,7 +61,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Iterator, List, Optional, TypeVar
 
-from observability import span
+from observability import current_span, span
 
 logger = logging.getLogger(__name__)
 
@@ -357,6 +357,11 @@ class LLMClient:
         response = await self._genai_client().aio.models.generate_content(
             model=self.settings.model, contents=prompt, config=config
         )
+        usage = getattr(response, "usage_metadata", None)
+        active = current_span()
+        if usage is not None and active is not None:
+            active.set(output_tokens=getattr(usage, "candidates_token_count", None),
+                       thought_tokens=getattr(usage, "thoughts_token_count", None))
         text = (getattr(response, "text", None) or "").strip()
         if not text:
             raise RuntimeError("Gemini returned no text")

@@ -88,7 +88,7 @@ def top_chunks(question: str, docs, metas, k=5):
     return [docs[i] for i in scored], [metas[i] for i in scored]
 
 
-async def answer_prompts(limit: int) -> List[Dict[str, Any]]:
+async def answer_prompts(limit: int, voice: bool = False) -> List[Dict[str, Any]]:
     docs, metas = load_chunks()
     p = capture_pipeline()
     items = []
@@ -98,7 +98,13 @@ async def answer_prompts(limit: int) -> List[Dict[str, Any]]:
         ctx, md = top_chunks(question, docs, metas)
         context = "\n\n".join(f"Source: {m.get('filename')} (chunk {m.get('chunk_index', 0) + 1})\n{d}"
                               for d, m in zip(ctx, md))
-        await p._generate_answer_with_citations(question, context, md, False)
+        from llm import client as llm_client
+
+        token = llm_client._voice_turn.set(voice)
+        try:
+            await p._generate_answer_with_citations(question, context, md, False)
+        finally:
+            llm_client._voice_turn.reset(token)
         call = p._call_llm.calls.pop()
         items.append({"id": v["vignette_id"], "question": question, **call})
     return items
@@ -185,12 +191,13 @@ class Runner:
                     return {"text": "".join(parts).strip(), "ttft_s": first,
                             "total_s": time.perf_counter() - started, "finish": finish,
                             "thought_tokens": getattr(usage, "thoughts_token_count", None),
+                            "output_tokens": getattr(usage, "candidates_token_count", None),
                             "error": None}
                 except Exception as e:  # rate limit or transient: back off and retry
                     err = f"{type(e).__name__}: {str(e)[:200]}"
                     await asyncio.sleep(2 * (attempt + 1))
             return {"text": "", "ttft_s": None, "total_s": None, "finish": None,
-                    "thought_tokens": None, "error": err}
+                    "thought_tokens": None, "output_tokens": None, "error": err}
 
     async def judge(self, prompt: str) -> Dict[str, Any]:
         out = await self.run({"prompt": prompt, "max_tokens": 4096, "temperature": 0.0, "json_mode": True}, "high")

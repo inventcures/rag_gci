@@ -40,6 +40,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from llm.client import GENERATION_FAILED_ANSWER, within_voice_deadline
 from observability import trace_request
+from voice_safety_wrapper import fit_for_voice
 from participants import ephemeral
 
 logger = logging.getLogger(__name__)
@@ -264,15 +265,20 @@ class VoiceTurnHandler:
 
         answer_kind = _answer_kind(safety)
 
+        # What is spoken is what is shown and recorded: the guarded answer,
+        # cleaned for speech and capped as a safety net (it is generated at
+        # voice length; see voice_safety_wrapper.VOICE_SAFETY_NET_S).
+        spoken = fit_for_voice(safety.response)
+
         audio_base64 = None
         if self.synthesise is not None:
-            audio_base64 = await self.synthesise(safety.response, session.language)
+            audio_base64 = await self.synthesise(spoken, session.language)
 
-        session.record_turn(transcript, safety.response)
+        session.record_turn(transcript, spoken)
 
         turn = VoiceTurn(
             transcript=transcript,
-            answer=safety.response,
+            answer=spoken,
             answer_kind=answer_kind,
             evidence_level=str(getattr(safety, "evidence_level", "E")),
             emergency_level=str(getattr(safety, "emergency_level", "none")),
