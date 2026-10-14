@@ -2,13 +2,24 @@
 import os
 import pytest
 import tempfile
+from llm import LLMClient, LLMSettings, get_llm_client, set_llm_client
 from pageindex_integration.config import PageIndexConfig, TreeBuildConfig, LLMConfig, SearchConfig
+
+
+@pytest.fixture(autouse=True)
+def shared_client():
+    """Install a shared LLM client with known settings; restore afterwards."""
+    previous = get_llm_client()
+    client = set_llm_client(LLMClient(LLMSettings(model="gemini-3.5-flash", api_key="test-key")))
+    yield client
+    set_llm_client(previous)
 
 
 def test_default_config():
     config = PageIndexConfig()
     assert config.root_dir.name == "pageindex"
-    assert config.llm.provider == "groq"
+    assert config.llm.provider == "gemini"
+    assert config.llm.effective_model == "gemini-3.5-flash"
     assert config.tree_build.toc_check_pages == 20
     assert config.search.cache_enabled is True
 
@@ -21,19 +32,19 @@ def test_config_paths():
 
 
 def test_config_validation_missing_key():
-    old = os.environ.pop("GROQ_API_KEY", None)
-    old_openai = os.environ.pop("OPENAI_API_KEY", None)
-    try:
-        config = PageIndexConfig()
-        config.llm.provider = "groq"
-        config.llm.model = ""
-        errors = config.validate()
-        assert any("API key" in e for e in errors)
-    finally:
-        if old:
-            os.environ["GROQ_API_KEY"] = old
-        if old_openai:
-            os.environ["OPENAI_API_KEY"] = old_openai
+    set_llm_client(LLMClient(LLMSettings()))
+    errors = PageIndexConfig().validate()
+    assert any("API key" in e for e in errors)
+    assert any("GEMINI_API_KEY" in e for e in errors)
+
+
+def test_config_validation_configured():
+    assert PageIndexConfig().validate() == []
+
+
+def test_config_validation_fallback_only_counts_as_configured():
+    set_llm_client(LLMClient(LLMSettings(fallback_enabled=True, fallback_api_key="ds-key")))
+    assert not any("API key" in e for e in PageIndexConfig().validate())
 
 
 def test_config_validation_invalid_params():
@@ -43,21 +54,24 @@ def test_config_validation_invalid_params():
     assert any("max_pages_per_node" in e for e in errors)
 
 
-def test_llm_config_groq():
-    llm = LLMConfig(provider="groq")
-    assert llm.effective_model == "qwen/qwen3-32b"
-    assert "groq" in llm.base_url
+def test_llm_config_reports_shared_client():
+    llm = LLMConfig()
+    assert llm.provider == "gemini"
+    assert llm.effective_model == "gemini-3.5-flash"
+    assert llm.is_configured is True
 
 
-def test_llm_config_openai():
-    llm = LLMConfig(provider="openai")
-    assert llm.effective_model == "gpt-4o"
-    assert "openai" in llm.base_url
+def test_llm_config_follows_client_model():
+    set_llm_client(LLMClient(LLMSettings(model="gemini-3.8-flash", api_key="k")))
+    assert LLMConfig().effective_model == "gemini-3.8-flash"
 
 
-def test_llm_config_custom_model():
-    llm = LLMConfig(provider="groq", model="llama-3.1-8b-instant")
-    assert llm.effective_model == "llama-3.1-8b-instant"
+def test_llm_config_has_no_legacy_provider_settings():
+    llm = LLMConfig()
+    for attr in ("api_key", "base_url"):
+        assert not hasattr(llm, attr)
+    with pytest.raises(TypeError):
+        LLMConfig(provider="groq")
 
 
 def test_config_to_dict():
@@ -67,14 +81,17 @@ def test_config_to_dict():
     assert "tree_build" in d
     assert "llm" in d
     assert "search" in d
-    assert d["llm"]["provider"] == "groq"
+    assert d["llm"]["provider"] == "gemini"
+    assert d["llm"]["model"] == "gemini-3.5-flash"
+    assert d["llm"]["shared_client"]["transport"] == "gemini_api"
+    assert "test-key" not in str(d)
 
 
 def test_config_repr():
     config = PageIndexConfig()
     r = repr(config)
     assert "PageIndexConfig" in r
-    assert "groq" in r
+    assert "gemini" in r
 
 
 def test_tree_build_config_to_dict():
@@ -110,6 +127,7 @@ pageindex:
     max_pages_per_node: 15
   llm:
     provider: openai
+    model: gpt-4o
     temperature: 0.1
   search:
     max_nodes_per_query: 3
@@ -119,7 +137,9 @@ pageindex:
 
     assert config.tree_build.toc_check_pages == 30
     assert config.tree_build.max_pages_per_node == 15
-    assert config.llm.provider == "openai"
+    # Legacy provider/model keys are ignored; the shared client decides.
+    assert config.llm.provider == "gemini"
+    assert config.llm.effective_model == "gemini-3.5-flash"
     assert config.llm.temperature == 0.1
     assert config.search.max_nodes_per_query == 3
     os.unlink(f.name)

@@ -5,11 +5,12 @@ Generates Cypher queries from natural language questions.
 Inspired by OncoGraph's QueryEngine and CypherGenerator patterns.
 """
 
-import os
 import re
 import logging
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
+
+from llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -208,20 +209,12 @@ class CypherGenerator:
         Initialize Cypher generator.
 
         Args:
-            use_llm: Whether to use LLM for complex queries
+            use_llm: Whether to use the shared LLM client (llm/client.py) for
+                questions no template matches
         """
         self.use_llm = use_llm
         self.validator = CypherValidator()
         self.templates = QUERY_TEMPLATES
-
-        # Initialize LLM client
-        self._groq_client = None
-        if use_llm and os.getenv("GROQ_API_KEY"):
-            try:
-                from groq import AsyncGroq
-                self._groq_client = AsyncGroq()
-            except ImportError:
-                logger.warning("groq package not installed")
 
         # Question patterns for template matching
         self._patterns = {
@@ -258,9 +251,12 @@ class CypherGenerator:
             if match:
                 return self._generate_from_template(template_name, match, question)
 
-        # Fallback to LLM generation
-        if use_llm_fallback and self._groq_client:
-            return await self._generate_with_llm(question)
+        # Fallback to LLM generation; None means the LLM did not answer
+        # (unconfigured or failed), so use the generic search below.
+        if use_llm_fallback and self.use_llm:
+            llm_query = await self._generate_with_llm(question)
+            if llm_query is not None:
+                return llm_query
 
         # Default query if nothing matches
         return CypherQuery(
@@ -319,8 +315,8 @@ class CypherGenerator:
             explanation=f"Matched pattern for {template_name}"
         )
 
-    async def _generate_with_llm(self, question: str) -> CypherQuery:
-        """Generate Cypher query using LLM."""
+    async def _generate_with_llm(self, question: str) -> Optional[CypherQuery]:
+        """Generate Cypher query using LLM. Returns None if the LLM did not answer."""
         prompt = f"""You are a Cypher query generator for a palliative care knowledge graph.
 
 {SCHEMA_DEFINITION}
@@ -337,15 +333,18 @@ Rules:
 
 Respond with ONLY the Cypher query, no explanation."""
 
-        try:
-            response = await self._groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=500,
-            )
+        response = await get_llm_client().generate(
+            prompt,
+            max_tokens=500,
+            temperature=0.1,
+            purpose="kg_cypher_generation",
+        )
+        if not response.ok:
+            logger.debug(f"LLM query generation unavailable: {response.error}")
+            return None
 
-            generated_query = response.choices[0].message.content.strip()
+        try:
+            generated_query = response.text.strip()
 
             # Remove markdown code blocks if present
             generated_query = re.sub(r'```\w*\n?', '', generated_query)

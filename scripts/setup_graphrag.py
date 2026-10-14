@@ -181,7 +181,7 @@ def main():
         print("Next steps:")
         print("1. Install dependencies: pip install graphrag>=2.7.0")
         print("2. Create data/graphrag/settings.yaml")
-        print("3. Set GRAPHRAG_API_KEY in .env")
+        print("3. Set GEMINI_API_KEY in .env")
         print("4. Implement Phase 2: Configuration Module")
     else:
         print("Setup incomplete. Please fix errors above.")

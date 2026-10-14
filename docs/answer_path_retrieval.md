@@ -70,8 +70,8 @@ How the routed methods retrieve:
   and "breathlessness" puts *Morphine is used to treat Dyspnea* at the top).
 - **GraphRAG**: entity descriptions and relationships from the local parquet index
   (`data_loader.search_entities`). GraphRAG's own `local_search`/`global_search`
-  are **not** used: they call the LLM in `data/graphrag/settings.yaml`, which is
-  OpenAI by default and not on the approved list.
+  are **not** used: they send the question to the LLM in
+  `data/graphrag/settings.yaml` (Gemini API, not region-pinned).
 - **PageIndex** (`fused` only): its selected nodes, when PageIndex is enabled.
 
 Each graph retriever runs in parallel with vector search under its own timeout
