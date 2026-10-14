@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-14T07:43:46+00:00",
-  "commit": "e285ede",
-  "branch": "claude/dose-guard-text-paths",
-  "dirty": false,
+  "generated_at": "2026-10-14T07:53:08+00:00",
+  "commit": "dacebe2",
+  "branch": "claude/llm-gemini-client",
+  "dirty": true,
   "invariants": {
     "SI-1": {
       "statement": "A response containing a specific dose is not returned verbatim.",
@@ -67,7 +67,7 @@
     "test_text_path_dose_guard.py::test_every_query_call_goes_through_the_guard",
     "test_text_path_dose_guard.py::test_a_failing_guard_sends_the_error_not_the_draft",
     "test_text_path_dose_guard.py::test_prompts_do_not_request_doses",
-    "test_text_path_dose_guard.py::test_medgemma_example_carries_no_dose",
+    "test_text_path_dose_guard.py::test_medgemma_path_is_gone",
     "test_text_path_dose_guard.py::test_query_called_with_the_real_signature_and_answer_guarded",
     "test_text_path_dose_guard.py::test_bundle_queries_use_the_real_signature_and_store_guarded_text",
     "test_live_tool_safety.py::test_grounding_text_is_filtered_before_the_model_sees_it",
