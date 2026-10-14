@@ -66,6 +66,10 @@ class RetellSession:
     agent_id: str = ""
     from_number: str = ""
     to_number: str = ""
+    # The turn being answered. A newer response_required cancels it, so a
+    # barge-in never gets the stale answer.
+    current_task: Optional["asyncio.Task"] = None
+    current_response_id: int = -1
 
     def get_conversation_context(self, max_turns: int = 5) -> str:
         """Get recent conversation context as string."""
@@ -130,16 +134,24 @@ class RetellCustomLLMHandler:
     async def handle_websocket(
         self,
         websocket: WebSocket,
-        call_id: str
+        call_id: str,
+        accepted: bool = False,
     ) -> None:
         """
         Main WebSocket handler for Retell Custom LLM protocol.
 
+        The receive loop never waits on an answer: each response_required runs
+        as its own task, so ping_pong keeps flowing during retrieval (Retell
+        reconnects after missing pongs) and a newer question cancels the older
+        answer.
+
         Args:
             websocket: FastAPI WebSocket connection
             call_id: Unique call identifier from URL path
+            accepted: True when the caller already accepted the socket
         """
-        await websocket.accept()
+        if not accepted:
+            await websocket.accept()
 
         # Create session
         session = RetellSession(call_id=call_id, websocket=websocket)
@@ -169,7 +181,7 @@ class RetellCustomLLMHandler:
                     await self._handle_update_only(session, message)
 
                 elif interaction_type in ("response_required", "reminder_required"):
-                    await self._handle_response_required(session, message)
+                    self._start_turn(session, message)
 
                 else:
                     logger.warning(f"Unknown Retell interaction type: {interaction_type}")
@@ -184,10 +196,26 @@ class RetellCustomLLMHandler:
             logger.error(f"Retell LLM WebSocket error for {call_id}: {e}")
 
         finally:
-            # Cleanup session
-            if call_id in self.active_sessions:
-                del self.active_sessions[call_id]
-                logger.info(f"Cleaned up Retell session: {call_id}")
+            self.end_session(call_id)
+
+    def _start_turn(self, session: RetellSession, message: Dict[str, Any]) -> None:
+        """Answer a turn in the background, cancelling any older turn still running."""
+        response_id = message.get("response_id", 0)
+        if session.current_task is not None and not session.current_task.done():
+            session.current_task.cancel()
+        session.current_response_id = response_id
+        session.current_task = asyncio.create_task(
+            self._handle_response_required(session, message)
+        )
+
+    def end_session(self, call_id: str) -> None:
+        """Drop a call's session and cancel its in-flight turn. Safe to call twice."""
+        session = self.active_sessions.pop(call_id, None)
+        if session is None:
+            return
+        if session.current_task is not None and not session.current_task.done():
+            session.current_task.cancel()
+        logger.info(f"Cleaned up Retell session: {call_id}")
 
     async def _send_config(self, websocket: WebSocket) -> None:
         """Send initial configuration to Retell."""
@@ -236,7 +264,6 @@ class RetellCustomLLMHandler:
         logger.info(
             f"Retell call details - ID: {session.call_id}, "
             f"Agent: {session.agent_id}, "
-            f"From: {session.from_number}, "
             f"Language: {session.language}"
         )
 
@@ -258,7 +285,21 @@ class RetellCustomLLMHandler:
     ) -> None:
         """One Retell turn, inside a per-turn trace (see _respond)."""
         with trace_request("retell", user_id=session.call_id, name="voice_turn"):
-            await self._respond(session, message)
+            try:
+                await self._respond(session, message)
+            except asyncio.CancelledError:
+                logger.info(f"Retell turn {message.get('response_id')} superseded")
+                raise
+            except Exception as e:
+                # A turn must never die silently: the caller would hear nothing.
+                logger.error(f"Retell turn failed: {type(e).__name__}: {e}")
+                try:
+                    await self._send_response(
+                        session.websocket, message.get("response_id", 0),
+                        self._get_error_message(session.language), content_complete=True,
+                    )
+                except Exception:
+                    pass
 
     async def _respond(
         self,
@@ -286,7 +327,7 @@ class RetellCustomLLMHandler:
         logger.info("RETELL CUSTOM LLM - RAG QUERY")
         logger.info("=" * 60)
         logger.info(f"Call ID: {session.call_id}")
-        logger.info(f"Query: {user_query[:100]}{'...' if len(user_query) > 100 else ''}")
+        logger.debug(f"Query: {user_query[:100]}{'...' if len(user_query) > 100 else ''}")
         logger.info(f"Language: {session.language}")
 
         # Handle empty or very short queries
@@ -363,9 +404,6 @@ class RetellCustomLLMHandler:
         # Query RAG pipeline
         if self.rag_pipeline:
             try:
-                # Get conversation context for better responses
-                context = session.get_conversation_context(max_turns=3)
-
                 result = await asyncio.wait_for(
                     self.rag_pipeline.query(
                         question=user_query,
@@ -373,12 +411,16 @@ class RetellCustomLLMHandler:
                         user_id=session.call_id,
                         source_language=session.language,
                         top_k=3,
-                        conversation_context=context
                     ),
                     timeout=self.response_timeout
                 )
 
                 if result.get("status") == "success":
+                    # Dose Boundary before anything is spoken, exactly as Bolna
+                    # and the web API do. A guard failure raises, which sends
+                    # the error message, never the unguarded draft.
+                    from safety_enhancements import guard_query_result
+                    guard_query_result(result, query=user_query, language=session.language)
                     answer = result.get("answer", "")
                     sources = result.get("sources", [])
                     
@@ -416,7 +458,7 @@ class RetellCustomLLMHandler:
                         for s in sources[:3]
                     ])
                     logger.info(f"RAG SUCCESS - Sources: {source_names}")
-                    logger.info(f"Answer preview: {answer[:100]}...")
+                    logger.debug(f"Answer preview: {answer[:100]}...")
 
                     # Send response
                     await self._send_response(
@@ -435,6 +477,9 @@ class RetellCustomLLMHandler:
                         self._get_fallback_message(session.language),
                         content_complete=True
                     )
+
+            except asyncio.CancelledError:
+                raise
 
             except asyncio.TimeoutError:
                 logger.error(f"RAG query timeout for call {session.call_id}")

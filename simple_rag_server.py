@@ -6008,9 +6008,8 @@ def main():
 
         Documentation: https://docs.retellai.com/api-references/llm-websocket
         """
-        await websocket.accept()
-
         if not retell_enabled or not retell_llm_handler:
+            await websocket.accept()
             await websocket.send_json({
                 "response_type": "error",
                 "content": "Retell Custom LLM not available"
@@ -6021,6 +6020,8 @@ def main():
         logger.info(f"Retell LLM WebSocket connected: call_id={call_id}")
 
         try:
+            # The handler accepts the socket itself; accepting here as well
+            # raised on every call and Retell never got an answer.
             await retell_llm_handler.handle_websocket(websocket, call_id)
         except WebSocketDisconnect:
             logger.info(f"Retell LLM WebSocket disconnected: call_id={call_id}")

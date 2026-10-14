@@ -30,3 +30,20 @@ Each entry: what was decided, the alternatives, and why.
 - **PHI-bearing INFO logs moved to DEBUG** (question text, answer text, phone
   numbers, message bodies, chunk metadata). No study tool reads these stdlib
   logs; the study rows come from the study log and the retrieval audit.
+
+## 02: Retell answers every turn, dose-guarded
+
+- **The handler owns `accept()`.** The endpoint accepts only on the
+  "unavailable" path, to send the error frame. The handler takes an
+  `accepted=` flag for callers that already accepted.
+- **Dose guard = `guard_query_result`, before `optimize_for_voice`.** It is the
+  same call Bolna and the web API make, so all channels share one boundary. A
+  guard exception becomes the spoken error message, never the draft.
+- **Turns run as tasks; a newer `response_id` cancels the older turn.** Retell
+  sends a new `response_required` on barge-in. Answering the old one would
+  speak a stale answer over the caller.
+- **Dropped `conversation_context=`** rather than adding the parameter to
+  `query()`. The pipeline already keys history on `conversation_id`, and
+  widening `query()` would change every channel.
+- **Not done here:** an acknowledgement chunk before the answer, and streaming.
+  Both belong to ticket 13.
