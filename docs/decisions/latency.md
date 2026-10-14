@@ -525,3 +525,47 @@ Each entry: what was decided, the alternatives, and why.
 - **Why TEI is the only Rust worth adopting:** it is a separate process
   serving the same model, so it takes embedding CPU off the server's event
   loop and worker processes entirely, and it is swappable back by config.
+
+## 18: Ready for more than one worker (partly: the study-critical state)
+
+- **App factory.** The app was built inside `main()`; it is now
+  `create_app(args)`, which `main()` calls for one process, and uvicorn calls
+  per worker with `--workers N` (`simple_rag_server:create_app`,
+  `factory=True`; the command line reaches workers as `PALLI_SERVER_ARGS`).
+  `WEB_CONCURRENCY` sets the default. One worker remains the default.
+- **Shared now:**
+  - *Conversation history.* The append-only log is the shared history:
+    each process notes how far it has read and, before using a
+    conversation's history, reads only lines other processes appended
+    (usually none: one stat call). Rows carry their writer, so a process
+    does not read its own back. A line still being written waits. The
+    remaining gap: a turn is appended after the reply (ticket 07), so a
+    follow-up that reaches another worker within that moment misses it.
+  - *Study log and conversation log rows* are one `os.write` on an
+    O_APPEND descriptor, so two processes' long rows cannot interleave
+    (buffered text writes could split a row over 8 KB).
+  - *The voice provider switch* is re-read when its file changes, and
+    written atomically, so an operator forcing Sarvam on one worker
+    applies to all.
+  - *Vector store:* `CHROMA_HOST` selects a Chroma server; `--workers > 1`
+    refuses to start without it, because each process would hold its own
+    copy of the local index and the local store is not safe for several
+    writers.
+- **Still per worker (not done; blocks a multi-worker study deployment):**
+  WhatsApp language preferences, Twilio retry de-duplication and the
+  `/media` lookup; upload job status (polling another worker finds
+  nothing); document metadata (whole-file rewrite, lost updates); human
+  handoff requests, caregiver contacts and medication reminders (each
+  worker overwrites the other's file, reminders fire only where created);
+  comprehension profiles and personalisation caches (last writer wins);
+  Bolna/Retell/Sarvam webhook call records. Each needs a shared store
+  (SQLite in WAL mode is the smallest step). The server logs this list
+  when started with more than one worker. Recommendation: stay on one
+  worker for the study until those move; the CPU work that motivated
+  workers (embedding, retrieval scans) is already off the event loop
+  (tickets 06 and 16).
+- **Not measured:** the 1 vs 2 worker load test. The server cannot start
+  in this container (no embedding weights; the model hub is blocked), so
+  there is no p95 to report and no load-test script yet (20 concurrent
+  queries on /api/query, 1 vs 2 workers); write and run it on the server
+  once the per-worker items above are resolved.

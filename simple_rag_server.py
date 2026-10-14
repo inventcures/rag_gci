@@ -21,6 +21,7 @@ import hashlib
 import uuid
 import subprocess
 import time
+import shlex
 import signal
 import shutil
 
@@ -216,6 +217,7 @@ from llm import get_llm_client
 from llm.client import GENERATION_FAILED_ANSWER, LLMStreamError, in_voice_turn, within_voice_deadline
 from answer_stream import AnswerStream, active_stream
 from retrieval.embedding_runtime import configured_runtime, load_embedding_model
+from study_logging import append_line
 from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexMismatchError,
@@ -881,7 +883,9 @@ class SimpleRAGPipeline:
         self.response_model = self.llm.settings.model
         logger.info("LLM: %s", self.llm.settings.describe())
 
-        # Document metadata and conversation storage
+        # Document metadata and conversation storage. `_writer` marks this
+        # process's lines in the shared conversation log.
+        self._writer = f"{os.getpid()}-{uuid.uuid4().hex[:8]}"
         self.document_metadata = self._load_metadata()
         self.conversations = self._load_conversations()
 
@@ -937,7 +941,7 @@ class SimpleRAGPipeline:
             
             # Initialize ChromaDB
             logger.info("Initializing vector database...")
-            chroma_client = chromadb.PersistentClient(path=str(self.vector_db_path))
+            chroma_client = chroma_client_for(self.vector_db_path)
             
             # The collection's embedding function reuses the model loaded above
             # (one copy in memory, no hub download when EMBEDDING_MODEL_PATH is
@@ -1144,7 +1148,8 @@ class SimpleRAGPipeline:
         """History from the legacy JSON file, then the append-only log.
 
         A torn last line (a crash mid-append) is skipped; every earlier line
-        still loads."""
+        still loads. Where the log was read up to is kept, so turns other
+        server processes append later can be picked up (_catch_up)."""
         conversations: Dict[str, List[Dict[str, Any]]] = {}
         if self.conversation_file.exists():
             try:
@@ -1152,16 +1157,52 @@ class SimpleRAGPipeline:
                     conversations = json.load(f)
             except (OSError, ValueError):
                 logger.warning("Could not read %s; continuing with the log only", self.conversation_file)
-        log = self.conversation_file.with_suffix(".jsonl")
-        if log.exists():
-            with open(log, 'r', encoding='utf-8') as f:
-                for line in f:
-                    try:
-                        row = json.loads(line)
-                        conversations.setdefault(row["conversation_id"], []).append(row["turn"])
-                    except (ValueError, KeyError, TypeError):
-                        continue
+        self._log_offset = 0
+        self._read_log_rows(conversations, skip_own=False)
         return {cid: turns[-self.CONVERSATION_MEMORY_TURNS:] for cid, turns in conversations.items()}
+
+    def _read_log_rows(self, conversations: Dict[str, List[Dict[str, Any]]], skip_own: bool) -> int:
+        """Add the log's complete lines past `_log_offset` to `conversations`;
+        returns how many were added. A line still being written (no newline
+        yet) is left for next time."""
+        conversation_file = getattr(self, "conversation_file", None)
+        if conversation_file is None:
+            return 0
+        log = Path(conversation_file).with_suffix(".jsonl")
+        offset = getattr(self, "_log_offset", 0)
+        try:
+            if log.stat().st_size <= offset:
+                return 0
+            with open(log, 'rb') as f:
+                f.seek(offset)
+                data = f.read()
+        except OSError:
+            return 0
+        end = data.rfind(b"\n") + 1
+        self._log_offset = offset + end
+        writer = getattr(self, "_writer", None)
+        added = 0
+        for line in data[:end].splitlines():
+            try:
+                row = json.loads(line)
+                if skip_own and row.get("w") == writer:
+                    continue  # already in memory: this process wrote it
+                conversations.setdefault(row["conversation_id"], []).append(row["turn"])
+                added += 1
+            except (ValueError, KeyError, TypeError, AttributeError):
+                continue
+        return added
+
+    def _catch_up_conversations(self) -> None:
+        """Turns other server processes appended since this one last looked.
+
+        With several workers, a caller's next turn can land on a different
+        process than the last; the log on disk is the shared history, and
+        this reads only what was added (usually nothing: one stat call)."""
+        added = self._read_log_rows(self.conversations, skip_own=True)
+        if added:
+            for turns in self.conversations.values():
+                del turns[:-self.CONVERSATION_MEMORY_TURNS]
 
     def _remember_turn(self, conversation_id: str, entry: Dict[str, Any]) -> None:
         turns = self.conversations.setdefault(conversation_id, [])
@@ -1170,10 +1211,11 @@ class SimpleRAGPipeline:
 
     def _append_conversation(self, conversation_id: str, entry: Dict[str, Any]) -> None:
         """Append one turn as one line (runs in a worker thread)."""
-        line = json.dumps({"conversation_id": conversation_id, "turn": entry}, ensure_ascii=False)
+        line = json.dumps({"conversation_id": conversation_id, "turn": entry,
+                           "w": getattr(self, "_writer", None)}, ensure_ascii=False)
         with _conversation_log_lock:
-            with open(self.conversation_file.with_suffix(".jsonl"), 'a', encoding='utf-8') as f:
-                f.write(line + "\n")
+            # One write per line, so another worker's line cannot split it.
+            append_line(self.conversation_file.with_suffix(".jsonl"), line)
     
     async def remove_document(self, doc_id: str) -> Dict[str, Any]:
         """Remove a document from the RAG index"""
@@ -1522,6 +1564,8 @@ class SimpleRAGPipeline:
             safety_result = None
             if SAFETY_ENHANCEMENTS_AVAILABLE and user_id:
                 safety_manager = get_safety_manager()
+                if conversation_id:
+                    self._catch_up_conversations()
                 conversation_history = self.conversations.get(conversation_id, []) if conversation_id else []
                 with span("safety_pre"):
                     safety_result = await safety_manager.process_query(
@@ -4830,7 +4874,20 @@ class NgrokManager:
             self.ngrok_url = None
 
 
-def main():
+def chroma_client_for(path: Path) -> Any:
+    """The vector store client: a Chroma server when CHROMA_HOST is set
+    (required with more than one worker: each process holds its own copy of
+    a local index, and Chroma's local store is not safe for several writing
+    processes), else the local store at `path`."""
+    host = os.getenv("CHROMA_HOST")
+    if host:
+        logger.info(f"Vector store: Chroma server at {host}:{os.getenv('CHROMA_PORT', '8000')}")
+        return chromadb.HttpClient(host=host, port=int(os.getenv("CHROMA_PORT", "8000")))
+    return chromadb.PersistentClient(path=str(path))
+
+
+def _parse_args(argv: Optional[List[str]] = None) -> Any:
+    """The server's command line (also read by create_app from PALLI_SERVER_ARGS)."""
     """Main application entry point"""
     import argparse
     
@@ -4866,7 +4923,30 @@ def main():
         )
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=int(os.getenv("WEB_CONCURRENCY", "1")),
+        help=(
+            "Server processes (default 1, or WEB_CONCURRENCY). More than one needs "
+            "a shared Chroma (CHROMA_HOST) and no ngrok; see docs/howto_guide.md."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def create_app(args: Any = None) -> FastAPI:
+    """
+    Build the server: pipeline, integrations and every route.
+
+    Called once by `main()` for a single process, or by each uvicorn worker
+    (`uvicorn simple_rag_server:create_app --factory --workers N`, which is
+    what `--workers N` runs). Workers get the command line through
+    PALLI_SERVER_ARGS.
+    """
+    if args is None:
+        args = _parse_args(shlex.split(os.getenv("PALLI_SERVER_ARGS", "")))
+
 
     # Set voice provider based on argument
     voice_provider = args.provider.lower()
@@ -8048,6 +8128,49 @@ def main():
     if web_client_path.exists():
         app.mount("/voice", StaticFiles(directory="web_client", html=True), name="voice")
         logger.info("🎤 Voice interface available at /voice")
+
+    # What main() reports at startup.
+    app.state.whatsapp_bot = whatsapp_bot
+    app.state.twilio_configured = twilio_configured
+    app.state.ngrok_manager = ngrok_manager
+    return app
+
+
+def main():
+    args = _parse_args()
+
+    if args.workers > 1:
+        if not os.getenv("CHROMA_HOST"):
+            raise SystemExit(
+                "--workers > 1 needs a Chroma server (set CHROMA_HOST): the local "
+                "store is not safe for several processes. See docs/howto_guide.md."
+            )
+        logger.warning(
+            "Multi-worker mode: conversation history, the study log and the voice "
+            "provider switch are shared between workers; WhatsApp preferences, "
+            "ingest job status, handoff requests, reminders and webhook call "
+            "records are still per worker (docs/decisions/latency.md, ticket 18)."
+        )
+        # Each worker builds its own app from the same command line. ngrok
+        # is per process, so it is not started here: give WhatsApp a stable
+        # public URL (PUBLIC_BASE_URL) instead.
+        os.environ["PALLI_SERVER_ARGS"] = shlex.join(sys.argv[1:])
+        logger.info(f"Starting {args.workers} workers on {args.host}:{args.port}")
+        uvicorn.run(
+            "simple_rag_server:create_app",
+            factory=True,
+            workers=args.workers,
+            host=args.host,
+            port=args.port,
+            log_level="info",
+        )
+        return
+
+    app = create_app(args)
+    whatsapp_bot = app.state.whatsapp_bot
+    twilio_configured = app.state.twilio_configured
+    ngrok_manager = app.state.ngrok_manager
+    web_client_path = Path("web_client")
 
     # Start ngrok if not disabled and WhatsApp is configured
     ngrok_url = None

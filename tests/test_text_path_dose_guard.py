@@ -166,10 +166,10 @@ class WebAnswersAreGuarded(unittest.TestCase):
         assert_no_dose(self, body["answer"], "POST /api/query (real query())")
 
     def test_the_route_uses_the_guarded_helper(self):
-        """/api/query is built inside main(), so pin that it delegates to the helper."""
+        """/api/query is built inside create_app(), so pin that it delegates to the helper."""
         import simple_rag_server
 
-        source = inspect.getsource(simple_rag_server.main)
+        source = inspect.getsource(simple_rag_server.create_app)
         route = source[source.index('@app.post("/api/query")'):]
         route = route[: route.index("@app.", 10)]
         self.assertIn("answer_web_query(rag_pipeline, query)", route)
@@ -178,7 +178,7 @@ class WebAnswersAreGuarded(unittest.TestCase):
     def test_bolna_answers_are_guarded_before_voice_optimisation(self):
         import simple_rag_server
 
-        source = inspect.getsource(simple_rag_server.main)
+        source = inspect.getsource(simple_rag_server.create_app)
         route = source[source.index('@app.post("/api/bolna/query")'):]
         route = route[: route.index("@app.", 10)]
         guard_at = route.index("guard_query_result(rag_result")

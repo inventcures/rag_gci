@@ -251,6 +251,23 @@ def classify_interaction(query: str, response: str, had_error: bool = False) -> 
 # Logger
 # ---------------------------------------------------------------------------
 
+def append_line(path: Path, line: str) -> None:
+    """Append one line with a single write() on an O_APPEND descriptor.
+
+    Several server processes append to the same day file. A buffered text
+    file can split a long row into several write() calls, and another
+    process's row can land between them; one os.write of the whole row
+    cannot be split that way on a local filesystem."""
+    data = (line + "\n").encode("utf-8")
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    try:
+        written = os.write(fd, data)
+        while written < len(data):  # only on a signal or a full disk
+            written += os.write(fd, data[written:])
+    finally:
+        os.close(fd)
+
+
 class StudyInteractionLogger:
     """
     Append-only study log with the grant's promised granularity.
@@ -339,8 +356,7 @@ class StudyInteractionLogger:
         try:
             path = self._path_for(entry.occurred_at)
             with self._lock:
-                with path.open("a", encoding="utf-8") as fh:
-                    fh.write(json.dumps(entry.to_json(), ensure_ascii=False) + "\n")
+                append_line(path, json.dumps(entry.to_json(), ensure_ascii=False))
             return path
         except Exception:
             logger.exception("Failed to write study interaction log")
