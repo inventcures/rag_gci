@@ -7,7 +7,6 @@ Checks if API keys and configuration are properly set
 import os
 import sys
 from pathlib import Path
-import requests
 from dotenv import load_dotenv
 
 # Colors for terminal output
@@ -45,17 +44,21 @@ def check_env_file():
     # Load environment variables
     load_dotenv()
     
-    # Check Groq API key
-    groq_key = os.getenv("GROQ_API_KEY")
-    if not groq_key or groq_key == "your_groq_api_key_here" or groq_key == "gsk_your_actual_groq_api_key_here_it_starts_with_gsk":
-        print_status("GROQ_API_KEY not configured", "error")
-        print("   Get your free API key from: https://console.groq.com/")
+    # Check the text LLM settings (Gemini primary, optional DeepSeek fallback)
+    from llm import load_llm_settings
+
+    settings = load_llm_settings()
+    if settings.transport == "unconfigured":
+        print_status("Gemini not configured: set GOOGLE_CLOUD_PROJECT (Vertex AI) or GEMINI_API_KEY", "error")
         return False
-    elif not groq_key.startswith("gsk_"):
-        print_status("GROQ_API_KEY format looks incorrect (should start with 'gsk_')", "warning")
-        return False
+    print_status(f"LLM: {settings.model} via {settings.transport}", "success")
+    if settings.fallback_enabled:
+        if settings.fallback_api_key:
+            print_status(f"Fallback: {settings.fallback_model} (DeepSeek) is configured", "success")
+        else:
+            print_status("LLM_FALLBACK_ENABLED is set but DEEPSEEK_API_KEY is missing", "warning")
     else:
-        print_status("GROQ_API_KEY is configured", "success")
+        print_status("DeepSeek fallback disabled (LLM_FALLBACK_ENABLED)", "info")
     
     # Check Twilio credentials (optional)
     twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -72,47 +75,24 @@ def check_env_file():
     
     return True
 
-def test_groq_api():
-    """Test if Groq API key works"""
-    print(f"\n{Colors.BOLD}🤖 Testing Groq API Connection{Colors.END}")
+def test_llm():
+    """Make one test call through the shared LLM client"""
+    print(f"\n{Colors.BOLD}🤖 Testing LLM Connection{Colors.END}")
     
-    groq_key = os.getenv("GROQ_API_KEY")
-    if not groq_key:
-        print_status("No Groq API key to test", "error")
-        return False
-    
-    try:
-        headers = {
-            "Authorization": f"Bearer {groq_key}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "model": "llama-3.1-8b-instant",
-            "messages": [{"role": "user", "content": "Hello, respond with just 'API test successful'"}],
-            "max_tokens": 10
-        }
-        
-        print_status("Testing Groq API connection...", "info")
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            answer = result["choices"][0]["message"]["content"]
-            print_status(f"Groq API test successful: {answer}", "success")
-            return True
-        else:
-            print_status(f"Groq API test failed: {response.status_code} - {response.text}", "error")
-            return False
-            
-    except Exception as e:
-        print_status(f"Groq API test failed: {str(e)}", "error")
-        return False
+    import asyncio
+    from llm import LLMClient, load_llm_settings
+
+    settings = load_llm_settings()
+    print_status(f"Testing {settings.model}...", "info")
+    response = asyncio.run(
+        LLMClient(settings).generate("Say 'Hello' in one word.", max_tokens=10, purpose="validate_setup")
+    )
+    if response.ok:
+        via = " (DeepSeek fallback)" if response.used_fallback else ""
+        print_status(f"LLM test successful{via}: {response.text}", "success")
+        return True
+    print_status(f"LLM test failed: {response.error}", "error")
+    return False
 
 def test_twilio_credentials():
     """Test if Twilio credentials work"""
@@ -199,7 +179,7 @@ def main():
         ("Environment Configuration", check_env_file),
         ("Dependencies", check_dependencies),
         ("Directory Structure", check_directories),
-        ("Groq API", test_groq_api),
+        ("LLM", test_llm),
         ("Twilio Credentials", test_twilio_credentials)
     ]
     
@@ -229,8 +209,8 @@ def main():
         print_status("✨ Core setup is ready! You can start the server.", "success")
         print("   Run: ./run_simple.sh")
         
-        if not results.get("Groq API", False):
-            print_status("⚠️ Add Groq API key for full functionality", "warning")
+        if not results.get("LLM", False):
+            print_status("⚠️ Configure Gemini (GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY) for full functionality", "warning")
         
         if not results.get("Twilio Credentials", False):
             print_status("⚠️ Add Twilio credentials for WhatsApp bot", "warning")
@@ -241,8 +221,8 @@ def main():
         # Provide helpful next steps
         if not results.get("Environment Configuration", False):
             print("\n📝 Next steps:")
-            print("1. Get Groq API key from: https://console.groq.com/")
-            print("2. Edit .env file and add your API key")
+            print("1. Set GOOGLE_CLOUD_PROJECT (Vertex AI) or GEMINI_API_KEY")
+            print("2. Edit .env file and add it")
             print("3. Run this validation script again")
     
     return passed_checks >= 3

@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 import aiofiles
 import aiohttp
-from datetime import datetime
+from datetime import datetime, timedelta
 import base64
 from urllib.parse import unquote
 
@@ -73,15 +73,31 @@ logger = logging.getLogger(__name__)
 
 
 class EnhancedSTTService:
-    """Enhanced Speech-to-Text service with Indian language support"""
-    
+    """Speech-to-Text for WhatsApp voice notes, via Sarvam Saaras (India-hosted).
+
+    Sarvam needs a BCP-47 language code per request and the client exposes no
+    auto-detect, so when the caller does not know the language the note is
+    transcribed as Hindi first, the language is guessed from that text, and the
+    note is transcribed again in the guessed language if it differs.
+    """
+
+    DEFAULT_LANGUAGE = "hi"
+
     def __init__(self):
-        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        from sarvam_integration.client import SarvamClient
+
+        self.sarvam = SarvamClient()
         self.supported_languages = {
             "hi": "Hindi",
             "bn": "Bengali", 
             "ta": "Tamil",
             "gu": "Gujarati",
+            "mr": "Marathi",
+            "te": "Telugu",
+            "kn": "Kannada",
+            "ml": "Malayalam",
+            "pa": "Punjabi",
+            "or": "Odia",
             "en": "English"
         }
         
@@ -93,31 +109,42 @@ class EnhancedSTTService:
             "gu": ["નમસ્તે", "કેમ", "શું", "હું"],
             "en": ["hello", "how", "what", "the", "is"]
         }
+
+    @staticmethod
+    def _to_bcp47(language: str) -> str:
+        """Map the bot's short codes (hi, en, mr, ta, bn, ...) to Sarvam's BCP-47 codes."""
+        from sarvam_integration.config import SARVAM_STT_LANGUAGES
+
+        if "-" in language:
+            return language
+        code = "od" if language == "or" else language
+        bcp47 = f"{code}-IN"
+        return bcp47 if bcp47 in SARVAM_STT_LANGUAGES else "hi-IN"
     
     async def transcribe_audio(self, audio_file_path: str, detected_language: Optional[str] = None) -> Dict[str, Any]:
         """Transcribe audio with language detection"""
         try:
-            if not self.groq_api_key:
-                return {"status": "error", "error": "GROQ_API_KEY not configured"}
-            
-            # First, try transcription without language specification
-            result = await self._transcribe_with_groq(audio_file_path)
-            
+            if not self.sarvam.is_available():
+                return {"status": "error", "error": "SARVAM_API_KEY not configured"}
+
+            async with aiofiles.open(audio_file_path, "rb") as f:
+                audio_bytes = await f.read()
+
+            if detected_language:
+                result = await self._transcribe_with_sarvam(audio_bytes, detected_language)
+            else:
+                # Saaras detects the spoken language when given "unknown" and
+                # returns the code it heard. Hindi with a script check is the
+                # fallback if detection fails.
+                result = await self._transcribe_with_sarvam(audio_bytes, "unknown")
+                if result["status"] == "success":
+                    detected_language = result["language"]
+                else:
+                    result = await self._transcribe_with_sarvam(audio_bytes, self.DEFAULT_LANGUAGE)
+                    if result["status"] == "success":
+                        detected_language = self._detect_language(result["text"])
+
             if result["status"] == "success":
-                text = result["text"]
-                
-                # Detect language from transcribed text
-                if not detected_language:
-                    detected_language = self._detect_language(text)
-                
-                # Re-transcribe with detected language for better accuracy
-                if detected_language != "en":
-                    refined_result = await self._transcribe_with_groq(
-                        audio_file_path, detected_language
-                    )
-                    if refined_result["status"] == "success":
-                        result = refined_result
-                
                 result["detected_language"] = detected_language
                 result["language_name"] = self.supported_languages.get(detected_language, "Unknown")
             
@@ -127,37 +154,19 @@ class EnhancedSTTService:
             logger.error(f"STT error: {e}")
             return {"status": "error", "error": str(e)}
     
-    async def _transcribe_with_groq(self, audio_file_path: str, language: Optional[str] = None) -> Dict[str, Any]:
-        """Transcribe using Groq Whisper API"""
+    async def _transcribe_with_sarvam(self, audio_bytes: bytes, language: str) -> Dict[str, Any]:
+        """Transcribe using Sarvam Saaras"""
         try:
-            url = "https://api.groq.com/openai/v1/audio/transcriptions"
-            headers = {"Authorization": f"Bearer {self.groq_api_key}"}
-            
-            async with aiohttp.ClientSession() as session:
-                with open(audio_file_path, 'rb') as audio_file:
-                    data = aiohttp.FormData()
-                    data.add_field('file', audio_file, filename='audio.wav')
-                    data.add_field('model', 'whisper-large-v3')
-                    data.add_field('response_format', 'json')
-                    
-                    if language:
-                        data.add_field('language', language)
-                    
-                    async with session.post(url, headers=headers, data=data) as response:
-                        if response.status == 200:
-                            result = await response.json()
-                            return {
-                                "status": "success",
-                                "text": result.get("text", ""),
-                                "language": language
-                            }
-                        else:
-                            error_text = await response.text()
-                            return {
-                                "status": "error",
-                                "error": f"Groq API error: {response.status} - {error_text}"
-                            }
-                            
+            code = "unknown" if language == "unknown" else self._to_bcp47(language)
+            stt = await self.sarvam.speech_to_text(audio_bytes, language=code, with_timestamps=False)
+            if stt.success:
+                heard = language
+                if language == "unknown":
+                    # "ta-IN" -> "ta"; Sarvam's Odia is "od", the bot's is "or".
+                    short = (stt.language_code or "hi-IN").split("-")[0]
+                    heard = "or" if short == "od" else short
+                return {"status": "success", "text": stt.transcript or "", "language": heard}
+            return {"status": "error", "error": f"Sarvam STT error: {stt.error}"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
@@ -549,9 +558,16 @@ class EnhancedWhatsAppBot:
         # Twilio WhatsApp message limit
         self.whatsapp_char_limit = 1550
 
-        # Smart clarification system
-        groq_api_key = os.getenv("GROQ_API_KEY")
-        self.clarification_system = SmartClarificationSystem(groq_api_key) if groq_api_key else None
+        # Smart clarification system (its LLM calls go through the shared llm client)
+        self.clarification_system = None
+        try:
+            from llm import load_llm_settings
+
+            llm_settings = load_llm_settings()
+            if llm_settings.transport != "unconfigured" or llm_settings.fallback_enabled:
+                self.clarification_system = SmartClarificationSystem()
+        except Exception as e:
+            logger.warning(f"Smart clarification system unavailable: {e}")
 
         # Simple conversation history (last 5 messages per user)
         self.conversation_history = {}

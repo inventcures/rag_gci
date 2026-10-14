@@ -25,13 +25,14 @@ async def test_translation_functionality():
     print(f"⏰ Test started at: {datetime.now()}")
     print()
     
-    # Check if GROQ_API_KEY is available
-    groq_key = os.getenv("GROQ_API_KEY")
-    if not groq_key:
-        print("❌ GROQ_API_KEY not found. Skipping translation tests.")
+    # Check that the shared LLM client (Gemini) is configured
+    from llm import load_llm_settings
+    llm_settings = load_llm_settings()
+    if llm_settings.transport == "unconfigured":
+        print("❌ Gemini not configured (GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY). Skipping translation tests.")
         return
     
-    print(f"✅ GROQ_API_KEY found: {groq_key[:10]}...")
+    print(f"✅ LLM configured: {llm_settings.model} via {llm_settings.transport}")
     
     # Initialize RAG pipeline
     try:
