@@ -205,6 +205,7 @@ from retrieval.graph_store import Neo4jGraphStore
 from retrieval.kg_check import KGCrossReferenceChecker
 from retrieval.audit import record_retrieval
 from llm import get_llm_client
+from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexMismatchError,
     check_live_index,
@@ -1342,21 +1343,27 @@ class SimpleRAGPipeline:
         the stages and appends the per-interaction retrieval record (active
         retrievers, KG version, fusion settings, K26 check) to the release log.
         """
-        started = time.perf_counter()
-        settings = get_active_settings()
-        trace: Dict[str, Any] = {"stage_latency_ms": {}}
-        result = await self._query_impl(
-            question, conversation_id=conversation_id, user_id=user_id,
-            top_k=top_k, source_language=source_language, _trace=trace,
-        )
-        trace["stage_latency_ms"]["total"] = round((time.perf_counter() - started) * 1000, 1)
-        try:
-            await self._record_answer_path(settings, trace, result, user_id)
-        except Exception:
-            # The record is evidence, not part of the answer; losing it must
-            # never cost the user their answer.
-            logger.exception("Answer-path record failed; answer returned unrecorded")
-        return result
+        with trace_request("direct", user_id=user_id, name="answer",
+                           language=source_language, top_k=top_k) as answer_span:
+            settings = get_active_settings()
+            trace: Dict[str, Any] = {"stage_latency_ms": {}}
+            result = await self._query_impl(
+                question, conversation_id=conversation_id, user_id=user_id,
+                top_k=top_k, source_language=source_language, _trace=trace,
+            )
+            trace["stage_latency_ms"]["total"] = round(
+                (time.perf_counter() - answer_span.started) * 1000, 1
+            )
+            if isinstance(result, dict):
+                answer_span.set(status=str(result.get("status", "")))
+            try:
+                with span("record"):
+                    await self._record_answer_path(settings, trace, result, user_id)
+            except Exception:
+                # The record is evidence, not part of the answer; losing it must
+                # never cost the user their answer.
+                logger.exception("Answer-path record failed; answer returned unrecorded")
+            return result
 
     async def _record_answer_path(self, settings, trace: Dict[str, Any], result: Dict[str, Any],
                                   user_id: Optional[str]) -> None:
@@ -1405,12 +1412,13 @@ class SimpleRAGPipeline:
             if SAFETY_ENHANCEMENTS_AVAILABLE and user_id:
                 safety_manager = get_safety_manager()
                 conversation_history = self.conversations.get(conversation_id, []) if conversation_id else []
-                safety_result = await safety_manager.process_query(
-                    user_id=user_id,
-                    query=question,
-                    language=source_language,
-                    conversation_history=conversation_history
-                )
+                with span("safety_pre"):
+                    safety_result = await safety_manager.process_query(
+                        user_id=user_id,
+                        query=question,
+                        language=source_language,
+                        conversation_history=conversation_history
+                    )
                 
                 # Handle emergency or handoff
                 if not safety_result["should_respond"]:
@@ -1434,16 +1442,16 @@ class SimpleRAGPipeline:
             
             # Check if we have any documents indexed
             total_docs = len(self.document_metadata)
-            logger.info(f"Query: '{question}' - Total documents in metadata: {total_docs}")
+            logger.debug(f"Query: '{question}' - Total documents in metadata: {total_docs}")
             
             # Debug: Print all document IDs in metadata
             doc_ids = list(self.document_metadata.keys())
-            logger.info(f"Document IDs in metadata: {doc_ids}")
+            logger.debug(f"Document IDs in metadata: {doc_ids}")
             
             # Debug: Check vector database collection count
             try:
                 db_count = self.vector_db.count()
-                logger.info(f"Vector database contains {db_count} documents")
+                logger.debug(f"Vector database contains {db_count} documents")
             except Exception as e:
                 logger.warning(f"Could not get vector DB count: {e}")
             
@@ -1460,12 +1468,13 @@ class SimpleRAGPipeline:
                     "Cross-language retrieval looks weak for %s; retrying in English",
                     source_language,
                 )
-                translation_result = await self.translate_query_to_english(
-                    question, source_language
-                )
+                with span("translate", language=source_language):
+                    translation_result = await self.translate_query_to_english(
+                        question, source_language
+                    )
                 if translation_result["status"] in ["success", "fallback"]:
                     query_for_search = translation_result["translated_query"]
-                    logger.info(
+                    logger.debug(
                         "Translation fallback used for: '%s'", query_for_search
                     )
                     self.translation_fallback_count += 1
@@ -1496,7 +1505,8 @@ class SimpleRAGPipeline:
             router = getattr(self, "retrieval_router", None)
             if _rag_method in ROUTED_METHODS:
                 if router is not None:
-                    routed = await router.retrieve(query_for_search, top_k, method=_rag_method)
+                    with span("router.retrieve", method=_rag_method):
+                        routed = await router.retrieve(query_for_search, top_k, method=_rag_method)
                 if routed is None:
                     trace["retrieval"] = {
                         "rag_method": "vector",
@@ -1508,7 +1518,9 @@ class SimpleRAGPipeline:
             if routed is not None:
                 trace["retrieval"] = routed.record()
                 if not routed.passages:
-                    stage_ms["retrieval"] = round((time.perf_counter() - retrieval_started) * 1000, 1)
+                    stage_ms["retrieval"] = round(record_span(
+                        "retrieve", (time.perf_counter() - retrieval_started) * 1000, method=_rag_method,
+                    ), 1)
                     return {
                         "status": "success",
                         "answer": "I could not find any supporting documents in my corpus. Please consult a qualified medical doctor or visit the nearest hospital.",
@@ -1528,7 +1540,8 @@ class SimpleRAGPipeline:
             elif _rag_method == "pageindex" and _pageindex_enabled and _pageindex_engine:
                 # PageIndex tree-based retrieval
                 logger.info(f"Using PageIndex tree-based retrieval for: {query_for_search[:80]}")
-                pi_result = await _pageindex_engine.search(query_for_search)
+                with span("pageindex.search"):
+                    pi_result = await _pageindex_engine.search(query_for_search)
                 context_text = pi_result.context
 
                 if not context_text:
@@ -1612,20 +1625,21 @@ class SimpleRAGPipeline:
 
             else:
                 # Default: existing vector search (unchanged)
-                search_results = self.vector_db.query(
-                    query_texts=[query_for_search],
-                    n_results=top_k
-                )
+                with span("search", n_results=top_k):
+                    search_results = self.vector_db.query(
+                        query_texts=[query_for_search],
+                        n_results=top_k
+                    )
 
-                logger.info(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
+                logger.debug(f"Vector DB query returned {len(search_results.get('documents', []))} result sets")
                 if search_results.get('documents'):
-                    logger.info(f"First result set has {len(search_results['documents'][0])} documents")
+                    logger.debug(f"First result set has {len(search_results['documents'][0])} documents")
                     if search_results.get('metadatas') and search_results['metadatas'][0]:
                         first_meta = search_results['metadatas'][0][0] if search_results['metadatas'][0] else {}
-                        logger.info(f"First result metadata sample: {first_meta}")
+                        logger.debug(f"First result metadata sample: {first_meta}")
                     if search_results.get('distances'):
                         distances = search_results['distances'][0]
-                        logger.info(f"Search distances: {distances[:3]}...")
+                        logger.debug(f"Search distances: {distances[:3]}...")
 
                 if not search_results['documents'] or not search_results['documents'][0]:
                     logger.warning("No search results found in vector database")
@@ -1645,13 +1659,13 @@ class SimpleRAGPipeline:
                 relevant_metadatas = []
 
                 for i, (context, meta, distance) in enumerate(zip(contexts, metadatas, distances)):
-                    logger.info(f"Context {i}: distance={distance:.4f}, threshold={relevance_threshold}")
+                    logger.debug(f"Context {i}: distance={distance:.4f}, threshold={relevance_threshold}")
                     if distance <= relevance_threshold:
                         relevant_contexts.append(context)
                         relevant_metadatas.append(meta)
-                        logger.info(f"  ✅ Context {i} ACCEPTED (distance {distance:.4f} <= {relevance_threshold})")
+                        logger.debug(f"  ✅ Context {i} ACCEPTED (distance {distance:.4f} <= {relevance_threshold})")
                     else:
-                        logger.info(f"  ❌ Context {i} REJECTED (distance {distance:.4f} > {relevance_threshold})")
+                        logger.debug(f"  ❌ Context {i} REJECTED (distance {distance:.4f} > {relevance_threshold})")
 
                 logger.info(f"Total relevant contexts found: {len(relevant_contexts)}/{len(contexts)}")
 
@@ -1676,7 +1690,10 @@ class SimpleRAGPipeline:
                     for doc, meta in zip(filtered_contexts, filtered_metadatas)
                 ])
 
-            stage_ms["retrieval"] = round((time.perf_counter() - retrieval_started) * 1000, 1)
+            stage_ms["retrieval"] = round(record_span(
+                "retrieve", (time.perf_counter() - retrieval_started) * 1000,
+                method=_rag_method, chunks=len(relevant_contexts or filtered_metadatas),
+            ), 1)
             if "retrieval" not in trace:
                 trace["retrieval"] = {
                     "rag_method": _rag_method,
@@ -1690,13 +1707,14 @@ class SimpleRAGPipeline:
             patient_context = ""
             if user_id and self.context_injector:
                 try:
-                    patient_context = await self.context_injector.inject_context(
-                        user_id=user_id,
-                        question=question,
-                        max_length=500  # Keep context concise
-                    )
+                    with span("patient_context"):
+                        patient_context = await self.context_injector.inject_context(
+                            user_id=user_id,
+                            question=question,
+                            max_length=500  # Keep context concise
+                        )
                     if patient_context:
-                        logger.info(f"🧠 Injected patient context for user {user_id} ({len(patient_context)} chars)")
+                        logger.info(f"🧠 Injected patient context ({len(patient_context)} chars)")
                         context_text = f"""--- Patient History ---
 {patient_context}
 
@@ -1706,15 +1724,16 @@ class SimpleRAGPipeline:
                     logger.warning(f"Failed to inject patient context: {e}")
 
             # Generate answer with citation instructions
-            generation_started = time.perf_counter()
-            answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
-            stage_ms["generation"] = round((time.perf_counter() - generation_started) * 1000, 1)
+            with span("generate") as generation_span:
+                answer, model_used = await self._generate_answer_with_citations(question, context_text, filtered_metadatas, should_fuse)
+            stage_ms["generation"] = round(generation_span.ms, 1)
 
             # K26: cross-reference the drafted answer's clinical claims against
             # the knowledge graph. Off by default; never fails the turn.
             checker = getattr(self, "kg_checker", None)
             if settings.kg_check_enabled and checker is not None and model_used != "error":
-                answer, kg_result = await checker.check(answer)
+                with span("kg_check", mode=settings.kg_check_mode):
+                    answer, kg_result = await checker.check(answer)
                 trace["kg_check"] = kg_result.to_dict()
                 if kg_result.kg_version:
                     trace["kg_version"] = kg_result.kg_version
@@ -1754,7 +1773,8 @@ class SimpleRAGPipeline:
                     "sources": sources
                 })
 
-                self._save_conversations()
+                with span("post.save_conversations", turns=len(self.conversations)):
+                    self._save_conversations()
 
             # V25: Extract observations from conversation (async, non-blocking)
             observations_extracted = 0
@@ -1762,19 +1782,20 @@ class SimpleRAGPipeline:
                 try:
                     # Combine question and answer for extraction
                     conversation_text = f"Patient: {question}\nAssistant: {answer}"
-                    observations = await self.cross_modal_aggregator.process_conversation(
-                        patient_id=user_id,
-                        conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                        transcript=conversation_text,
-                        source_type=DataSourceType.WEB_CHAT,
-                        metadata={
-                            "language": source_language,
-                            "speaker_role": "patient"
-                        }
-                    )
+                    with span("post.observations"):
+                        observations = await self.cross_modal_aggregator.process_conversation(
+                            patient_id=user_id,
+                            conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                            transcript=conversation_text,
+                            source_type=DataSourceType.WEB_CHAT,
+                            metadata={
+                                "language": source_language,
+                                "speaker_role": "patient"
+                            }
+                        )
                     observations_extracted = len(observations)
                     if observations:
-                        logger.info(f"🔍 Extracted {len(observations)} observations from conversation for user {user_id}")
+                        logger.info(f"🔍 Extracted {len(observations)} observations from conversation")
                 except Exception as e:
                     logger.warning(f"Failed to extract observations: {e}")
 
@@ -1878,7 +1899,7 @@ class SimpleRAGPipeline:
                 thinking_preview = thinking.strip()[:500]
                 if len(thinking.strip()) > 500:
                     thinking_preview += "... [truncated]"
-                logger.info(f"🧠 Model Reasoning (block {i+1}):\n{thinking_preview}")
+                logger.debug(f"🧠 Model Reasoning (block {i+1}):\n{thinking_preview}")
 
             # Remove all <think>...</think> blocks from response
             clean_response = re.sub(think_pattern, '', response, flags=re.DOTALL)
@@ -1967,7 +1988,8 @@ ANSWER (2-3 paragraphs):"""
         if self.vector_db is None:
             return False
         try:
-            probe = self.vector_db.query(query_texts=[question], n_results=1)
+            with span("probe"):
+                probe = self.vector_db.query(query_texts=[question], n_results=1)
             distances = (probe.get("distances") or [[]])[0]
         except Exception:
             logger.debug("Cross-language probe failed; assuming retrieval is fine")
@@ -2039,7 +2061,7 @@ ANSWER (2-3 paragraphs followed by Sources line):"""
                 return answer, model_used
             
             # Debug: Log what the LLM generated
-            logger.info(f"🤖 LLM GENERATED ANSWER: '{answer}'")
+            logger.debug(f"🤖 LLM GENERATED ANSWER: '{answer}'")
             logger.info(f"🔍 Is no-answer response: {self._is_no_answer_response(answer)}")
             
             # Always clean inline citations and ensure proper end citation
@@ -4784,6 +4806,9 @@ def main():
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Per-stage timing traces (observability/tracing.py): one root span per request.
+    from observability.middleware import TraceMiddleware
+    app.add_middleware(TraceMiddleware)
 
     # Gemini Live service globals
     gemini_service = None
@@ -5625,7 +5650,7 @@ def main():
             logger.info("=" * 60)
             logger.info("📞 BOLNA VOICE CALL - RAG QUERY")
             logger.info("=" * 60)
-            logger.info(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
+            logger.debug(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
             logger.info(f"🌐 Language: {language} | Source: {source}")
             logger.info("-" * 60)
 
@@ -5732,7 +5757,7 @@ def main():
                 _query_duration = _time.time() - _query_start
                 logger.info(f"✅ RAG SUCCESS ({_query_duration:.2f}s)")
                 logger.info(f"📚 Sources: {', '.join(sources[:3])}")
-                logger.info(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
+                logger.debug(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
                 logger.info(f"🎯 Confidence: {confidence:.0%}")
                 logger.info("=" * 60)
 
@@ -7740,9 +7765,9 @@ def main():
                 
                 # Detailed logging of webhook data
                 logger.info("🔔 WEBHOOK RECEIVED:")
-                logger.info(f"  📱 From: {From}")
+                logger.debug(f"  📱 From: {From}")
                 logger.info(f"  📍 To: {To}")
-                logger.info(f"  💬 Body: '{Body}' (length: {len(Body) if Body else 0})")
+                logger.debug(f"  💬 Body: '{Body}' (length: {len(Body) if Body else 0})")
                 logger.info(f"  🎵 MediaUrl0: {MediaUrl0}")
                 logger.info(f"  📋 MediaContentType0: {MediaContentType0}")
                 logger.info(f"  🔢 NumMedia: {NumMedia}")

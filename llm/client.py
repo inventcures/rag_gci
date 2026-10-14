@@ -46,6 +46,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from observability import span
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-3.5-flash"
@@ -244,6 +246,25 @@ class LLMClient:
         purpose: str = "",
     ) -> LLMResponse:
         """Generate text. `purpose` labels the call in logs (e.g. "answer")."""
+        with span("llm", purpose=purpose or "call", model=self.settings.model) as llm_span:
+            response = await self._generate(
+                prompt, system=system, max_tokens=max_tokens, temperature=temperature,
+                json_mode=json_mode, purpose=purpose,
+            )
+            llm_span.set(ok=response.ok, provider=response.provider,
+                         used_fallback=response.used_fallback)
+            return response
+
+    async def _generate(
+        self,
+        prompt: str,
+        *,
+        system: Optional[str],
+        max_tokens: int,
+        temperature: float,
+        json_mode: bool,
+        purpose: str,
+    ) -> LLMResponse:
         s = self.settings
         started = time.perf_counter()
         errors: List[str] = []

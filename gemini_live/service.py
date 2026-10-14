@@ -21,6 +21,7 @@ import numpy as np
 
 from google import genai
 from google.genai import types
+from observability import trace_request
 
 from .config import (
     GeminiLiveConfig,
@@ -1388,6 +1389,11 @@ class GeminiLiveSession:
                 break
 
     async def _handle_tool_call(self, tool_call) -> None:
+        """Serve the model's RAG tool call inside a per-turn trace."""
+        with trace_request("gemini_live", user_id=self.session_id, name="tool_call"):
+            await self._serve_tool_call(tool_call)
+
+    async def _serve_tool_call(self, tool_call) -> None:
         """
         Serve the model's RAG tool call.
 

@@ -37,6 +37,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from observability import trace_request
+
 logger = logging.getLogger(__name__)
 
 # Voice paths, matching the Android constants so the log reads the same on both
@@ -210,6 +212,18 @@ class VoiceTurnHandler:
             return ""
 
     async def handle(
+        self,
+        session: VoiceSession,
+        transcript: str,
+        voice_path: str = VOICE_PATH_LIVE,
+        fallback_reason: Optional[str] = None,
+    ) -> VoiceTurn:
+        """Answer one spoken question, inside a per-turn trace (see _handle)."""
+        with trace_request("mobile_voice", user_id=f"voice__{session.session_id}",
+                           name="voice_turn", voice_path=voice_path):
+            return await self._handle(session, transcript, voice_path, fallback_reason)
+
+    async def _handle(
         self,
         session: VoiceSession,
         transcript: str,

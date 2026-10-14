@@ -30,6 +30,7 @@ from datetime import datetime
 from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
+from observability import trace_request
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +252,15 @@ class RetellCustomLLMHandler:
             session.conversation_history = transcript
 
     async def _handle_response_required(
+        self,
+        session: RetellSession,
+        message: Dict[str, Any]
+    ) -> None:
+        """One Retell turn, inside a per-turn trace (see _respond)."""
+        with trace_request("retell", user_id=session.call_id, name="voice_turn"):
+            await self._respond(session, message)
+
+    async def _respond(
         self,
         session: RetellSession,
         message: Dict[str, Any]

@@ -324,7 +324,7 @@ class TwilioWhatsAppAPI:
             logger.info(f"  📱 Formatted to: {to}")
             
             logger.info(f"  📋 Twilio text message params:")
-            logger.info(f"    From: {self.from_number}")
+            logger.debug(f"    From: {self.from_number}")
             logger.info(f"    To: {to}")
             logger.info(f"    Body length: {len(message)}")
             
@@ -389,7 +389,7 @@ class TwilioWhatsAppAPI:
                 logger.info(f"  🌐 Generated public URL: {public_url}")
             
             logger.info(f"  📋 Twilio message params:")
-            logger.info(f"    From: {self.from_number}")
+            logger.debug(f"    From: {self.from_number}")
             logger.info(f"    To: {to}")
             logger.info(f"    Media URL: {public_url}")
             
@@ -776,16 +776,16 @@ class EnhancedWhatsAppBot:
         """Process incoming Twilio WhatsApp message"""
         try:
             logger.info("🔄 PROCESSING MESSAGE:")
-            logger.info(f"  📱 From: {from_number}")
+            logger.debug(f"  📱 From: {from_number}")
             logger.info(f"  📍 To: {to_number}")
-            logger.info(f"  💬 Body: '{body}' (present: {bool(body and body.strip())})")
+            logger.debug(f"  💬 Body: '{body}' (present: {bool(body and body.strip())})")
             logger.info(f"  🎵 Media URL: {media_url} (present: {bool(media_url)})")
             logger.info(f"  📋 Content Type: {media_content_type}")
             logger.info(f"  🔢 Num Media: {num_media} (as int: {int(num_media) if num_media else 0})")
             
             # Remove whatsapp: prefix if present
             clean_from = from_number.replace("whatsapp:", "")
-            logger.info(f"  🧹 Clean From: {clean_from}")
+            logger.debug(f"  🧹 Clean From: {clean_from}")
             
             # Decision logic with detailed logging
             has_text = body and body.strip()
@@ -929,7 +929,7 @@ class EnhancedWhatsAppBot:
         """Handle media message from Twilio - routes to Gemini Live or fallback pipeline"""
         try:
             logger.info("🎵 HANDLING MEDIA MESSAGE:")
-            logger.info(f"  📱 From: {from_number}")
+            logger.debug(f"  📱 From: {from_number}")
             logger.info(f"  🔗 Media URL: {media_url}")
             logger.info(f"  📋 Content Type: {content_type}")
             logger.info(f"  🤖 Gemini Live enabled: {self.gemini_live_enabled}")
@@ -1156,7 +1156,7 @@ class EnhancedWhatsAppBot:
         7. Sends back audio and transcription
         """
         logger.info("🚀 GEMINI LIVE VOICE PROCESSING:")
-        logger.info(f"  📱 From: {from_number}")
+        logger.debug(f"  📱 From: {from_number}")
         logger.info(f"  🔗 Media URL: {media_url}")
 
         # Step 1: Download audio from Twilio
