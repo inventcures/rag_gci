@@ -10,7 +10,13 @@ import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
 import org.inventcures.pallisahayak.data.local.CachedAnswerEntity
 import org.inventcures.pallisahayak.data.local.InteractionDao
 import org.inventcures.pallisahayak.data.local.InteractionEntity
+import org.inventcures.pallisahayak.data.model.Language
+import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
+import org.inventcures.pallisahayak.data.offline.OfflineResolution
+import org.inventcures.pallisahayak.data.sync.SyncOutbox
+import org.inventcures.pallisahayak.data.sync.offlineInteractionLog
 import org.inventcures.pallisahayak.safety.AnswerKind
+import org.inventcures.pallisahayak.safety.DeferralCopy
 import org.inventcures.pallisahayak.safety.DoseBoundary
 import org.inventcures.pallisahayak.safety.EmergencyDetector
 import org.inventcures.pallisahayak.safety.EmergencySeverity
@@ -52,6 +58,8 @@ data class AnsweredQuestion(
      * interactions by what was asked.
      */
     val transcript: String = "",
+    /** True when the server could not be reached, whatever answered instead. */
+    val offline: Boolean = false,
 )
 
 /** Who is using the phone right now, and which study release they are on. */
@@ -82,6 +90,10 @@ class PalliSahayakRepository(
     private val interactions: InteractionDao,
     private val doseBoundary: DoseBoundary = DoseBoundary(),
     private val emergencyDetector: EmergencyDetector = EmergencyDetector(),
+    /** The Cached Answer Bundle, asked when the server cannot be reached. */
+    private val bundle: OfflineAnswerResolver? = null,
+    /** Where an interaction the server never saw waits to be synced. */
+    private val outbox: SyncOutbox? = null,
 ) {
 
     /**
@@ -114,6 +126,7 @@ class PalliSahayakRepository(
                     response = body.answer,
                     language = session.language,
                     transcript = body.transcript,
+                    alert = EmergencySeverity.fromLabel(body.emergency_level),
                 )
                 AnsweredQuestion(
                     text = safety.text,
@@ -175,8 +188,9 @@ class PalliSahayakRepository(
                     patient_id = null,
                 ),
             )
-            if (response.isSuccessful && response.body() != null) {
-                toAnswered(response.body()!!, AnswerSource.Live(response.body()!!))
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                toAnswered(body, question, session)
             } else {
                 offlineOrUnavailable(question, session)
             }
@@ -195,32 +209,80 @@ class PalliSahayakRepository(
     /**
      * Apply the client safety boundary to a server response.
      *
-     * The transcript is passed to the emergency detector alongside the response,
-     * because the detector works on what the user said, not on what the server
-     * replied.
+     * The Emergency level is the server's for the question, kept, together with
+     * the on-device check of the question in the participant's language; the
+     * higher wins. The answer text never decides it: an answer that mentions
+     * "unconscious" must not lift the Dose Boundary for a routine question.
      */
-    private fun toAnswered(response: MobileQueryResponse, source: AnswerSource): AnsweredQuestion {
+    private fun toAnswered(
+        response: MobileQueryResponse,
+        question: String,
+        session: SessionContext,
+    ): AnsweredQuestion {
         val safety: SafetyResult = doseBoundary.apply(
             response = response.answer,
-            language = "en-IN",
-            transcript = response.answer,
+            language = session.language,
+            transcript = question,
+            alert = EmergencySeverity.fromLabel(response.emergency_level),
         )
         return AnsweredQuestion(
             text = safety.text,
             kind = safety.kind,
             emergency = safety.emergency,
-            source = source,
+            source = AnswerSource.Live(response),
             sourceCount = response.sources?.size ?: 0,
         )
     }
 
-    private fun offlineOrUnavailable(question: String, session: SessionContext) = AnsweredQuestion(
-        text = "",
-        kind = AnswerKind.DEFERRAL,
-        emergency = emergencyDetector.detect(question, session.language),
-        source = AnswerSource.Unavailable,
-        sourceCount = 0,
-    )
+    /**
+     * The server did not answer: the Cached Answer Bundle answers if it holds the
+     * question, in the participant's language, and otherwise the app says plainly
+     * that it needs a connection (ADR 0005).
+     *
+     * A bundled answer passes the Dose Boundary again, and is never shown as more
+     * of an answer than the kind it was stored with: a stored Deferral stays one.
+     * The Emergency level comes from the on-device check of the question, since
+     * there is no server level offline.
+     */
+    private suspend fun offlineOrUnavailable(question: String, session: SessionContext): AnsweredQuestion {
+        val emergency = emergencyDetector.detect(question, session.language)
+        val cached = findInBundle(question, session.language)
+            ?: return AnsweredQuestion(
+                text = "",
+                kind = AnswerKind.DEFERRAL,
+                emergency = emergency,
+                source = AnswerSource.Unavailable,
+                sourceCount = 0,
+                offline = session.isOffline,
+            )
+
+        val safety = doseBoundary.apply(
+            response = cached.response,
+            language = session.language,
+            transcript = question,
+            alert = emergency,
+        )
+        val stored = AnswerKind.entries.firstOrNull { it.name == cached.answerKind } ?: AnswerKind.DEFERRAL
+        val kind = if (stored.ordinal > safety.kind.ordinal) stored else safety.kind
+        return AnsweredQuestion(
+            text = if (kind == AnswerKind.DEFERRAL && safety.kind != AnswerKind.DEFERRAL) {
+                DeferralCopy.forLanguage(session.language)
+            } else {
+                safety.text
+            },
+            kind = kind,
+            emergency = safety.emergency,
+            source = AnswerSource.Bundle(cached),
+            sourceCount = 0,
+            offline = session.isOffline,
+        )
+    }
+
+    private suspend fun findInBundle(question: String, language: String): CachedAnswerEntity? {
+        val resolver = bundle ?: return null
+        val supported = Language.fromTag(language) ?: return null
+        return (resolver.resolve(question, supported) as? OfflineResolution.Found)?.answer
+    }
 
     /**
      * Write one row. SI-5.
@@ -243,31 +305,35 @@ class PalliSahayakRepository(
         // inflated by silent exclusions.
         val substantive = question.isNotBlank() && answered.source != AnswerSource.Unavailable
 
-        interactions.insert(
-            InteractionEntity(
-                id = UUID.randomUUID().toString(),
-                participantId = session.participantId,
-                careRole = session.careRole,
-                siteId = session.siteId,
-                releaseId = session.releaseId,
-                releaseApproved = session.releaseApproved,
-                occurredAt = System.currentTimeMillis(),
-                language = session.language,
-                channel = session.voicePath ?: "text",
-                isOffline = session.isOffline,
-                fromCache = answered.source is AnswerSource.Bundle,
-                voicePath = session.voicePath,
-                query = scrubbedQuery.text,
-                response = scrubbedResponse.text,
-                answerKind = answered.kind.name,
-                emergencyLevel = answered.emergency.name.lowercase(),
-                dosageBlocked = answered.kind != AnswerKind.ANSWER,
-                sourceCount = answered.sourceCount,
-                interactionClass = if (substantive) "substantive" else "excluded",
-                // False whenever anything was found, and also false when nothing
-                // was found but free text may still hold a name. See TextScrubber.
-                textIsScrubbed = scrubbedQuery.isClean && scrubbedResponse.isClean,
-            ),
+        val row = InteractionEntity(
+            id = UUID.randomUUID().toString(),
+            participantId = session.participantId,
+            careRole = session.careRole,
+            siteId = session.siteId,
+            releaseId = session.releaseId,
+            releaseApproved = session.releaseApproved,
+            occurredAt = System.currentTimeMillis(),
+            language = session.language,
+            channel = session.voicePath ?: "text",
+            isOffline = session.isOffline || answered.offline,
+            fromCache = answered.source is AnswerSource.Bundle,
+            voicePath = session.voicePath,
+            query = scrubbedQuery.text,
+            response = scrubbedResponse.text,
+            answerKind = answered.kind.name,
+            emergencyLevel = answered.emergency.name.lowercase(),
+            dosageBlocked = answered.kind != AnswerKind.ANSWER,
+            sourceCount = answered.sourceCount,
+            interactionClass = if (substantive) "substantive" else "excluded",
+            // False whenever anything was found, and also false when nothing
+            // was found but free text may still hold a name. See TextScrubber.
+            textIsScrubbed = scrubbedQuery.isClean && scrubbedResponse.isClean,
         )
+        interactions.insert(row)
+
+        // The server never saw an interaction it could not be reached for, so it
+        // waits in the outbox until a sync acknowledges it. Without its text: the
+        // study counts it, and free text could still hold a name.
+        if (row.isOffline) outbox?.enqueue(offlineInteractionLog(row))
     }
 }

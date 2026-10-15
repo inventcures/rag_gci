@@ -40,11 +40,13 @@ class DoseBoundaryTest {
 
     @Test
     fun `SI-1 over-firing destroys the tool and is treated as a defect`() {
-        // Chapter references, intervals and grades are not doses. If these trip
-        // the guard, a family asking how often to turn a patient gets a refusal.
+        // Chapter references, care advice and grades are not doses. If these trip
+        // the guard, a family asking how to care for a patient gets a refusal.
+        // ("every 1-2 hour intervals" used to be here; since round 3 the server
+        // withholds every "every N hours" schedule, and the client mirrors it.)
         val safe = listOf(
             "See Chapter 5 of the handbook for details.",
-            "Turn and reposition the patient every 1-2 hour intervals.",
+            "Turn and reposition the patient regularly to protect the skin.",
             "This intervention is supported by Grade C evidence.",
             "Age 84 and under 2 years of care.",
         )
@@ -162,6 +164,32 @@ class DoseBoundaryTest {
         assertThat(result.emergency).isEqualTo(EmergencySeverity.HIGH)
         assertThat(result.isDoseRestricted).isTrue()
         assertThat(result.text).doesNotContain("10 mg")
+    }
+
+    @Test
+    fun `SI-4 an answer saying call 108 does not lift the boundary`() {
+        // Ticket 02 removed the server's "the answer says call 108" fallback; the
+        // client never judges the answer for an emergency either.
+        val result = boundary.apply(
+            "Give 10mg morphine. If breathing stops or the patient is unconscious, call 108 immediately.",
+            language = "en-IN",
+            transcript = "What can we do about the pain?",
+        )
+        assertThat(result.emergency).isEqualTo(EmergencySeverity.NONE)
+        assertThat(result.isDoseRestricted).isTrue()
+        assertThat(result.text).doesNotContain("10mg")
+    }
+
+    @Test
+    fun `SI-4 the level passed in for the question counts, and only CRITICAL overrides`() {
+        val dosed = "Give morphine 10 mg orally every 4 hours."
+        val critical = boundary.apply(dosed, "bn-IN", transcript = "রোগীর খিঁচুনি হচ্ছে", alert = EmergencySeverity.CRITICAL)
+        val high = boundary.apply(dosed, "bn-IN", transcript = "রোগীর খিঁচুনি হচ্ছে", alert = EmergencySeverity.HIGH)
+
+        assertThat(critical.emergency).isEqualTo(EmergencySeverity.CRITICAL)
+        assertThat(critical.emergencyOverrodeDose).isTrue()
+        assertThat(high.emergency).isEqualTo(EmergencySeverity.HIGH)
+        assertThat(high.isDoseRestricted).isTrue()
     }
 
     @Test
