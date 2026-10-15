@@ -112,7 +112,14 @@ class MedicationVoiceReminder:
     
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)
+    # When the reminder last changed; sync pull returns reminders changed after
+    # the client's last sync.
+    updated_at: datetime = field(default_factory=datetime.now)
     notes: str = ""
+
+    # Fields never sent to the app: the dose (decision D10, the stored dose is
+    # never spoken or sent) and the call script built from it.
+    CLIENT_HIDDEN_FIELDS = ("dosage", "tts_message")
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -137,8 +144,16 @@ class MedicationVoiceReminder:
             "voice_message_url": self.voice_message_url,
             "tts_message": self.tts_message,
             "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
             "notes": self.notes,
         }
+
+    def to_client_dict(self) -> Dict[str, Any]:
+        """The reminder as the mobile app receives it: no dose, no call script."""
+        data = self.to_dict()
+        for name in self.CLIENT_HIDDEN_FIELDS:
+            data.pop(name, None)
+        return data
 
 
 class MedicationVoiceReminderSystem:
@@ -259,15 +274,20 @@ class MedicationVoiceReminderSystem:
     def _save_reminders(self):
         """Save reminders to storage"""
         try:
-            reminders_file = self.storage_path / "voice_reminders.json"
-            data = [r.to_dict() for r in self.reminders.values()]
-            with open(reminders_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            self._write_reminders()
         except Exception as e:
             logger.error(f"Failed to save voice reminders: {e}")
+
+    def _write_reminders(self) -> None:
+        """Write every reminder to storage. Raises OSError when it cannot."""
+        reminders_file = self.storage_path / "voice_reminders.json"
+        data = [r.to_dict() for r in self.reminders.values()]
+        with open(reminders_file, 'w') as f:
+            json.dump(data, f, indent=2)
     
     def _dict_to_reminder(self, data: Dict) -> MedicationVoiceReminder:
         """Convert dict to MedicationVoiceReminder"""
+        created_at = datetime.fromisoformat(data.get("created_at", datetime.now().isoformat()))
         return MedicationVoiceReminder(
             reminder_id=data["reminder_id"],
             user_id=data["user_id"],
@@ -289,7 +309,8 @@ class MedicationVoiceReminderSystem:
             confirmation_timestamp=datetime.fromisoformat(data["confirmation_timestamp"]) if data.get("confirmation_timestamp") else None,
             voice_message_url=data.get("voice_message_url"),
             tts_message=data.get("tts_message"),
-            created_at=datetime.fromisoformat(data.get("created_at", datetime.now().isoformat())),
+            created_at=created_at,
+            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else created_at,
             notes=data.get("notes", ""),
         )
     
@@ -432,6 +453,7 @@ class MedicationVoiceReminderSystem:
         reminder.call_status = CallStatus.CALLING
         reminder.call_attempts += 1
         reminder.call_started_at = datetime.now()
+        reminder.updated_at = datetime.now()
         self._save_reminders()
         
         try:
@@ -541,6 +563,7 @@ class MedicationVoiceReminderSystem:
             return
         
         reminder.call_ended_at = datetime.now()
+        reminder.updated_at = datetime.now()
         reminder.call_duration = duration
         
         # Check if patient confirmed
@@ -646,55 +669,70 @@ class MedicationVoiceReminderSystem:
             "adherence_rate": round(adherence_rate, 1),
         }
 
+    def get_client_reminders(self, user_id: str) -> List[Dict[str, Any]]:
+        """This household's reminders as the mobile app receives them (no dose)."""
+        return [
+            self.reminders[r_id].to_client_dict()
+            for r_id in self.user_reminders.get(user_id, [])
+            if r_id in self.reminders
+        ]
+
     def get_reminders_modified_since(self, user_id: str, since: float) -> List[Dict[str, Any]]:
-        """Return reminders modified after the given Unix timestamp (for mobile sync)."""
-        since_dt = datetime.fromtimestamp(since)
-        results = []
-        for reminder in self.reminders.values():
-            if reminder.scheduled_time >= since_dt:
-                results.append(reminder.to_dict())
-        return results
+        """This household's reminders changed after a Unix timestamp (mobile sync pull).
 
-    def upsert_reminder_from_sync(self, reminder_data: Dict[str, Any]) -> None:
-        """Upsert a reminder from mobile sync."""
+        Only the caller's own reminders, in the app's view (no dose)."""
+        return [
+            self.reminders[r_id].to_client_dict()
+            for r_id in self.user_reminders.get(user_id, [])
+            if r_id in self.reminders and self.reminders[r_id].updated_at.timestamp() > since
+        ]
+
+    def upsert_reminder_from_sync(self, reminder_data: Dict[str, Any], user_id: str) -> str:
+        """Create or update a reminder pushed by the mobile app, owned by `user_id`.
+
+        The owner is the authenticated caller, never a `user_id` in the payload.
+        An existing reminder may change only its call status and confirmation.
+
+        Returns the reminder id. Raises ValueError for a malformed item and
+        PermissionError for a reminder that belongs to another household.
+        """
         reminder_id = reminder_data.get("reminder_id")
-        if not reminder_id:
-            return
+        if not reminder_id or not isinstance(reminder_id, str):
+            raise ValueError("reminder_id is required")
 
-        if reminder_id in self.reminders:
-            existing = self.reminders[reminder_id]
+        existing = self.reminders.get(reminder_id)
+        if existing is not None:
+            if existing.user_id != user_id:
+                raise PermissionError("reminder belongs to another household")
             if "call_status" in reminder_data:
                 try:
                     existing.call_status = CallStatus(reminder_data["call_status"])
                 except ValueError:
-                    pass
+                    raise ValueError("unknown call_status")
             if reminder_data.get("patient_confirmed"):
                 existing.patient_confirmed = True
+            existing.updated_at = datetime.now()
         else:
-            try:
-                scheduled = reminder_data.get("scheduled_time")
-                if isinstance(scheduled, (int, float)):
-                    scheduled_dt = datetime.fromtimestamp(scheduled)
-                else:
-                    scheduled_dt = datetime.now()
+            scheduled = reminder_data.get("scheduled_time")
+            if isinstance(scheduled, (int, float)):
+                scheduled_dt = datetime.fromtimestamp(scheduled)
+            else:
+                scheduled_dt = datetime.now()
+            reminder = MedicationVoiceReminder(
+                reminder_id=reminder_id,
+                user_id=user_id,
+                phone_number=reminder_data.get("phone_number", ""),
+                medication_name=reminder_data.get("medication_name", ""),
+                dosage=reminder_data.get("dosage", ""),
+                scheduled_time=scheduled_dt,
+                language=reminder_data.get("language", "en"),
+            )
+            self.reminders[reminder_id] = reminder
+            self.user_reminders.setdefault(user_id, []).append(reminder_id)
 
-                reminder = MedicationVoiceReminder(
-                    reminder_id=reminder_id,
-                    user_id=reminder_data.get("user_id", ""),
-                    phone_number=reminder_data.get("phone_number", ""),
-                    medication_name=reminder_data.get("medication_name", ""),
-                    dosage=reminder_data.get("dosage", ""),
-                    scheduled_time=scheduled_dt,
-                    language=reminder_data.get("language", "en"),
-                )
-                self.reminders[reminder_id] = reminder
-                user_id = reminder_data.get("user_id", "")
-                if user_id:
-                    if user_id not in self.user_reminders:
-                        self.user_reminders[user_id] = []
-                    self.user_reminders[user_id].append(reminder_id)
-            except Exception as e:
-                logger.error(f"Error upserting reminder from sync: {e}")
+        # Raises on failure, so sync push does not acknowledge an unsaved item.
+        self._write_reminders()
+        return reminder_id
 
 
 # Singleton instance

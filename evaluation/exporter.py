@@ -2,16 +2,37 @@ import csv
 import json
 import io
 from pathlib import Path
-from typing import List
+from typing import Iterator, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class EvaluationExporter:
-    """Exports evaluation data in formats compatible with R/lme4 analysis."""
+def _records(files, user_id: Optional[str]) -> Iterator[dict]:
+    """Each JSON record in `files`, only `user_id`'s when one is given.
 
-    def export_sus_csv(self) -> str:
+    An unreadable file is logged and skipped, so one bad record does not
+    fail the whole export."""
+    for filepath in files:
+        try:
+            with open(filepath) as f:
+                record = json.load(f)
+        except (OSError, ValueError) as e:
+            logger.warning(f"Skipped unreadable evaluation record {filepath.name}: {type(e).__name__}")
+            continue
+        if user_id is not None and record.get("user_id") != user_id:
+            continue
+        yield record
+
+
+class EvaluationExporter:
+    """Exports evaluation data in formats compatible with R/lme4 analysis.
+
+    Each export takes `user_id`: given, only that participant's records are
+    exported (the Household Record boundary); None exports everyone's, which
+    only an auditor may ask for."""
+
+    def export_sus_csv(self, user_id: Optional[str] = None) -> str:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow([
@@ -22,9 +43,7 @@ class EvaluationExporter:
         ])
 
         sus_dir = Path("./data/evaluation/sus_scores")
-        for filepath in sorted(sus_dir.glob("*.json")):
-            with open(filepath) as f:
-                record = json.load(f)
+        for record in _records(sorted(sus_dir.glob("*.json")), user_id):
             scores = record["scores"]
             writer.writerow([
                 record["submission_id"], record["user_id"],
@@ -35,7 +54,7 @@ class EvaluationExporter:
 
         return output.getvalue()
 
-    def export_vignettes_csv(self) -> str:
+    def export_vignettes_csv(self, user_id: Optional[str] = None) -> str:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow([
@@ -45,21 +64,24 @@ class EvaluationExporter:
         ])
 
         responses_dir = Path("./data/evaluation/vignette_responses")
-        for filepath in sorted(responses_dir.glob("*.json")):
-            with open(filepath) as f:
-                record = json.load(f)
+        for record in _records(sorted(responses_dir.glob("*.json")), user_id):
             writer.writerow([
-                record["response_id"], record["user_id"],
-                record["vignette_id"], record["with_tool"],
+                record.get("response_id", ""), record.get("user_id", ""),
+                record.get("vignette_id", ""), record.get("with_tool", ""),
                 record.get("response_text", ""),
-                record["started_at"], record["completed_at"],
+                record.get("started_at", ""), record.get("completed_at", ""),
                 record.get("duration_ms", ""),
                 record.get("submitted_at", ""),
             ])
 
         return output.getvalue()
 
-    def export_interaction_logs_csv(self, start_date: str = None, end_date: str = None) -> str:
+    def export_interaction_logs_csv(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> str:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow([
@@ -78,9 +100,7 @@ class EvaluationExporter:
                 continue
             if end_date and day_dir.name > end_date:
                 continue
-            for filepath in sorted(day_dir.glob("*.json")):
-                with open(filepath) as f:
-                    record = json.load(f)
+            for record in _records(sorted(day_dir.glob("*.json")), user_id):
                 writer.writerow([
                     record["log_id"], record["user_id"],
                     record.get("session_id", ""),

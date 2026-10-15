@@ -59,7 +59,9 @@ class DeltaTracker:
 
         if self.medication_manager:
             try:
-                reminders = await self.medication_manager.get_reminders_modified_since(
+                # Synchronous, and scoped to the caller's household: only this
+                # user's reminders, in the app's view (no dose).
+                reminders = self.medication_manager.get_reminders_modified_since(
                     user_id=user_id,
                     since=since_timestamp,
                 )
