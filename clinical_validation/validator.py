@@ -20,6 +20,13 @@ from dose_detector import detect_doses
 
 logger = logging.getLogger(__name__)
 
+# "as much (of the) <up to four words> as you need/want/like", "as many ... as
+# needed": an unlimited quantity of whatever is named in between.
+_UNLIMITED_QUANTITY_RE = re.compile(
+    r"\bas\s+(?:much|many)\s+(?:\w+\s+){0,4}?as\s+(?:you\s+|they\s+|he\s+|she\s+)?"
+    r"(?:need|needs|needed|want|wants|wanted|like|likes|wish|please)\b"
+)
+
 
 class ValidationLevel(Enum):
     """Severity levels for validation issues."""
@@ -283,6 +290,17 @@ class ClinicalValidator:
                     suggestion="Remove or rephrase this advice to ensure patient safety"
                 ))
 
+        # An unlimited quantity, however it is worded: "take as much morphine as
+        # you need", "as many tablets as you like". The phrase list above only
+        # matched the one exact wording.
+        if _UNLIMITED_QUANTITY_RE.search(response_lower):
+            issues.append(ValidationIssue(
+                category=ValidationCategory.SAFETY,
+                level=ValidationLevel.CRITICAL,
+                message="Response advises an unlimited quantity of a medicine",
+                suggestion="Never suggest an unlimited amount; defer the quantity to the prescriber"
+            ))
+
         # Check for unsupervised medication changes
         if re.search(r"(stop|discontinue|quit).*medication.*without", response_lower):
             issues.append(ValidationIssue(
@@ -516,7 +534,13 @@ class ClinicalValidator:
         checks_passed: List[str],
         checks_failed: List[str]
     ) -> float:
-        """Calculate confidence score based on validation results."""
+        """Calculate confidence score based on validation results.
+
+        A CRITICAL issue makes the answer invalid, and an invalid answer carries
+        no confidence: passed checks must not lift it back towards 1.0."""
+        if any(issue.level == ValidationLevel.CRITICAL for issue in issues):
+            return 0.0
+
         base_score = 1.0
 
         # Deduct for issues based on severity

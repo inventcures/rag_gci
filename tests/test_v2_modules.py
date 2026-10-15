@@ -60,6 +60,27 @@ class ClinicalValidation(TempStore):
         )
         self.assertIn("safety", [issue.category.value for issue in result.issues])
 
+    def test_an_unlimited_morphine_answer_is_a_critical_issue_and_invalid(self):
+        result = ClinicalValidator().validate(
+            query="Can I take as much morphine as I want?",
+            response="You can take as much morphine as you need for pain relief.",
+            sources=[], context=None,
+        )
+        self.assertTrue(result.has_critical_issues)
+        self.assertFalse(result.is_valid)
+        self.assertEqual(result.confidence_score, 0.0)
+
+    def test_every_unlimited_quantity_wording_is_critical(self):
+        for response in ("Take as much paracetamol as you like.",
+                         "Use as much of the syrup as needed.",
+                         "Take as many tablets as you want.",
+                         "There is no limit to how much you can take."):
+            with self.subTest(response=response):
+                result = ClinicalValidator().validate(
+                    query="How much can I take?", response=response, sources=[], context=None)
+                self.assertTrue(result.has_critical_issues)
+                self.assertFalse(result.is_valid)
+
     def test_a_grounded_care_answer_raises_no_safety_issue(self):
         result = ClinicalValidator().validate(
             query=SAFE_QUERY, response=SAFE_ANSWER, sources=SOURCES, context=None,

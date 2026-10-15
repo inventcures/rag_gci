@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, List
+from typing import Any, Dict, Literal, Optional, List
 from enum import Enum
 
 
@@ -217,10 +217,14 @@ class PatientInsightsResponse(BaseModel):
     patient_id: str
     insights: List[dict]
     total: int
+    # The Dose Boundary's record for the insight text (None when there was none).
+    safety: Optional[Dict[str, Any]] = None
 
 
 class PatientMemoryQueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
+    # The Supported Language of the question; the Deferral is given in it.
+    language: str = Field(default="en")
 
 
 class PatientMemoryQueryResponse(BaseModel):
@@ -229,6 +233,8 @@ class PatientMemoryQueryResponse(BaseModel):
     cited_insight_ids: List[str]
     raw_memories_used: int
     insights_used: int
+    # The Dose Boundary's record for the answer.
+    safety: Optional[Dict[str, Any]] = None
 
 
 class FeedbackRequest(BaseModel):

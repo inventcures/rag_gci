@@ -821,5 +821,84 @@ class TestTemporalReasonerIntegration:
         assert isinstance(correlations, list)
 
 
+# ============================================================================
+# DOSE BOUNDARY
+# ============================================================================
+
+# Words that advise changing a medicine or its dose. The Dose Boundary forbids
+# titration steps and start/stop decisions, and the admin view respects it too.
+_DOSE_CHANGE_WORDS = ("dose", "dosage", "titrat", "rotation", "increase", "reduce")
+
+
+def _advice_changes_a_dose(texts):
+    return [t for t in texts if any(word in t.lower() for word in _DOSE_CHANGE_WORDS)]
+
+
+class TestNoDoseAdjustmentAdvice:
+    """No temporal-reasoner output recommends a dose adjustment."""
+
+    @pytest.mark.asyncio
+    async def test_evening_worse_pain_gets_no_dose_adjustment_advice(
+        self, temporal_reasoner, longitudinal_manager
+    ):
+        record = await longitudinal_manager.get_or_create_record("patient_evening")
+        start = (datetime.now() - timedelta(days=10)).replace(minute=0, second=0, microsecond=0)
+        for day in range(8):
+            for hour, severity in ((8, SeverityLevel.MILD), (20, SeverityLevel.SEVERE)):
+                record.add_observation(SymptomObservation(
+                    observation_id=f"pain_{day}_{hour}",
+                    timestamp=start.replace(hour=hour) + timedelta(days=day),
+                    source_type=DataSourceType.VOICE_CALL,
+                    source_id=f"conv_{day}_{hour}",
+                    reported_by="patient",
+                    category="symptom",
+                    entity_name="pain",
+                    value=severity,
+                    value_text="Pain",
+                    symptom_name="pain",
+                    severity=severity,
+                ))
+        await longitudinal_manager.save_record(record)
+
+        report = await temporal_reasoner.analyze_symptom_progression(
+            patient_id="patient_evening", symptom_name="pain", time_window_days=30
+        )
+
+        assert report.diurnal_pattern == "worse_evening"
+        assert report.recommended_actions
+        assert _advice_changes_a_dose(report.recommended_actions + report.clinical_concerns) == []
+
+    @pytest.mark.asyncio
+    async def test_poor_adherence_gets_no_medication_change_advice(
+        self, temporal_reasoner, longitudinal_manager
+    ):
+        record = await longitudinal_manager.get_or_create_record("patient_rotation")
+        base_time = datetime.now() - timedelta(days=30)
+        for i in range(10):
+            action = MedicationAction.MISSED if i < 6 else MedicationAction.TAKEN
+            record.add_observation(MedicationEvent(
+                observation_id=f"med_{i}",
+                timestamp=base_time + timedelta(days=i * 3),
+                source_type=DataSourceType.WHATSAPP,
+                source_id=f"msg_{i}",
+                reported_by="patient",
+                category="medication",
+                entity_name="tramadol",
+                value=action,
+                value_text=f"Tramadol {action.value}",
+                medication_name="tramadol",
+                dosage="50mg",
+                action=action,
+            ))
+        await longitudinal_manager.save_record(record)
+
+        report = await temporal_reasoner.analyze_medication_effectiveness(
+            patient_id="patient_rotation", medication_name="tramadol", time_window_days=60
+        )
+
+        assert report.recommended_actions
+        assert _advice_changes_a_dose(report.recommended_actions) == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

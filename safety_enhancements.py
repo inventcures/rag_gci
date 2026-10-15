@@ -1791,3 +1791,86 @@ def guard_query_result(
             result.get("status", "unknown"), safety.dosage_reason,
         )
     return safety
+
+
+def _guard_strings(value: Any, guard: Any, language: str, query: str,
+                   outcomes: List[Any]) -> Any:
+    """A copy of `value` with every string passed through the Dose Boundary.
+
+    Strings anywhere in the structure (dict values, list items) are guarded with
+    no alert, so a dose inside graph or index data is withheld even under an
+    Emergency Override: the override belongs to the answer text alone."""
+    if isinstance(value, str):
+        result = guard.apply(response=value, language=language, query=query, alert=None)
+        if result.blocked:
+            outcomes.append(result)
+        return result.response
+    if isinstance(value, dict):
+        return {key: _guard_strings(item, guard, language, query, outcomes)
+                for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_guard_strings(item, guard, language, query, outcomes) for item in value]
+    return value
+
+
+def guard_answer_payload(
+    payload: Any,
+    *,
+    query: str,
+    language: str = "en",
+    answer_key: Optional[str] = None,
+    safety_manager: Optional[SafetyEnhancementsManager] = None,
+) -> Tuple[Any, Dict[str, Any]]:
+    """
+    Pass a route's model- or graph-derived payload through the answer gate.
+
+    The knowledge-graph, GraphRAG, PageIndex and patient-memory routes return
+    structured data rather than one answer string, and any string in it can
+    carry a dose (the GraphRAG index even extracts a Dosage entity type). Every
+    string in `payload` therefore goes through the Dose Boundary's `apply`.
+
+    `answer_key`, when given, names the top-level field holding the generated
+    answer. That field alone is guarded with the emergency alert computed once
+    on `query` in `language`, as on the main answer path, so a CRITICAL question
+    gets the 108 guidance first. Every other string is guarded without an alert.
+
+    Returns the guarded copy and its safety record, which callers attach to the
+    response as "safety". Errors in the guard propagate: callers turn them into
+    an error response, which is the fail-closed outcome.
+    """
+    manager = safety_manager if safety_manager is not None else get_safety_manager()
+    guard = manager.dosage_guard
+    language = language or "en"
+    outcomes: List[Any] = []
+    emergency_level = "none"
+    overrode = False
+
+    if isinstance(payload, dict) and answer_key and isinstance(payload.get(answer_key), str):
+        alert = guard.detect_alert(query, language)
+        answer = guard.apply(response=payload[answer_key], language=language,
+                             query=query, alert=alert)
+        if answer.blocked:
+            outcomes.append(answer)
+        emergency_level = answer.emergency_level
+        overrode = answer.emergency_overrode
+        guarded = {
+            key: (answer.response if key == answer_key
+                  else _guard_strings(value, guard, language, query, outcomes))
+            for key, value in payload.items()
+        }
+    else:
+        guarded = _guard_strings(payload, guard, language, query, outcomes)
+
+    fallbacks = [o.language_fallback for o in outcomes if o.language_fallback]
+    record = {
+        "emergency_level": emergency_level,
+        "dosage_blocked": bool(outcomes),
+        "dosage_reason": outcomes[0].reason if outcomes else None,
+        "emergency_overrode_dosage": overrode,
+        "dosage_language_fallback": fallbacks[0] if fallbacks else None,
+        "guarded_fields": len(outcomes),
+    }
+    if outcomes:
+        logger.info("Dosage guard withheld doses in %d field(s) of a graph or index "
+                    "payload (%s)", len(outcomes), record["dosage_reason"])
+    return guarded, record
