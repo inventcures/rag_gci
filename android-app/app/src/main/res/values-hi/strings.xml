@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Hindi (ticket 24). Every string in values/strings.xml, in Devanagari, so a phone in
+  Hindi needs no English on any screen. Machine-drafted: awaiting clinical-language
+  review before the study build (review 3, report 24 lists them).
+
+  scripts/check_no_hardcoded_strings.py fails the build when a key is missing here,
+  a placeholder differs, or a Latin letter is left in. The other Supported Languages
+  follow this pattern under the table's code (values-bn, values-or, ...).
+-->
+<resources>
+    <string name="app_name">पल्ली सहायक</string>
+
+    <string name="role_switch_explainer">इसे बदलने से जवाब देने का तरीका बदलता है। घर के सभी लोग एक ही रिकॉर्ड पढ़ते हैं।</string>
+    <string name="role_switch_title">किस रूप में बात कर रहे हैं</string>
+    <string name="role_asha_worker">आशा कार्यकर्ता के रूप में बात कर रहे हैं</string>
+    <string name="role_family_caregiver">परिवार के देखभाल करने वाले के रूप में बात कर रहे हैं</string>
+    <string name="role_patient">मरीज़ के रूप में बात कर रहे हैं</string>
+    <string name="role_short_asha_worker">आशा</string>
+    <string name="role_short_family_caregiver">परिवार</string>
+    <string name="role_short_patient">मरीज़</string>
+    <string name="role_state_active">अभी इस रूप में बात कर रहे हैं</string>
+    <string name="role_state_switch">इसमें बदलें</string>
+
+    <string name="language_picker_title">अपनी भाषा चुनें</string>
+    <string name="language_picker_explainer">आप इसे बाद में सेटिंग्स में बदल सकते हैं। जवाब आपकी चुनी हुई भाषा में बोले जाएंगे।</string>
+    <string name="language_state_selected">चुनी गई</string>
+    <string name="language_state_not_selected">नहीं चुनी गई</string>
+
+    <string name="offline_banner_title">ऑफ़लाइन</string>
+    <string name="offline_banner_body">बिना कनेक्शन के %1$d सवाल उपलब्ध हैं। जवाब पुराने हो सकते हैं।</string>
+
+    <string name="mic_disabled_offline">आवाज़ के लिए कनेक्शन ज़रूरी है</string>
+    <string name="mic_ask_by_voice">आवाज़ से पूछें</string>
+    <string name="mic_unavailable_offline">ऑफ़लाइन होने पर माइक्रोफ़ोन उपलब्ध नहीं है</string>
+
+    <string name="offline_miss_no_bundle">अभी तक कोई ऑफ़लाइन सवाल डाउनलोड नहीं हुआ है। उन्हें डाउनलोड करने के लिए एक बार कनेक्ट करें।</string>
+    <string name="offline_miss_not_in_bundle">यह सवाल पहले से जवाब दिए गए ऑफ़लाइन सवालों में से नहीं है। इसके लिए कनेक्शन ज़रूरी है।</string>
+    <string name="offline_miss_no_bundle_short">अभी तक कोई सवाल डाउनलोड नहीं हुआ</string>
+    <string name="offline_miss_not_in_bundle_short">इस सवाल के लिए कनेक्शन ज़रूरी है</string>
+
+    <string name="kind_answer">जवाब</string>
+    <string name="kind_redacted">दवा की मात्रा की जानकारी हटा दी गई</string>
+    <string name="kind_deferral">अपने डॉक्टर से पूछें</string>
+    <string name="answer_deferral_label">इसका जवाब नहीं दिया गया। अगली मुलाक़ात में यह सवाल डॉक्टर से पूछें।</string>
+    <string name="answer_redacted_label">इस जवाब का कुछ हिस्सा रोक लिया गया है।</string>
+
+    <string name="from_cache_badge">ऑफ़लाइन संग्रह से</string>
+    <string name="history_empty">अभी तक कुछ दर्ज नहीं हुआ है। जवाब यहाँ दिखेंगे।</string>
+
+    <string name="ask_prompt">सवाल पूछें</string>
+    <string name="stop_speaking">बोलना बंद करें</string>
+    <string name="replay_answer">जवाब फिर से सुनें</string>
+
+    <string name="starting_up">पल्ली सहायक शुरू हो रहा है</string>
+    <string name="nav_ask">पूछें</string>
+    <string name="nav_history">मुलाक़ातें</string>
+    <string name="nav_settings">सेटिंग्स</string>
+
+    <string name="settings_language_title">भाषा</string>
+    <string name="settings_language_explainer">सवाल इसी भाषा में पूछे जाते हैं और जवाब इसी भाषा में मिलते हैं। स्क्रीन भी इसी भाषा में दिखेंगी।</string>
+
+    <string name="problem_unexpected">कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।</string>
+    <string name="problem_microphone_needed">आवाज़ से पूछने के लिए माइक्रोफ़ोन की अनुमति ज़रूरी है।</string>
+    <string name="problem_unreachable">सेवा से संपर्क नहीं हो सका। कृपया फिर से कोशिश करें।</string>
+    <string name="problem_offline_not_saved">कनेक्शन नहीं है, और यह सवाल सहेजे गए सवालों में से नहीं है। सिग्नल आने पर फिर से कोशिश करें।</string>
+
+    <string name="history_heading">पहले के सवाल</string>
+    <string name="ask_button_idle">बोलने के लिए दबाकर रखें</string>
+    <string name="ask_button_listening">सुन रहे हैं, भेजने के लिए छोड़ें</string>
+    <string name="ask_button_send">पूछें</string>
+    <string name="ask_button_working">काम चल रहा है</string>
+    <string name="evidence_count">पुस्तिका के %1$d अंशों से</string>
+    <string name="cached_notice">सहेजा हुआ जवाब, ताज़ा नहीं</string>
+    <string name="emergency_call_108">यह आपातकाल हो सकता है। अभी 108 पर कॉल करें।</string>
+    <string name="offline_banner_a11y">ऑफ़लाइन। %1$d सवाल उपलब्ध</string>
+    <string name="active_role_a11y">सक्रिय भूमिका। %1$s</string>
+
+    <string name="release_refused_drifting_title">यह संस्करण स्वीकृति के बाद बदल गया है</string>
+    <string name="release_refused_drifting_detail">यह अब स्वीकृत रिकॉर्ड से मेल नहीं खाता। किसी के इस्तेमाल करने से पहले अध्ययन टीम को इसे देखना होगा।</string>
+    <string name="release_refused_not_approved_title">यह संस्करण अभी स्वीकृत नहीं है</string>
+    <string name="release_refused_not_approved_detail">अध्ययन टीम ने इसे अभी मंज़ूरी नहीं दी है, या जाँच के लिए सर्वर से संपर्क नहीं हो सका। कुछ भी खोया नहीं है, और स्वीकृत होते ही यह खुल जाएगा।</string>
+    <string name="release_refused_not_activated_title">यह संस्करण अभी शुरू नहीं हुआ है</string>
+    <string name="release_refused_not_activated_detail">यह स्वीकृत है, पर अध्ययन में अभी इसका इस्तेमाल शुरू नहीं हुआ है।</string>
+    <string name="release_refused_unusable_title">इस संस्करण का इस्तेमाल नहीं किया जा सकता</string>
+    <string name="release_refused_unusable_detail">इस्तेमाल से पहले अध्ययन टीम को इसे ठीक करना होगा।</string>
+    <string name="release_retry">फिर से जाँचें</string>
+
+    <string name="register_title">यह फ़ोन कौन इस्तेमाल करेगा?</string>
+    <string name="register_explainer">अपनी भूमिका चुनें और 4 से 6 अंकों का पिन बनाएँ। दोबारा साइन इन करने के लिए आपको यह पिन चाहिए होगा।</string>
+    <string name="pin_label">पिन (4 से 6 अंक)</string>
+    <string name="pin_confirm_label">पिन फिर से लिखें</string>
+    <string name="register_button">पंजीकरण करें</string>
+    <string name="pin_invalid">पिन 4 से 6 अंकों का होना चाहिए।</string>
+    <string name="pin_mismatch">दोनों पिन अलग हैं। उन्हें फिर से लिखें।</string>
+    <string name="register_refused">पंजीकरण स्वीकार नहीं हुआ। कृपया फिर से कोशिश करें।</string>
+    <string name="sign_in_title">अपना पिन डालें</string>
+    <string name="sign_in_explainer">आपकी सुरक्षा के लिए ऐप कुछ दिनों बाद फिर से पिन माँगता है।</string>
+    <string name="sign_in_button">साइन इन करें</string>
+    <string name="sign_in_refused">यह पिन स्वीकार नहीं हुआ। 5 गलत कोशिशों के बाद, फिर से कोशिश करने से पहले 15 मिनट रुकें।</string>
+    <string name="server_unreachable">सेवा से संपर्क नहीं हो सका। सिग्नल आने पर फिर से कोशिश करें।</string>
+</resources>

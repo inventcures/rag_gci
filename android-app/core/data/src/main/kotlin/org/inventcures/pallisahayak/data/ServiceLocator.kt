@@ -17,9 +17,11 @@ import org.inventcures.pallisahayak.data.offline.ConnectivityMonitor
 import org.inventcures.pallisahayak.data.offline.HistoryRepository
 import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
 import org.inventcures.pallisahayak.data.offline.OfflineBundleDownloader
+import org.inventcures.pallisahayak.data.prefs.SharedPreferencesStore
 import org.inventcures.pallisahayak.data.release.ReleaseGate
 import org.inventcures.pallisahayak.data.release.SharedPreferencesReleaseCache
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
+import org.inventcures.pallisahayak.data.settings.ActiveSettings
 import org.inventcures.pallisahayak.data.start.AppStart
 import org.inventcures.pallisahayak.data.sync.SyncQueue
 import org.inventcures.pallisahayak.data.sync.SyncScheduler
@@ -57,6 +59,9 @@ object ServiceLocator {
     @Volatile
     private var startInstance: AppStart? = null
 
+    @Volatile
+    private var settingsInstance: ActiveSettings? = null
+
     /**
      * Everything the offline screens need, built once alongside the repository.
      *
@@ -76,6 +81,10 @@ object ServiceLocator {
     /** The release gate and the first screen. */
     val start: AppStart
         get() = startInstance ?: notInitialised()
+
+    /** The Active Role and language the settings screen switches. */
+    val settings: ActiveSettings
+        get() = settingsInstance ?: notInitialised()
 
     @Synchronized
     fun initialise(context: Context) {
@@ -99,6 +108,8 @@ object ServiceLocator {
         val connectivity = ConnectivityMonitor(context)
         val queue = SyncQueue(database.syncQueue(), api.sync)
         syncQueueInstance = queue
+
+        settingsInstance = ActiveSettings(SharedPreferencesStore(context))
 
         repositoryInstance = PalliSahayakRepository(
             api = api.api,
@@ -134,8 +145,11 @@ object ServiceLocator {
             },
             scope = backgroundScope,
             onOnline = {
+                // The language in force now (settings), else the registered one.
                 val signedIn = sessions.state.value as? AuthState.SignedIn
-                Language.fromTag(signedIn?.session?.language)?.let { downloader.refresh(it) }
+                val language = settingsInstance?.language?.value
+                    ?: Language.fromTag(signedIn?.session?.language)
+                language?.let { downloader.refresh(it) }
             },
         ).start()
     }

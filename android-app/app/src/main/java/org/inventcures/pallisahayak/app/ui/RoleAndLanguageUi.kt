@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
+import androidx.annotation.StringRes
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -52,7 +55,8 @@ fun ActiveRoleBadge(
     size: androidx.compose.ui.unit.Dp = 56.dp,
 ) {
     // Resolved in the composable body; a semantics lambda is not a composable scope.
-    val announcement = stringResource(R.string.active_role_a11y, role.label)
+    val label = stringResource(role.labelRes)
+    val announcement = stringResource(R.string.active_role_a11y, label)
     Box(
         modifier = modifier
             .size(size + 16.dp)
@@ -61,7 +65,7 @@ fun ActiveRoleBadge(
                 // Announced as context, never as protection. The wording matters as
                 // much as the glyph: "Speaking as" is framing, "Signed in as" is not.
                 contentDescription = announcement
-                stateDescription = role.label
+                stateDescription = label
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -92,7 +96,7 @@ fun RoleSwitcher(
 ) {
     Column(modifier = modifier) {
         Text(
-            text = active.label,
+            text = stringResource(active.labelRes),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
@@ -108,15 +112,18 @@ fun RoleSwitcher(
         ) {
             CareRole.ALL.forEach { role ->
                 val isActive = role == active
+                val label = stringResource(role.labelRes)
+                val state = stringResource(
+                    if (isActive) R.string.role_state_active else R.string.role_state_switch,
+                )
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .clickable { onSelect(role) }
                         .padding(8.dp)
                         .semantics {
-                            contentDescription = role.label
-                            stateDescription =
-                                if (isActive) "currently speaking as" else "switch to"
+                            contentDescription = label
+                            stateDescription = state
                         },
                 ) {
                     androidx.compose.material3.Icon(
@@ -128,7 +135,7 @@ fun RoleSwitcher(
                         tint = if (isActive) role.tint else MaterialTheme.colorScheme.outline,
                     )
                     Text(
-                        text = role.shortLabel,
+                        text = stringResource(role.shortLabelRes),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                     )
@@ -171,6 +178,9 @@ fun LanguagePicker(
         LazyColumn {
             items(Language.ALL, key = { it.tag }) { language ->
                 val isSelected = language == selected
+                val state = stringResource(
+                    if (isSelected) R.string.language_state_selected else R.string.language_state_not_selected,
+                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -181,8 +191,7 @@ fun LanguagePicker(
                         .padding(vertical = 12.dp)
                         .semantics {
                             contentDescription = language.endonym
-                            stateDescription =
-                                if (isSelected) "selected" else "not selected"
+                            stateDescription = state
                         },
                 ) {
                     RadioButton(selected = isSelected, onClick = { onSelect(language) })
@@ -197,12 +206,91 @@ fun LanguagePicker(
     }
 }
 
-/** A short label for the switcher, where the full framing text would not fit. */
-private val CareRole.shortLabel: String
+/**
+ * The settings screen: the Active Role and the language.
+ *
+ * Both switch with one tap and ask for nothing (ADR 0006: the Care Role is framing,
+ * not a boundary). The next question is asked, and recorded, under what is chosen
+ * here. Changing the language also changes the language the screens are in.
+ *
+ * A scrolling Column with the languages as plain rows rather than the first-run
+ * picker's LazyColumn, because a LazyColumn nested in a scrolling Column cannot
+ * measure itself.
+ */
+@Composable
+fun SettingsScreen(
+    activeRole: CareRole,
+    onRoleSelect: (CareRole) -> Unit,
+    language: Language?,
+    onLanguageSelect: (Language) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.role_switch_title),
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        ActiveRoleBadge(role = activeRole)
+        RoleSwitcher(active = activeRole, onSelect = onRoleSelect)
+        HorizontalDivider()
+        Text(
+            text = stringResource(R.string.settings_language_title),
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Text(
+            text = stringResource(R.string.settings_language_explainer),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Language.ALL.forEach { option ->
+            val isSelected = option == language
+            val state = stringResource(
+                if (isSelected) R.string.language_state_selected else R.string.language_state_not_selected,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onLanguageSelect(option) }
+                    .padding(vertical = 12.dp)
+                    .semantics {
+                        contentDescription = option.endonym
+                        stateDescription = state
+                    },
+            ) {
+                RadioButton(selected = isSelected, onClick = { onLanguageSelect(option) })
+                Text(
+                    text = option.endonym,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+/** How the app frames each role ("Speaking as a patient"), in the screen's language. */
+@get:StringRes
+val CareRole.labelRes: Int
     get() = when (this) {
-        CareRole.ASHA_WORKER -> "ASHA"
-        CareRole.FAMILY_CAREGIVER -> "Family"
-        CareRole.PATIENT -> "Patient"
+        CareRole.ASHA_WORKER -> R.string.role_asha_worker
+        CareRole.FAMILY_CAREGIVER -> R.string.role_family_caregiver
+        CareRole.PATIENT -> R.string.role_patient
+    }
+
+/** A short label for the switcher, where the full framing text would not fit. */
+@get:StringRes
+private val CareRole.shortLabelRes: Int
+    get() = when (this) {
+        CareRole.ASHA_WORKER -> R.string.role_short_asha_worker
+        CareRole.FAMILY_CAREGIVER -> R.string.role_short_family_caregiver
+        CareRole.PATIENT -> R.string.role_short_patient
     }
 
 /**

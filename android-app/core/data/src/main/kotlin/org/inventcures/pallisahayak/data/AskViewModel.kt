@@ -12,9 +12,31 @@ import org.inventcures.pallisahayak.data.repository.AnsweredQuestion
 import org.inventcures.pallisahayak.data.repository.AnswerSource
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
 import org.inventcures.pallisahayak.data.repository.SessionContext
+import org.inventcures.pallisahayak.data.settings.ActiveSettings
 import org.inventcures.pallisahayak.data.voice.VoiceEngine
 import org.inventcures.pallisahayak.safety.AnswerKind
 import org.inventcures.pallisahayak.safety.EmergencySeverity
+
+/**
+ * Why the ask screen shows a notice instead of, or beside, an answer.
+ *
+ * A kind rather than a sentence: the ViewModel cannot read the app's string
+ * resources, and English sentences built here reached the Hindi screen until
+ * ticket 24. The screen maps each kind to a string resource.
+ */
+enum class AskProblem {
+    /** Something the app did not anticipate. Try again. */
+    UNEXPECTED,
+
+    /** The record permission is needed to ask by voice. */
+    MICROPHONE_NEEDED,
+
+    /** The service could not be reached. */
+    UNREACHABLE,
+
+    /** Offline, and the question is not one of the saved ones. */
+    OFFLINE_NOT_SAVED,
+}
 
 /**
  * Everything the screen renders, as one immutable value.
@@ -33,7 +55,8 @@ data class AskUiState(
     val cameFromCache: Boolean = false,
     val sourceCount: Int = 0,
     val history: List<Pair<String, String>> = emptyList(),
-    val errorMessage: String? = null,
+    /** What went wrong, if anything. The screen words it in the participant's language. */
+    val problem: AskProblem? = null,
 
     // -- voice -------------------------------------------------------------
     /** True while the mic is held. The user needs to see this, not infer it. */
@@ -77,6 +100,13 @@ class AskViewModel(
     private val session: SessionContext,
     private val voiceEngine: VoiceEngine? = null,
     /**
+     * The Active Role and language from settings. Every interaction runs under
+     * [ActiveSettings.applyTo]'s session, read when the question is asked, so a
+     * switch in settings changes what the next interaction records. Null only in
+     * tests that do not exercise settings.
+     */
+    private val settings: ActiveSettings? = null,
+    /**
      * Injected so tests can drive it.
      *
      * viewModelScope is pinned to Dispatchers.Main.immediate, which does not run
@@ -111,11 +141,12 @@ class AskViewModel(
         val question = _state.value.draft.trim()
         if (question.isEmpty() || _state.value.isAsking) return
 
-        _state.update { it.copy(isAsking = true, errorMessage = null) }
+        _state.update { it.copy(isAsking = true, problem = null) }
+        val asked = currentSession()
 
         workScope.launch {
             try {
-                val answered = repository.ask(question, session)
+                val answered = repository.ask(question, asked)
                 _state.update { current ->
                     current.copy(
                         draft = "",
@@ -126,7 +157,7 @@ class AskViewModel(
                         emergency = answered.emergency,
                         cameFromCache = answered.source is AnswerSource.Bundle,
                         sourceCount = answered.sourceCount,
-                        errorMessage = unavailableMessage(answered),
+                        problem = unavailableProblem(answered),
                         history = (listOf(question to answered.text) + current.history)
                             .take(HISTORY_LIMIT),
                     )
@@ -136,7 +167,7 @@ class AskViewModel(
                 // means something the app did not anticipate, and a message beats
                 // a crash during a home visit.
                 _state.update {
-                    it.copy(isAsking = false, errorMessage = "Something went wrong. Please try again.")
+                    it.copy(isAsking = false, problem = AskProblem.UNEXPECTED)
                 }
             }
         }
@@ -152,14 +183,14 @@ class AskViewModel(
         val engine = voiceEngine ?: return
         if (!engine.canRecord()) {
             _state.update {
-                it.copy(errorMessage = "Microphone access is needed to ask by voice.")
+                it.copy(problem = AskProblem.MICROPHONE_NEEDED)
             }
             return
         }
         if (_state.value.isAsking || _state.value.isSpeaking) return
 
         engine.startRecording()
-        _state.update { it.copy(isListening = true, errorMessage = null) }
+        _state.update { it.copy(isListening = true, problem = null) }
     }
 
     /**
@@ -180,19 +211,23 @@ class AskViewModel(
             return
         }
 
-        _state.update { it.copy(isAsking = true, errorMessage = null) }
-        scope?.launch { sendVoice(audio) }
+        _state.update { it.copy(isAsking = true, problem = null) }
+        val asked = currentSession()
+        scope?.launch { sendVoice(audio, asked) }
     }
 
-    private suspend fun sendVoice(audio: ByteArray) {
+    /** The session the next interaction runs under: the Active Role and language now. */
+    private fun currentSession(): SessionContext = settings?.applyTo(session) ?: session
+
+    private suspend fun sendVoice(audio: ByteArray, asked: SessionContext) {
         try {
-            val answered = repository.askByVoice(audio, session)
+            val answered = repository.askByVoice(audio, asked)
             if (answered == null) {
                 _state.update {
                     it.copy(
                         isAsking = false,
                         answerKind = org.inventcures.pallisahayak.safety.AnswerKind.DEFERRAL,
-                        errorMessage = "Could not reach the service. Please try again.",
+                        problem = AskProblem.UNREACHABLE,
                     )
                 }
                 return
@@ -220,7 +255,7 @@ class AskViewModel(
             pcm?.let { voiceEngine?.speak(it) }
         } catch (error: Exception) {
             _state.update {
-                it.copy(isAsking = false, errorMessage = "Something went wrong. Please try again.")
+                it.copy(isAsking = false, problem = AskProblem.UNEXPECTED)
             }
         }
     }
@@ -249,16 +284,11 @@ class AskViewModel(
             .getOrNull()
 
     fun clearError() {
-        _state.update { it.copy(errorMessage = null) }
+        _state.update { it.copy(problem = null) }
     }
 
-    private fun unavailableMessage(answered: AnsweredQuestion): String? =
-        if (answered.source is AnswerSource.Unavailable) {
-            "No connection, and this question is not one of the saved ones. " +
-                "Try again when there is signal."
-        } else {
-            null
-        }
+    private fun unavailableProblem(answered: AnsweredQuestion): AskProblem? =
+        if (answered.source is AnswerSource.Unavailable) AskProblem.OFFLINE_NOT_SAVED else null
 
     private companion object {
         const val HISTORY_LIMIT = 20

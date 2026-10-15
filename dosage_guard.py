@@ -231,6 +231,13 @@ def _refusal_for(language: str) -> str:
     return _REFUSAL_LOCALIZED.get(code, _REFUSAL_EN)
 
 
+def deferral_for(language: Optional[str]) -> str:
+    """The Deferral a participant receives in `language` (English where no
+    translation exists). For a surface that must withhold an answer it could
+    not check, such as a Live turn with no transcript."""
+    return _refusal_for(language or "")
+
+
 def _redaction_note(language: str) -> str:
     """Short explanation appended after a partial redaction, in `language`."""
     code, _ = _copy_language(language)
