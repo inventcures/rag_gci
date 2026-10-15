@@ -35,6 +35,6 @@ include = [
 "*" = ["*.yaml", "*.json", "*.txt", "*.md"]
 
 # Runtime dependencies are deliberately NOT declared here.
-# requirements.txt lists `ktem` and `kotaemon`, which are 404 on PyPI because
-# they ship with the vendored kotaemon-main tree. Declaring that file here made
-# every build of this project fail at the dependency-resolution step.
+# requirements.txt is the one list. It used to name `ktem` and `kotaemon` (404 on
+# PyPI), and declaring it here made every build fail at dependency resolution;
+# those entries left with the Kotaemon server, and the file stays the one list.

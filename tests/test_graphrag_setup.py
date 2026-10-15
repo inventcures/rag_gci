@@ -14,13 +14,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def test_directory_structure_exists():
     """Verify all required directories exist."""
+    # Only the directories the repository ships. output/, output/artifacts/ and
+    # cache/ are made by the indexer at run time and are not in a fresh checkout;
+    # requiring them made this test pass only on a machine that had indexed.
     required_dirs = [
         "graphrag_integration",
         "graphrag_integration/prompts",
         "data/graphrag",
-        "data/graphrag/output",
-        "data/graphrag/output/artifacts",
-        "data/graphrag/cache",
         "tests",
     ]
 
@@ -32,11 +32,7 @@ def test_directory_structure_exists():
         if not full_path.exists():
             errors.append(f"Missing directory: {dir_path}")
 
-    if errors:
-        for e in errors:
-            print(f"FAIL: {e}")
-        return False
-
+    assert errors == [], errors
     print("PASS: All directories exist")
     return True
 
@@ -56,11 +52,7 @@ def test_init_files_exist():
         if not full_path.exists():
             errors.append(f"Missing init file: {init_file}")
 
-    if errors:
-        for e in errors:
-            print(f"FAIL: {e}")
-        return False
-
+    assert errors == [], errors
     print("PASS: All init files exist")
     return True
 
@@ -71,20 +63,15 @@ def test_input_symlink():
     input_path = base / "data" / "graphrag" / "input"
     uploads_path = base / "uploads"
 
-    if not input_path.exists():
-        print(f"FAIL: Input path does not exist: {input_path}")
-        return False
-
+    # The link is what the repository ships; its target (uploads/) is created by
+    # the server on first upload, so the link is checked, not what it points at.
     if input_path.is_symlink():
-        target = input_path.resolve()
-        print(f"PASS: Input is symlink -> {target}")
-        return True
-    elif input_path.is_dir():
-        print(f"PASS: Input is directory (not symlink): {input_path}")
-        return True
+        target = Path(os.readlink(input_path))
+        assert target.name == uploads_path.name, f"input links to {target}, not uploads/"
     else:
-        print(f"FAIL: Input path is not directory or symlink")
-        return False
+        assert input_path.is_dir(), f"Input path is not a directory or symlink: {input_path}"
+    print(f"PASS: Input is {'symlink' if input_path.is_symlink() else 'directory'}")
+    return True
 
 
 def test_module_structure():
@@ -93,18 +80,14 @@ def test_module_structure():
 
     # Check main module file
     main_init = base / "graphrag_integration" / "__init__.py"
-    if not main_init.exists():
-        print(f"FAIL: Main __init__.py not found")
-        return False
+    assert main_init.exists(), "Main __init__.py not found"
 
     # Check content has expected exports
     content = main_init.read_text()
     expected = ["GraphRAGConfig", "GraphRAGIndexer", "GraphRAGQueryEngine", "GraphRAGDataLoader"]
 
-    for export in expected:
-        if export not in content:
-            print(f"FAIL: Missing export in __init__.py: {export}")
-            return False
+    missing = [export for export in expected if export not in content]
+    assert missing == [], f"Missing exports in __init__.py: {missing}"
 
     print("PASS: Module structure correct")
     return True
@@ -115,14 +98,10 @@ def test_prompts_module():
     base = Path(__file__).parent.parent
     prompts_init = base / "graphrag_integration" / "prompts" / "__init__.py"
 
-    if not prompts_init.exists():
-        print(f"FAIL: Prompts __init__.py not found")
-        return False
+    assert prompts_init.exists(), "Prompts __init__.py not found"
 
     content = prompts_init.read_text()
-    if "get_prompt" not in content:
-        print(f"FAIL: get_prompt function not in prompts module")
-        return False
+    assert "get_prompt" in content, "get_prompt function not in prompts module"
 
     print("PASS: Prompts module correct")
     return True

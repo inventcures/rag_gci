@@ -74,16 +74,16 @@ Official Google Android skills are installed at `~/.pi/agent/skills/android/`,
 from [android/skills](https://github.com/android/skills).
 
 ## Commands
-- **Run server**: `./run.sh` or `python main.py` (starts FastAPI + Gradio admin UI)
-- **Run simple server**: `./run_simple.sh` or `python simple_rag_server.py`
-- **Test**: `python test_pipeline.py` (main tests), `python test_corruption_recovery.py` (DB tests)
-- **Single test**: `python <test_file>.py` (e.g., `python test_citations.py`)
+- **Run server**: `./run.sh`, `./run_simple.sh`, `./start.sh` or `python simple_rag_server.py`. All four start the study server (FastAPI + Gradio admin UI at `/admin`); there is no other server.
+- **Test**: `python -m pytest` (everything under `tests/`, no network or keys needed, as CI runs it)
+- **Single test**: `python -m pytest tests/<test_file>.py -v` (e.g., `python -m pytest tests/test_dosage_guard.py -v`)
+- **Rebuild the index**: `python scripts/reindex_with_configured_model.py` (goes through `reindex_service.py`, which refuses any embedding model but the study release's)
 - **Lint**: `flake8 *.py` (if installed)
 - **Format**: `black *.py` (if installed)
 
 ## Architecture
 - **FastAPI backend** at port 8000 with Gradio admin UI mounted at `/admin`
-- **Two RAG implementations**: Full (rag_server.py using Kotaemon) and Simple (simple_rag_server.py, file-based)
+- **One RAG server**: simple_rag_server.py (file-based). The Kotaemon server (rag_server.py, main.py) was removed in round-3 review ticket 20: it had no Dose Boundary and no study release.
 - **Vector DB**: ChromaDB (local, at ./data/chroma_db)
 - **Document storage**: uploads/ directory with metadata in ./data/documents
 - **WhatsApp bot**: whatsapp_bot.py (Twilio integration with STT/TTS)

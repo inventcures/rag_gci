@@ -29,16 +29,15 @@ This guide provides step-by-step instructions to setup and run the complete RAG 
 # 1. Navigate to the project directory
 cd /Users/tp53/Documents/tp53_AA/llms4palliative_gci/demo_feb2025/rag_gci
 
-# 2. Run the automated setup
-python3 setup.py
+# 2. Create the virtual environment and install dependencies
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+
+# 3. Create .env from the template
+cp .env.example .env
 ```
 
-The setup script will:
-- ✅ Create virtual environment
-- ✅ Install all dependencies
-- ✅ Create necessary directories
-- ✅ Generate `.env` template
-- ✅ Configure Kotaemon settings
+`./run.sh` does all of this for you on first start.
 
 ### Step 2: Configure API Keys
 
@@ -108,8 +107,8 @@ chmod +x run.sh
 # Activate virtual environment
 source venv/bin/activate
 
-# Start the server
-python main.py
+# Start the study server
+python simple_rag_server.py
 ```
 
 ### Step 4: Verify Installation
@@ -301,19 +300,7 @@ nano .env
 ./run.sh
 ```
 
-#### 2. "kotaemon-main directory not found"
-
-**Problem**: Missing Kotaemon codebase
-
-**Solution**:
-```bash
-# Check if directory exists
-ls -la kotaemon-main/
-
-# If missing, ensure you have the complete project structure
-```
-
-#### 3. "ngrok not found"
+#### 2. "ngrok not found"
 
 **Problem**: ngrok not installed
 
@@ -326,7 +313,7 @@ brew install ngrok
 ./run.sh --no-ngrok
 ```
 
-#### 4. WhatsApp webhook verification fails
+#### 3. WhatsApp webhook verification fails
 
 **Problem**: Webhook URL or token mismatch
 
@@ -335,7 +322,7 @@ brew install ngrok
 2. Verify webhook URL in Meta console matches ngrok URL
 3. Check WHATSAPP_VERIFY_TOKEN in `.env` matches Meta console
 
-#### 5. Audio processing fails
+#### 4. Audio processing fails
 
 **Problem**: TTS/STT not working
 
@@ -368,7 +355,7 @@ export PYTORCH_ENABLE_MPS_FALLBACK=1
 
 ```bash
 # Monitor memory usage
-top -pid $(pgrep -f "python main.py")
+top -pid $(pgrep -f "python simple_rag_server.py")
 
 # Reduce batch size if needed (edit config.yaml)
 embedding:
@@ -380,8 +367,8 @@ embedding:
 ### Automated Tests
 
 ```bash
-# Run comprehensive test suite
-python test_pipeline.py
+# Run the test suite (everything under tests/, no network or keys needed)
+python -m pytest
 ```
 
 ### Manual Testing Checklist

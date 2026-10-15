@@ -59,8 +59,8 @@ Checks:
 
 ### 5. **🏥 Database Health Monitoring & Auto-Rebuild** (NEW)
 ```bash
-# Test corruption detection and recovery
-python test_corruption_recovery.py
+# Rebuild the index with the study release's embedding model
+python scripts/reindex_with_configured_model.py --dry-run
 ```
 Features:
 - ✅ **Multi-layer corruption detection**: Connectivity, metadata sync, query functionality
@@ -96,7 +96,7 @@ Features:
 ./run_simple.sh              # Smart dependency management
 ./run_simple.sh --force-install  # Force reinstall when needed
 python validate_setup.py     # Check setup is correct
-python test_corruption_recovery.py  # Test database health features
+python -m pytest                    # Run the test suite under tests/
 ```
 
 ### Available Options:

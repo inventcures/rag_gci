@@ -173,15 +173,12 @@ asyncio.run(create_agent())
 ### 7.1 Run Test Suite
 
 ```bash
-# Full test suite
-python test_bolna_integration.py
-
-# Quick smoke test
-python test_bolna_integration.py --quick
-
-# With live API tests
-python test_bolna_integration.py --live
+# Offline tests of the client, agent config and webhook handler (no keys needed)
+python -m pytest tests/test_bolna_integration.py -v
 ```
+
+Live API checks are made against the running server (7.2 below); the test suite
+never calls the network.
 
 ### 7.2 Test API Endpoints
 

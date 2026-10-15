@@ -156,8 +156,8 @@ rag_gci/
 git clone https://github.com/inventcures/rag_gci.git
 cd rag_gci
 
-# 2. Run setup script
-python setup.py
+# 2. Install dependencies
+pip install -r requirements.txt
 
 # 3. Get free Groq API key
 # Visit: https://console.groq.com/

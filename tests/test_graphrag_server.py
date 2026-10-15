@@ -297,14 +297,13 @@ def test_server_syntax():
         print("SKIP: simple_rag_server.py not found")
         return True
 
-    try:
-        content = server_path.read_text()
-        compile(content, str(server_path), 'exec')
-        print("PASS: Server syntax valid")
-        return True
-    except SyntaxError as e:
-        print(f"FAIL: Syntax error - {e}")
-        return False
+    content = server_path.read_text()
+    # A SyntaxError fails the test; the old version caught it and returned False,
+    # which pytest reports as a pass.
+    code = compile(content, str(server_path), 'exec')
+    assert code is not None
+    print("PASS: Server syntax valid")
+    return True
 
 
 def run_all_tests():

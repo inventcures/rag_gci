@@ -36,7 +36,7 @@ def check_env_file():
     env_file = Path(".env")
     if not env_file.exists():
         print_status(".env file not found", "error")
-        print("   Run './run_simple.sh' or 'python setup.py' to create template")
+        print("   Run './run_simple.sh' or 'cp .env.example .env' to create it")
         return False
     
     print_status(".env file exists", "success")

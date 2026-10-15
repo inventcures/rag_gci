@@ -20,21 +20,71 @@ would need its own review.
 Writing the embedding identity onto the collection afterwards means a later
 mismatch is diagnosable from metadata rather than inferred from dimensionality,
 which cannot distinguish two models that share a dimensionality.
+
+The one way to rebuild
+----------------------
+This service is the only code outside the pipeline that rebuilds the index (round-3
+review ticket 20 removed the seven root rebuild and cleanup scripts, one of which
+rebuilt with an English-only model). It refuses any embedding model except the one
+the study release records (`data/study/release.yaml`, models.embedding), so a
+rebuild cannot bring back an index the approved release did not measure.
 """
 
 import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
-from retrieval_index import EmbeddingIdentity, write_index_metadata
+from retrieval_index import KNOWN_DIMENSIONS, EmbeddingIdentity, write_index_metadata
 
 logger = logging.getLogger(__name__)
 
 # The collection is staged under this name and swapped in only once the replacement
 # has been written successfully, so a failed migration leaves the old index usable.
 STAGING_SUFFIX = "__reindexing"
+
+
+class ReleaseModelMismatch(ValueError):
+    """A rebuild was asked for with an embedding model the study release does not record."""
+
+
+def release_identity(release: Any = None) -> EmbeddingIdentity:
+    """
+    The embedding identity the study release records.
+
+    Raises ReleaseModelMismatch when the release names no embedding model: with
+    nothing approved to compare against, no rebuild can be shown to be the
+    approved one.
+    """
+    if release is None:
+        from study_release import get_study_release
+
+        release = get_study_release()
+    section = (release.record.get("models") or {}).get("embedding") or {}
+    model = section.get("model")
+    if not model:
+        raise ReleaseModelMismatch(
+            "the study release records no embedding model (models.embedding.model "
+            "in data/study/release.yaml); refusing to rebuild the index"
+        )
+    dimension = section.get("dimensions") or section.get("dimension") or KNOWN_DIMENSIONS.get(model)
+    if not dimension:
+        raise ReleaseModelMismatch(
+            f"the study release names {model} but no dimensionality; refusing to rebuild"
+        )
+    return EmbeddingIdentity(model=str(model), dimension=int(dimension))
+
+
+def require_release_model(identity: EmbeddingIdentity, release: Any = None) -> EmbeddingIdentity:
+    """Return the release's identity, or raise if `identity` is not it."""
+    approved = release_identity(release)
+    if identity != approved:
+        raise ReleaseModelMismatch(
+            f"refusing to rebuild with {identity.model} at {identity.dimension}d: "
+            f"the study release records {approved.model} at {approved.dimension}d"
+        )
+    return approved
 
 
 @dataclass
@@ -111,13 +161,19 @@ def reindex_with_identity(
     local_model_path: Optional[str] = None,
     batch_size: int = 32,
     runtime: Optional[str] = None,
+    release: Any = None,
 ) -> ReindexResult:
     """
     Rebuild `collection_name` so its vectors come from `identity`.
 
-    Writes into a staging collection first and swaps only on success, so an
-    interrupted migration cannot leave the deployment with no index at all.
+    `identity` must be the study release's embedding identity (`release`, or the
+    loaded study release when None); anything else raises ReleaseModelMismatch
+    before the store is opened. Writes into a staging collection first and swaps
+    only on success, so an interrupted migration cannot leave the deployment with
+    no index at all.
     """
+    require_release_model(identity, release)
+
     import chromadb
 
     started = time.time()
@@ -186,6 +242,55 @@ def reindex_with_identity(
         identity=identity,
         replaced=True,
     )
+
+
+def reindex_for_release(
+    chroma_path: str,
+    collection_name: str,
+    release: Any = None,
+    local_model_path: Optional[str] = None,
+    batch_size: int = 32,
+    runtime: Optional[str] = None,
+) -> ReindexResult:
+    """Rebuild `collection_name` with the embedding model the study release records."""
+    identity = release_identity(release)
+    return reindex_with_identity(
+        chroma_path=chroma_path,
+        collection_name=collection_name,
+        identity=identity,
+        local_model_path=local_model_path,
+        batch_size=batch_size,
+        runtime=runtime,
+        release=release,
+    )
+
+
+def chunk_doc_id(chunk_id: str) -> str:
+    """The document a chunk belongs to: the pipeline names chunks `<doc_id>_chunk_<n>`."""
+    return chunk_id.rsplit("_chunk_", 1)[0]
+
+
+def prune_orphaned_chunks(
+    chroma_path: str,
+    collection_name: str,
+    known_doc_ids: Set[str],
+) -> List[str]:
+    """
+    Delete the chunks of documents that are no longer in the document metadata.
+
+    Embeds nothing, so it cannot change the index's model. Returns the removed
+    chunk ids. Replaces the old root `cleanup_vector_db.py`.
+    """
+    import chromadb
+
+    client = chromadb.PersistentClient(path=chroma_path)
+    collection = client.get_collection(collection_name)
+    ids = collection.get(include=[]).get("ids") or []
+    orphaned = [chunk_id for chunk_id in ids if chunk_doc_id(chunk_id) not in known_doc_ids]
+    if orphaned:
+        collection.delete(ids=orphaned)
+    logger.info("Pruned %d orphaned chunks of %d", len(orphaned), len(ids))
+    return orphaned
 
 
 def _restore_name(
