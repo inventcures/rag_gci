@@ -11,6 +11,9 @@ Tests the 5 quick-win features:
 """
 
 import asyncio
+import json
+import threading
+import time
 import sys
 import os
 from datetime import datetime, timedelta
@@ -619,3 +622,52 @@ if __name__ == "__main__":
         # Run manual tests
         success = run_tests()
         sys.exit(0 if success else 1)
+
+
+class TestHandoffStoreWrites:
+    """The handoff files are written off the caller's thread, coalesced."""
+
+    def test_create_does_not_write_on_the_caller(self, tmp_path, monkeypatch):
+        system = HumanHandoffSystem(storage_path=str(tmp_path))
+        writes = []
+        real = system._write_requests
+        monkeypatch.setattr(system, "_write_requests",
+                            lambda: (writes.append(threading.current_thread()), real()))
+        for i in range(5):
+            system.create_handoff_request(
+                user_id=f"user{i}", reason=HandoffReason.USER_REQUEST,
+                context="Test", conversation_history=[])
+        assert writes == []  # nothing written inside the turn
+        system.flush()
+        assert len(writes) == 1  # five requests, one write
+        reloaded = HumanHandoffSystem(storage_path=str(tmp_path))
+        assert len(reloaded.pending_requests) == 5
+
+    def test_timer_writes_from_another_thread(self, tmp_path):
+        system = HumanHandoffSystem(storage_path=str(tmp_path))
+        system.SAVE_DELAY_SECONDS = 0.01
+        system.create_handoff_request(
+            user_id="user1", reason=HandoffReason.USER_REQUEST,
+            context="Test", conversation_history=[{"q": "x"}])
+        deadline = time.time() + 5
+        while not (tmp_path / "pending.json").exists() and time.time() < deadline:
+            time.sleep(0.01)
+        rows = json.loads((tmp_path / "pending.json").read_text())
+        assert [r["user_id"] for r in rows] == ["user1"]
+        assert not list(tmp_path.glob("*.tmp"))
+
+    def test_history_is_copied(self, tmp_path):
+        system = HumanHandoffSystem(storage_path=str(tmp_path))
+        history = [{"q": "first"}]
+        request = system.create_handoff_request(
+            user_id="user1", reason=HandoffReason.USER_REQUEST,
+            context="Test", conversation_history=history)
+        history.append({"q": "later"})
+        assert request.conversation_history == [{"q": "first"}]
+        system.flush()
+
+    def test_voice_wrapper_shares_the_store(self):
+        from voice_safety_wrapper import VoiceSafetyWrapper
+        from safety_enhancements import get_safety_manager
+        wrapper = VoiceSafetyWrapper()
+        assert wrapper.handoff_system is get_safety_manager().handoff_system

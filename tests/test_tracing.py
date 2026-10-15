@@ -280,3 +280,45 @@ class Summary(TraceCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TraceFileHandles(TraceCase):
+    """A turn's spans share one open file instead of opening it per span."""
+
+    def test_one_open_per_file(self):
+        from observability import tracing
+
+        tracing.close_trace_files()
+        opens = []
+        real_open = os.open
+
+        def counting_open(path, *args, **kwargs):
+            opens.append(path)
+            return real_open(path, *args, **kwargs)
+
+        with patch.object(tracing.os, "open", counting_open):
+            with trace_request("web"):
+                for _ in range(10):
+                    with span("stage"):
+                        pass
+        self.assertEqual(len(opens), 1)
+        self.assertEqual(len(self.spans()), 11)
+
+    def test_removed_file_is_reopened(self):
+        with span("first"):
+            pass
+        for path in Path(self.dir).glob("*.jsonl"):
+            path.unlink()
+        with span("second"):
+            pass
+        self.assertEqual([s["name"] for s in self.spans()], ["second"])
+
+    def test_new_trace_dir_is_used(self):
+        with span("here"):
+            pass
+        other = tempfile.mkdtemp(prefix="traces-")
+        with patch.dict(os.environ, {"TRACE_DIR": other}):
+            with span("there"):
+                pass
+        self.assertEqual([s["name"] for s in read_spans(other)], ["there"])
+        self.assertEqual([s["name"] for s in self.spans()], ["here"])

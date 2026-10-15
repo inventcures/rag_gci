@@ -1557,6 +1557,7 @@ class SimpleRAGPipeline:
         trace = _trace if _trace is not None else {"stage_latency_ms": {}}
         stage_ms = trace.setdefault("stage_latency_ms", {})
         settings = get_active_settings()
+        patient_context_task = None
         try:
             # =================================================================
             # SAFETY ENHANCEMENTS: Pre-processing checks
@@ -1595,6 +1596,12 @@ class SimpleRAGPipeline:
                         "timestamp": datetime.now().isoformat(),
                     }
             
+            # Patient context depends only on who asks and what, so it is
+            # fetched while retrieval runs instead of after it.
+            if user_id and self.context_injector:
+                patient_context_task = asyncio.ensure_future(
+                    self._patient_context(user_id, question))
+
             # Cross-language retrieval is the default (ADR 0003). The query is
             # embedded as written and searched against the multilingual index.
             # Translation is a fallback for weak evidence, never the default path.
@@ -1857,23 +1864,15 @@ class SimpleRAGPipeline:
 
             # V25: Inject patient context if available
             patient_context = ""
-            if user_id and self.context_injector:
-                try:
-                    with span("patient_context"):
-                        patient_context = await self.context_injector.inject_context(
-                            user_id=user_id,
-                            question=question,
-                            max_length=500  # Keep context concise
-                        )
-                    if patient_context:
-                        logger.info(f"🧠 Injected patient context ({len(patient_context)} chars)")
-                        context_text = f"""--- Patient History ---
+            if patient_context_task is not None:
+                patient_context, patient_context_task = await patient_context_task, None
+                if patient_context:
+                    logger.info(f"🧠 Injected patient context ({len(patient_context)} chars)")
+                    context_text = f"""--- Patient History ---
 {patient_context}
 
 --- Medical Documents ---
 {context_text}"""
-                except Exception as e:
-                    logger.warning(f"Failed to inject patient context: {e}")
 
             # Generate answer with citation instructions
             with span("generate") as generation_span:
@@ -2011,7 +2010,24 @@ class SimpleRAGPipeline:
                 "error": str(e),
                 "traceback": traceback.format_exc()
             }
-    
+        finally:
+            # An early return (no documents) leaves the fetch unused.
+            if patient_context_task is not None and not patient_context_task.done():
+                patient_context_task.cancel()
+
+    async def _patient_context(self, user_id: str, question: str) -> str:
+        """The caller's patient history for the prompt, or "" (never raises)."""
+        try:
+            with span("patient_context"):
+                return await self.context_injector.inject_context(
+                    user_id=user_id,
+                    question=question,
+                    max_length=500  # Keep context concise
+                ) or ""
+        except Exception as e:
+            logger.warning(f"Failed to inject patient context: {e}")
+            return ""
+
     def _intelligent_context_fusion(self, contexts: List[str], metadatas: List[Dict], distances: List[float]) -> tuple:
         """
         Intelligently decide whether to fuse multiple contexts or use only the best one.
@@ -5158,6 +5174,17 @@ def create_app(args: Any = None) -> FastAPI:
             logger.error(f"Failed to initialize Knowledge Graph: {e}")
             kg_enabled = False
 
+    @app.on_event("startup")
+    async def warm_llm_client():
+        """Build the Gemini client before the first caller needs it.
+
+        It is built lazily inside the first answer, on the event loop, and on
+        Vertex that means google.auth.default() (file reads, possibly a
+        metadata-server round trip) while every other caller waits."""
+        from llm.client import warm_up
+
+        await warm_up()
+
     @app.on_event("shutdown")
     async def finish_post_reply_work():
         """Let bookkeeping scheduled after recent replies finish before exit."""
@@ -5170,6 +5197,10 @@ def create_app(args: Any = None) -> FastAPI:
                 get_safety_manager().response_optimizer.flush()
             except Exception:
                 logger.exception("Could not flush comprehension profiles")
+            try:
+                get_safety_manager().handoff_system.flush()
+            except Exception:
+                logger.exception("Could not flush handoff requests")
         try:
             from sarvam_integration.http import close_shared_session
 
@@ -5700,7 +5731,9 @@ def create_app(args: Any = None) -> FastAPI:
     
     @app.get("/health")
     async def health():
-        stats = rag_pipeline.get_index_stats()
+        # count() is a blocking call (an HTTP round trip with CHROMA_HOST), and
+        # health probes come often: keep it off the event loop.
+        stats = await asyncio.to_thread(rag_pipeline.get_index_stats)
 
         # Get Gemini Live status
         gemini_status = "disabled"

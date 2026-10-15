@@ -499,6 +499,61 @@ class QueryEndToEnd(unittest.TestCase):
         self.assertEqual(result["kg_check"]["status"], "skipped")
         self.assertNotIn("Clinical knowledge graph", p.generated[0]["context"])
 
+    def test_patient_context_is_fetched_while_retrieval_runs(self):
+        p = make_pipeline()
+        self.configure(p)
+        import threading
+
+        started = threading.Event()
+        seen = {}
+        search = p.vector_db.query
+
+        def slow_search(*args, **kwargs):
+            # Run sequentially, the injector cannot start until this returns.
+            seen["overlapped"] = started.wait(timeout=2)
+            return search(*args, **kwargs)
+
+        p.vector_db.query = slow_search
+
+        class Injector:
+            async def inject_context(self, user_id, question, max_length):
+                started.set()
+                return "Known: lung cancer, on oral morphine."
+
+        p.context_injector = Injector()
+        result = run(p.query("Is morphine used for cancer pain?", user_id="web_test"))
+        self.assertEqual(result["status"], "success")
+        self.assertTrue(seen["overlapped"], "fetched while the search ran")
+        self.assertIn("Known: lung cancer", p.generated[0]["context"])
+        self.assertTrue(result["patient_context_used"])
+
+    def test_unused_patient_context_fetch_is_cancelled(self):
+        p = make_pipeline()
+        p.vector_db = FakeCollection([])  # nothing found: early return
+        self.configure(p)
+        state = {}
+
+        class Injector:
+            async def inject_context(self, user_id, question, max_length):
+                await asyncio.sleep(5)
+                state["finished"] = True
+
+        p.context_injector = Injector()
+
+        async def go():
+            result = await p.query("Is morphine used for cancer pain?", user_id="web_test")
+            await asyncio.sleep(0)
+            state["left_running"] = [
+                t for t in asyncio.all_tasks()
+                if t is not asyncio.current_task() and not t.done()
+                and "_patient_context" in repr(t.get_coro())]
+            return result
+
+        result = run(go())
+        self.assertEqual(result["sources"], [])
+        self.assertEqual(state["left_running"], [])
+        self.assertNotIn("finished", state)
+
     def test_each_routed_mode_reaches_the_prompt(self):
         expected = {"kg": "Clinical knowledge graph", "graphrag": "GraphRAG index", "fused": "opioids.pdf"}
         for method, marker in expected.items():

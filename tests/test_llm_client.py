@@ -154,3 +154,40 @@ def test_release_fingerprint_reads_shared_client():
 
     fp = StudyRelease._llm_settings()
     assert fp["model"] == "gemini-3.5-flash" and fp["fallback"] == "none"
+
+
+def test_warm_up_builds_the_client_off_the_event_loop():
+    import threading
+
+    from llm.client import warm_up
+
+    client = LLMClient(LLMSettings(api_key="k"))
+    built_on = []
+
+    def build():
+        built_on.append(threading.current_thread())
+        return object()
+
+    client._genai_client = build
+    assert run(warm_up(client)) is True
+    assert built_on and built_on[0] is not threading.main_thread()
+
+
+def test_warm_up_without_credentials_does_nothing():
+    from llm.client import warm_up
+
+    client = LLMClient(LLMSettings())
+    client._genai_client = lambda: (_ for _ in ()).throw(AssertionError("built"))
+    assert run(warm_up(client)) is False
+
+
+def test_warm_up_failure_is_not_raised():
+    from llm.client import warm_up
+
+    client = LLMClient(LLMSettings(api_key="k"))
+
+    def broken():
+        raise RuntimeError("no credentials file")
+
+    client._genai_client = broken
+    assert run(warm_up(client)) is False
