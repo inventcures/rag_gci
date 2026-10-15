@@ -26,3 +26,13 @@ The project lead asked that any choice made on their behalf be written down here
 | D14 | Out of scope: the mechanical type-hint, docstring and broad-except sweep outside the touched paths, and splitting `simple_rag_server.py` into routers. | Neither changes behaviour, and the split would raise review cost mid-study. Both are recorded in the review for a later round. |
 | D15 | The Android comment density versus AGENTS.md "no in-code comments" is surfaced and left for the project lead, not changed. | The comments carry the ADR reasoning. Which rule wins is the project lead's call, not a review fix. |
 | D16 | Corrected project memory: Retell is dose-guarded (latency ticket 02), so "Retell lacks the dose guard" is no longer an open item. | `retell_integration/custom_llm_server.py` calls `guard_query_result` on every turn. |
+
+## Implementation decisions
+
+Decisions taken while implementing the 26 tickets with Matt Pocock's `implement` skill, one ticket per sub-agent in its own worktree, merged onto the wave's branch as `implement-spec` describes.
+
+| # | Decision | Why |
+|---|---|---|
+| D17 | Changes that tighten safety or fix a correctness defect (a leaked dose, a missing check, a wrong language, an invented distance, a wrong release id) ship on, with no setting that restores the old behaviour. A change that adds a new answer-shaping choice goes behind a setting that is off by default, unless its ticket says it ships on. Every participant-visible change is listed in the release notes below. | A setting that can switch the Dose Boundary back to its leaky form is a way to give a dose, which ADR 0004 forbids. The running study is protected by the versioned release, not by settings: nothing reaches participants until a new release record is approved, and drift detection reports a build that is not the approved one. |
+| D18 | One pull request per dependency wave (five waves). Each PR is merged as soon as its CI is green, before the next wave starts. Every ticket inside a wave is its own commit. | tp53 asked for this on 2026-10-15. Merging each wave before starting the next means no PR is stacked on another one, and each wave builds on a main that is already green. |
+| D19 | The seams are the ones D9 recorded; no sub-agent asks to confirm them. | The `tdd` skill asks for seams to be agreed before tests are written. D9 agreed them in the spec. |
