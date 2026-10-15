@@ -85,7 +85,8 @@ except ImportError:
     SarvamClient = None
     SarvamWebhookHandler = None
 
-import hmac
+from fastapi import Depends
+from webhook_auth import require_bolna, require_retell, require_sarvam, require_twilio
 
 # Knowledge Graph integration imports
 try:
@@ -5928,27 +5929,8 @@ def create_app(args: Any = None) -> FastAPI:
     # Initialize Bolna webhook handler
     bolna_webhook_handler = BolnaWebhookHandler() if BOLNA_AVAILABLE else None
 
-    # Bolna webhook secret for signature verification
-    BOLNA_WEBHOOK_SECRET = os.getenv("BOLNA_WEBHOOK_SECRET", "")
-
-    def verify_bolna_signature(payload: bytes, signature: str) -> bool:
-        """Verify Bolna webhook signature using HMAC-SHA256."""
-        if not BOLNA_WEBHOOK_SECRET:
-            return True  # Skip verification if no secret configured
-
-        expected = hmac.new(
-            BOLNA_WEBHOOK_SECRET.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
-
-        return hmac.compare_digest(expected, signature)
-
-    @app.post("/api/bolna/query")
-    async def bolna_query_endpoint(
-        request: Request,
-        x_bolna_signature: Optional[str] = Header(None)
-    ):
+    @app.post("/api/bolna/query", dependencies=[Depends(require_bolna)])
+    async def bolna_query_endpoint(request: Request):
         """
         RAG query endpoint for Bolna custom function calls.
 
@@ -5977,13 +5959,8 @@ def create_app(args: Any = None) -> FastAPI:
         }
         """
         try:
-            # Get raw body for signature verification
+            # Verified by require_bolna (signature and Bearer key).
             body = await request.body()
-
-            # Verify signature if provided
-            if x_bolna_signature and not verify_bolna_signature(body, x_bolna_signature):
-                logger.warning("Invalid Bolna signature received")
-                raise HTTPException(status_code=401, detail="Invalid signature")
 
             # Parse request
             data = json.loads(body)
@@ -6159,7 +6136,7 @@ def create_app(args: Any = None) -> FastAPI:
                 "confidence": 0.0
             }, status_code=500)
 
-    @app.post("/api/bolna/webhook")
+    @app.post("/api/bolna/webhook", dependencies=[Depends(require_bolna)])
     async def bolna_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Bolna call events.
@@ -6386,7 +6363,7 @@ def create_app(args: Any = None) -> FastAPI:
             if retell_llm_handler:
                 retell_llm_handler.end_session(call_id)
 
-    @app.post("/api/retell/webhook")
+    @app.post("/api/retell/webhook", dependencies=[Depends(require_retell)])
     async def retell_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Retell call events.
@@ -6707,7 +6684,7 @@ def create_app(args: Any = None) -> FastAPI:
             logger.error(f"Sarvam translate endpoint error: {e}")
             return JSONResponse({"error": str(e)}, status_code=500)
 
-    @app.post("/api/sarvam/webhook")
+    @app.post("/api/sarvam/webhook", dependencies=[Depends(require_sarvam)])
     async def sarvam_webhook_endpoint(request: Request):
         """Handle Sarvam webhook events."""
         if not sarvam_webhook_handler:
@@ -8105,7 +8082,7 @@ def create_app(args: Any = None) -> FastAPI:
     if whatsapp_bot:
         from fastapi.responses import Response
         
-        @app.post("/webhook")
+        @app.post("/webhook", dependencies=[Depends(require_twilio)])
         async def whatsapp_webhook(
             From: str = Form(...),
             To: str = Form(...),
