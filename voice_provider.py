@@ -38,6 +38,13 @@ PROVIDER_SARVAM = "sarvam"
 
 VALID_PROVIDERS = (PROVIDER_LIVE, PROVIDER_SARVAM)
 
+
+class AuditWriteError(RuntimeError):
+    """The audit record for a provider change could not be written.
+
+    The change has been rolled back: ADR 0007 allows no provider change without
+    its attributed record."""
+
 # Repo-relative, so it behaves the same on a laptop and on the deployed instance.
 SETTINGS_PATH = Path("data/study/voice_provider.json")
 AUDIT_PATH = Path("data/study/voice_provider_audit.jsonl")
@@ -132,6 +139,9 @@ class VoiceProviderControl:
         `reason` is required. Forcing the India-resident path is a decision
         someone has to be able to explain later, which means at write time rather
         than from memory.
+
+        Raises AuditWriteError, with the previous setting restored, when the
+        audit record cannot be written.
         """
         if provider not in VALID_PROVIDERS:
             raise ValueError(f"provider must be one of {VALID_PROVIDERS}, got {provider!r}")
@@ -151,12 +161,21 @@ class VoiceProviderControl:
                 reason=reason.strip(),
                 previous_provider=before.provider,
             )
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            # Written whole then renamed, so another process never reads half.
-            tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.tmp")
-            tmp.write_text(json.dumps(setting.to_dict(), indent=2), encoding="utf-8")
-            os.replace(tmp, self.path)
-            self._audit(setting)
+            try:
+                previous_text: Optional[str] = self.path.read_text(encoding="utf-8")
+            except FileNotFoundError:
+                previous_text = None
+            self._write_setting_file(json.dumps(setting.to_dict(), indent=2))
+            try:
+                self._audit(setting)
+            except OSError as exc:
+                # No change may stand without its record: put the file back.
+                self._restore_setting_file(previous_text)
+                logger.error(
+                    "Voice provider change %s -> %s by %s rolled back: audit write failed (%s)",
+                    before.provider, provider, actor, exc,
+                )
+                raise AuditWriteError("the audit record could not be written; nothing was changed") from exc
             self._cache = setting
             self._cache_stamp = self._stamp()
 
@@ -166,14 +185,25 @@ class VoiceProviderControl:
             )
             return setting
 
+    def _write_setting_file(self, text: str) -> None:
+        """Write the setting whole then rename, so another process never reads half."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.tmp")
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, self.path)
+
+    def _restore_setting_file(self, previous_text: Optional[str]) -> None:
+        """Put back the setting file as it was before a change (absent if it was absent)."""
+        if previous_text is None:
+            self.path.unlink(missing_ok=True)
+        else:
+            self._write_setting_file(previous_text)
+
     def _audit(self, setting: VoiceProviderSetting) -> None:
-        """Append to the audit trail. Never raises: an audit failure must not lose the change."""
-        try:
-            self.audit_path.parent.mkdir(parents=True, exist_ok=True)
-            with self.audit_path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(setting.to_dict(), ensure_ascii=False) + "\n")
-        except Exception:
-            logger.exception("Voice provider audit write failed")
+        """Append to the audit trail. Raises OSError when the record cannot be written."""
+        self.audit_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.audit_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(setting.to_dict(), ensure_ascii=False) + "\n")
 
     def history(self, limit: int = 20) -> List[Dict[str, Any]]:
         try:

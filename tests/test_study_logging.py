@@ -259,10 +259,19 @@ class TestDashboardIsReadOnly(unittest.TestCase):
 
         from study_dashboard import router
 
+        from unittest import mock
+
+        from auth.policy import issue_admin_token
+
         app = FastAPI()
         app.include_router(router, prefix="/admin/study")
         client = TestClient(app)
-        payload = client.get("/admin/study/api").json()
+        secret = "study-logging-test-admin-secret-0123456789"
+        with mock.patch.dict(os.environ, {"ADMIN_JWT_SECRET": secret}):
+            # The dashboard is admin-only wherever it is mounted.
+            self.assertEqual(client.get("/admin/study/api").status_code, 401)
+            headers = {"Authorization": f"Bearer {issue_admin_token('auditor')}"}
+            payload = client.get("/admin/study/api", headers=headers).json()
         for key in ("adoption", "safety", "latency", "language_equity", "release"):
             self.assertIn(key, payload)
 
