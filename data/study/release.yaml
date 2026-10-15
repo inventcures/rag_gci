@@ -59,7 +59,17 @@ models:
       voice_s: 7
   voice_primary:
     provider: "gemini_live"
-    model: "gemini-3.8-live"
+    # The one source of the Live model: every Live session opens with this
+    # (gemini_live.config.release_live_model); config.yaml and clients cannot
+    # choose it. GEMINI_LIVE_MODEL overrides it for development and shows as
+    # RELEASE DRIFT on voice.live.model.
+    # Was "gemini-3.8-live" until review 3 ticket 12: no code, test or verified
+    # run ever used that id (ADR 0007 names "Gemini 3.8 Live" only in its
+    # region-availability table), while gemini-3.1-flash-live-preview is the
+    # model the code runs and the one verified with a real audio round trip on
+    # 2026-10-04 (HANDOVER). This record is a draft with no signed approvals.
+    model: "gemini-3.1-flash-live-preview"
+    override_env: "GEMINI_LIVE_MODEL (shows as RELEASE DRIFT)"
     region: "not-asia-south1"
     # No Indian region offers the Live API. Verified regions: us-south1,
     # europe-west9, me-central2, southamerica-east1, asia-northeast3.

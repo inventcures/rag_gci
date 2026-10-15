@@ -320,6 +320,14 @@ class StudyRelease:
             (approvals.get(who) or {}).get("approved_at") for who in required
         )
 
+    @property
+    def live_model(self) -> str:
+        """The Live model this release approves (`models.voice_primary.model`):
+        the one every Live session opens with (gemini_live.config), and the
+        recorded side of the `voice.live.model` drift component. "" when the
+        record names none, which leaves Live unable to start."""
+        return str(self._dig("models", "voice_primary", "model", default="") or "")
+
     def _dig(self, *keys: str, default: Any = None) -> Any:
         node: Any = self.record
         for key in keys:
@@ -372,7 +380,7 @@ class StudyRelease:
 
     @staticmethod
     def _live_model() -> str:
-        """The Live model a voice session opens with (config.yaml, GEMINI_LIVE_MODEL)."""
+        """The Live model sessions open with: the release record's, else GEMINI_LIVE_MODEL."""
         try:
             from gemini_live.config import GeminiLiveConfig
 
@@ -509,7 +517,7 @@ class StudyRelease:
             "retrieval.kg_check": self._dig("retrieval", "kg_check"),
             "commit": self._dig("source", "commit"),
             "corpus.snapshot": self._dig("knowledge", "snapshot_sha256"),
-            "voice.live.model": self._dig("models", "voice_primary", "model"),
+            "voice.live.model": self.live_model or None,
             "providers.outside_india": provider_list(self._dig("providers", "outside_india")),
         }
         for component in REQUIRED_COMPONENTS:

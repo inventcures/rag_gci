@@ -99,7 +99,8 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     "/voice": RoutePolicy(Access.PUBLIC, "static web voice client"),
     "/api/voice/models": RoutePolicy(Access.PUBLIC, "read by the web voice client"),
     "/api/voice/languages": RoutePolicy(Access.PUBLIC, "the web voice client's language picker"),
-    "/ws/voice": RoutePolicy(Access.PUBLIC, "web Live voice; identity from the session is ticket 12"),
+    "/ws/voice": RoutePolicy(Access.PUBLIC, "web Live voice; a participant token on the header "
+                                            "names the caller, else the session is ephemeral"),
     "/api/pageindex/health": PUBLIC,
     "/api/retell/health": PUBLIC,
     "/api/sarvam/health": PUBLIC,
