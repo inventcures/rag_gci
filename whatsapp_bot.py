@@ -11,6 +11,7 @@ import asyncio
 import functools
 import uuid
 from collections import OrderedDict
+from dataclasses import dataclass
 import tempfile
 import time
 import logging
@@ -90,6 +91,15 @@ except ImportError:
     AudioHandler = None
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LiveDelivery:
+    """How far a Live voice note got toward answering, so that a failure after
+    its answer was recorded (and perhaps sent) is not answered a second time."""
+
+    recorded: bool = False   # the study row for the answer is written
+    sent: bool = False       # the answer text reached the participant
 
 
 class EnhancedSTTService:
@@ -1000,10 +1010,19 @@ class EnhancedWhatsAppBot:
                 record_voice_path("whatsapp_voice", "operator_forced_fallback")
             elif self.gemini_live_enabled:
                 logger.info("  🚀 Using Gemini Live for voice processing")
+                delivery = LiveDelivery()
                 try:
-                    await self._handle_twilio_media_message_gemini(from_number, media_url, content_type)
+                    await self._handle_twilio_media_message_gemini(
+                        from_number, media_url, content_type, delivery=delivery)
                     return
                 except Exception as gemini_error:
+                    if delivery.recorded:
+                        # The answer is recorded (and perhaps sent): the
+                        # Sarvam path must not answer the same note again.
+                        logger.error(f"  ⚠️ Live reply failed after its answer was recorded: {gemini_error}")
+                        if not delivery.sent:
+                            await self._send_error_message(from_number)
+                        return
                     logger.error(f"  ⚠️ Gemini Live failed, falling back to traditional pipeline: {gemini_error}")
                     record_voice_path("whatsapp_voice", getattr(
                         gemini_error, "voice_outcome", f"live_error: {type(gemini_error).__name__}"))
@@ -1085,10 +1104,15 @@ class EnhancedWhatsAppBot:
             await self._send_error_message(from_number)
 
     async def _handle_twilio_media_message_gemini(
-        self, from_number: str, media_url: str, content_type: str
-    ):
+        self, from_number: str, media_url: str, content_type: str,
+        delivery: Optional[LiveDelivery] = None,
+    ) -> None:
         """
         Handle media message using Gemini Live for real-time voice processing.
+
+        `delivery` is marked once the answer's study row is written and once
+        its text is sent, so the caller falls back to the Sarvam path only
+        while neither has happened (one note, one answer, one row).
 
         1. Downloads the note and converts it to PCM
         2. Transcribes it (Sarvam), for grounding and for the Dose Boundary
@@ -1100,6 +1124,7 @@ class EnhancedWhatsAppBot:
            and the Emergency Override did not fire; otherwise sends and speaks
            the guarded answer (under the override, the 108 guidance first)
         """
+        delivery = delivery if delivery is not None else LiveDelivery()
         logger.info("🚀 GEMINI LIVE VOICE PROCESSING:")
         logger.debug(f"  📱 From: {from_number}")
         logger.info(f"  🔗 Media URL: {media_url}")
@@ -1181,6 +1206,9 @@ class EnhancedWhatsAppBot:
                     reply_audio = b""
                     reply_span.set(deadline_missed=True)
                     stalled = True
+                    # The late turn's audio is still on its way into this
+                    # session: closed, so the next note never hears it (D45).
+                    await self.gemini_session_manager.close_session(from_number)
             spoken = session.get_response_transcription(clear=True).strip()
 
             # Step 7: the Dose Boundary on what Live said. Live's audio is sent
@@ -1205,11 +1233,14 @@ class EnhancedWhatsAppBot:
                 # Sent and spoken by the Sarvam path, so recorded as fallback.
                 await self._record(from_number, query_text, {**grounding, **fallback},
                                    detected_lang, VOICE_PATH_FALLBACK)
+                delivery.recorded = True
                 await self._deliver_answer(from_number, fallback, detected_lang, speak=True)
+                delivery.sent = True
                 return
 
             await self._record(from_number, query_text, {**grounding, **check},
                                detected_lang, VOICE_PATH_LIVE)
+            delivery.recorded = True
 
             # Step 8: the reply text goes out while the audio is converted.
             mp3_task = asyncio.create_task(asyncio.to_thread(
@@ -1221,6 +1252,7 @@ class EnhancedWhatsAppBot:
             except BaseException:
                 mp3_task.cancel()
                 raise
+            delivery.sent = True
             await self._send_audio_file(from_number, await mp3_task)
             self._update_conversation_history(from_number, f"Bot (Gemini Live): {check['answer'][:100]}...")
 

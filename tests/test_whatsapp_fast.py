@@ -256,6 +256,10 @@ def live_bot(rag_answer, spoken):
         async def get_or_create_session(self, user_id, language, voice):
             return session
 
+        async def close_session(self, user_id):
+            session.is_active = False
+            return True
+
     bot.gemini_session_manager = Manager()
     service = SimpleNamespace(config=SimpleNamespace(rag_context_enabled=True))
     bot.gemini_service = SimpleNamespace(
@@ -325,6 +329,54 @@ class LiveVoiceNotesAfterTheReview(Traced):
         self.assertTrue(bot.tts_service.spoken, "the guarded text was not spoken")
         self.assertTrue(bot.tts_service.spoken[0].startswith(emergency_guidance_for("en")),
                         bot.tts_service.spoken[0])
+
+    def test_a_stalled_turn_closes_its_session_so_the_next_note_never_hears_its_late_reply(self):
+        bot, first = live_bot(SAFE_ANSWER, spoken="Late reply to the first question.")
+        first.delay = 0.4
+        second = FakeLiveSession(spoken="Reply to the second question.")
+        sessions = {NUMBER: first}
+        closed = []
+
+        class Manager:
+            async def get_or_create_session(self, user_id, language, voice):
+                return sessions.setdefault(user_id, second)
+
+            async def close_session(self, user_id):
+                closed.append(user_id)
+                return sessions.pop(user_id, None) is not None
+
+        bot.gemini_session_manager = Manager()
+
+        async def two_notes():
+            await bot._handle_twilio_media_message(NUMBER, "https://x/m1", "audio/ogg")
+            await asyncio.sleep(0.4)  # the stalled turn's reply arrives late
+            bot.twilio_api.texts.clear()
+            await bot._handle_twilio_media_message(NUMBER, "https://x/m2", "audio/ogg")
+
+        with mock.patch.dict(os.environ, {"WHATSAPP_LIVE_REPLY_DEADLINE_S": "0.2"}):
+            asyncio.run(two_notes())
+        self.assertEqual(closed, [NUMBER])
+        sent = " ".join(bot.twilio_api.texts)
+        self.assertNotIn("first question", sent)
+        self.assertIn("Reply to the second question.", sent)
+
+    def test_a_failure_after_the_live_reply_went_out_is_one_answer_and_one_row(self):
+        bot, session = live_bot(SAFE_ANSWER, spoken="Sit upright and use a fan.")
+        rows = []
+
+        async def record(from_number, question, result, language, voice_path, started=None):
+            rows.append(voice_path)
+
+        def broken_mp3(pcm, fmt):
+            raise OSError("ffmpeg failed")
+
+        bot._record = record
+        bot.audio_handler.convert_from_pcm = broken_mp3
+        asyncio.run(bot._handle_twilio_media_message(NUMBER, "https://x/m", "audio/ogg"))
+        answers = [t for t in bot.twilio_api.texts if "Sit upright" in t]
+        self.assertEqual(len(answers), 1, bot.twilio_api.texts)
+        self.assertEqual(bot.tts_service.spoken, [], "the Sarvam path answered a second time")
+        self.assertEqual(len(rows), 1, rows)
 
 
 if __name__ == "__main__":
