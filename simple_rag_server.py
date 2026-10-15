@@ -6365,9 +6365,11 @@ def create_app(args: Any = None) -> FastAPI:
     @app.post("/api/medication/voice-reminder/callback")
     async def voice_reminder_callback_endpoint(request: Request):
         """
-        Callback endpoint for voice reminder call completion.
-        
-        Called by Bolna/Retell when medication reminder call ends.
+        Record how a voice reminder call ended.
+
+        Admin only (the /api/medication/* policy): no provider is configured
+        to call it, and an open route let anyone with a call id mark a
+        reminder confirmed (final review, finding 4).
         
         Request Body:
         {
@@ -6443,6 +6445,11 @@ def create_app(args: Any = None) -> FastAPI:
 
         Off unless the release record lists Retell's outside services
         (phone_residency, decision D11): the caller is told so and the socket closes.
+
+        The caller is verified by asking Retell for the call (RETELL_API_KEY):
+        a call Retell does not report as live is refused, and the caller's
+        number comes from Retell's record, never from a frame the socket sends
+        (final review, finding 5).
         """
         residency = phone_refusal(PHONE_RETELL)
         if residency:
@@ -6460,12 +6467,25 @@ def create_app(args: Any = None) -> FastAPI:
             await websocket.close(code=1008, reason="Service unavailable")
             return
 
+        from retell_integration import RetellClient
+
+        # A fresh client reads RETELL_API_KEY now, so a rotated key needs no
+        # restart (as webhook_auth does for the webhooks).
+        call = await RetellClient().live_call(call_id)
+        if call is None:
+            logger.warning("Retell LLM WebSocket refused: call %s is not a live Retell call", call_id)
+            await websocket.accept()
+            await websocket.send_json({"response_type": "error",
+                                       "content": "This call could not be verified"})
+            await websocket.close(code=1008, reason="Call not verified")
+            return
+
         logger.info(f"Retell LLM WebSocket connected: call_id={call_id}")
 
         try:
             # The handler accepts the socket itself; accepting here as well
             # raised on every call and Retell never got an answer.
-            await retell_llm_handler.handle_websocket(websocket, call_id)
+            await retell_llm_handler.handle_websocket(websocket, call_id, call=call)
         except WebSocketDisconnect:
             logger.info(f"Retell LLM WebSocket disconnected: call_id={call_id}")
         except Exception as e:

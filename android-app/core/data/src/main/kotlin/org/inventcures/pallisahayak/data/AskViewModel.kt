@@ -233,7 +233,12 @@ class AskViewModel(
                 return
             }
 
+            // The server's audio speaks the server's answer. When the device's
+            // Dose Boundary changed that answer (redacted or deferred), the audio
+            // no longer matches the text on screen and may say the dose, so it
+            // is neither played nor kept for replay (final review, finding 10).
             val audioToPlay = (answered.source as? AnswerSource.LiveVoice)?.audioBase64
+                ?.takeIf { answered.kind == AnswerKind.ANSWER }
             val pcm = audioToPlay?.let { decodeBase64(it) }
 
             _state.update { current ->
@@ -279,8 +284,13 @@ class AskViewModel(
         _state.update { it.copy(isSpeaking = true) }
     }
 
+    /**
+     * java.util.Base64 (API 26, the app's minSdk) rather than android.util.Base64,
+     * so the voice path runs in a plain JVM test. The MIME decoder skips line
+     * breaks, as android.util.Base64.DEFAULT does.
+     */
     private fun decodeBase64(value: String): ByteArray? =
-        runCatching { android.util.Base64.decode(value, android.util.Base64.DEFAULT) }
+        runCatching { java.util.Base64.getMimeDecoder().decode(value) }
             .getOrNull()
 
     fun clearError() {

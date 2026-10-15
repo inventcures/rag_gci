@@ -17,6 +17,10 @@ from .config import RETELL_API_BASE, RetellAgentConfig
 
 logger = logging.getLogger(__name__)
 
+# Retell's call_status values for a call that can still be talking to the
+# custom LLM ("registered" before the first audio, "ongoing" after).
+LIVE_CALL_STATUSES = ("registered", "ongoing")
+
 
 @dataclass
 class RetellCallResult:
@@ -408,6 +412,30 @@ class RetellClient:
         except Exception as e:
             logger.error(f"Failed to get call: {e}")
             return RetellCallResult(success=False, error=str(e))
+
+    async def live_call(self, call_id: str) -> Optional[Dict[str, Any]]:
+        """
+        The call record Retell holds for a call on this account that is still live.
+
+        The custom-LLM socket's only proof of who is calling: Retell's own record,
+        fetched with RETELL_API_KEY, gives the caller's number. A call Retell does
+        not know, one that has ended, or no API key, gives None, and the socket is
+        refused. Nothing a client sends on the socket is trusted for identity.
+        """
+        if not self.is_available() or not call_id:
+            return None
+        result = await self.get_call(call_id)
+        if not result.success or not isinstance(result.data, dict):
+            logger.warning("Retell call %s could not be verified: %s", call_id, result.error)
+            return None
+        call = result.data
+        if call.get("call_id") != call_id:
+            logger.warning("Retell returned a different call for %s", call_id)
+            return None
+        if call.get("call_status") not in LIVE_CALL_STATUSES:
+            logger.warning("Retell call %s is not live (%s)", call_id, call.get("call_status"))
+            return None
+        return call
 
     async def list_calls(
         self,
