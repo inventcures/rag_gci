@@ -58,7 +58,8 @@ class Wiring(unittest.TestCase):
         start = source.index('@app.post("/api/bolna/query"')
         route = source[start:source.index("@app.", start + 10)]
         self.assertNotIn('bolna_{source}', route)
-        self.assertEqual(route.count("user_id=caller_id"), 3)
+        # safety check, query, voice optimisation and the study row (ticket 13)
+        self.assertEqual(route.count("user_id=caller_id"), 4)
 
     def test_the_agent_config_sends_the_system_variables(self):
         from bolna_integration.config import get_palli_sahayak_agent_config
