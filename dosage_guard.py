@@ -31,7 +31,10 @@ Refused and deferred (tier 2):
 Severity ordering:
     An emergency always wins.  A refusal must never swallow a myocardial
     infarction.  When a query is both a dosage question and an emergency trigger,
-    the emergency path runs and the deferral never fires.
+    the emergency path runs and the deferral never fires.  Only a CRITICAL
+    alert on the question, passed in by the caller, invokes this Emergency
+    Override; the answer's own words never do.  When it applies, the 108
+    guidance in the participant's Supported Language is put first.
 """
 
 import logging
@@ -40,6 +43,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 import dose_detector
+from supported_languages import get_language
+import supported_languages
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +90,10 @@ _REFUSAL_LOCALIZED = {
         "मैं इस बातचीत की तैयारी में मदद कर सकता हूँ:\n"
         "• लक्षण, उन्हें कब शुरू हुए, और अब तक क्या दिया गया — लिख लें\n"
         "• दवा के पाउच या प्रिस्क्रिप्शन साथ ले जाएँ\n"
-        "• अगली बार डॉक्टर से मिलने पर यह बात रखें — पैलिएटिव केयर डॉक्टर, प्राथमिक स्वास्थ्य "
+        "• अगली मुलाक़ात में डॉक्टर के सामने यह बात रखें — पैलिएटिव केयर डॉक्टर, प्राथमिक स्वास्थ्य "
         "केंद्र, या जिस OPD में पंजीकरण है\n\n"
         "अगर मरीज़ को अभी बहुत तेज़ तकलीफ़ है — साँस लेने में दिक्कत, बेहोशी, या न ठीक होने "
-        "वाला दर्द — तो अगली बार का इंतज़ार न करें, 108 पर एम्बुलेंस बुलाएँ।"
+        "वाला दर्द — तो अगली मुलाक़ात का इंतज़ार न करें, 108 पर एम्बुलेंस बुलाएँ।"
     ),
     "bn": (
         "আমি বুঝতে পারছি এটি এখন আপনার দরকার। তবে কোনো ওষুধের নির্দিষ্ট পরিমাণ বা সময়সূচি "
@@ -112,26 +117,124 @@ _REFUSAL_LOCALIZED = {
         "நோயாளர் இப்போது மிகவும் வேதனையில் இருந்தால் — மூச்சுத் திணறல், நினைவிழப்பு, அல்லது "
         "சமாளிக்க முடியாத வலி — அடுத்த விஜயத்தை காத்திருக்காமல் 108-ல் ஆம்புலன்ஸை அழைக்கவும்."
     ),
+    # mr, kn, ml, or, pa, te and gu were added in round 3 (ticket 04). They are
+    # machine-drafted and await the clinical lead's language review. "Next time"
+    # is written "next visit" throughout: the Indic words for "time"/"day"
+    # (बार, ಬಾರಿ, ਵਾਰ, సారి, ...) are dose-frequency words to the detector.
+    "mr": (
+        "मला समजते की तुम्हाला आत्ता याची गरज आहे. पण एखाद्या औषधाचे नेमके प्रमाण किंवा "
+        "वेळापत्रक मी सांगू शकत नाही — ते ठरवण्यासाठी रुग्णाला प्रत्यक्ष पाहणाऱ्या डॉक्टरांची गरज आहे.\n\n"
+        "या संभाषणाच्या तयारीसाठी मी मदत करू शकतो:\n"
+        "• लक्षणे, ती केव्हा सुरू झाली आणि आतापर्यंत काय दिले आहे — हे लिहून ठेवा\n"
+        "• औषधांची पाकिटे किंवा प्रिस्क्रिप्शन सोबत न्या\n"
+        "• पुढील भेटीत हा प्रश्न डॉक्टरांसमोर मांडा — पॅलिएटिव्ह केअर डॉक्टर, प्राथमिक आरोग्य "
+        "केंद्र, किंवा तुमची नोंदणी असलेली OPD\n\n"
+        "रुग्णाला आत्ता खूप त्रास होत असेल — श्वास घेण्यास अडचण, बेशुद्धी, किंवा न थांबणारी "
+        "वेदना — तर पुढील भेटीची वाट न पाहता 108 वर रुग्णवाहिका बोलवा."
+    ),
+    "kn": (
+        "ಇದು ನಿಮಗೆ ಈಗ ಅಗತ್ಯ ಎಂದು ನನಗೆ ಅರ್ಥವಾಗುತ್ತದೆ. ಆದರೆ ಯಾವುದೇ ಔಷಧಿಯ ನಿರ್ದಿಷ್ಟ ಪ್ರಮಾಣ ಅಥವಾ "
+        "ವೇಳಾಪಟ್ಟಿಯನ್ನು ನಾನು ಹೇಳಲು ಸಾಧ್ಯವಿಲ್ಲ — ಅದನ್ನು ನಿರ್ಧರಿಸಲು ರೋಗಿಯನ್ನು ನೋಡುವ ವೈದ್ಯರು ಬೇಕು.\n\n"
+        "ಈ ಮಾತುಕತೆಗೆ ತಯಾರಾಗಲು ನಾನು ಸಹಾಯ ಮಾಡಬಲ್ಲೆ:\n"
+        "• ಲಕ್ಷಣಗಳು, ಅವು ಯಾವಾಗ ಶುರುವಾದವು, ಮತ್ತು ಇಲ್ಲಿಯವರೆಗೆ ಏನು ಕೊಡಲಾಗಿದೆ — ಬರೆದಿಟ್ಟುಕೊಳ್ಳಿ\n"
+        "• ಔಷಧಿಯ ಪ್ಯಾಕೆಟ್‌ಗಳು ಅಥವಾ ಪ್ರಿಸ್ಕ್ರಿಪ್ಷನ್ ಜೊತೆಗೆ ತೆಗೆದುಕೊಂಡು ಹೋಗಿ\n"
+        "• ಮುಂದಿನ ಭೇಟಿಯಲ್ಲಿ ಇದನ್ನು ವೈದ್ಯರ ಮುಂದೆ ಇಡಿ — ಪ್ಯಾಲಿಯೇಟಿವ್ ಕೇರ್ ವೈದ್ಯರು, ಪ್ರಾಥಮಿಕ "
+        "ಆರೋಗ್ಯ ಕೇಂದ್ರ, ಅಥವಾ ನೀವು ನೋಂದಾಯಿಸಿರುವ OPD\n\n"
+        "ರೋಗಿಗೆ ಈಗ ತೀವ್ರ ತೊಂದರೆ ಇದ್ದರೆ — ಉಸಿರಾಟದ ತೊಂದರೆ, ಪ್ರಜ್ಞೆ ಇಲ್ಲದಿರುವುದು, ಅಥವಾ ಶಮನವಾಗದ "
+        "ನೋವು — ಮುಂದಿನ ಭೇಟಿಗಾಗಿ ಕಾಯದೆ 108 ಗೆ ಕರೆ ಮಾಡಿ ಆಂಬ್ಯುಲೆನ್ಸ್ ಕರೆಸಿ."
+    ),
+    "ml": (
+        "ഇത് ഇപ്പോൾ നിങ്ങൾക്ക് ആവശ്യമാണെന്ന് എനിക്ക് മനസ്സിലാകുന്നു. പക്ഷേ ഒരു മരുന്നിന്റെ കൃത്യമായ "
+        "അളവോ സമയക്രമമോ എനിക്ക് പറയാൻ കഴിയില്ല — അത് തീരുമാനിക്കാൻ രോഗിയെ നേരിട്ട് കാണുന്ന ഡോക്ടർ വേണം.\n\n"
+        "ഈ സംഭാഷണത്തിന് തയ്യാറെടുക്കാൻ ഞാൻ സഹായിക്കാം:\n"
+        "• ലക്ഷണങ്ങൾ, അവ എപ്പോൾ തുടങ്ങി, ഇതുവരെ എന്തൊക്കെ നൽകി — എഴുതി വയ്ക്കുക\n"
+        "• മരുന്നിന്റെ പാക്കറ്റുകളോ കുറിപ്പടിയോ കൂടെ കൊണ്ടുപോകുക\n"
+        "• അടുത്ത സന്ദർശനത്തിൽ ഇത് ഡോക്ടറോട് ചോദിക്കുക — പാലിയേറ്റീവ് കെയർ ഡോക്ടർ, "
+        "പ്രാഥമികാരോഗ്യ കേന്ദ്രം, അല്ലെങ്കിൽ നിങ്ങൾ രജിസ്റ്റർ ചെയ്ത OPD\n\n"
+        "രോഗിക്ക് ഇപ്പോൾ കടുത്ത ബുദ്ധിമുട്ട് ഉണ്ടെങ്കിൽ — ശ്വാസതടസ്സം, ബോധമില്ലായ്മ, അല്ലെങ്കിൽ "
+        "ശമിക്കാത്ത വേദന — അടുത്ത സന്ദർശനത്തിനായി കാത്തിരിക്കാതെ 108-ൽ വിളിച്ച് ആംബുലൻസ് വരുത്തുക."
+    ),
+    "or": (
+        "ମୁଁ ବୁଝିପାରୁଛି ଯେ ଏହା ଆପଣଙ୍କୁ ବର୍ତ୍ତମାନ ଦରକାର। କିନ୍ତୁ କୌଣସି ଔଷଧର ନିର୍ଦ୍ଦିଷ୍ଟ ପରିମାଣ ବା "
+        "ସମୟସୂଚୀ ମୁଁ କହିପାରିବି ନାହିଁ — ତାହା ସ୍ଥିର କରିବାକୁ ରୋଗୀଙ୍କୁ ଦେଖୁଥିବା ଡାକ୍ତର ଆବଶ୍ୟକ।\n\n"
+        "ଏହି ଆଲୋଚନା ପାଇଁ ପ୍ରସ୍ତୁତ ହେବାରେ ମୁଁ ସାହାଯ୍ୟ କରିପାରିବି:\n"
+        "• ଲକ୍ଷଣ, ସେଗୁଡ଼ିକ କେବେ ଆରମ୍ଭ ହେଲା, ଏବଂ ଏପର୍ଯ୍ୟନ୍ତ କଣ ଦିଆଯାଇଛି — ଲେଖି ରଖନ୍ତୁ\n"
+        "• ଔଷଧର ପ୍ୟାକେଟ୍ କିମ୍ବା ପ୍ରେସକ୍ରିପସନ୍ ସାଙ୍ଗରେ ନିଅନ୍ତୁ\n"
+        "• ପରବର୍ତ୍ତୀ ସାକ୍ଷାତରେ ଡାକ୍ତରଙ୍କ ସହ ଏହି ବିଷୟରେ କଥା ହୁଅନ୍ତୁ — ପାଲିଏଟିଭ୍ କେୟାର ଡାକ୍ତର, "
+        "ପ୍ରାଥମିକ ସ୍ୱାସ୍ଥ୍ୟ କେନ୍ଦ୍ର, କିମ୍ବା ଆପଣ ପଞ୍ଜୀକୃତ ହୋଇଥିବା OPD\n\n"
+        "ଯଦି ରୋଗୀ ବର୍ତ୍ତମାନ ବହୁତ କଷ୍ଟରେ ଅଛନ୍ତି — ନିଶ୍ୱାସ ନେବାରେ ଅସୁବିଧା, ଚେତନା ନାହିଁ, କିମ୍ବା ଆୟତ୍ତ "
+        "ହେଉନଥିବା ଯନ୍ତ୍ରଣା — ପରବର୍ତ୍ତୀ ସାକ୍ଷାତକୁ ଅପେକ୍ଷା ନକରି 108 ରେ ଆମ୍ବୁଲାନ୍ସ ଡାକନ୍ତୁ।"
+    ),
+    "pa": (
+        "ਮੈਂ ਸਮਝਦਾ ਹਾਂ ਕਿ ਤੁਹਾਨੂੰ ਇਸ ਵੇਲੇ ਇਸ ਦੀ ਲੋੜ ਹੈ। ਪਰ ਕਿਸੇ ਦਵਾਈ ਦੀ ਖ਼ਾਸ ਮਾਤਰਾ ਜਾਂ ਸਮਾਂ-ਸਾਰਣੀ "
+        "ਮੈਂ ਨਹੀਂ ਦੱਸ ਸਕਦਾ — ਇਹ ਤੈਅ ਕਰਨ ਲਈ ਮਰੀਜ਼ ਨੂੰ ਦੇਖਣ ਵਾਲੇ ਡਾਕਟਰ ਦੀ ਲੋੜ ਹੈ।\n\n"
+        "ਮੈਂ ਇਸ ਗੱਲਬਾਤ ਦੀ ਤਿਆਰੀ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ:\n"
+        "• ਲੱਛਣ, ਉਹ ਕਦੋਂ ਸ਼ੁਰੂ ਹੋਏ, ਅਤੇ ਹੁਣ ਤੱਕ ਕੀ ਦਿੱਤਾ ਗਿਆ ਹੈ — ਲਿਖ ਕੇ ਰੱਖੋ\n"
+        "• ਦਵਾਈ ਦੇ ਪੈਕਟ ਜਾਂ ਪਰਚੀ ਨਾਲ ਲੈ ਕੇ ਜਾਓ\n"
+        "• ਅਗਲੀ ਮੁਲਾਕਾਤ ਵਿੱਚ ਡਾਕਟਰ ਨਾਲ ਇਹ ਗੱਲ ਕਰੋ — ਪੈਲੀਏਟਿਵ ਕੇਅਰ ਡਾਕਟਰ, ਮੁੱਢਲਾ ਸਿਹਤ ਕੇਂਦਰ, "
+        "ਜਾਂ ਉਹ OPD ਜਿੱਥੇ ਤੁਹਾਡਾ ਨਾਮ ਦਰਜ ਹੈ\n\n"
+        "ਜੇ ਮਰੀਜ਼ ਨੂੰ ਇਸ ਵੇਲੇ ਬਹੁਤ ਤਕਲੀਫ਼ ਹੈ — ਸਾਹ ਲੈਣ ਵਿੱਚ ਮੁਸ਼ਕਲ, ਬੇਹੋਸ਼ੀ, ਜਾਂ ਨਾ ਠੀਕ ਹੋਣ ਵਾਲਾ "
+        "ਦਰਦ — ਤਾਂ ਅਗਲੀ ਮੁਲਾਕਾਤ ਦੀ ਉਡੀਕ ਨਾ ਕਰੋ, 108 ਤੇ ਐਂਬੂਲੈਂਸ ਬੁਲਾਓ।"
+    ),
+    "te": (
+        "ఇది మీకు ఇప్పుడు అవసరమని నాకు అర్థమవుతోంది. కానీ ఏ మందు యొక్క నిర్దిష్ట పరిమాణం లేదా "
+        "సమయపట్టికను నేను చెప్పలేను — దాన్ని నిర్ణయించడానికి రోగిని నేరుగా చూసే వైద్యులు కావాలి.\n\n"
+        "ఈ సంభాషణకు సిద్ధం కావడంలో నేను సహాయం చేయగలను:\n"
+        "• లక్షణాలు, అవి ఎప్పుడు మొదలయ్యాయి, ఇప్పటివరకు ఏమి ఇచ్చారు — రాసి పెట్టుకోండి\n"
+        "• మందుల ప్యాకెట్లు లేదా ప్రిస్క్రిప్షన్ వెంట తీసుకెళ్లండి\n"
+        "• వచ్చే సందర్శనలో దీని గురించి వైద్యులతో మాట్లాడండి — పాలియేటివ్ కేర్ వైద్యులు, ప్రాథమిక "
+        "ఆరోగ్య కేంద్రం, లేదా మీరు నమోదు చేసుకున్న OPD\n\n"
+        "రోగి ఇప్పుడు తీవ్ర బాధలో ఉంటే — ఊపిరి తీసుకోవడంలో ఇబ్బంది, స్పృహ లేకపోవడం, లేదా తగ్గని "
+        "నొప్పి — వచ్చే సందర్శన కోసం ఎదురు చూడకుండా 108 కి ఫోన్ చేసి అంబులెన్స్ పిలవండి."
+    ),
+    "gu": (
+        "હું સમજું છું કે તમને અત્યારે આની જરૂર છે. પરંતુ કોઈ દવાની ચોક્કસ માત્રા કે સમયપત્રક "
+        "હું કહી શકતો નથી — તે નક્કી કરવા માટે દર્દીને જોનાર ડૉક્ટરની જરૂર છે.\n\n"
+        "હું આ વાતચીતની તૈયારીમાં મદદ કરી શકું છું:\n"
+        "• લક્ષણો, તે ક્યારે શરૂ થયાં, અને અત્યાર સુધી શું આપવામાં આવ્યું છે — લખી રાખો\n"
+        "• દવાનાં પેકેટ અથવા પ્રિસ્ક્રિપ્શન સાથે લઈ જાઓ\n"
+        "• આગામી મુલાકાતમાં ડૉક્ટર સમક્ષ આ વાત મૂકો — પેલિએટિવ કેર ડૉક્ટર, પ્રાથમિક આરોગ્ય "
+        "કેન્દ્ર, અથવા જ્યાં તમારી નોંધણી છે તે OPD\n\n"
+        "જો દર્દીને અત્યારે ખૂબ તકલીફ હોય — શ્વાસ લેવામાં મુશ્કેલી, બેભાન અવસ્થા, અથવા કાબૂમાં "
+        "ન આવતો દુખાવો — તો આગામી મુલાકાતની રાહ ન જુઓ, 108 પર ઍમ્બ્યુલન્સ બોલાવો."
+    ),
 }
 
-# Languages the guard degrades to English for rather than refusing to answer.
-# Sarvam Bulbul v3 covers 11 languages; the guard carries translated copy for the
-# highest-volume ones and falls back safely for the rest.
+# The copy for a language outside the eleven, or for one with no translation.
+# ADR 0004 allows the English fallback; the safety record says it was used.
 _FALLBACK_LANGUAGE = "en"
+# Recorded as the fallback when the caller passed no language at all.
+_UNSPECIFIED_LANGUAGE = "unspecified"
+
+
+def _copy_language(language: Optional[str]) -> Tuple[str, Optional[str]]:
+    """
+    Resolve `language` to the code of the Deferral copy the guard will use.
+
+    Returns ``(code, fallback)``. ``code`` is a Supported Language code that has
+    both a Deferral and a Redacted Answer note. ``fallback`` is None when that
+    copy is in the language asked for; otherwise it is the language that was
+    asked for (or "unspecified"), and ``code`` is English. Every spelling the
+    Supported Language table accepts ("or", "od", "or-IN", "hi_IN") resolves.
+    """
+    lang = get_language(language)
+    if lang is not None and lang.code == _FALLBACK_LANGUAGE:
+        return _FALLBACK_LANGUAGE, None
+    if lang is not None and lang.code in _REFUSAL_LOCALIZED and lang.code in _REDACTION_NOTE:
+        return lang.code, None
+    return _FALLBACK_LANGUAGE, (language or _UNSPECIFIED_LANGUAGE)
 
 
 def _refusal_for(language: str) -> str:
-    """Return the deferral copy for `language`, falling back to English."""
-    if not language:
-        return _REFUSAL_EN
-    primary = language.split("-")[0].split("_")[0].lower()
-    return _REFUSAL_LOCALIZED.get(primary, _REFUSAL_EN)
+    """Return the Deferral copy for `language`, falling back to English."""
+    code, _ = _copy_language(language)
+    return _REFUSAL_LOCALIZED.get(code, _REFUSAL_EN)
 
 
 def _redaction_note(language: str) -> str:
-    """Short explanation appended after a partial redaction."""
-    primary = (language or "").split("-")[0].split("_")[0].lower()
-    return _REDACTION_NOTE.get(primary, _REDACTION_NOTE["en"])
+    """Short explanation appended after a partial redaction, in `language`."""
+    code, _ = _copy_language(language)
+    return _REDACTION_NOTE[code]
 
 
 def _is_critical_alert(alert: Optional[Any]) -> bool:
@@ -155,6 +258,54 @@ def _is_critical_alert(alert: Optional[Any]) -> bool:
     return bool(getattr(alert, "contact_emergency_services", False))
 
 
+def _alert_level(alert: Optional[Any]) -> str:
+    """The alert's level as the safety record stores it, "none" without one."""
+    if alert is None:
+        return "none"
+    level = getattr(alert, "level", None)
+    level_value = getattr(level, "value", level)
+    return str(level_value).lower() if level_value else "none"
+
+
+# ---------------------------------------------------------------------------
+# Emergency guidance
+# ---------------------------------------------------------------------------
+
+# Put first in the answer when the Emergency Override applies, so a caller in a
+# life-threatening emergency hears where to get help before anything else. One
+# sentence, with 108 in it, in every Supported Language. The en, hi, bn, ta and
+# gu lines are the call-to-action of the emergency detector's own CRITICAL
+# message (safety_enhancements.EmergencyDetectionSystem._create_alert), which
+# reads them from here. The mr, te, kn, ml, pa and or lines are new and are
+# listed for clinical review.
+EMERGENCY_GUIDANCE: Dict[str, str] = {
+    "en": "Call emergency services (108/102) immediately!",
+    "hi": "तुरंत आपातकालीन सेवाओं (108/102) को कॉल करें!",
+    "bn": "অবিলম্বে জরুরী সেবায় (108/102) কল করুন!",
+    "ta": "உடனடியாக அவசர சேவைகளை (108/102) அழைக்கவும்!",
+    "gu": "તાત્કાલિક આપત્તિ સેવાઓ (108/102) ને કૉલ કરો!",
+    "mr": "ताबडतोब आपत्कालीन सेवांना (108/102) कॉल करा!",
+    "te": "వెంటనే అత్యవసర సేవలకు (108/102) కాల్ చేయండి!",
+    "kn": "ತಕ್ಷಣ ತುರ್ತು ಸೇವೆಗಳಿಗೆ (108/102) ಕರೆ ಮಾಡಿ!",
+    "ml": "ഉടൻ തന്നെ അടിയന്തര സേവനങ്ങളെ (108/102) വിളിക്കുക!",
+    "pa": "ਤੁਰੰਤ ਐਮਰਜੈਂਸੀ ਸੇਵਾਵਾਂ (108/102) ਨੂੰ ਕਾਲ ਕਰੋ!",
+    "or": "ତୁରନ୍ତ ଜରୁରୀକାଳୀନ ସେବା (108/102) କୁ କଲ୍ କରନ୍ତୁ!",
+}
+
+
+def emergency_guidance_for(language: Optional[str]) -> str:
+    """The 108 guidance in `language` (a code, tag or alias), English outside the eleven."""
+    supported = supported_languages.get_language(language)
+    code = supported.code if supported else supported_languages.ENGLISH_CODE
+    return EMERGENCY_GUIDANCE.get(code, EMERGENCY_GUIDANCE["en"])
+
+
+def _with_emergency_guidance(response: str, language: str) -> str:
+    """`response` with the emergency guidance as its first sentence, added once."""
+    guidance = emergency_guidance_for(language)
+    if (response or "").lstrip().startswith(guidance):
+        return response
+    return f"{guidance}\n\n{response}" if response else guidance
 
 
 # ---------------------------------------------------------------------------
@@ -176,18 +327,6 @@ class EmergencyDetector(Protocol):
         self, query: str, user_id: Optional[str] = ..., language: str = ...
     ) -> Optional[Any]: ...
 
-# Explicit instructions to summon urgent help. Used only as a fallback when no
-# emergency detector is injected, and matched tightly on purpose: requiring the
-# imperative plus the vehicle/number prevents ordinary prose such as "in an
-# emergency seek help" from switching the guard off.
-_EMERGENCY_INSTRUCTION_RE = re.compile(
-    r"(?:call|dial|phone|ring)\s*(?:\s*an?)?\s*"
-    r"(?:108|102|ambulance|emergency\s+(?:service|services|number))"
-    r"|\bambulance\s+(?:now|immediately)\b"
-    r"|\bemergency\s+(?:services|help)\s+(?:now|immediately)\b",
-    re.I,
-)
-
 
 @dataclass
 class DosageGuardResult:
@@ -199,6 +338,12 @@ class DosageGuardResult:
     emergency_overrode: bool = False
     redacted: bool = False
     removed_units: int = 0
+    # The language asked for, when the Deferral or Redacted Answer note had to
+    # be served in English because no copy exists for it. None otherwise.
+    language_fallback: Optional[str] = None
+    # The level of the alert the caller passed in ("none" without one), so the
+    # safety record shows what the override decision was based on.
+    emergency_level: str = "none"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -206,8 +351,10 @@ class DosageGuardResult:
             "reason": self.reason,
             "findings": [f.to_dict() for f in self.findings],
             "emergency_overrode": self.emergency_overrode,
+            "emergency_level": self.emergency_level,
             "redacted": self.redacted,
             "removed_units": self.removed_units,
+            "language_fallback": self.language_fallback,
         }
 
 
@@ -228,6 +375,14 @@ _REDACTION_NOTE = {
     "hi": "\n\n_(किसी भी दवा की खास मात्रा और समय-सारणी यहाँ नहीं दी गई है। यह सवाल अपनी अगली डॉक्टर की विज़िट में पूछें।)_",
     "bn": "\n\n_(ওষুধের নির্দিষ্ট পরিমাণ ও সময়সূচি এখানে দেওয়া হয়নি। এই প্রশ্নটি আপনার পরবর্তী ডাক্তারের সাক্ষাতে করুন।)_",
     "ta": "\n\n_(எந்த மருந்தின் குறிப்பிட்ட அளவு மற்றும் நேரம் இங்கே தரப்படவில்லை. இந்தக் கேள்வியை அடுத்த மருத்துவர் சந்திப்பில் கேளுங்கள்.)_",
+    # Added in round 3 (ticket 04); machine-drafted, awaiting clinical language review.
+    "mr": "\n\n_(कोणत्याही औषधाचे नेमके प्रमाण आणि वेळापत्रक येथे दिलेले नाही. हा प्रश्न तुमच्या पुढील डॉक्टर भेटीत विचारा.)_",
+    "kn": "\n\n_(ಯಾವುದೇ ಔಷಧಿಯ ನಿರ್ದಿಷ್ಟ ಪ್ರಮಾಣ ಮತ್ತು ವೇಳಾಪಟ್ಟಿಯನ್ನು ಇಲ್ಲಿ ನೀಡಿಲ್ಲ. ಈ ಪ್ರಶ್ನೆಯನ್ನು ನಿಮ್ಮ ಮುಂದಿನ ವೈದ್ಯರ ಭೇಟಿಯಲ್ಲಿ ಕೇಳಿ.)_",
+    "ml": "\n\n_(ഒരു മരുന്നിന്റെയും കൃത്യമായ അളവും സമയക്രമവും ഇവിടെ നൽകിയിട്ടില്ല. ഈ ചോദ്യം നിങ്ങളുടെ അടുത്ത ഡോക്ടർ സന്ദർശനത്തിൽ ചോദിക്കുക.)_",
+    "or": "\n\n_(କୌଣସି ଔଷଧର ନିର୍ଦ୍ଦିଷ୍ଟ ପରିମାଣ ଓ ସମୟସୂଚୀ ଏଠାରେ ଦିଆଯାଇନାହିଁ। ଏହି ପ୍ରଶ୍ନ ଆପଣଙ୍କ ପରବର୍ତ୍ତୀ ଡାକ୍ତର ସାକ୍ଷାତରେ ପଚାରନ୍ତୁ।)_",
+    "pa": "\n\n_(ਕਿਸੇ ਵੀ ਦਵਾਈ ਦੀ ਖ਼ਾਸ ਮਾਤਰਾ ਅਤੇ ਸਮਾਂ-ਸਾਰਣੀ ਇੱਥੇ ਨਹੀਂ ਦਿੱਤੀ ਗਈ। ਇਹ ਸਵਾਲ ਆਪਣੀ ਅਗਲੀ ਡਾਕਟਰੀ ਮੁਲਾਕਾਤ ਵਿੱਚ ਪੁੱਛੋ।)_",
+    "te": "\n\n_(ఏ మందు యొక్క నిర్దిష్ట పరిమాణం మరియు సమయపట్టిక ఇక్కడ ఇవ్వబడలేదు. ఈ ప్రశ్నను మీ తదుపరి వైద్య సందర్శనలో అడగండి.)_",
+    "gu": "\n\n_(કોઈ પણ દવાની ચોક્કસ માત્રા અને સમયપત્રક અહીં આપ્યાં નથી. આ પ્રશ્ન તમારી આગામી ડૉક્ટરની મુલાકાતમાં પૂછો.)_",
 }
 
 # A trailing colon marks a heading whose contents may all be removed.
@@ -343,24 +498,34 @@ class DosageGuard:
         response: str,
         language: str = "en",
         query: str = "",
+        alert: Optional[Any] = None,
     ) -> DosageGuardResult:
         """
         Filter `response`, returning either the original text or the deferral.
 
-        If the query is an emergency trigger the response is passed through
-        untouched and `emergency_overrode` is set, because suppressing an urgent
-        instruction in order to enforce a style restriction is the worse failure.
+        `alert` is the emergency detector's alert on the question, computed once
+        on the answer path and passed in (None when there was none). Only a
+        CRITICAL alert invokes the Emergency Override: the response then keeps
+        its text, the emergency guidance in `language` is put first, and
+        `emergency_overrode` is set, because suppressing an urgent instruction
+        in order to enforce the restriction is the worse failure. Nothing in the
+        response text itself, such as "call 108", can invoke the override.
+
+        `query` is the question the response answers; the override decision is
+        made from `alert`, not from it.
         """
-        if self._is_emergency(query, response):
+        level = _alert_level(alert)
+        if _is_critical_alert(alert):
             return DosageGuardResult(
                 blocked=False,
-                response=response,
+                response=_with_emergency_guidance(response, language),
                 emergency_overrode=True,
+                emergency_level=level,
             )
 
         findings = detect_doses(response)
         if not findings:
-            return DosageGuardResult(blocked=False, response=response)
+            return DosageGuardResult(blocked=False, response=response, emergency_level=level)
 
         logger.warning(
             "Dosage restriction applied (reason=%s, findings=%d, lang=%s)",
@@ -368,6 +533,11 @@ class DosageGuard:
             len(findings),
             language,
         )
+        _, language_fallback = _copy_language(language)
+        if language_fallback is not None:
+            logger.warning(
+                "No Deferral copy for language %r; serving English", language_fallback
+            )
 
         # Attempt sentence-level redaction first, so that a tier-1 question is not
         # answered with a tier-2 refusal when only part of the answer was dosing.
@@ -385,6 +555,8 @@ class DosageGuard:
                     reason=findings[0].reason,
                     redacted=True,
                     removed_units=removed,
+                    language_fallback=language_fallback,
+                    emergency_level=level,
                 )
             logger.warning(
                 "Redaction left %d dose match(es); escalating to full refusal",
@@ -397,34 +569,26 @@ class DosageGuard:
             findings=_dedupe(findings),
             reason=findings[0].reason,
             removed_units=removed,
+            language_fallback=language_fallback,
+            emergency_level=level,
         )
 
-    def _is_emergency(self, query: str, response: str) -> bool:
+    def detect_alert(self, query: str, language: str = "en") -> Optional[Any]:
         """
-        Decide whether the emergency path takes precedence over the deferral.
+        The emergency detector's alert on `query`, for a caller that has none yet.
 
-        The detector is authoritative. The response-text fallback is deliberately
-        narrow: it matches an explicit instruction to summon help, never the bare
-        word "emergency". A loose match here would silently disable the entire
-        dosage restriction on any answer that merely mentions emergencies, which
-        is a failure mode that must not exist in a safety control.
+        The streaming path calls this once per question and decides the override
+        from the alert exactly as `apply` does. A detector failure returns None, which
+        keeps the Dose Boundary in force: the safe direction for a failure.
         """
-        if self.emergency_system is not None:
-            try:
-                alert = self.emergency_system.detect_emergency(
-                    query, "dosage-guard", "en"
-                )
-            except Exception:  # pragma: no cover - must never break a response
-                logger.warning(
-                    "Emergency detector failed inside DosageGuard; "
-                    "falling back to response-text check",
-                    exc_info=True,
-                )
-            else:
-                if _is_critical_alert(alert):
-                    return True
-
-        return bool(_EMERGENCY_INSTRUCTION_RE.search(response or ""))
+        if self.emergency_system is None or not query:
+            return None
+        try:
+            return self.emergency_system.detect_emergency(query, None, language)
+        except Exception:  # must never break a response
+            logger.warning("Emergency detector failed; the Dose Boundary stays on",
+                           exc_info=True)
+            return None
 
 
 _dosage_guard: Optional[DosageGuard] = None

@@ -11,7 +11,8 @@ What these pin down:
   * a stubbed stream with a dose sentence in the middle sends the sentences
     before and after it, then the redaction note (or the Deferral when too
     little is left); no dose text is ever sent
-  * an emergency question passes untouched, as the whole-text guard does
+  * an emergency question gets the 108 guidance first, then passes untouched,
+    as the whole-text guard does
   * Retell: the first sentence goes out before the answer is finished; a
     barge-in cancels the stream cleanly; what was sent is kept as spoken
   * the LLM stream stays inside the caller's budget and falls back only before
@@ -107,10 +108,15 @@ class Guarding(unittest.TestCase):
         self.assertEqual(sent, SAFE)
         self.assertEqual(stream.text, " ".join(SAFE))
 
-    def test_emergency_question_passes_untouched(self):
+    def test_emergency_question_gets_the_guidance_then_passes_untouched(self):
+        from safety_enhancements import EmergencyLevel
+
+        class Critical:
+            level = EmergencyLevel.CRITICAL
+
         class Emergency(dosage_guard.DosageGuard):
-            def _is_emergency(self, query, response):
-                return True
+            def detect_alert(self, query, language="en"):
+                return Critical()
 
         sent = []
 
@@ -119,7 +125,7 @@ class Guarding(unittest.TestCase):
 
         stream = AnswerStream(send, query="he stopped breathing", guard=Emergency())
         asyncio.run(stream.consume(deltas(f"{SAFE[2]} {DOSE}")))
-        self.assertEqual(sent, [SAFE[2], DOSE])
+        self.assertEqual(sent, [dosage_guard.emergency_guidance_for("en"), SAFE[2], DOSE])
 
     def test_word_cap_stops_release(self):
         sent = []

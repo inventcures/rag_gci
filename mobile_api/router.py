@@ -13,12 +13,13 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.responses import JSONResponse, Response
-from typing import Optional
 
 from auth.jwt_handler import REFRESH
-from auth.middleware import require_auth, get_jwt_handler
+from fastapi.security import HTTPAuthorizationCredentials
+from auth.middleware import require_auth, get_jwt_handler, security
 from auth.pin_auth import PinAuthenticator
 from auth.models import AuthenticatedUser
+from auth.policy import authenticate_token
 from mobile_api.schemas import (
     MobileQueryRequest, MobileQueryResponse,
     VoiceQueryResponse,
@@ -399,6 +400,7 @@ async def sync_push(
     return SyncPushResponse(
         accepted=result["accepted"],
         rejected=result["rejected"],
+        acknowledgements=result["acknowledgements"],
         conflicts=result["conflicts"],
     )
 
@@ -508,20 +510,15 @@ async def create_observation(
 # -- Medication Reminders ---------------------------------------------------
 
 @mobile_router.get("/medication/reminders")
-async def get_reminders(
-    user_id: Optional[str] = None,
-    user: AuthenticatedUser = Depends(require_auth),
-):
+async def get_reminders(user: AuthenticatedUser = Depends(require_auth)):
+    """The caller's household's reminders, without the dose.
+
+    Always the caller's own: there is no parameter that names another user."""
     from mobile_api.dependencies import get_medication_manager
     medication_manager = get_medication_manager()
     if medication_manager is None:
         return {"reminders": []}
-    target_user = user_id or user.user_id
-    try:
-        reminders = await medication_manager.get_reminders(target_user)
-        return {"reminders": reminders}
-    except Exception:
-        return {"reminders": []}
+    return {"reminders": medication_manager.get_client_reminders(user.user_id)}
 
 
 @mobile_router.post("/medication/reminder", response_model=ReminderResponse)
@@ -529,20 +526,30 @@ async def create_reminder(
     request: CreateReminderRequest,
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    # Only for a patient in the caller's household (404 otherwise, like the
+    # other per-patient routes).
+    await _require_own_patient(get_memory_manager(), user, request.patient_id)
     from mobile_api.dependencies import get_medication_manager
     medication_manager = get_medication_manager()
     if medication_manager is None:
         raise HTTPException(status_code=503, detail="Medication manager not available")
+    if not (request.phone_number or "").strip():
+        # A reminder call with no number to ring would be scheduled and never
+        # reach anyone. The app keeps its own reminders on the device.
+        raise HTTPException(status_code=422, detail="A reminder call needs a phone number")
     from datetime import datetime
     scheduled_dt = datetime.fromtimestamp(request.scheduled_time)
-    result = medication_manager.create_voice_reminder(
-        user_id=user.user_id,
-        phone_number="",
-        medication_name=request.medication_name,
-        dosage=request.dosage,
-        reminder_time=scheduled_dt,
-        language=request.language,
-    )
+    try:
+        result = medication_manager.create_voice_reminder(
+            user_id=user.user_id,
+            phone_number=request.phone_number,
+            medication_name=request.medication_name,
+            dosage=request.dosage or "",
+            reminder_time=scheduled_dt,
+            language=request.language,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     reminder_id = result.reminder_id if hasattr(result, "reminder_id") else str(uuid.uuid4())
     return ReminderResponse(reminder_id=reminder_id, status="created")
 
@@ -655,18 +662,37 @@ async def submit_interaction_logs(
     user: AuthenticatedUser = Depends(require_auth),
 ):
     count = await _interaction_logger.ingest_batch(request.logs, user_id=user.user_id)
-    return InteractionLogResponse(accepted=count, status="accepted")
+    # A log that could not be saved is logged by the logger and not counted.
+    return InteractionLogResponse(accepted=count, status="accepted" if count == len(request.logs) else "partial")
+
+
+async def require_participant_or_auditor(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> AuthenticatedUser:
+    """The caller of the evaluation export: a participant or an auditor, or 401.
+
+    An auditor is the holder of an admin token (auth/policy.py), signed with a
+    key the app never sees. A mobile role claim cannot make anyone an auditor,
+    because anyone can register on the app with any role."""
+    user = authenticate_token(credentials.credentials)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return user
 
 
 @mobile_router.get("/evaluation/export")
 async def export_evaluation_data(
     format: str = Query("csv", description="Export format: csv or json"),
-    user: AuthenticatedUser = Depends(require_auth),
+    user: AuthenticatedUser = Depends(require_participant_or_auditor),
 ):
+    """SUS scores, vignette responses and interaction logs as CSV.
+
+    A participant gets only their own records; an auditor gets everyone's."""
+    owner = None if user.is_admin else user.user_id
     if format == "csv":
-        sus_csv = _evaluation_exporter.export_sus_csv()
-        vignettes_csv = _evaluation_exporter.export_vignettes_csv()
-        logs_csv = _evaluation_exporter.export_interaction_logs_csv()
+        sus_csv = _evaluation_exporter.export_sus_csv(user_id=owner)
+        vignettes_csv = _evaluation_exporter.export_vignettes_csv(user_id=owner)
+        logs_csv = _evaluation_exporter.export_interaction_logs_csv(user_id=owner)
         return {
             "format": "csv",
             "sus_scores": sus_csv,
