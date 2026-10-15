@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
-import traceback
 
 # Add kotaemon to path
 sys.path.insert(0, str(Path(__file__).parent / "kotaemon-main" / "libs"))
@@ -118,7 +117,6 @@ class RAGPipeline:
             return {
                 "status": "error",
                 "error": str(e),
-                "traceback": traceback.format_exc()
             }
     
     async def query(self, question: str, conversation_id: Optional[str] = None, 
@@ -146,7 +144,6 @@ class RAGPipeline:
             return {
                 "status": "error",
                 "error": str(e),
-                "traceback": traceback.format_exc()
             }
     
     def get_index_stats(self) -> Dict[str, Any]:
@@ -330,7 +327,8 @@ class AdminUI:
             return json.dumps(result, indent=2)
             
         except Exception as e:
-            return f"Error: {str(e)}\n{traceback.format_exc()}"
+            logger.error(f"Upload failed: {e}", exc_info=True)
+            return f"Error: {str(e)}"
     
     def _handle_query(self, query):
         """Handle query testing"""
@@ -655,7 +653,7 @@ class WhatsAppBot:
         """Send message back to WhatsApp"""
         try:
             # In production, implement WhatsApp Business API
-            logger.info(f"Would send to {to_number}: {message}")
+            logger.debug(f"Would send to {to_number}: {message}")
         except Exception as e:
             logger.error(f"Error sending WhatsApp message: {e}")
 

@@ -15,7 +15,6 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
-import traceback
 import pickle
 import hashlib
 import uuid
@@ -827,6 +826,10 @@ def bolna_caller_id(data: Dict[str, Any]) -> str:
     return ephemeral("bolna", f"anon_{uuid.uuid4().hex[:12]}")
 
 
+class MetadataLoadError(RuntimeError):
+    """The document metadata file exists but can't be read as a JSON object."""
+
+
 async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
                            language: str = "en") -> Dict[str, Any]:
     """
@@ -1127,19 +1130,44 @@ class SimpleRAGPipeline:
             return False
     
     def _load_metadata(self) -> Dict:
-        """Load document metadata from file"""
-        if self.metadata_file.exists():
+        """Load document metadata from file; no file means an empty index.
+
+        A file that can't be read or parsed raises MetadataLoadError. Returning
+        {} instead would let the next save overwrite every document's metadata."""
+        if not self.metadata_file.exists():
+            return {}
+        try:
+            with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+        except (OSError, ValueError) as e:
+            raise MetadataLoadError(
+                f"Document metadata at {self.metadata_file} is unreadable ({e}). "
+                "It was left untouched; restore it from backup or remove it to start empty."
+            ) from e
+        if not isinstance(metadata, dict):
+            raise MetadataLoadError(
+                f"Document metadata at {self.metadata_file} is not a JSON object; it was left untouched."
+            )
+        return metadata
+
+    def _save_metadata(self) -> None:
+        """Save document metadata atomically: write a temporary file, then rename.
+
+        A crash mid-write leaves the previous file whole, never a torn one."""
+        directory = self.metadata_file.parent
+        fd, tmp_name = tempfile.mkstemp(prefix=f".{self.metadata_file.name}.", suffix=".tmp", dir=directory)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(self.document_metadata, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_name, self.metadata_file)
+        except BaseException:
             try:
-                with open(self.metadata_file, 'r') as f:
-                    return json.load(f)
-            except:
+                os.unlink(tmp_name)
+            except FileNotFoundError:
                 pass
-        return {}
-    
-    def _save_metadata(self):
-        """Save document metadata to file"""
-        with open(self.metadata_file, 'w') as f:
-            json.dump(self.document_metadata, f, indent=2)
+            raise
     
     # Turns kept in memory per conversation; the full history is on disk.
     CONVERSATION_MEMORY_TURNS = 50
@@ -1258,12 +1286,8 @@ class SimpleRAGPipeline:
             }
             
         except Exception as e:
-            logger.error(f"Error removing document: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            logger.error(f"Error removing document: {e}", exc_info=True)
+            return {"status": "error", "error": str(e)}
     
     # Chunks embedded and added per worker-thread call while indexing.
     INDEX_BATCH = 32
@@ -1398,12 +1422,8 @@ class SimpleRAGPipeline:
             }
             
         except Exception as e:
-            logger.error(f"Error adding documents: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            logger.error(f"Error adding documents: {e}", exc_info=True)
+            return {"status": "error", "error": str(e)}
     
     # -----------------------------------------------------------------
     # Answer-path wiring for the knowledge graph, GraphRAG and K26 check
@@ -1695,7 +1715,7 @@ class SimpleRAGPipeline:
 
             elif _rag_method == "pageindex" and _pageindex_enabled and _pageindex_engine:
                 # PageIndex tree-based retrieval
-                logger.info(f"Using PageIndex tree-based retrieval for: {query_for_search[:80]}")
+                logger.info("Using PageIndex tree-based retrieval")
                 with span("pageindex.search"):
                     pi_result = await _pageindex_engine.search(query_for_search)
                 context_text = pi_result.context
@@ -1723,7 +1743,7 @@ class SimpleRAGPipeline:
 
             elif _rag_method == "hybrid" and _pageindex_enabled and _pageindex_engine:
                 # Hybrid: parallel vector + tree search
-                logger.info(f"Using hybrid (vector + PageIndex) retrieval for: {query_for_search[:80]}")
+                logger.info("Using hybrid (vector + PageIndex) retrieval")
 
                 async def _do_vector_search():
                     with span("search", n_results=top_k):
@@ -2004,12 +2024,8 @@ class SimpleRAGPipeline:
             }
             
         except Exception as e:
-            logger.error(f"Error querying RAG pipeline: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            logger.error(f"Error querying RAG pipeline: {e}", exc_info=True)
+            return {"status": "error", "error": str(e)}
         finally:
             # An early return (no documents) leaves the fetch unused.
             if patient_context_task is not None and not patient_context_task.done():
@@ -2480,7 +2496,9 @@ Respond with ONLY the English translation, no explanations or additional text.""
             if model == "error":
                 return {"status": "error", "error": translated_query}
             translated_query = translated_query.strip()
-            logger.info(f"Query translation: {source_lang_name} '{query}' -> English '{translated_query}'")
+            logger.info(f"Query translation: {source_lang_name} -> English "
+                        f"({len(query)} -> {len(translated_query)} chars)")
+            logger.debug(f"Query translation: '{query}' -> '{translated_query}'")
             return {
                 "status": "success",
                 "translated_query": translated_query,
@@ -3557,8 +3575,8 @@ class SimpleAdminUI:
                         return f"Unsupported file type: {type(file)} - {file}", files, metadata_str
                         
                 except Exception as file_error:
-                    logger.error(f"Error processing file {file}: {str(file_error)}")
-                    return f"Error processing file {file}: {str(file_error)}\n{traceback.format_exc()}", files, metadata_str
+                    logger.error(f"Error processing file {file}: {str(file_error)}", exc_info=True)
+                    return f"Error processing file {file}: {str(file_error)}", files, metadata_str
             
             # Index files
             result = asyncio.run(self.rag_pipeline.add_documents(file_paths, metadata))
@@ -3581,7 +3599,8 @@ class SimpleAdminUI:
                 return f"❌ Upload failed: {result['error']}", files, metadata_str
             
         except Exception as e:
-            return f"Error: {str(e)}\n{traceback.format_exc()}", files, metadata_str
+            logger.error(f"Upload failed: {e}", exc_info=True)
+            return f"Error: {str(e)}", files, metadata_str
     
     def _handle_query(self, query):
         """Handle query testing"""
@@ -5050,7 +5069,7 @@ def create_app(args: Any = None) -> FastAPI:
     
     # Debug: Print what we found
     logger.info(f"🔍 Checking Twilio configuration:")
-    logger.info(f"   TWILIO_ACCOUNT_SID: {'✅ Set' if twilio_sid else '❌ Not set'} ({twilio_sid[:10]}... if set)")
+    logger.info(f"   TWILIO_ACCOUNT_SID: {'✅ Set' if twilio_sid else '❌ Not set'}")
     logger.info(f"   TWILIO_AUTH_TOKEN: {'✅ Set' if twilio_token else '❌ Not set'} ({'*' * 10 if twilio_token else 'None'})")
     
     twilio_configured = (
@@ -5077,7 +5096,10 @@ def create_app(args: Any = None) -> FastAPI:
     
     # Create FastAPI app
     app = FastAPI(title="Simple RAG Server with WhatsApp Bot")
-    
+    # One error shape, no traceback in any body (api_errors.py).
+    from api_errors import install_error_handlers
+    install_error_handlers(app)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -6188,15 +6210,17 @@ def create_app(args: Any = None) -> FastAPI:
                 duration = data.get("duration_seconds", data.get("duration", 0))
                 logger.info(f"Call {call_id} ended - Duration: {duration}s")
                 if summary:
-                    logger.info(f"Call summary: {summary[:200]}...")
+                    logger.debug(f"Call summary: {summary[:200]}...")
 
             elif event_type == "extraction_completed":
                 extracted = data.get("extracted_data", data.get("data", {}))
-                logger.info(f"Call {call_id} extraction: {extracted}")
+                logger.info(f"Call {call_id} extraction: fields {sorted(extracted)}")
+                logger.debug(f"Call {call_id} extraction: {extracted}")
 
                 # Check for high urgency
                 if extracted.get("urgency_level") in ("high", "emergency"):
-                    logger.warning(f"HIGH URGENCY call {call_id}: {extracted.get('user_concern', 'Unknown')}")
+                    logger.warning(f"HIGH URGENCY call {call_id} ({extracted.get('urgency_level')})")
+                    logger.debug(f"HIGH URGENCY call {call_id} concern: {extracted.get('user_concern', 'Unknown')}")
 
             return JSONResponse({"status": "received", "event": event_type})
 
