@@ -13,7 +13,7 @@ import functools
 import threading
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Tuple, Union
 from datetime import datetime
 import pickle
 import hashlib
@@ -850,6 +850,23 @@ async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
     result = await pipeline.query(query, source_language=source_language)
     guard_query_result(result, query=query, language=language)
     return result
+
+
+def gate_answer_payload(payload: Any, *, query: str, language: str = "en",
+                        answer_key: Optional[str] = None) -> Tuple[Any, Dict[str, Any]]:
+    """
+    The answer gate for a route that returns structured model- or graph-derived
+    data (knowledge graph, GraphRAG, PageIndex): every string in `payload` passes
+    the Dose Boundary, `answer_key` with the question's emergency alert.
+
+    Returns the guarded copy and the safety record to attach as "safety". Every
+    route listed in answer_routes.ANSWER_ROUTES goes through this or through
+    `answer_web_query`'s guard.
+    """
+    from safety_enhancements import guard_answer_payload
+
+    return guard_answer_payload(payload, query=query, language=language,
+                                answer_key=answer_key)
 
 
 class SimpleRAGPipeline:
@@ -4110,7 +4127,10 @@ class SimpleAdminUI:
             result = loop.run_until_complete(do_query())
 
             if result.get("status") == "success":
-                search_result = result.get("result", {})
+                # The endpoint is gated; the tab gates what it shows as well, so
+                # the panel cannot display a dose whatever answered it.
+                search_result, _ = gate_answer_payload(
+                    result.get("result", {}), query=query, answer_key="response")
                 response = search_result.get("response", "No response")
                 entities = search_result.get("entities", [])
                 metadata = {
@@ -5992,13 +6012,16 @@ def create_app(args: Any = None) -> FastAPI:
         return _pageindex_storage.get_stats()
 
     @app.post("/api/pageindex/query")
-    async def pageindex_query(query: str = Form(...), doc_ids: str = Form("")):
-        """Query via PageIndex tree search."""
+    async def pageindex_query(query: str = Form(...), doc_ids: str = Form(""),
+                              language: str = Form("en")):
+        """Query via PageIndex tree search. The context and reasoning pass the
+        Dose Boundary before they are returned."""
         if not _pageindex_enabled or not _pageindex_engine:
             return {"error": "PageIndex not enabled"}
         doc_id_list = [d.strip() for d in doc_ids.split(",") if d.strip()] or None
         result = await _pageindex_engine.search(query, doc_ids=doc_id_list)
-        return result.to_dict()
+        guarded, safety = gate_answer_payload(result.to_dict(), query=query, language=language)
+        return {**guarded, "safety": safety}
 
     @app.post("/api/pageindex/index")
     async def pageindex_index_doc(doc_id: str = Form(...)):
@@ -6057,7 +6080,9 @@ def create_app(args: Any = None) -> FastAPI:
         tree = _pageindex_storage.load_tree(doc_id)
         if not tree:
             return {"error": f"Tree not found for document {doc_id}"}
-        return tree
+        # Node summaries are model-written: they pass the Dose Boundary too.
+        guarded, _ = gate_answer_payload(tree, query="")
+        return guarded
 
     # ==========================================================================
     # BOLNA.AI INTEGRATION ENDPOINTS
@@ -6960,10 +6985,13 @@ def create_app(args: Any = None) -> FastAPI:
                 include_vector_results=body.get("include_vector", False),
                 top_k=body.get("top_k", 10)
             )
+            guarded, safety = gate_answer_payload(
+                result, query=question, language=body.get("language", "en"))
 
             return JSONResponse({
                 "status": "success",
-                **result
+                **guarded,
+                "safety": safety,
             })
 
         except Exception as e:
@@ -7001,12 +7029,12 @@ def create_app(args: Any = None) -> FastAPI:
 
             # Extract entities
             entities, relationships = await kg_rag.entity_extractor.extract(text)
-
-            return JSONResponse({
-                "status": "success",
+            guarded, safety = gate_answer_payload({
                 "entities": [e.to_dict() for e in entities],
-                "relationships": [r.to_dict() for r in relationships]
-            })
+                "relationships": [r.to_dict() for r in relationships],
+            }, query=text, language=body.get("language", "en"))
+
+            return JSONResponse({"status": "success", **guarded, "safety": safety})
 
         except Exception as e:
             logger.error(f"KG extraction error: {e}")
@@ -7026,9 +7054,11 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             result = await kg_rag.get_entity_graph(entity_name, depth=depth)
+            guarded, safety = gate_answer_payload(result, query=entity_name)
             return JSONResponse({
                 "status": "success",
-                **result
+                **guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG entity graph error: {e}")
@@ -7048,10 +7078,12 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             treatments = await kg_rag.get_treatments_for_symptom(symptom)
+            guarded, safety = gate_answer_payload(treatments, query=symptom)
             return JSONResponse({
                 "status": "success",
                 "symptom": symptom,
-                "treatments": treatments
+                "treatments": guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG treatments error: {e}")
@@ -7071,10 +7103,12 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             side_effects = await kg_rag.get_side_effects(medication)
+            guarded, safety = gate_answer_payload(side_effects, query=medication)
             return JSONResponse({
                 "status": "success",
                 "medication": medication,
-                "side_effects": side_effects
+                "side_effects": guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG side effects error: {e}")
@@ -7094,10 +7128,12 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             results = await kg_rag.search_entities(q, entity_type=entity_type, limit=limit)
+            guarded, safety = gate_answer_payload(results, query=q)
             return JSONResponse({
                 "status": "success",
                 "query": q,
-                "results": results
+                "results": guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG search error: {e}")
@@ -7119,6 +7155,8 @@ def create_app(args: Any = None) -> FastAPI:
             from fastapi.responses import HTMLResponse
 
             result = await kg_rag.get_entity_graph(entity_name, depth=depth)
+            # The node labels and titles drawn into the page pass the gate first.
+            result, _ = gate_answer_payload(result, query=entity_name)
 
             if "visualization" in result and result["visualization"]:
                 viz_data = VisualizationData.from_dict(result["visualization"])
@@ -7270,9 +7308,13 @@ def create_app(args: Any = None) -> FastAPI:
                     "error": f"Unknown method: {method}. Use: auto, global, local, drift, basic"
                 }, status_code=400)
 
+            guarded, safety = gate_answer_payload(
+                result.to_dict(), query=query, language=body.get("language", "en"),
+                answer_key="response")
             return JSONResponse({
                 "status": "success",
-                "result": result.to_dict()
+                "result": guarded,
+                "safety": safety,
             })
 
         except Exception as e:
@@ -7370,10 +7412,12 @@ def create_app(args: Any = None) -> FastAPI:
                 top_k=top_k,
                 entity_type=entity_type
             )
+            guarded, safety = gate_answer_payload(entities, query=query)
             return JSONResponse({
                 "status": "success",
-                "entities": entities,
-                "count": len(entities)
+                "entities": guarded,
+                "count": len(guarded),
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"GraphRAG entity search error: {e}")
@@ -7395,11 +7439,13 @@ def create_app(args: Any = None) -> FastAPI:
             relationships = await graphrag_query_engine.data_loader.get_entity_relationships(
                 entity_name=entity_name
             )
+            guarded, safety = gate_answer_payload(relationships, query=entity_name)
             return JSONResponse({
                 "status": "success",
                 "entity": entity_name,
-                "relationships": relationships,
-                "count": len(relationships)
+                "relationships": guarded,
+                "count": len(guarded),
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"GraphRAG relationship error: {e}")
@@ -7419,11 +7465,14 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             reports = await graphrag_query_engine.data_loader.get_community_reports_by_level(level)
+            # Community reports are model-written summaries of the index.
+            guarded, safety = gate_answer_payload(reports[:top_k], query="")
             return JSONResponse({
                 "status": "success",
                 "level": level,
-                "communities": reports[:top_k],
-                "count": len(reports[:top_k])
+                "communities": guarded,
+                "count": len(guarded),
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"GraphRAG communities error: {e}")

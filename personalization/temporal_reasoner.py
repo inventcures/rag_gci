@@ -449,7 +449,7 @@ class TemporalReasoner:
             rotation_reason = "Symptoms worsening despite good adherence"
         elif adherence_rate < 0.5:
             should_rotate = True
-            rotation_reason = "Poor adherence - consider alternative formulation"
+            rotation_reason = "Poor adherence"
 
         report = MedicationEffectivenessReport(
             medication_name=medication_name,
@@ -468,7 +468,8 @@ class TemporalReasoner:
 
         # Generate recommendations
         if should_rotate:
-            report.recommended_actions.append("Consider opioid rotation or alternative pain management")
+            # Which medicine to give is the prescriber's decision (Dose Boundary).
+            report.recommended_actions.append(f"Refer for clinical review: {rotation_reason.lower()}")
         elif adherence_rate < 0.8:
             report.recommended_actions.append("Address barriers to adherence with patient")
         elif effectiveness_trend == TemporalTrend.IMPROVING:
@@ -847,7 +848,8 @@ class TemporalReasoner:
 
         # Pattern-based recommendations
         if report.diurnal_pattern == "worse_evening":
-            recommendations.append("Consider evening dose adjustment")
+            # Timing only: a dose change is the prescriber's decision (Dose Boundary).
+            recommendations.append(f"{report.symptom_name} is worse in the evening - note the timing for clinical review")
 
         return recommendations
 
