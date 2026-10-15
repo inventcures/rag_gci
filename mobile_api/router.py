@@ -552,6 +552,7 @@ async def create_reminder(
             dosage=request.dosage or "",
             reminder_time=scheduled_dt,
             language=request.language,
+            patient_id=request.patient_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -568,9 +569,9 @@ async def get_adherence(
     from mobile_api.dependencies import get_medication_manager
     medication_manager = get_medication_manager()
     if medication_manager is None:
-        return {"patient_id": patient_id, "adherence_rate": 0, "total": 0, "confirmed": 0, "missed": 0}
-    stats = medication_manager.get_adherence_stats(patient_id)
-    return stats
+        return {"patient_id": patient_id, "adherence_rate": 0, "total_reminders": 0, "confirmed": 0, "missed": 0}
+    # Reminders are kept under the caller's account; count this patient's.
+    return medication_manager.get_adherence_stats(user.user_id, patient_id=patient_id)
 
 
 # -- Care Team --------------------------------------------------------------
@@ -845,23 +846,28 @@ async def submit_feedback(
     request: FeedbackRequest,
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    """Record a participant's thumbs up or down on an answer.
+
+    The feedback is stored as given, with no LLM grading: the earlier route
+    sent an empty response to the meta agent's evaluator, which paid for a
+    model call that graded nothing (review 3, decision D12)."""
+    from clinical_validation.feedback import FeedbackChannel, FeedbackType
+    from mobile_api.dependencies import get_feedback_collector
+
     try:
-        from mobile_api.dependencies import get_meta_evaluator
-        evaluator = get_meta_evaluator()
-        if evaluator is None:
-            return FeedbackResponse(status="accepted_no_evaluator")
-        feedback_str = "positive" if request.positive else "negative"
-        if request.comment:
-            feedback_str += f": {request.comment}"
-        result = await evaluator.evaluate_response(
+        record = await get_feedback_collector().collect_feedback(
             query=request.query_id,
             response="",
-            user_feedback=feedback_str,
+            rating=5 if request.positive else 2,
+            feedback_type=FeedbackType.HELPFUL if request.positive else FeedbackType.NOT_HELPFUL,
+            channel=FeedbackChannel.API,
+            comment=request.comment,
+            user_id=user.user_id,
         )
-        return FeedbackResponse(status="accepted", evaluation_id=result.id)
-    except Exception as e:
-        logger.error(f"Feedback submission failed: {e}")
-        return FeedbackResponse(status="accepted_with_error")
+    except OSError as e:
+        logger.error(f"Feedback could not be stored: {e}")
+        raise HTTPException(status_code=503, detail="Feedback could not be stored")
+    return FeedbackResponse(status="accepted", evaluation_id=record.feedback_id)
 
 
 # -- Real-time voice ---------------------------------------------------------

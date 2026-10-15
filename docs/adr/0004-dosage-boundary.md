@@ -42,8 +42,11 @@ Three failure modes were found and closed while building this, each of which wou
 have silently disabled the control:
 
 - A response-text fallback matched the bare word "emergency", so any answer merely
-  mentioning emergencies bypassed the restriction. Tightened to require an explicit
-  instruction to summon help.
+  mentioning emergencies bypassed the restriction. It was first tightened to require
+  an explicit instruction to summon help, and then removed (round 3, ticket 02): an
+  answer saying "call 108" could still carry a dose past the guard. Only the
+  emergency alert computed on the *question* can invoke the override now; the
+  answer's own text never can.
 - Only a `CRITICAL` alert may override the guard. The emergency detector also fires at
   `HIGH`, and "severe pain" is one of its keywords — so any dose question phrased as
   severe pain would otherwise have bypassed it entirely.
