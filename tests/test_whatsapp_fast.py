@@ -309,5 +309,23 @@ class LiveVoiceNotes(Traced):
         self.assertTrue(all("reply.mp3" not in a[0] for a in bot.twilio_api.audio))
 
 
+class LiveVoiceNotesAfterTheReview(Traced):
+    """Round-3 final review: the Emergency Override, a stalled turn, and a
+    failure after the reply went out."""
+
+    def test_under_the_emergency_override_the_guidance_is_spoken_instead_of_lives_audio(self):
+        from dosage_guard import emergency_guidance_for
+        from tests.test_text_path_dose_guard import FakeStt
+
+        bot, session = live_bot(SAFE_ANSWER, spoken="Give morphine 10 mg now.")
+        bot.stt_service = FakeStt(text="My father is not breathing and unconscious", language="en")
+        asyncio.run(bot._handle_twilio_media_message(NUMBER, "https://x/m", "audio/ogg"))
+        self.assertTrue(all("reply.mp3" not in a[0] for a in bot.twilio_api.audio),
+                        "Live's audio, which never said 108, was sent")
+        self.assertTrue(bot.tts_service.spoken, "the guarded text was not spoken")
+        self.assertTrue(bot.tts_service.spoken[0].startswith(emergency_guidance_for("en")),
+                        bot.tts_service.spoken[0])
+
+
 if __name__ == "__main__":
     unittest.main()

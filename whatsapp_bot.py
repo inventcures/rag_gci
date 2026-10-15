@@ -1096,8 +1096,9 @@ class EnhancedWhatsAppBot:
            drafts the guarded answer, which is injected as grounding
         4. Sends the note to Live and collects its reply up to turn completion,
            within the voice deadline
-        5. Sends Live's audio only if its transcript passes the Dose Boundary;
-           otherwise sends and speaks the guarded answer
+        5. Sends Live's audio only if its transcript passes the Dose Boundary
+           and the Emergency Override did not fire; otherwise sends and speaks
+           the guarded answer (under the override, the 108 guidance first)
         """
         logger.info("🚀 GEMINI LIVE VOICE PROCESSING:")
         logger.debug(f"  📱 From: {from_number}")
@@ -1191,11 +1192,14 @@ class EnhancedWhatsAppBot:
             record_voice_path("whatsapp_voice", "turn_stalled" if stalled else "live")
             check = {"status": "success", "answer": spoken, "sources": grounding.get("sources", [])}
             safety = guard_query_result(check, query=query_text, language=detected_lang) if spoken else None
-            if not reply_audio or safety is None or safety.dosage_blocked:
+            # Under the Emergency Override the guarded text puts the 108
+            # guidance first; Live's audio never said it, so the text is spoken.
+            guarded = safety is not None and (safety.dosage_blocked or safety.emergency_overrode_dosage)
+            if not reply_audio or safety is None or guarded:
                 logger.warning("Live reply %s; sending the guarded answer instead",
-                               "redacted by the Dose Boundary" if safety is not None and safety.dosage_blocked
+                               "changed by the Dose Boundary" if guarded
                                else "unverifiable (no audio or no transcript)")
-                fallback = check if safety is not None and safety.dosage_blocked else grounding
+                fallback = check if guarded else grounding
                 if fallback.get("status") != "success" or not fallback.get("answer"):
                     raise GeminiLiveError("no guarded answer to send")
                 # Sent and spoken by the Sarvam path, so recorded as fallback.
