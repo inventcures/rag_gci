@@ -247,7 +247,8 @@ ELSEWHERE: Dict[str, str] = {
         "tests/test_voice_session.py::test_a_dose_spoken_aloud_is_still_refused",
     "GET /api/mobile/v1/cache/bundle":
         "tests/test_offline_bundle_cache.py::test_every_cached_answer_is_guarded",
-    "WS /ws/voice": "tests/test_web_live_dose_boundary.py (ticket 12: the web Live transcript)",
+    "WS /ws/voice":
+        "tests/test_web_live_voice.py::test_a_turn_that_speaks_a_dose_releases_the_deferral_instead_of_the_audio",
 }
 
 
@@ -389,8 +390,6 @@ class EveryRouteIsClassified(unittest.TestCase):
 
     def test_the_tests_named_for_other_channels_exist(self):
         for route, ref in ELSEWHERE.items():
-            if route == "WS /ws/voice":
-                continue  # ticket 12 adds the web Live transcript check
             path, name = ref.split("::")
             with self.subTest(route=route):
                 self.assertRegex((ROOT / path).read_text(encoding="utf-8"),

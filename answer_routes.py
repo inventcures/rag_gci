@@ -28,7 +28,7 @@ ANSWER_ROUTES: Dict[str, str] = {
     "POST /api/bolna/query": "guard_query_result",
     "POST /webhook": "WhatsApp: guard_query_result before any send",
     "WS /ws/retell/llm/{call_id}": "guard_query_result / AnswerStream",
-    "WS /ws/voice": "web Live voice; the transcript check is ticket 12",
+    "WS /ws/voice": "gemini_live turn_release: each turn checked before its audio is released",
     "POST /api/mobile/v1/query": "process_response",
     "POST /api/mobile/v1/query/voice": "VoiceTurnHandler -> process_response",
     "WS /api/mobile/v1/ws/voice": "VoiceTurnHandler -> process_response",
