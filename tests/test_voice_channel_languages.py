@@ -372,10 +372,10 @@ class Bolna(unittest.TestCase):
                 self.config(spelling)
 
     def test_the_caller_can_report_any_of_the_eleven(self):
-        from bolna_integration.config import EXTRACTION_SCHEMA, RAG_QUERY_FUNCTION
+        # The RAG function (and its user_language enum) went with ticket 17:
+        # the agent's LLM is this server, so the call language is the agent's.
+        from bolna_integration.config import EXTRACTION_SCHEMA
 
-        enum = RAG_QUERY_FUNCTION["parameters"]["properties"]["user_language"]["enum"]
-        self.assertEqual(sorted(enum), ELEVEN)
         self.assertEqual(sorted(EXTRACTION_SCHEMA["language_used"]["enum"]), ELEVEN)
 
 

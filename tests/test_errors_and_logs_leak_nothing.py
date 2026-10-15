@@ -314,13 +314,27 @@ class BolnaRoutesLogNothingIdentifiable(unittest.TestCase):
                             "caller_phone": PHONE}},
     ]
 
+    def setUp(self):
+        """Bolna released and enabled: tests/test_phone_providers_residency.py
+        covers the refusal; these are about logs."""
+        import phone_residency
+
+        for patch in (
+            mock.patch.object(phone_residency, "released_services",
+                              lambda: set(phone_residency.services("bolna"))),
+            mock.patch.object(phone_residency, "bolna_enabled", lambda: True),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+
     @staticmethod
     def verified(app):
         """Skip webhook verification: these tests are about logs, and
         tests/test_webhook_verification.py covers the verifier itself."""
-        from webhook_auth import require_bolna
+        from webhook_auth import require_bolna, require_bolna_key
 
         app.dependency_overrides[require_bolna] = lambda: None
+        app.dependency_overrides[require_bolna_key] = lambda: None
         return app
 
     def post_events(self, client):
@@ -343,7 +357,7 @@ class BolnaRoutesLogNothingIdentifiable(unittest.TestCase):
             app = build_server_app()
         self.post_events(TestClient(self.verified(app)))
 
-    def test_the_rag_query_route_logs_no_question_caller_or_answer(self):
+    def test_the_llm_route_logs_no_question_caller_or_answer(self):
         from fastapi.testclient import TestClient
 
         async def query(self, question, conversation_id=None, user_id=None,
@@ -353,9 +367,13 @@ class BolnaRoutesLogNothingIdentifiable(unittest.TestCase):
 
         client = TestClient(self.verified(build_server_app()))
         with CapturedLogs() as logs, mock.patch.object(_FakePipeline, "query", query, create=True):
-            response = client.post("/api/bolna/query", json={
-                "query": QUESTION, "language": "en", "from_number": PHONE, "execution_id": "e1"})
-        self.assertEqual(response.json()["status"], "success", response.text)
+            system = f"Caller number: {PHONE}; call id: e1"
+            response = client.post("/api/bolna/llm/en/v1/chat/completions", json={
+                "model": "palli-sahayak", "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": QUESTION}]})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn(ANSWER[:30], response.json()["choices"][0]["message"]["content"])
         logs.assert_clean(self, PHONE, QUESTION, ANSWER[:30])
 
 

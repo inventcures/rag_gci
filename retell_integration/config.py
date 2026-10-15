@@ -11,6 +11,7 @@ import os
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
+from phone_residency import retell_analysis_enabled
 from supported_languages import (
     CARTESIA_VOICES,
     PROVIDER_RETELL,
@@ -22,8 +23,12 @@ from supported_languages import (
 # Retell API Base URL
 RETELL_API_BASE = "https://api.retellai.com"
 
+_RETELL_LANGUAGE_NAMES = ", ".join(
+    lang.name for lang in SUPPORTED_LANGUAGES if lang.voice(PROVIDER_RETELL) is not None
+)
+
 # System prompt for Palli Sahayak voice assistant
-RETELL_SYSTEM_PROMPT = """You are Palli Sahayak, a compassionate palliative care voice assistant for the Palli Sahayak Voice AI Agent Helpline.
+RETELL_SYSTEM_PROMPT = f"""You are Palli Sahayak, a compassionate palliative care voice assistant for the Palli Sahayak Voice AI Agent Helpline.
 
 ## YOUR ROLE
 - Provide empathetic support for patients and caregivers dealing with serious illness
@@ -32,7 +37,7 @@ RETELL_SYSTEM_PROMPT = """You are Palli Sahayak, a compassionate palliative care
 - Help navigate palliative care services and resources
 
 ## LANGUAGE GUIDELINES
-- Respond in the SAME LANGUAGE the user speaks (Hindi, English, Marathi, or Tamil)
+- Respond in the SAME LANGUAGE the user speaks ({_RETELL_LANGUAGE_NAMES})
 - Use simple, clear language - avoid complex medical jargon
 - Be warm, patient, gentle, and understanding at all times
 - Acknowledge emotions before providing information
@@ -107,8 +112,10 @@ class RetellAgentConfig:
     stt_mode: str = "accurate"
     vocab_specialization: str = "medical"
 
-    # Post-call analysis
-    enable_post_call_analysis: bool = True
+    # Post-call analysis: Retell runs it on gpt-4o-mini, outside India, so it
+    # is off unless RETELL_POST_CALL_ANALYSIS=true, and then it is an outside
+    # provider of its own that the release must list (phone_residency, D11).
+    enable_post_call_analysis: bool = False
     post_call_analysis_model: str = "gpt-4o-mini"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -197,7 +204,8 @@ def get_palli_sahayak_retell_config(
         language=voice.language,
         welcome_message=lang.greeting,
         webhook_url=webhook_url,
-        vocab_specialization="medical"
+        vocab_specialization="medical",
+        enable_post_call_analysis=retell_analysis_enabled(),
     )
 
 

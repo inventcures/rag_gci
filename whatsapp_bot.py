@@ -12,6 +12,7 @@ import functools
 import uuid
 from collections import OrderedDict
 import tempfile
+import time
 import logging
 from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
@@ -42,6 +43,7 @@ from supported_languages import (
     get_language,
 )
 from webhook_auth import require_twilio
+from voice_session import VOICE_PATH_FALLBACK, VOICE_PATH_LIVE
 import edge_tts
 
 # Import the smart clarification system
@@ -987,14 +989,24 @@ class EnhancedWhatsAppBot:
                 )
                 return
 
-            # Try Gemini Live if enabled, with fallback to traditional pipeline
-            if self.gemini_live_enabled:
+            # Try Gemini Live if enabled and not forced off by the
+            # administrator (ADR 0007's deployment-wide override), with
+            # fallback to the traditional (Sarvam) pipeline
+            from voice_provider import get_voice_provider_control
+            from voice_router import record_voice_path
+
+            if self.gemini_live_enabled and not get_voice_provider_control().current().live_enabled:
+                logger.info("  📞 Sarvam forced by the administrator; Live is not used")
+                record_voice_path("whatsapp_voice", "operator_forced_fallback")
+            elif self.gemini_live_enabled:
                 logger.info("  🚀 Using Gemini Live for voice processing")
                 try:
                     await self._handle_twilio_media_message_gemini(from_number, media_url, content_type)
                     return
                 except Exception as gemini_error:
                     logger.error(f"  ⚠️ Gemini Live failed, falling back to traditional pipeline: {gemini_error}")
+                    record_voice_path("whatsapp_voice", getattr(
+                        gemini_error, "voice_outcome", f"live_error: {type(gemini_error).__name__}"))
                     # Continue to fallback below
 
             logger.info("  📞 Using traditional STT+LLM+TTS pipeline")
@@ -1042,7 +1054,8 @@ class EnhancedWhatsAppBot:
 
             # The answer is drafted while the confirmation is being sent.
             answer_task = asyncio.create_task(self._guarded_query(
-                text, from_number, detected_language, answer_language="en"
+                text, from_number, detected_language, answer_language="en",
+                voice_path=VOICE_PATH_FALLBACK,
             ))
             lang_name = stt_result.get("language_name", "Unknown")
             confirmation_msg = self._ensure_whatsapp_length_limit(f"🎯 Understood ({lang_name}): {text}")
@@ -1121,7 +1134,9 @@ class EnhancedWhatsAppBot:
             # participant's own language (or says plainly it cannot).
             live_voice = self._live_voice(detected_lang)
             if live_voice is None:
-                raise GeminiLiveError(f"Live cannot speak {detected_lang!r}; using the Sarvam path")
+                not_offered = GeminiLiveError(f"Live cannot speak {detected_lang!r}; using the Sarvam path")
+                not_offered.voice_outcome = "live_not_offered"  # not a Live failure
+                raise not_offered
             detected_lang = get_language(detected_lang).code
             gemini_lang = live_voice.language
             logger.info(f"  🌐 Language: {detected_lang} -> Gemini: {gemini_lang}")
@@ -1144,7 +1159,8 @@ class EnhancedWhatsAppBot:
 
             _, session, grounding = await asyncio.gather(
                 confirm(), open_session(),
-                self._guarded_query(query_text, from_number, detected_lang, answer_language="en"),
+                self._guarded_query(query_text, from_number, detected_lang, answer_language="en",
+                                    record=False),
             )
             if grounding.get("status") == "success":
                 await self.gemini_service.inject_guarded_answer(session, grounding)
@@ -1154,6 +1170,7 @@ class EnhancedWhatsAppBot:
             for chunk in self.audio_handler.chunk_audio(pcm_data):
                 await session.send_audio(chunk)
             await session.end_audio()
+            stalled = False
             with span("live.reply") as reply_span:
                 try:
                     reply_audio = await asyncio.wait_for(
@@ -1162,13 +1179,16 @@ class EnhancedWhatsAppBot:
                     # Past the deadline the guarded answer is sent instead.
                     reply_audio = b""
                     reply_span.set(deadline_missed=True)
+                    stalled = True
             spoken = session.get_response_transcription(clear=True).strip()
 
             # Step 7: the Dose Boundary on what Live said. Live's audio is sent
             # only when its transcript passes; otherwise the guarded answer is
             # sent and spoken instead, never the Live audio.
             from safety_enhancements import guard_query_result
+            from voice_router import record_voice_path
 
+            record_voice_path("whatsapp_voice", "turn_stalled" if stalled else "live")
             check = {"status": "success", "answer": spoken, "sources": grounding.get("sources", [])}
             safety = guard_query_result(check, query=query_text, language=detected_lang) if spoken else None
             if not reply_audio or safety is None or safety.dosage_blocked:
@@ -1178,8 +1198,14 @@ class EnhancedWhatsAppBot:
                 fallback = check if safety is not None and safety.dosage_blocked else grounding
                 if fallback.get("status") != "success" or not fallback.get("answer"):
                     raise GeminiLiveError("no guarded answer to send")
+                # Sent and spoken by the Sarvam path, so recorded as fallback.
+                await self._record(from_number, query_text, {**grounding, **fallback},
+                                   detected_lang, VOICE_PATH_FALLBACK)
                 await self._deliver_answer(from_number, fallback, detected_lang, speak=True)
                 return
+
+            await self._record(from_number, query_text, {**grounding, **check},
+                               detected_lang, VOICE_PATH_LIVE)
 
             # Step 8: the reply text goes out while the audio is converted.
             mp3_task = asyncio.create_task(asyncio.to_thread(
@@ -1339,7 +1365,8 @@ class EnhancedWhatsAppBot:
             
             # Query RAG pipeline
             result = await self._guarded_query(
-                text, from_number, detected_language, answer_language=detected_language
+                text, from_number, detected_language, answer_language=detected_language,
+                voice_path=VOICE_PATH_FALLBACK,
             )
             
             if result["status"] == "success":
@@ -1491,9 +1518,16 @@ class EnhancedWhatsAppBot:
         from_number: str,
         source_language: str,
         answer_language: str,
+        voice_path: str = "text",
+        record: bool = True,
     ) -> Dict[str, Any]:
         """
         Query the pipeline and pass the answer through the safety boundary.
+
+        With `record` (the default) the guarded answer is written to the study
+        log as this message's row (channel "whatsapp", on `voice_path`), before
+        anything is sent. The Live path passes record=False: what it sends is
+        decided after Live replies, and it writes the row then (`_record`).
 
         Every WhatsApp answer, text or spoken, goes through here, so the dosage
         guard runs before any message is sent, translated or synthesised. It is
@@ -1509,11 +1543,28 @@ class EnhancedWhatsAppBot:
         """
         from safety_enhancements import guard_query_result
 
+        started = time.perf_counter()
         result = await self.rag_pipeline.query(
             text, user_id=from_number, source_language=source_language
         )
         guard_query_result(result, query=text, language=answer_language)
+        if record:
+            await self._record(from_number, text, result, source_language, voice_path, started)
         return result
+
+    async def _record(self, from_number: str, question: str, result: Dict[str, Any],
+                      language: str, voice_path: str, started: Optional[float] = None) -> None:
+        """Write the study row for one WhatsApp message: what was sent, guarded,
+        with its safety record (never raises; see study_logging.record_answer)."""
+        from study_logging import record_answer
+
+        answered = isinstance(result, dict) and result.get("status") == "success"
+        await record_answer(
+            channel="whatsapp", voice_path=voice_path, user_id=from_number,
+            query=question, response=(result.get("answer") or "") if answered else "",
+            language=language, result=result, started=started,
+            error=None if answered else str((result or {}).get("status") or "no_answer"),
+        )
 
     async def _process_query_directly(self, from_number: str, query: str):
         """Process query directly without clarification checks"""

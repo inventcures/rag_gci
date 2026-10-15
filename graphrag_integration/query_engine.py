@@ -31,7 +31,7 @@ from typing import Dict, Any, Optional, List
 from enum import Enum
 from dataclasses import dataclass, field
 
-from graphrag_integration.config import GraphRAGConfig
+from graphrag_integration.config import GraphRAGConfig, ModelLayerOff
 from graphrag_integration.data_loader import GraphRAGDataLoader
 from graphrag_integration.utils import QueryCache
 
@@ -294,6 +294,8 @@ class GraphRAGQueryEngine:
         await self.initialize()
 
         try:
+            # GraphRAG's model layer is not the shared client: only when pinned.
+            self.config.require_region_pinned()
             from graphrag.api.query import global_search as graphrag_global
 
             native_config = self.config.to_graphrag_config()
@@ -320,6 +322,11 @@ class GraphRAGQueryEngine:
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
             search_result = await self._fallback_global_search(query, community_level)
+
+        except ModelLayerOff as off:
+            logger.info("GraphRAG global search answered from the local index: %s", off)
+            search_result = await self._fallback_global_search(query, community_level)
+            search_result.metadata["model_layer"] = "off"
 
         except Exception as e:
             logger.error(f"Global search failed: {e}")
@@ -367,6 +374,8 @@ class GraphRAGQueryEngine:
         await self.initialize()
 
         try:
+            # GraphRAG's model layer is not the shared client: only when pinned.
+            self.config.require_region_pinned()
             from graphrag.api.query import local_search as graphrag_local
 
             native_config = self.config.to_graphrag_config()
@@ -393,6 +402,11 @@ class GraphRAGQueryEngine:
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
             search_result = await self._fallback_local_search(query, top_k_entities)
+
+        except ModelLayerOff as off:
+            logger.info("GraphRAG local search answered from the local index: %s", off)
+            search_result = await self._fallback_local_search(query, top_k_entities)
+            search_result.metadata["model_layer"] = "off"
 
         except Exception as e:
             logger.error(f"Local search failed: {e}")
@@ -440,6 +454,8 @@ class GraphRAGQueryEngine:
         await self.initialize()
 
         try:
+            # GraphRAG's model layer is not the shared client: only when pinned.
+            self.config.require_region_pinned()
             from graphrag.api.query import drift_search as graphrag_drift
 
             native_config = self.config.to_graphrag_config()
@@ -466,6 +482,11 @@ class GraphRAGQueryEngine:
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
             search_result = await self._fallback_drift_search(query)
+
+        except ModelLayerOff as off:
+            logger.info("GraphRAG drift search answered from the local index: %s", off)
+            search_result = await self._fallback_drift_search(query)
+            search_result.metadata["model_layer"] = "off"
 
         except Exception as e:
             logger.error(f"DRIFT search failed: {e}")
@@ -509,6 +530,8 @@ class GraphRAGQueryEngine:
         await self.initialize()
 
         try:
+            # GraphRAG's model layer is not the shared client: only when pinned.
+            self.config.require_region_pinned()
             from graphrag.api.query import basic_search as graphrag_basic
 
             native_config = self.config.to_graphrag_config()
@@ -532,6 +555,11 @@ class GraphRAGQueryEngine:
         except ImportError:
             logger.warning("GraphRAG not installed, using fallback search")
             search_result = await self._fallback_search(query, SearchMethod.BASIC)
+
+        except ModelLayerOff as off:
+            logger.info("GraphRAG basic search answered from the local index: %s", off)
+            search_result = await self._fallback_search(query, SearchMethod.BASIC)
+            search_result.metadata["model_layer"] = "off"
 
         except Exception as e:
             logger.error(f"Basic search failed: {e}")

@@ -236,8 +236,8 @@ CASES: Dict[str, Call] = {
 # Answer routes whose channel needs a socket, a signed webhook or audio; each is
 # driven with a dose by the named test.
 ELSEWHERE: Dict[str, str] = {
-    "POST /api/bolna/query":
-        "tests/test_text_path_dose_guard.py::test_bolna_answers_are_guarded_before_voice_optimisation",
+    "POST /api/bolna/llm/{language}/v1/chat/completions":
+        "tests/test_phone_providers_residency.py::test_a_streamed_turn_speaks_the_guarded_answer",
     "POST /webhook":
         "tests/test_text_path_dose_guard.py::test_twilio_text_message_and_its_translation",
     "WS /ws/retell/llm/{call_id}": "tests/test_retell_turns.py::test_a_turn_gets_a_guarded_answer",

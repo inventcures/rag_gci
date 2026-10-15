@@ -18,8 +18,8 @@ from .client import BolnaClient, BolnaCallResult
 from .config import (
     get_palli_sahayak_agent_config,
     get_agent_config_from_env,
+    bolna_outside_services,
     PALLI_SAHAYAK_SYSTEM_PROMPT,
-    RAG_QUERY_FUNCTION,
 )
 from .webhooks import BolnaWebhookHandler, CallRecord
 
@@ -28,8 +28,8 @@ __all__ = [
     "BolnaCallResult",
     "get_palli_sahayak_agent_config",
     "get_agent_config_from_env",
+    "bolna_outside_services",
     "PALLI_SAHAYAK_SYSTEM_PROMPT",
-    "RAG_QUERY_FUNCTION",
     "BolnaWebhookHandler",
     "CallRecord",
 ]

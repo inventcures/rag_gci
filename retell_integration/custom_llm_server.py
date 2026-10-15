@@ -386,6 +386,10 @@ class RetellCustomLLMHandler:
                     content_complete=True
                 )
                 
+                from study_logging import escalation_safety
+                await self._record(session, user_query, safety_result.safety_message or "",
+                                   safety=escalation_safety(safety_result))
+
                 # Handle escalation actions
                 await safety_wrapper.handle_voice_escalation(
                     safety_result, provider="retell"
@@ -466,6 +470,9 @@ class RetellCustomLLMHandler:
                 record_span("first_speech", (time.perf_counter() - stream.started) * 1000, kind="ack")
 
         ack = asyncio.create_task(acknowledge())
+        result: Dict[str, Any] = {}
+        error: Optional[str] = None
+        superseded = False
         try:
             with streaming_to(stream):
                 # The voice deadline (llm.deadlines.voice_s) bounds the
@@ -509,19 +516,40 @@ class RetellCustomLLMHandler:
                 await say(self._get_fallback_message(session.language), True)
 
         except asyncio.CancelledError:
+            # A newer question superseded this one; that turn writes the row.
+            superseded = True
             raise
 
         except asyncio.TimeoutError:
             logger.error(f"RAG query timeout for call {session.call_id}")
+            error = "voice_deadline"
             # Sentences already spoken stand; the turn just ends.
             await say("" if stream.sent else self._get_timeout_message(session.language), True)
 
         except Exception as e:
             logger.error(f"RAG query error: {e}")
+            error = f"rag_query_failed: {type(e).__name__}"
             await say("" if stream.sent else self._get_error_message(session.language), True)
 
         finally:
             ack.cancel()
+            if not superseded:
+                await self._record(session, user_query, session.last_spoken, result,
+                                   started=stream.started, error=error)
+
+    async def _record(self, session: RetellSession, question: str, spoken: str,
+                      result: Optional[Dict[str, Any]] = None, safety: Any = None,
+                      started: Optional[float] = None, error: Optional[str] = None) -> None:
+        """Write the study row for one Retell turn: what the caller heard, with
+        its safety record (never raises; see study_logging.record_answer)."""
+        from study_logging import VOICE_PATH_PHONE, record_answer
+
+        await record_answer(
+            channel="retell", voice_path=VOICE_PATH_PHONE, provider="retell",
+            user_id=session.from_number or ephemeral("retell", session.call_id),
+            session_id=session.call_id, query=question, response=spoken,
+            language=session.language, result=result, safety=safety,
+            started=started, error=error)
 
     def _streamed_tail(self, session: RetellSession, stream: AnswerStream,
                        result: Dict[str, Any], user_query: str) -> str:

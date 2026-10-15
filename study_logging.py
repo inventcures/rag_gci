@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from participants import is_person
 from study_release import get_study_release
 
 logger = logging.getLogger(__name__)
@@ -169,7 +170,11 @@ class InteractionLog:
     total_latency_ms: float = 0.0
 
     # -- the interaction --
-    channel: str = "mobile"      # mobile | voice | whatsapp | web
+    channel: str = "mobile"      # mobile | voice | web | web_voice | whatsapp | bolna | retell
+    # How the answer reached the participant: text (typed, read), live (Gemini
+    # Live), fallback (the Sarvam STT -> answer -> TTS turn), cache (offline),
+    # phone (a telephony provider's own speech; `provider` names it).
+    voice_path: str = ""
     language: str = ""
     query: str = ""
     response: str = ""
@@ -197,6 +202,8 @@ class InteractionLog:
     # Set when the Deferral went out in English because the participant's
     # language had no copy (ADR 0004's English fallback); the language asked for.
     dosage_language_fallback: Optional[str] = None
+    # A CRITICAL alert on the question let the answer through unredacted.
+    emergency_overrode_dosage: bool = False
     handoff_triggered: bool = False
 
     # -- operational --
@@ -375,6 +382,7 @@ class StudyInteractionLogger:
         response: str = "",
         session_id: str = "",
         channel: str = "mobile",
+        voice_path: str = "",
         language: str = "",
         stage_latency_ms: Optional[Dict[str, float]] = None,
         total_latency_ms: float = 0.0,
@@ -415,7 +423,10 @@ class StudyInteractionLogger:
         )
 
         entry = InteractionLog(
-            participant_id=pseudonymise(user_id),
+            # A session-only id (an anonymous web voice socket, a call with no
+            # number) is no participant: it gets no pseudonym that could link
+            # it into a longitudinal record. The session id still groups it.
+            participant_id=pseudonymise(user_id) if is_person(user_id) else "anonymous",
             site_id=site_id,
             care_role=care_role,
             session_id=session_id or uuid.uuid4().hex[:12],
@@ -424,6 +435,7 @@ class StudyInteractionLogger:
             release_approved=stamp["approved"],
             occurred_at=started,
             channel=channel,
+            voice_path=voice_path,
             language=language,
             query=scrubbed_query.text,
             response=scrubbed_response.text,
@@ -448,6 +460,7 @@ class StudyInteractionLogger:
             dosage_blocked=bool(safety.get("dosage_blocked", False)),
             dosage_reason=safety.get("dosage_reason"),
             dosage_language_fallback=safety.get("dosage_language_fallback"),
+            emergency_overrode_dosage=bool(safety.get("emergency_overrode_dosage", False)),
             is_offline=is_offline,
             is_cache_hit=is_cache_hit,
             error=error,
@@ -555,6 +568,99 @@ class StudyInteractionLogger:
                 )
             except Exception:
                 logger.exception("ClinicalMetrics fan-out failed")
+
+
+# Voice paths beyond the three the voice router decides (live, fallback, cache;
+# voice_session.py): a typed question read as text, and a call whose speech a
+# telephony provider (Bolna, Retell) handles itself.
+VOICE_PATH_TEXT = "text"
+VOICE_PATH_PHONE = "phone"
+
+
+def _language_code(language: str) -> str:
+    """The Supported Language code for `language` ("hi-IN" -> "hi"), so every
+    channel's rows group under one code; anything else as given."""
+    try:
+        from supported_languages import get_language
+
+        found = get_language(language)
+    except ImportError:
+        return language or ""
+    return found.code if found is not None else (language or "")
+
+
+def escalation_safety(voice_check: Any) -> Dict[str, Any]:
+    """The safety record of a phone turn answered by the voice safety wrapper's
+    escalation message (an emergency or a handoff) instead of an answer."""
+    alert = getattr(voice_check, "emergency_alert", None)
+    level = getattr(getattr(alert, "level", None), "value", None)
+    event = getattr(getattr(voice_check, "event_type", None), "value", None)
+    return {
+        "validation_status": f"safety_escalation:{event}" if event else "safety_escalation",
+        "emergency_level": str(level or "none"),
+    }
+
+
+async def record_answer(
+    *,
+    channel: str,
+    voice_path: str,
+    user_id: str,
+    query: str,
+    response: str,
+    language: str,
+    result: Optional[Dict[str, Any]] = None,
+    safety: Any = None,
+    session_id: str = "",
+    site_id: str = "",
+    care_role: str = "",
+    provider: str = "",
+    stt_model: str = "",
+    tts_model: str = "",
+    started: Optional[float] = None,
+    error: Optional[str] = None,
+) -> Optional[InteractionLog]:
+    """
+    Write the study row for one answered interaction on any channel.
+
+    Every channel calls this with what the participant was actually sent
+    (`response`, already through the Dose Boundary) and the safety record of
+    that answer: `safety`, else the `"safety"` that `guard_query_result` put on
+    `result`. Sources, retrieval and the KG check come from `result`, the
+    pipeline's query() dict. `started` is a `time.perf_counter()` reading.
+
+    Never raises: a logging failure must not cost the caller their answer, but
+    it is logged loudly, because an unrecorded interaction is a gap in the
+    study's evidence.
+    """
+    result = result if isinstance(result, dict) else {}
+    try:
+        elapsed_ms = (time.perf_counter() - started) * 1000 if started is not None else 0.0
+        retrieval = dict(result.get("retrieval") or {})
+        return await get_study_logger().record(
+            user_id=user_id,
+            site_id=site_id,
+            care_role=care_role,
+            session_id=session_id,
+            query=query,
+            response=response,
+            channel=channel,
+            voice_path=voice_path,
+            language=_language_code(language),
+            total_latency_ms=elapsed_ms,
+            rag_method=str(retrieval.get("rag_method") or ""),
+            sources=[s for s in (result.get("sources") or []) if isinstance(s, dict)],
+            safety_result=safety if safety is not None else result.get("safety"),
+            error=error,
+            provider=provider,
+            stt_model=stt_model,
+            tts_model=tts_model,
+            retrieval=retrieval,
+            kg_check=dict(result.get("kg_check") or {}),
+        )
+    except Exception:
+        logger.exception("A %s interaction was not recorded; evidence gap", channel)
+        return None
 
 
 def _issues_for(entry: InteractionLog) -> List[Dict[str, str]]:

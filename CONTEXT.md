@@ -60,6 +60,12 @@ Converting a non-English query into English to improve retrieval. Retained only 
 fallback when cross-language retrieval returns weak evidence — never as the default path.
 _Avoid_: query normalization, preprocessing
 
+**English Pivot**:
+The Query Translation of a question, made for the graph retrievers alone (knowledge
+graph and GraphRAG, in the kg, graphrag and fused modes), because they match English
+entity names. The vector path still searches the question as written.
+_Avoid_: translated query, normalized query
+
 ## Medication Safety
 
 **Dose Boundary**:

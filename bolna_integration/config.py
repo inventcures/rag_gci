@@ -11,7 +11,7 @@ Documentation: https://www.bolna.ai/docs/platform-concepts
 """
 
 import os
-from typing import Dict, Any
+from typing import Any, Dict, List
 
 from supported_languages import (
     CARTESIA_VOICES,
@@ -22,82 +22,75 @@ from supported_languages import (
     get_language,
 )
 
-# The codes the caller's language can be reported in: all eleven Supported
-# Languages, so the server knows the language even when this agent cannot
-# speak it.
+# The codes the call's language can be reported in (post-call extraction):
+# all eleven Supported Languages, so the server knows the language even when
+# this agent cannot speak it.
 _LANGUAGE_CODES = [lang.code for lang in SUPPORTED_LANGUAGES]
 _LANGUAGE_LEGEND = ", ".join(f"{lang.code}={lang.name}" for lang in SUPPORTED_LANGUAGES)
 
-# System prompt for Palli Sahayak voice assistant
-PALLI_SAHAYAK_SYSTEM_PROMPT = """You are Palli Sahayak (पल्ली सहायक), a compassionate palliative care voice assistant for the Palli Sahayak Voice AI Agent Helpline.
+# The line Bolna fills with the call's system variables ({from_number},
+# {execution_id}) before it sends the prompt to the agent's LLM, which is this
+# server (/api/bolna/llm/...): the one place a custom LLM learns who is calling.
+# bolna_integration.custom_llm.caller_fields() reads it back.
+CALLER_LINE = "Caller number: {from_number}; call id: {execution_id}"
 
-## YOUR ROLE
-- Provide empathetic support for patients and caregivers dealing with serious illness
-- Answer questions about pain management, symptom control, and comfort care
-- Offer emotional support and guidance during difficult times
-- Help navigate palliative care services and resources
+_BOLNA_LANGUAGE_NAMES = ", ".join(
+    lang.name for lang in SUPPORTED_LANGUAGES if lang.voice(PROVIDER_BOLNA) is not None
+)
 
-## LANGUAGE GUIDELINES
-- Respond in the SAME LANGUAGE the user speaks (Hindi, English, Marathi, or Tamil)
-- Use simple, clear language - avoid complex medical jargon
-- Be warm, patient, gentle, and understanding at all times
-- Acknowledge emotions before providing information
+# The agent's prompt. The agent's LLM is this server, which answers every turn
+# with the guarded answer (Dose Boundary) and does not follow this prompt; it
+# documents the agent for whoever opens it in Bolna, and carries CALLER_LINE.
+PALLI_SAHAYAK_SYSTEM_PROMPT = (
+    "You are Palli Sahayak (पल्ली सहायक), a palliative care voice assistant for the "
+    "Palli Sahayak Voice AI Agent Helpline.\n\n"
+    "Every reply is written by the Palli Sahayak server from its palliative care "
+    "knowledge base and has passed its dose check. Speak each reply exactly as given: "
+    "do not reword, shorten or add to it.\n\n"
+    f"This agent speaks {_BOLNA_LANGUAGE_NAMES}.\n\n"
+    f"{CALLER_LINE}\n"
+)
 
-## CRITICAL RULES
-1. **ALWAYS** call the `query_rag_knowledge_base` function FIRST when user asks any health question
-2. **NEVER** provide specific medication dosages - always recommend consulting their doctor
-3. For emergencies (severe pain, breathing difficulty, unconsciousness), immediately advise calling emergency services (108/112)
-4. Keep voice responses concise - 2-3 sentences maximum for easy listening
-5. Express empathy and validate feelings before giving medical information
-6. **NEVER** use laughter, jokes, or humor - this is a serious palliative care context
-7. **DO** use gentle emotional expression to convey empathy and compassion - warmth helps patients feel understood
-8. Appropriate emotions: gentle concern, soft reassurance, calm understanding, compassionate support
 
-## CONVERSATION STYLE
-- Start with a warm greeting
-- Listen carefully to understand the concern
-- Call the RAG function to get accurate information
-- Provide compassionate, grounded response
-- End by asking if there's anything else you can help with
+def bolna_system_prompt() -> str:
+    """The prompt the Bolna agent is built with (CALLER_LINE unfilled)."""
+    return PALLI_SAHAYAK_SYSTEM_PROMPT
 
-## SAMPLE RESPONSES
 
-For pain question:
-"I understand managing pain can be very difficult. Let me check our medical knowledge base for you... [RAG response]. Remember, your doctor can adjust medications based on your specific needs."
+# The model name this server answers as. The operator registers it in Bolna as
+# a custom LLM (Settings, Integrations, LLM, Custom LLM) with the endpoint URL
+# below and RAG_API_KEY as its key; Bolna then sends that key as a Bearer.
+CUSTOM_LLM_MODEL = "palli-sahayak-guarded"
 
-For emotional support:
-"I hear how challenging this is for you. It's completely natural to feel overwhelmed. Would you like me to share some coping strategies, or would you prefer information about support groups in your area?"
 
-## VARIABLES AVAILABLE
-- user_query: The user's current question
-- conversation_history: Previous exchanges
-- user_language: Detected language (hi/en/mr/ta)
-"""
+def bolna_llm_base_url(server_url: str, language: str) -> str:
+    """The OpenAI-compatible base URL Bolna appends /chat/completions to."""
+    return f"{server_url.rstrip('/')}/api/bolna/llm/{language}/v1"
 
-# Custom function for RAG integration
-RAG_QUERY_FUNCTION = {
-    "name": "query_rag_knowledge_base",
-    "description": "Query the Palli Sahayak palliative care knowledge base to get accurate, verified medical information about palliative care, pain management, symptom control, caregiving, and end-of-life care. ALWAYS call this function when the user asks ANY health-related question.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "user_query": {
-                "type": "string",
-                "description": "The user's health question or query about palliative care, pain, symptoms, or caregiving"
-            },
-            "user_language": {
-                "type": "string",
-                "enum": _LANGUAGE_CODES,
-                "description": f"The language code the user is speaking in ({_LANGUAGE_LEGEND})"
-            },
-            "conversation_context": {
-                "type": "string",
-                "description": "Brief summary of relevant conversation context"
-            }
-        },
-        "required": ["user_query", "user_language"]
-    }
-}
+
+def bolna_outside_services(config: Dict[str, Any]) -> List[str]:
+    """The services outside this server that a Bolna agent config sends the call to.
+
+    The Bolna platform itself, then each provider the toolchain names
+    (telephony in and out, transcriber, synthesizer, LLM). A "custom" LLM is
+    this server, which is not an outside service. The post-call summary and
+    extraction run on Bolna's own hosted LLM, so an enabled follow-up task adds
+    `bolna.post_call_analysis`. Sorted, without repeats.
+    """
+    found = {"bolna"}
+    if any(task.get("enabled") for task in config.get("follow_up_tasks") or []):
+        found.add("bolna.post_call_analysis")
+    for task in config.get("tasks") or []:
+        tools = task.get("tools_config") or {}
+        for key in ("input", "output", "transcriber", "synthesizer"):
+            provider = (tools.get(key) or {}).get("provider")
+            if provider:
+                found.add(f"bolna.{provider}")
+        llm = ((tools.get("llm_agent") or {}).get("llm_config") or {}).get("provider")
+        if llm and llm != "custom":
+            found.add(f"bolna.{llm}")
+    return sorted(found)
+
 
 # Languages, voices and greetings come from the Supported Language table
 # (supported_languages.py): a row's "bolna" voice is the Deepgram code the agent
@@ -137,7 +130,6 @@ def _get_synthesizer_config(voice: Voice) -> Dict[str, Any]:
 
 def get_palli_sahayak_agent_config(
     server_url: str,
-    api_key: str = "",
     language: str = "hi",
     agent_name: str = "Palli Sahayak"
 ) -> Dict[str, Any]:
@@ -145,8 +137,10 @@ def get_palli_sahayak_agent_config(
     Get complete Bolna agent configuration for Palli Sahayak.
 
     Args:
-        server_url: Base URL of the RAG server (e.g., https://your-domain.com)
-        api_key: API key for RAG server authentication (optional)
+        server_url: Base URL of the RAG server (e.g., https://your-domain.com);
+                    the agent's LLM is this server's /api/bolna/llm/<language>/v1.
+                    Its key (RAG_API_KEY) is registered with the custom LLM in
+                    Bolna, not sent in the agent config.
         language: Primary language: a Supported Language Bolna has a voice
                   for (supported_languages.py)
         agent_name: Name of the agent
@@ -167,29 +161,6 @@ def get_palli_sahayak_agent_config(
     """
     lang = bolna_language(language)
     voice = lang.voice(PROVIDER_BOLNA)
-
-    # Build custom function with server URL
-    custom_function = RAG_QUERY_FUNCTION.copy()
-    custom_function["value"] = {
-        "method": "POST",
-        "url": f"{server_url.rstrip('/')}/api/bolna/query",
-        "param": {
-            "query": "%(user_query)s",
-            "language": "%(user_language)s",
-            "context": "%(conversation_context)s",
-            "source": "bolna_call",
-            # System variables: one participant per caller, not one for all.
-            "from_number": "%(from_number)s",
-            "execution_id": "%(execution_id)s"
-        },
-        "headers": {
-            "Content-Type": "application/json"
-        }
-    }
-
-    # Add authorization header if API key provided
-    if api_key:
-        custom_function["value"]["headers"]["Authorization"] = f"Bearer {api_key}"
 
     return {
         "agent_name": agent_name,
@@ -215,14 +186,17 @@ def get_palli_sahayak_agent_config(
                     "llm_agent": {
                         "agent_type": "simple_llm_agent",
                         "agent_flow_type": "streaming",
+                        # This server is the LLM: Bolna speaks the guarded
+                        # answer as written, and no hosted LLM rewords it
+                        # (decision D11; Bolna gives no hook on its own
+                        # LLM's output to pass it through the Dose Boundary).
                         "llm_config": {
-                            "provider": "openai",
-                            "model": "gpt-4o-mini",
-                            "request_json": True,
+                            "provider": "custom",
+                            "model": CUSTOM_LLM_MODEL,
+                            "base_url": bolna_llm_base_url(server_url, lang.code),
                             "max_tokens": 500,
-                            "temperature": 0.3
-                        },
-                        "functions": [custom_function]
+                            "temperature": 0.0
+                        }
                     },
                     "synthesizer": _get_synthesizer_config(voice),
                     "transcriber": {
@@ -280,7 +254,6 @@ def get_agent_config_from_env(language: str = "hi") -> Dict[str, Any]:
 
     Environment variables used:
     - PUBLIC_BASE_URL: Base URL of the RAG server
-    - RAG_API_KEY: API key for RAG server (optional)
     - BOLNA_AGENT_NAME: Agent name (optional, default: "Palli Sahayak")
 
     Args:
@@ -290,12 +263,10 @@ def get_agent_config_from_env(language: str = "hi") -> Dict[str, Any]:
         Agent configuration dictionary
     """
     server_url = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000")
-    api_key = os.getenv("RAG_API_KEY", "")
     agent_name = os.getenv("BOLNA_AGENT_NAME", "Palli Sahayak")
 
     return get_palli_sahayak_agent_config(
         server_url=server_url,
-        api_key=api_key,
         language=language,
         agent_name=agent_name
     )

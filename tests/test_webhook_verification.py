@@ -305,7 +305,7 @@ class ServerRoutesDeclareTheirVerifier(unittest.TestCase):
     """create_app() builds the whole pipeline, so read its routes from the source."""
 
     EXPECTED = {
-        "/api/bolna/query": "require_bolna",
+        "/api/bolna/llm/{language}/v1/chat/completions": "require_bolna_key",
         "/api/bolna/webhook": "require_bolna",
         "/api/retell/webhook": "require_retell",
         "/api/sarvam/webhook": "require_sarvam",

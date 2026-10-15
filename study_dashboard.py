@@ -531,11 +531,12 @@ def _live_availability() -> Dict[str, Any]:
 
 
 def _router_stats() -> Dict[str, Any]:
-    """Fallback counters from the live router, if one has been constructed."""
+    """Fallback counters for the whole deployment: every voice channel's turns
+    (web voice, WhatsApp voice notes, the mobile routes)."""
     try:
-        from voice_router import get_voice_router
+        from voice_router import voice_path_report
 
-        return get_voice_router().report()
+        return voice_path_report()
     except Exception:
         # No router registered yet, or none available. Returned as None rather
         # than {} so the dashboard says "no traffic yet" instead of "zero
@@ -568,7 +569,8 @@ def _voice_panel() -> str:
         f'<tr><td>Gemini Live reachable</td><td>'
         f'{_tag("yes", "ok") if availability["available"] else _tag("no", "bad")}</td></tr>',
         f'<tr><td>Turns answered by Live</td><td class="num">{stats.get("live", 0)}</td></tr>',
-        f'<tr><td>Turns answered by Sarvam</td><td class="num">{stats.get("fallback", 0)}</td></tr>',
+        f'<tr><td>Turns answered by Sarvam</td><td class="num">{stats.get("sarvam_turns", 0)}</td></tr>',
+        f'<tr><td>Live failures (fell back on its own)</td><td class="num">{stats.get("fallback", 0)}</td></tr>',
         f'<tr><td>Automatic fallback rate</td><td class="num">'
         f'{stats.get("fallback_rate") if traffic and stats.get("fallback_rate") is not None else "no traffic yet"}</td></tr>',
         f'<tr><td>Turns forced to Sarvam by an admin</td><td class="num">'

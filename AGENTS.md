@@ -231,7 +231,7 @@ rag_gci/
 ### New API Endpoints (Bolna)
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /api/bolna/query` | RAG query endpoint for Bolna custom function calls |
+| `POST /api/bolna/llm/{language}/v1/chat/completions` | The agent's custom LLM: the guarded answer, spoken as written (review 3 ticket 17 replaced `/api/bolna/query`) |
 | `POST /api/bolna/webhook` | Webhook for call events |
 
 ### New Environment Variables (Bolna)
@@ -242,18 +242,12 @@ BOLNA_WEBHOOK_SECRET=your-webhook-secret
 BOLNA_PHONE_NUMBER=+91XXXXXXXXXX
 ```
 
-### Custom Function Call Integration
-Bolna calls the RAG pipeline via custom function:
-```json
-{
-  "name": "query_rag_knowledge_base",
-  "description": "Query palliative care knowledge base",
-  "value": {
-    "method": "POST",
-    "url": "https://YOUR_SERVER/api/bolna/query"
-  }
-}
-```
+### Custom LLM Integration
+Bolna's agent uses this server as its LLM (`llm_config.provider: "custom"`,
+`base_url: https://YOUR_SERVER/api/bolna/llm/<language>/v1`), so no hosted LLM
+rewords the guarded answer. Bolna and Retell are off in the study release
+unless `data/study/release.yaml` lists their outside services
+(`phone_residency.py`, decision D11).
 
 ### Voice Router Logic
 ```python

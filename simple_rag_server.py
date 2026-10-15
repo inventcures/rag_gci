@@ -31,7 +31,7 @@ load_dotenv()
 import gradio as gr
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -82,7 +82,9 @@ except ImportError:
     SarvamWebhookHandler = None
 
 from fastapi import Depends
-from webhook_auth import require_bolna, require_retell, require_sarvam, require_twilio
+from webhook_auth import require_bolna, require_bolna_key, require_retell, require_sarvam, require_twilio
+from phone_residency import BOLNA as PHONE_BOLNA, RETELL as PHONE_RETELL
+from phone_residency import refusal as phone_refusal, require_released
 
 # Knowledge Graph integration imports
 try:
@@ -812,18 +814,174 @@ def bolna_caller_id(data: Dict[str, Any]) -> str:
     """The participant id for one Bolna request.
 
     Bolna fills system variables (from_number, execution_id, call_sid) into the
-    custom function's params. The caller's number keeps one participant across
+    agent's prompt, which reaches this server's custom LLM route
+    (bolna_integration.custom_llm.caller_fields). The caller's number keeps one participant across
     calls; a call id keeps at least one call together. With none of them the
     request gets a one-off id, never a shared one: before this every Bolna
     caller was "bolna_bolna_call" and they all shared one history.
     """
     for key in _BOLNA_IDENTITY_KEYS:
         value = str(data.get(key) or "").strip()
-        # An unfilled template ("%(from_number)s") is not an identity.
-        if value and "%(" not in value:
+        # An unfilled template ("%(from_number)s", "{from_number}") is not an identity.
+        if value and "%(" not in value and "{" not in value:
             # A number is a person; a call id is one call (no per-person record).
             return f"bolna_{value}" if key == "from_number" else ephemeral("bolna", value)
     return ephemeral("bolna", f"anon_{uuid.uuid4().hex[:12]}")
+
+
+BOLNA_NO_QUESTION = "I didn't catch your question. Could you please repeat?"
+BOLNA_UNAVAILABLE = (
+    "I'm having trouble accessing my knowledge base right now. Based on general palliative "
+    "care principles, I'd recommend consulting with your healthcare provider for specific guidance."
+)
+BOLNA_ERROR = (
+    "I apologize, but I'm experiencing technical difficulties. Please try again or contact "
+    "the helpline directly."
+)
+
+
+async def answer_bolna_turn(pipeline: Any, query: str, language: str, caller_id: str,
+                            session_id: str = "") -> Dict[str, Any]:
+    """
+    One Bolna turn: the text Bolna speaks, and where it came from.
+
+    The voice safety check runs first (an escalation is answered with its
+    safety message). The answer is drafted within the voice deadline, passes
+    the Dose Boundary (guard_query_result) before it is shortened for the ear,
+    and is returned as {"status", "answer", "sources", "confidence",
+    "language"}. Bolna's LLM is this server, so "answer" is spoken as written.
+    A guard failure raises: callers answer with BOLNA_ERROR, never the draft.
+
+    Each answered turn is written to the study log (channel "bolna", ticket
+    13) before Bolna speaks it; `session_id` is the call's execution id.
+    """
+    import time as _time
+    from study_logging import VOICE_PATH_PHONE, record_answer
+    _query_start = _time.time()
+    _started = time.perf_counter()
+
+    async def record_turn(answer: str, result: Optional[Dict[str, Any]] = None,
+                          safety: Any = None, error: Optional[str] = None) -> None:
+        """The study row for this turn, written before Bolna speaks it."""
+        await record_answer(
+            channel="bolna", voice_path=VOICE_PATH_PHONE, provider="bolna",
+            user_id=caller_id, session_id=session_id,
+            query=query, response=answer, language=language,
+            result=result, safety=safety, started=_started, error=error)
+    logger.info("=" * 60)
+    logger.info("📞 BOLNA VOICE CALL - RAG QUERY")
+    logger.info("=" * 60)
+    logger.debug(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
+    logger.info(f"🌐 Language: {language}")
+    logger.info("-" * 60)
+
+    if not query:
+        return {"status": "error", "answer": BOLNA_NO_QUESTION, "sources": [], "confidence": 0.0}
+
+    # =================================================================
+    # VOICE SAFETY CHECK - For Bolna Voice Calls
+    # =================================================================
+    try:
+        from voice_safety_wrapper import get_voice_safety_wrapper
+        safety_wrapper = get_voice_safety_wrapper()
+
+        safety_result = await safety_wrapper.check_voice_query(
+            user_id=caller_id,
+            transcript=query,
+            language=language,
+            call_id=caller_id
+        )
+
+        if safety_result.should_escalate:
+            logger.warning(f"🚨 Bolna voice safety escalation: {safety_result.event_type}")
+            await safety_wrapper.handle_voice_escalation(safety_result, provider="bolna")
+            from study_logging import escalation_safety
+            await record_turn(safety_result.safety_message or "",
+                              safety=escalation_safety(safety_result))
+            return {
+                "status": "safety_escalation",
+                "answer": safety_result.safety_message,
+                "sources": [],
+                "confidence": 1.0,
+                "event_type": safety_result.event_type.value if safety_result.event_type else None
+            }
+
+        # Use modified query if available
+        if safety_result.modified_transcript:
+            query = safety_result.modified_transcript
+
+    except Exception as e:
+        logger.error(f"Bolna voice safety check error (proceeding): {e}")
+
+    # Query RAG pipeline, within the voice deadline: Bolna is waiting on this
+    # HTTP response with a caller on the line.
+    try:
+        rag_result = await within_voice_deadline(lambda: pipeline.query(
+            question=query,
+            user_id=caller_id,
+            source_language=language,
+            top_k=3
+        ))
+    except asyncio.TimeoutError:
+        logger.warning("Bolna answer missed the voice deadline; sending the fallback")
+        rag_result = {"status": "timeout"}
+
+    if rag_result.get("status") != "success":
+        _query_duration = _time.time() - _query_start
+        logger.warning(f"⚠️  RAG PARTIAL ({_query_duration:.2f}s) - Status: {rag_result.get('status')}")
+        logger.info("=" * 60)
+        await record_turn(BOLNA_UNAVAILABLE, result=rag_result,
+                          error=f"rag_{rag_result.get('status') or 'failed'}")
+        return {"status": "partial", "answer": BOLNA_UNAVAILABLE, "sources": [], "confidence": 0.3}
+
+    # Dosage boundary before the text is shortened or spoken. A failure here
+    # propagates (an error reply), never the unguarded draft.
+    from safety_enhancements import guard_query_result
+    guard_query_result(rag_result, query=query, language=language)
+    answer = rag_result.get("answer", "")
+
+    # =================================================================
+    # VOICE OPTIMIZATION for Bolna Response
+    # =================================================================
+    try:
+        from voice_safety_wrapper import VOICE_SAFETY_NET_S, get_voice_safety_wrapper
+        safety_wrapper = get_voice_safety_wrapper()
+
+        answer = safety_wrapper.optimize_for_voice(
+            answer,
+            user_id=caller_id,
+            language=language,
+            max_duration_seconds=VOICE_SAFETY_NET_S
+        )
+
+        # Add evidence warning if needed
+        evidence_badge = rag_result.get("safety_enhancements", {}).get("evidence_badge")
+        if evidence_badge:
+            answer = safety_wrapper.add_evidence_to_voice(answer, evidence_badge, language)
+
+    except Exception as e:
+        logger.warning(f"Bolna voice optimization error (proceeding): {e}")
+
+    # Extract source citations
+    if "sources" in rag_result:
+        sources = [s.get("title", s.get("filename", "Unknown")) for s in rag_result["sources"][:3]]
+    elif "citations" in rag_result:
+        sources = [c.get("source", "Knowledge Base") for c in rag_result["citations"][:3]]
+    else:
+        sources = ["Palliative Care Knowledge Base"]
+
+    confidence = min(0.95, rag_result.get("relevance_score", 0.8))
+
+    _query_duration = _time.time() - _query_start
+    logger.info(f"✅ RAG SUCCESS ({_query_duration:.2f}s)")
+    logger.info(f"📚 Sources: {', '.join(sources[:3])}")
+    logger.debug(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
+    logger.info(f"🎯 Confidence: {confidence:.0%}")
+    logger.info("=" * 60)
+
+    await record_turn(answer, result=rag_result)
+    return {"status": "success", "answer": answer, "sources": sources,
+            "confidence": confidence, "language": language}
 
 
 class MetadataLoadError(RuntimeError):
@@ -831,24 +989,50 @@ class MetadataLoadError(RuntimeError):
 
 
 async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
-                           language: str = "en") -> Dict[str, Any]:
+                           language: str = "en",
+                           caller: Optional[Any] = None) -> Dict[str, Any]:
     """
     Answer one web (`POST /api/query`) question, through the safety boundary.
 
     `pipeline.query()` returns a draft. This passes it through the same
     `process_response` step (emergency, dosage guard, evidence grade) the mobile
     and voice routes apply, so the HTTP body carries only the guarded answer.
+
+    The interaction is written to the study log (channel "web", voice path
+    "text") before the answer is returned. `caller` is the authenticated person
+    behind the request; a participant's row is keyed on them, anyone else's
+    (no token, an administrator) on this request alone.
     """
     from safety_enhancements import guard_query_result
+    from study_logging import VOICE_PATH_TEXT, record_answer
     from supported_languages import ENGLISH_CODE, get_language
 
+    participant = caller is not None and not getattr(caller, "is_admin", False)
+    started = time.perf_counter()
     # The pipeline works in the table's short codes; a language outside the
     # eleven is answered in English. The guard sees what was asked for, so an
     # English Deferral served in its place is recorded as a fallback.
     supported = get_language(language)
     source_language = supported.code if supported else ENGLISH_CODE
-    result = await pipeline.query(query, source_language=source_language)
-    guard_query_result(result, query=query, language=language)
+    result: Dict[str, Any] = {}
+    error: Optional[str] = None
+    try:
+        result = await pipeline.query(query, source_language=source_language)
+        guard_query_result(result, query=query, language=language)
+    except Exception as exc:
+        error = f"web_query_failed: {type(exc).__name__}"
+        raise
+    finally:
+        guarded = result.get("answer") if isinstance(result, dict) and result.get("safety") else ""
+        await record_answer(
+            channel="web", voice_path=VOICE_PATH_TEXT,
+            user_id=caller.user_id if participant else ephemeral("web", uuid.uuid4().hex),
+            site_id=getattr(caller, "site_id", "") if participant else "",
+            care_role=getattr(caller, "role", "") if participant else "",
+            query=query, response=guarded or "", language=language,
+            result=result, started=started,
+            error=error or (None if guarded else str((result or {}).get("status") or "no_answer")),
+        )
     return result
 
 
@@ -1672,6 +1856,7 @@ class SimpleRAGPipeline:
         stage_ms = trace.setdefault("stage_latency_ms", {})
         settings = get_active_settings()
         patient_context_task = None
+        pivot_task = None
         try:
             # =================================================================
             # SAFETY ENHANCEMENTS: Pre-processing checks
@@ -1731,6 +1916,14 @@ class SimpleRAGPipeline:
             # necessary for anything Indic. It is now a wasted LLM round-trip on
             # every query, and it discards the better signal when it succeeds.
             query_for_search = question
+            # The graph retrievers (kg, graphrag, fused) match English names,
+            # so they get the English Pivot. It is translated for them alone,
+            # alongside the probe so the two overlap; the vector path below
+            # still searches the question as written.
+            router = getattr(self, "retrieval_router", None)
+            if _rag_method in ROUTED_METHODS and router is not None and source_language != "en":
+                pivot_task = asyncio.ensure_future(
+                    self._english_pivot(question, source_language))
             # The probe's search is the main search for the question as
             # written: when translation is not needed, the vector path reuses
             # it rather than embedding and searching a second time.
@@ -1746,9 +1939,14 @@ class SimpleRAGPipeline:
                     source_language,
                 )
                 with span("translate", language=source_language):
-                    translation_result = await self.translate_query_to_english(
-                        question, source_language
-                    )
+                    # One Query Translation serves both paths when the graph
+                    # retrievers already asked for the English Pivot.
+                    if pivot_task is not None:
+                        translation_result = await pivot_task
+                    else:
+                        translation_result = await self.translate_query_to_english(
+                            question, source_language
+                        )
                 if translation_result["status"] in ["success", "fallback"]:
                     query_for_search = translation_result["translated_query"]
                     logger.debug(
@@ -1779,11 +1977,22 @@ class SimpleRAGPipeline:
             # A None result means vector retrieval failed there, and the default
             # vector path below runs instead, exactly as it would without a flag.
             routed = None
-            router = getattr(self, "retrieval_router", None)
+            graph_query_record = None
             if _rag_method in ROUTED_METHODS:
                 if router is not None:
+                    graph_query, graph_query_record = await self._graph_query(
+                        question, source_language, pivot_task)
+                    pivot_task = None
                     with span("router.retrieve", method=_rag_method):
-                        routed = await router.retrieve(query_for_search, top_k, method=_rag_method)
+                        routed = await router.retrieve(
+                            query_for_search, top_k, method=_rag_method,
+                            graph_query=graph_query,
+                            graph_empty_note=(
+                                f"English pivot unavailable, so the graph was searched with "
+                                f"the {source_language} question as written"
+                                if graph_query_record["pivot"] == "failed" else ""
+                            ),
+                        )
                 if routed is None:
                     trace["retrieval"] = {
                         "rag_method": "vector",
@@ -1794,6 +2003,7 @@ class SimpleRAGPipeline:
 
             if routed is not None:
                 trace["retrieval"] = routed.record()
+                trace["retrieval"]["graph_query"] = graph_query_record
                 if not routed.passages:
                     stage_ms["retrieval"] = round(record_span(
                         "retrieve", (time.perf_counter() - retrieval_started) * 1000, method=_rag_method,
@@ -2138,6 +2348,37 @@ class SimpleRAGPipeline:
             # An early return (no documents) leaves the fetch unused.
             if patient_context_task is not None and not patient_context_task.done():
                 patient_context_task.cancel()
+            if pivot_task is not None and not pivot_task.done():
+                pivot_task.cancel()
+
+    async def _english_pivot(self, question: str, source_language: str) -> Dict[str, Any]:
+        """Query Translation of `question` into English, as a translation
+        result dict; never raises (a failure is {"status": "error"})."""
+        try:
+            return await self.translate_query_to_english(question, source_language)
+        except Exception as exc:
+            logger.warning("English pivot failed: %s", type(exc).__name__)
+            return {"status": "error", "error": type(exc).__name__}
+
+    async def _graph_query(self, question: str, source_language: str,
+                           pivot_task: Optional["asyncio.Future"]) -> tuple:
+        """What the graph retrievers search, and the record of how it was made.
+
+        Returns (text, {"source_language", "pivot"}), pivot being
+        "not_needed" (an English question), "english" (the English Pivot) or
+        "failed" (no translation came back, so the question as written).
+        The record never holds question text."""
+        record = {"source_language": source_language, "pivot": "not_needed"}
+        if source_language == "en" or pivot_task is None:
+            return question, record
+        result = await pivot_task
+        translated = str(result.get("translated_query") or "").strip()
+        if result.get("status") == "success" and translated:
+            record["pivot"] = "english"
+            return translated, record
+        record["pivot"] = "failed"
+        logger.warning("English pivot unavailable for %s; graph searched as written", source_language)
+        return question, record
 
     async def _patient_context(self, user_id: str, question: str) -> str:
         """The caller's patient history for the prompt, or "" (never raises)."""
@@ -4873,8 +5114,12 @@ def _parse_args(argv: Optional[List[str]] = None) -> Any:
     parser.add_argument(
         "--provider", "-p",
         choices=["g", "b", "r", "gemini", "bolna", "retell"],
-        default="b",
-        help="Voice AI provider: g/gemini=Gemini Live, b/bolna=Bolna.ai, r/retell=Retell.AI (default: b)"
+        default=None,
+        help=(
+            "Voice AI provider: g/gemini=Gemini Live, b/bolna=Bolna.ai, r/retell=Retell.AI. "
+            "b and r turn the phone provider on; it still serves only when the study "
+            "release lists its outside services (phone_residency.py). Default: none."
+        )
     )
     parser.add_argument(
         "--rag-method",
@@ -4924,7 +5169,7 @@ def create_app(args: Any = None) -> FastAPI:
 
 
     # Set voice provider based on argument
-    voice_provider = args.provider.lower()
+    voice_provider = (args.provider or "").lower()
     if voice_provider in ["g", "gemini"]:
         os.environ["VOICE_PROVIDER"] = "gemini"
         os.environ["GEMINI_LIVE_ENABLED"] = "true"
@@ -4941,6 +5186,11 @@ def create_app(args: Any = None) -> FastAPI:
     else:
         os.environ["VOICE_PROVIDER"] = "bolna"
         os.environ["GEMINI_LIVE_ENABLED"] = "false"
+        if voice_provider in ["b", "bolna"]:
+            # Asked for by name: turn it on. Left to the default, Bolna stays
+            # as config.yaml / BOLNA_ENABLED say (off), because it sends call
+            # audio and text outside India (decision D11).
+            os.environ["BOLNA_ENABLED"] = "true"
         logger.info("=" * 60)
         logger.info("📞 VOICE PROVIDER: Bolna.ai")
         logger.info("=" * 60)
@@ -5388,24 +5638,37 @@ def create_app(args: Any = None) -> FastAPI:
             else:
                 logger.warning("Mobile API disabled: MOBILE_JWT_SECRET not set")
 
-    async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
+    async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str,
+                                      participant: Optional[Any] = None,
+                                      clock: Optional["LiveTurnClock"] = None):
         """
         Relay Gemini Live's turns to the WebSocket client, each one only after
         what Live said has passed the Dose Boundary.
 
         A turn's audio is held until the turn completes; then its transcript is
         checked (gemini_live.turn_release) and either the audio is released, or
-        the guarded text (a Redacted Answer or the Deferral) is sent instead and
-        the audio never is. Per turn the client receives: the audio (when
-        released), the assistant transcription, the caller's transcription,
-        then turn_complete.
+        the guarded text (a Redacted Answer or the Deferral) is sent and spoken
+        on the Sarvam voice instead, and Live's audio never is. Per turn the
+        client receives: the audio (Live's, or the guarded text spoken), the
+        assistant transcription, the caller's transcription, then turn_complete.
+
+        Each checked turn is written to the study log (channel "web_voice",
+        voice path "live") before anything of it is sent.
 
         Args:
             websocket: The WebSocket connection
             session: The active Gemini Live session
-            user_id: User identifier for logging
+            user_id: The session key: the participant's id, or an ephemeral one
+            participant: The signed-in participant, None for an anonymous session
+            clock: Told of Live's output and turn completions, so the socket
+                can fall back to Sarvam when Live stalls (web_voice_fallback)
         """
         from gemini_live.turn_release import check_live_turn
+        from study_logging import record_answer
+        from voice_router import record_voice_path
+        from voice_safety_wrapper import fit_for_voice
+        from voice_session import VOICE_PATH_LIVE
+        from web_voice_fallback import CHANNEL as WEB_VOICE, speak_for_web
 
         held: List[bytes] = []
         try:
@@ -5414,13 +5677,33 @@ def create_app(args: Any = None) -> FastAPI:
             async for response in session.receive_audio():
                 if isinstance(response, bytes):
                     if response == session.TURN_COMPLETE:
+                        if clock is not None:
+                            clock.turn_completed()
                         spoken = session.get_response_transcription(clear=True)
                         heard = session.get_transcription(clear=True)
                         release = check_live_turn(held, spoken, heard, session.language)
+                        if held or spoken:
+                            record_voice_path(WEB_VOICE, "live")
                         held = []
+                        if release.text or release.audio:
+                            await record_answer(
+                                channel="web_voice", voice_path=VOICE_PATH_LIVE, user_id=user_id,
+                                session_id=getattr(session, "session_id", ""),
+                                site_id=getattr(participant, "site_id", ""),
+                                care_role=getattr(participant, "role", ""),
+                                query=heard or "", response=release.text,
+                                language=session.language, safety=release.safety,
+                                provider="gemini_live", stt_model=getattr(session, "model", ""),
+                                tts_model=getattr(session, "model", ""))
 
                         for chunk in release.audio:
                             await websocket.send_bytes(chunk)
+                        if release.withheld and release.text:
+                            # The caller is listening: the guarded text is
+                            # heard, in the session's language, not silence.
+                            said = await speak_for_web(fit_for_voice(release.text), session.language)
+                            if said:
+                                await websocket.send_bytes(said)
                         if release.text:
                             frame = {"type": "transcription", "role": "assistant",
                                      "text": release.text}
@@ -5438,10 +5721,14 @@ def create_app(args: Any = None) -> FastAPI:
                     elif response == session.INTERRUPTED:
                         # Barge-in: the unreleased audio is dropped, never played.
                         held = []
+                        if clock is not None:
+                            clock.interrupted()
                         await websocket.send_json({"type": "interrupted"})
 
                     else:
                         held.append(response)
+                        if clock is not None:
+                            clock.live_output()
 
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected during response stream for {user_id}")
@@ -5480,15 +5767,30 @@ def create_app(args: Any = None) -> FastAPI:
         The Live model is the study release's (release.yaml
         models.voice_primary.model). A client cannot choose it: a `model` in
         the config and any `set_model` are refused with an error frame.
+
+        The Sarvam path (web_voice_fallback) answers a recording, on
+        stop_audio, when the administrator has forced Sarvam (no Live session
+        is opened; read at config and at every start_audio), or when Live
+        misses the release's first-token or per-turn deadline (the stalled
+        Live session is closed). Its frames carry voice_path and
+        fallback_reason.
         """
         await websocket.accept()
         from auth.policy import authenticate_connection
         from participants import ephemeral
+        from voice_provider import get_voice_provider_control
+        from web_voice_fallback import (
+            MAX_TURN_PCM_BYTES, OPERATOR_FORCED, LiveTurnClock, WebSarvamTurns,
+        )
 
         caller = authenticate_connection(websocket)
 
-        # Check if Gemini Live is available
-        if not gemini_live_enabled:
+        def sarvam_forced() -> bool:
+            """The administrator's deployment-wide override (ADR 0007)."""
+            return not get_voice_provider_control().current().live_enabled
+
+        # Check if Gemini Live is available (a forced session needs only Sarvam)
+        if not gemini_live_enabled and not sarvam_forced():
             await websocket.send_json({
                 "type": "error",
                 "error": "Voice conversations not available. Gemini Live is disabled."
@@ -5513,6 +5815,30 @@ def create_app(args: Any = None) -> FastAPI:
         # is still getting ready to speak, not when their first audio does.
         # An unused one is closed below, or by the manager's idle cleanup.
         preconnect = PreConnect(gemini_session_manager)
+        # The Sarvam path, its caller audio for the current recording, and the
+        # watch on Live's reply to it.
+        forced = sarvam_forced()
+        sarvam = WebSarvamTurns(rag_pipeline, get_safety_manager(), session_key=user_id,
+                                participant=None if anonymous else caller)
+        turn_pcm = bytearray()
+        clock = LiveTurnClock()
+        stall_task = None
+
+        async def answer_if_live_stalls(pcm: bytes) -> None:
+            """Wait for Live's reply to this recording; on a stall, close the
+            Live session (nothing more of it is relayed) and answer on Sarvam."""
+            nonlocal session, response_task
+            reason = await clock.wait_for_reply()
+            if reason is None:
+                return
+            live_session_id = getattr(session, "session_id", "")
+            logger.warning(f"Live stalled for {user_id} ({reason}); answering on Sarvam")
+            if response_task and not response_task.done():
+                response_task.cancel()
+            response_task = None
+            session = None
+            await gemini_session_manager.close_session(user_id)
+            await sarvam.answer(websocket, pcm, language, reason, session_id=live_session_id)
 
         logger.info(f"Voice WebSocket connected: {user_id}")
 
@@ -5531,8 +5857,10 @@ def create_app(args: Any = None) -> FastAPI:
                         if msg_type == "config":
                             # Initial configuration
                             language = message.get("language", "en-IN")
+                            forced = sarvam_forced()
+                            live_model = gemini_session_manager.service.model if gemini_session_manager else None
                             requested = message.get("model")
-                            if requested and requested != gemini_session_manager.service.model:
+                            if requested and requested != live_model:
                                 logger.warning(f"Refused client-chosen Live model {requested!r} for {user_id}")
                                 await websocket.send_json({"type": "error", "error": model_refusal})
                             logger.info(f"Config received: user={user_id}, language={language}")
@@ -5540,12 +5868,30 @@ def create_app(args: Any = None) -> FastAPI:
                             await websocket.send_json({
                                 "type": "config_ack",
                                 "language": language,
-                                "model": gemini_session_manager.service.model,
+                                "model": live_model,
                                 "anonymous": anonymous,
+                                "voice_path": "fallback" if forced else "live",
                             })
-                            await preconnect.open(user_id, language, None)
+                            if not forced:
+                                await preconnect.open(user_id, language, None)
+
+                        elif msg_type == "start_audio" and (forced := sarvam_forced()):
+                            # Sarvam is forced: no Live session, and an open
+                            # one (the override changed mid-call) is closed.
+                            turn_pcm.clear()
+                            if session is not None or response_task is not None:
+                                if response_task and not response_task.done():
+                                    response_task.cancel()
+                                response_task = None
+                                session = None
+                                await preconnect.settle()
+                                await gemini_session_manager.close_session(user_id)
+                            await websocket.send_json({"type": "session_created", "session_id": user_id,
+                                                       "voice_path": "fallback"})
 
                         elif msg_type == "start_audio":
+                            turn_pcm.clear()
+                            clock.caller_started()
                             # Create or get session for this user
                             logger.info(f"Starting audio session for {user_id}")
 
@@ -5579,6 +5925,13 @@ def create_app(args: Any = None) -> FastAPI:
                             # Audio stream ended
                             logger.info(f"Audio stream stopped for {user_id}")
                             await websocket.send_json({"type": "audio_stopped"})
+                            recording, turn_pcm = bytes(turn_pcm), bytearray()
+                            if forced:
+                                await sarvam.answer(websocket, recording, language, OPERATOR_FORCED)
+                            elif session is not None:
+                                if stall_task and not stall_task.done():
+                                    stall_task.cancel()
+                                stall_task = asyncio.create_task(answer_if_live_stalls(recording))
 
                         elif msg_type == "set_language":
                             # Switch language - requires new session
@@ -5590,9 +5943,11 @@ def create_app(args: Any = None) -> FastAPI:
                                 # Close existing session, and reconnect in
                                 # the new language ahead of the next turn
                                 await preconnect.settle()
-                                await gemini_session_manager.close_session(user_id)
+                                if gemini_session_manager:
+                                    await gemini_session_manager.close_session(user_id)
                                 session = None
-                                await preconnect.open(user_id, language, None)
+                                if not forced:
+                                    await preconnect.open(user_id, language, None)
 
                                 await websocket.send_json({
                                     "type": "language_changed",
@@ -5623,14 +5978,18 @@ def create_app(args: Any = None) -> FastAPI:
 
                 # Handle binary messages (audio data)
                 elif "bytes" in data:
-                    if session:
+                    # Kept for the Sarvam path: it answers the whole recording.
+                    if len(turn_pcm) + len(data["bytes"]) <= MAX_TURN_PCM_BYTES:
+                        turn_pcm.extend(data["bytes"])
+                    if session and not forced:
                         try:
                             await session.send_audio(data["bytes"])
 
                             # Start response stream after first audio is sent
                             if response_task is None or response_task.done():
                                 response_task = asyncio.create_task(
-                                    stream_gemini_responses(websocket, session, user_id)
+                                    stream_gemini_responses(websocket, session, user_id,
+                                                            None if anonymous else caller, clock)
                                 )
                         except Exception as e:
                             logger.error(f"Error sending audio for {user_id}: {e}")
@@ -5650,6 +6009,8 @@ def create_app(args: Any = None) -> FastAPI:
 
         finally:
             # Cleanup
+            if stall_task and not stall_task.done():
+                stall_task.cancel()
             if response_task and not response_task.done():
                 response_task.cancel()
                 try:
@@ -5741,7 +6102,7 @@ def create_app(args: Any = None) -> FastAPI:
         }
     
     @app.post("/api/query")
-    async def api_query(query: str = Form(...), language: str = Form("en")):
+    async def api_query(request: Request, query: str = Form(...), language: str = Form("en")):
         """Direct API endpoint for queries.
 
         `language` is the Supported Language the question was asked in (a code
@@ -5753,7 +6114,10 @@ def create_app(args: Any = None) -> FastAPI:
         guard cannot run, the except below returns an error, never the draft.
         """
         try:
-            return await answer_web_query(rag_pipeline, query, language=language)
+            from auth.policy import authenticate_connection
+
+            return await answer_web_query(rag_pipeline, query, language=language,
+                                          caller=authenticate_connection(request))
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
@@ -5925,218 +6289,59 @@ def create_app(args: Any = None) -> FastAPI:
     # Initialize Bolna webhook handler
     bolna_webhook_handler = BolnaWebhookHandler() if BOLNA_AVAILABLE else None
 
-    @app.post("/api/bolna/query", dependencies=[Depends(require_bolna)])
-    async def bolna_query_endpoint(request: Request):
+    @app.post("/api/bolna/llm/{language}/v1/chat/completions",
+              dependencies=[Depends(require_bolna_key), Depends(require_released(PHONE_BOLNA))])
+    async def bolna_llm_endpoint(language: str, request: Request):
         """
-        RAG query endpoint for Bolna custom function calls.
+        The Bolna agent's LLM: one call turn in, the guarded answer out.
 
-        This endpoint receives queries from Bolna's LLM during voice calls,
-        queries the palliative care knowledge base, and returns grounded responses.
+        Bolna sends each turn here with the OpenAI SDK (custom LLM,
+        bolna_integration.config) and speaks the reply as written, so the
+        caller hears the Dose Boundary's text and no hosted LLM rewords it.
+        `language` is the agent's (one agent per language); the caller is read
+        from the system variables Bolna fills into the prompt
+        (custom_llm.caller_fields, then bolna_caller_id). The reply is a chat
+        completion, streamed when the request asks for it.
 
-        Request Body:
-        {
-            "query": "How to manage pain for cancer patients?",
-            "language": "hi",
-            "context": "User asking about pain management",
-            "source": "bolna_call",
-            "from_number": "+91...",       # Bolna system variable
-            "execution_id": "..."          # Bolna system variable
-        }
-
-        The caller is identified by from_number (else the call id), see
-        bolna_caller_id().
-
-        Response:
-        {
-            "status": "success",
-            "answer": "For cancer pain management...",
-            "sources": ["WHO Pain Guidelines", "AIIMS Palliative Care Manual"],
-            "confidence": 0.92
-        }
+        Off unless the release record lists Bolna's outside services and Bolna
+        is enabled (phone_residency, decision D11).
         """
+        from bolna_integration.config import CUSTOM_LLM_MODEL
+        from bolna_integration.custom_llm import (
+            caller_fields, completion_body, completion_events, last_user_text,
+        )
+        from supported_languages import ENGLISH_CODE, get_language
+
         try:
-            # Verified by require_bolna (signature and Bearer key).
-            body = await request.body()
+            data = await request.json()
+        except ValueError:
+            raise HTTPException(status_code=422, detail="The body must be JSON")
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=422, detail="The body must be a JSON object")
+        messages = data.get("messages") if isinstance(data.get("messages"), list) else []
+        # One code per Supported Language (Odia is "or"); outside the eleven, English.
+        reported = get_language(language)
+        code = reported.code if reported is not None else ENGLISH_CODE
+        fields = caller_fields(messages)
+        caller_id = bolna_caller_id(fields)
+        execution_id = fields.get("execution_id", "")
+        session_id = execution_id if "{" not in execution_id else ""
+        model = str(data.get("model") or CUSTOM_LLM_MODEL)
 
-            # Parse request
-            data = json.loads(body)
-            query = data.get("query", "")
-            # One code per Supported Language (Odia is "or", whatever Bolna's
-            # LLM reports); outside the eleven, English, never Hindi.
-            from supported_languages import ENGLISH_CODE, get_language
-            reported = get_language(data.get("language"))
-            language = reported.code if reported is not None else ENGLISH_CODE
-            context = data.get("context", "")
-            source = data.get("source", "unknown")
-            caller_id = bolna_caller_id(data)
-
-            # Enhanced logging for Bolna RAG queries
-            import time as _time
-            _query_start = _time.time()
-            logger.info("=" * 60)
-            logger.info("📞 BOLNA VOICE CALL - RAG QUERY")
-            logger.info("=" * 60)
-            logger.debug(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
-            logger.info(f"🌐 Language: {language} | Source: {source}")
-            logger.info("-" * 60)
-
-            if not query:
-                return JSONResponse({
-                    "status": "error",
-                    "answer": "I didn't catch your question. Could you please repeat?",
-                    "sources": [],
-                    "confidence": 0.0
-                })
-            
-            # =================================================================
-            # VOICE SAFETY CHECK - For Bolna Voice Calls
-            # =================================================================
-            try:
-                from voice_safety_wrapper import get_voice_safety_wrapper
-                safety_wrapper = get_voice_safety_wrapper()
-                
-                safety_result = await safety_wrapper.check_voice_query(
-                    user_id=caller_id,
-                    transcript=query,
-                    language=language,
-                    call_id=caller_id
-                )
-                
-                if safety_result.should_escalate:
-                    logger.warning(f"🚨 Bolna voice safety escalation: {safety_result.event_type}")
-                    
-                    # Handle escalation
-                    await safety_wrapper.handle_voice_escalation(
-                        safety_result, provider="bolna"
-                    )
-                    
-                    # Return safety message as response
-                    return JSONResponse({
-                        "status": "safety_escalation",
-                        "answer": safety_result.safety_message,
-                        "sources": [],
-                        "confidence": 1.0,
-                        "event_type": safety_result.event_type.value if safety_result.event_type else None
-                    })
-                
-                # Use modified query if available
-                if safety_result.modified_transcript:
-                    query = safety_result.modified_transcript
-                    
-            except Exception as e:
-                logger.error(f"Bolna voice safety check error (proceeding): {e}")
-
-            # Query RAG pipeline, within the voice deadline: Bolna is waiting
-            # on this HTTP response with a caller on the line.
-            try:
-                rag_result = await within_voice_deadline(lambda: rag_pipeline.query(
-                    question=query,
-                    user_id=caller_id,
-                    source_language=language,
-                    top_k=3
-                ))
-            except asyncio.TimeoutError:
-                logger.warning("Bolna answer missed the voice deadline; sending the fallback")
-                rag_result = {"status": "timeout"}
-
-            if rag_result.get("status") == "success":
-                # Dosage boundary before the text is shortened or spoken. A
-                # failure here falls to the except below (an error reply),
-                # never to the unguarded draft.
-                from safety_enhancements import guard_query_result
-                guard_query_result(rag_result, query=query, language=language)
-                answer = rag_result.get("answer", "")
-                
-                # =================================================================
-                # VOICE OPTIMIZATION for Bolna Response
-                # =================================================================
-                try:
-                    from voice_safety_wrapper import VOICE_SAFETY_NET_S, get_voice_safety_wrapper
-                    safety_wrapper = get_voice_safety_wrapper()
-                    
-                    # Optimize for voice output
-                    answer = safety_wrapper.optimize_for_voice(
-                        answer,
-                        user_id=caller_id,
-                        language=language,
-                        max_duration_seconds=VOICE_SAFETY_NET_S
-                    )
-                    
-                    # Add evidence warning if needed
-                    evidence_badge = rag_result.get("safety_enhancements", {}).get("evidence_badge")
-                    if evidence_badge:
-                        answer = safety_wrapper.add_evidence_to_voice(
-                            answer, evidence_badge, language
-                        )
-                        
-                except Exception as e:
-                    logger.warning(f"Bolna voice optimization error (proceeding): {e}")
-
-                # Extract source citations
-                sources = []
-                if "sources" in rag_result:
-                    sources = [s.get("title", s.get("filename", "Unknown")) for s in rag_result["sources"][:3]]
-                elif "citations" in rag_result:
-                    sources = [c.get("source", "Knowledge Base") for c in rag_result["citations"][:3]]
-                else:
-                    sources = ["Palliative Care Knowledge Base"]
-
-                # Calculate confidence based on retrieval
-                confidence = min(0.95, rag_result.get("relevance_score", 0.8))
-
-                # Enhanced success logging
-                _query_duration = _time.time() - _query_start
-                logger.info(f"✅ RAG SUCCESS ({_query_duration:.2f}s)")
-                logger.info(f"📚 Sources: {', '.join(sources[:3])}")
-                logger.debug(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
-                logger.info(f"🎯 Confidence: {confidence:.0%}")
-                logger.info("=" * 60)
-
-                return JSONResponse({
-                    "status": "success",
-                    "answer": answer,
-                    "sources": sources,
-                    "confidence": confidence,
-                    "language": language
-                })
-
-            else:
-                # RAG query failed - return graceful fallback
-                _query_duration = _time.time() - _query_start
-                logger.warning(f"⚠️  RAG PARTIAL ({_query_duration:.2f}s) - Status: {rag_result.get('status')}")
-                logger.warning("📝 Using fallback response")
-                logger.info("=" * 60)
-                return JSONResponse({
-                    "status": "partial",
-                    "answer": "I'm having trouble accessing my knowledge base right now. Based on general palliative care principles, I'd recommend consulting with your healthcare provider for specific guidance.",
-                    "sources": [],
-                    "confidence": 0.3
-                })
-
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ BOLNA ERROR: Invalid JSON - {e}")
-            logger.info("=" * 60)
-            return JSONResponse({
-                "status": "error",
-                "answer": "I received an invalid request. Please try again.",
-                "sources": [],
-                "confidence": 0.0
-            }, status_code=400)
-
-        except HTTPException:
-            raise
-
+        try:
+            turn = await answer_bolna_turn(rag_pipeline, last_user_text(messages), code, caller_id,
+                                           session_id=session_id)
+            answer = turn["answer"]
         except Exception as e:
-            logger.error(f"❌ BOLNA ERROR: {e}")
-            logger.info("=" * 60)
-            return JSONResponse({
-                "status": "error",
-                "answer": "I apologize, but I'm experiencing technical difficulties. Please try again or contact the helpline directly.",
-                "sources": [],
-                "confidence": 0.0
-            }, status_code=500)
+            logger.error(f"❌ BOLNA ERROR: {type(e).__name__}")
+            answer = BOLNA_ERROR
 
-    @app.post("/api/bolna/webhook", dependencies=[Depends(require_bolna)])
+        if data.get("stream"):
+            return StreamingResponse(completion_events(answer, model), media_type="text/event-stream")
+        return JSONResponse(completion_body(answer, model))
+
+    @app.post("/api/bolna/webhook",
+              dependencies=[Depends(require_bolna), Depends(require_released(PHONE_BOLNA))])
     async def bolna_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Bolna call events.
@@ -6356,7 +6561,17 @@ def create_app(args: Any = None) -> FastAPI:
         - Sends: response with content (connected to RAG pipeline)
 
         Documentation: https://docs.retellai.com/api-references/llm-websocket
+
+        Off unless the release record lists Retell's outside services
+        (phone_residency, decision D11): the caller is told so and the socket closes.
         """
+        residency = phone_refusal(PHONE_RETELL)
+        if residency:
+            logger.warning("Phone route refused: %s", residency)
+            await websocket.accept()
+            await websocket.send_json({"response_type": "error", "content": residency})
+            await websocket.close(code=1008, reason="Not in the study release")
+            return
         if not retell_enabled or not retell_llm_handler:
             await websocket.accept()
             await websocket.send_json({
@@ -6381,7 +6596,8 @@ def create_app(args: Any = None) -> FastAPI:
             if retell_llm_handler:
                 retell_llm_handler.end_session(call_id)
 
-    @app.post("/api/retell/webhook", dependencies=[Depends(require_retell)])
+    @app.post("/api/retell/webhook",
+              dependencies=[Depends(require_retell), Depends(require_released(PHONE_RETELL))])
     async def retell_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Retell call events.
@@ -7058,7 +7274,10 @@ def create_app(args: Any = None) -> FastAPI:
             return JSONResponse({
                 "status": "healthy",
                 "initialized": True,
-                "stats": stats
+                "stats": stats,
+                # Off unless region-pinned: searches then answer from the
+                # local index and indexing is refused (ticket 18).
+                "model_layer": graphrag_config.model_residency() if graphrag_config else None,
             })
         except Exception as e:
             return JSONResponse({
@@ -7177,6 +7396,16 @@ def create_app(args: Any = None) -> FastAPI:
                 "status": "error",
                 "error": "GraphRAG not available"
             }, status_code=503)
+
+        # Indexing sends every chunk to GraphRAG's own model layer, which is
+        # not the shared client: refused here, not after a "started" reply.
+        residency = graphrag_config.model_residency() if graphrag_config else {
+            "pinned": False, "reason": "GraphRAG configuration not loaded"}
+        if not residency["pinned"]:
+            return JSONResponse({
+                "status": "error",
+                "error": residency["reason"],
+            }, status_code=409)
 
         try:
             body = await request.json()

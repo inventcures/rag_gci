@@ -303,7 +303,8 @@ class PublicRoutesStayOpen(ServerHarness):
         # a valid admin token does not open one either.
         from auth.policy import Access, policy_for
 
-        for path in ("/api/bolna/webhook", "/api/bolna/query", "/api/retell/webhook",
+        for path in ("/api/bolna/webhook", "/api/bolna/llm/{language}/v1/chat/completions",
+                     "/api/retell/webhook",
                      "/api/sarvam/webhook", "/webhook", "/ws/retell/llm/{call_id}"):
             with self.subTest(path=path):
                 policy = policy_for(path)
