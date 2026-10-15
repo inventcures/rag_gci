@@ -277,6 +277,44 @@ class AMedicationReminderCallNeedsTheRelease(Release):
                          CallStatus.FAILED)
 
 
+class RemindPromisesAVoiceCallOnlyWhenOneCanBePlaced(Release):
+    """WhatsApp /remind says voice-call reminders are set up only when the
+    release lets Bolna place them (D53: nothing claims a notification that
+    will not happen)."""
+
+    CALL_LINE = "Voice call reminders also set up"
+
+    def setUp(self):
+        super().setUp()
+        from test_reminders_never_state_a_dose import PHONE, reminder_scheduler, voice_system
+        from test_text_path_dose_guard import make_bot
+
+        self.phone = PHONE
+        self.bot = make_bot(rag=None)
+        self.bot.reminder_scheduler = reminder_scheduler(tempfile.mkdtemp(prefix="wa-reminders-"))
+        self.bot.voice_reminder_system = voice_system(tempfile.mkdtemp(prefix="wa-voice-"))
+        self.bot.safety_manager = None
+
+    def remind(self) -> str:
+        asyncio.run(self.bot._handle_twilio_text_message(self.phone, "/remind Paracetamol 08:00"))
+        return self.bot.twilio_api.texts[-1]
+
+    def test_with_the_default_release_no_voice_call_is_promised(self):
+        self.default_release()
+        self.enable(BOLNA_ENABLED="true")
+        confirmation = self.remind()
+        self.assertIn("Paracetamol", confirmation)
+        self.assertNotIn(self.CALL_LINE, confirmation)
+
+    def test_a_release_listing_bolna_promises_the_voice_call(self):
+        import phone_residency
+
+        self.enable(BOLNA_ENABLED="true")
+        self.release_listing(phone_residency.services("bolna"))
+        self.assertIsNone(phone_residency.refusal("bolna"))
+        self.assertIn(self.CALL_LINE, self.remind())
+
+
 # ---------------------------------------------------------------------------
 # Enabling a provider without listing it shows as drift
 # ---------------------------------------------------------------------------

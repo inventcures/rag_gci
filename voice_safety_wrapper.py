@@ -670,6 +670,10 @@ def clean_for_voice(text: str) -> str:
     # _(...)_. It must be heard, so it is unwrapped before brackets are removed.
     text = re.sub(r'_\((.*?)\)_', r'\1', text, flags=re.DOTALL)
 
+    # The emergency numbers in the 108 guidance, "(108/102)", must be heard:
+    # a bracket holding only phone numbers is unwrapped, not cut as a citation.
+    text = re.sub(r'\((\d{3,}(?:\s*/\s*\d{3,})*)\)', r'\1', text)
+
     # Remove citation brackets for voice
     text = re.sub(r'\[.*?\]', '', text)
     text = re.sub(r'\(.*?\)', '', text)
