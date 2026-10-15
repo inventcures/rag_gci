@@ -479,6 +479,7 @@ class RetellCustomLLMHandler:
                             redacted=stream.redacted)
 
             if stream.sent:
+                result.setdefault("safety", {}).update(stream.safety_record())
                 await say(self._streamed_tail(session, stream, result, user_query), True)
                 return
 
