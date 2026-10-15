@@ -623,7 +623,7 @@ reads or hears.
 - **Rejected:** more workers. The server is Gemini-bound and its CPU work is
   off the loop; per-worker state (ticket 18) still blocks it, and the load
   test that would justify it needs the server.
-- **Found, not fixed (changes answers; needs the clinical lead):** the
+- **Found (changes answers; built off by default, see the next entry):** the
   handoff keywords stop the answer for ordinary questions.
   `check_handoff_needed` matches substrings, and a match makes
   `process_query` return `should_respond: False`, so the caller gets only a
@@ -633,3 +633,36 @@ reads or hears.
   caregiver, how do I turn her in bed?" (user_request), "He lives alone, how
   do we manage his pain?" (emotional_support), "Is there an interaction
   between morphine and paracetamol?" (complex_medical) all get no answer.
+
+## Handoff keywords: an "answer" mode, built and off (2026-10-15)
+
+Follows the round-2 finding above. The project lead's standing instruction is
+to decide when unsure and log the decision; this is that entry.
+
+- **Decision: build the fix behind a setting, default off.**
+  `safety.handoff_mode` in config.yaml (or `SAFETY_HANDOFF_MODE`): `stop`
+  (default, the behaviour the study release was built with) or `answer`. The
+  mode is in the release fingerprint and `data/study/release.yaml` records
+  `stop`, so switching it shows as drift until a release records it.
+- **Why off by default:** turning it on changes what participants get (an
+  answer where they now get only a handoff message). That is a clinical
+  decision and needs a study release; shipping it on would change the study
+  route without either.
+- **What `answer` does:** an emergency word, or an explicit request for a
+  person ("talk to a human", "speak to a nurse", "real person"), still ends
+  the turn with the handoff message. Any other match ("scared", "alone",
+  "caregiver", "interaction", "complex") is still recorded as a handoff
+  request, so a person can follow up, and the question is answered. No
+  handoff message is added to the answer: it promises a call back within
+  minutes, and nothing in the system makes that call.
+- **Alternatives not taken:** removing the soft keywords (loses the record a
+  human could follow up on); answering and appending the handoff message
+  (repeats a promise nobody keeps); word-boundary matching alone ("caregiver"
+  is still a whole word in "as a caregiver").
+- **Still open, not this change:** nothing resolves handoff requests, so the
+  pending list only grows and no one is told about them. That needs an
+  owner (who follows up, how they are notified) before either mode means
+  what its message says.
+- **To switch on:** clinical lead reviews the behaviour above, then set
+  `safety.handoff_mode: answer` in both config.yaml and
+  `data/study/release.yaml` in the next study release.

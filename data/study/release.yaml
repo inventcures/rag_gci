@@ -160,6 +160,11 @@ safety:
   dosage_boundary: "dose"        # ADR 0004
   dosage_redaction: "sentence"
   emergency_detection_languages: ["en", "hi", "bn", "ta", "gu"]
+  # What a handoff keyword does to a turn. "stop": any match ends the turn
+  # with a handoff message and no answer (this release). "answer" answers
+  # unless it is an emergency or an explicit request for a person; it needs
+  # clinical review before a release records it. docs/decisions/latency.md.
+  handoff_mode: "stop"
 
 # --- Interface --------------------------------------------------------------
 interface:

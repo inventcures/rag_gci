@@ -182,6 +182,7 @@ class StudyRelease:
             "speech.stt.model": speech["stt_model"],
             "speech.tts.model": speech["tts_model"],
             "safety.dosage_restriction": self._module_present("dosage_guard"),
+            "safety.handoff_mode": self._handoff_mode(),
             "retrieval.rag_method": retrieval["rag_method"],
             "retrieval.kg_check": retrieval["kg_check"],
             "commit": self._git_commit(),
@@ -229,6 +230,16 @@ class StudyRelease:
             config_path = Path("config.yaml")
             config = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
             return configured_runtime(config or {})
+        except Exception:
+            return "unknown"
+
+    @staticmethod
+    def _handoff_mode() -> str:
+        """What a handoff keyword does to a turn (safety_enhancements.py)."""
+        try:
+            from safety_enhancements import handoff_mode
+
+            return handoff_mode()
         except Exception:
             return "unknown"
 
@@ -311,6 +322,7 @@ class StudyRelease:
             "speech.stt.model": self._dig("models", "speech", "stt", "model"),
             "speech.tts.model": self._dig("models", "speech", "tts", "model"),
             "safety.dosage_restriction": self._dig("safety", "dosage_restriction"),
+            "safety.handoff_mode": self._dig("safety", "handoff_mode"),
             "retrieval.rag_method": self._dig("retrieval", "rag_method"),
             "retrieval.kg_check": self._dig("retrieval", "kg_check"),
             "commit": self._dig("source", "commit"),

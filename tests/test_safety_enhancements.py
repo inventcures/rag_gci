@@ -671,3 +671,79 @@ class TestHandoffStoreWrites:
         from safety_enhancements import get_safety_manager
         wrapper = VoiceSafetyWrapper()
         assert wrapper.handoff_system is get_safety_manager().handoff_system
+
+
+class TestHandoffMode:
+    """Whether a handoff keyword ends the turn ("stop") or is answered ("answer")."""
+
+    ORDINARY = [
+        "My mother is scared at night, what can I do?",
+        "As a caregiver, how do I turn her in bed?",
+        "He lives alone, how do we manage his pain?",
+        "Is there an interaction between morphine and paracetamol?",
+    ]
+    EXPLICIT = [
+        "I want to talk to a human",
+        "Can I speak to a nurse please",
+        "Can I talk to a real person?",
+    ]
+
+    def manager(self, tmp_path):
+        from safety_enhancements import SafetyEnhancementsManager
+
+        m = SafetyEnhancementsManager()
+        m.handoff_system = HumanHandoffSystem(storage_path=str(tmp_path))
+        return m
+
+    def run(self, manager, query):
+        return asyncio.run(manager.process_query(user_id="web_test", query=query))
+
+    def test_default_is_stop_and_unchanged(self, tmp_path, monkeypatch):
+        from safety_enhancements import handoff_mode
+
+        monkeypatch.delenv("SAFETY_HANDOFF_MODE", raising=False)
+        assert handoff_mode() == "stop"
+        m = self.manager(tmp_path)
+        for query in self.ORDINARY + self.EXPLICIT:
+            result = self.run(m, query)
+            assert result["should_respond"] is False, query
+            assert "handoff" in result["response_additions"]
+
+    def test_answer_mode_answers_ordinary_questions_and_records_them(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SAFETY_HANDOFF_MODE", "answer")
+        m = self.manager(tmp_path)
+        for query in self.ORDINARY:
+            result = self.run(m, query)
+            assert result["should_respond"] is True, query
+            assert "handoff" not in result["response_additions"]
+            assert result["handoff_request"] is not None
+            assert "handoff_recorded" in result["actions"]
+        assert len(m.handoff_system.pending_requests) == len(self.ORDINARY)
+        m.handoff_system.flush()
+
+    def test_answer_mode_still_hands_off_explicit_requests(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SAFETY_HANDOFF_MODE", "answer")
+        m = self.manager(tmp_path)
+        for query in self.EXPLICIT:
+            result = self.run(m, query)
+            assert result["should_respond"] is False, query
+        m.handoff_system.flush()
+
+    def test_answer_mode_still_hands_off_handoff_emergency_words(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SAFETY_HANDOFF_MODE", "answer")
+        m = self.manager(tmp_path)
+        result = self.run(m, "Is this urgent? Her breathing is noisy")
+        assert result["should_respond"] is False
+        m.handoff_system.flush()
+
+    def test_unknown_mode_is_stop(self, monkeypatch):
+        from safety_enhancements import handoff_mode
+
+        monkeypatch.setenv("SAFETY_HANDOFF_MODE", "sometimes")
+        assert handoff_mode() == "stop"
+
+    def test_mode_is_in_the_release_fingerprint(self, monkeypatch):
+        from study_release import StudyRelease
+
+        monkeypatch.setenv("SAFETY_HANDOFF_MODE", "answer")
+        assert StudyRelease().live_fingerprint()["safety.handoff_mode"] == "answer"
