@@ -69,10 +69,12 @@ def live_unavailable_message(code: Optional[str]) -> str:
     return lang.voice_unavailable if lang is not None else UNSUPPORTED_LANGUAGE_MESSAGE
 
 
-# Live API models selectable from the web app.
-# "assistant" models run the full palliative-care assistant (RAG, safety,
-# system instruction). "translator" models are speech-to-speech interpreters:
-# no system instruction, no text input, no RAG injection.
+# Live models the service knows how to run. Every one is a full palliative-care
+# assistant (RAG, safety, system instruction). Which one runs is not chosen
+# here, nor by a client: the study release record names it (release_live_model).
+# The speech-to-speech translate model (gemini-3.5-live-translate-preview) is not
+# offered: it takes no system instruction and no RAG, so nothing it says has the
+# assistant's safety layer (review 3, ticket 12).
 SUPPORTED_MODELS: Dict[str, Dict[str, object]] = {
     "gemini-live-2.5-flash-preview-native-audio-09-2025": {
         "label": "Gemini 2.5 Flash Native Audio",
@@ -86,12 +88,6 @@ SUPPORTED_MODELS: Dict[str, Dict[str, object]] = {
         "kind": "assistant",
         "supports_rag": True,
     },
-    "gemini-3.5-live-translate-preview": {
-        "label": "Gemini 3.5 Live Translate",
-        "description": "Real-time speech-to-speech translation into the selected language",
-        "kind": "translator",
-        "supports_rag": False,
-    },
 }
 
 
@@ -100,9 +96,18 @@ def get_model_info(model: str) -> Dict[str, object]:
     return SUPPORTED_MODELS.get(model, {})
 
 
-def is_translation_model(model: str) -> bool:
-    """True if the model is a speech-to-speech translator (no assistant features)."""
-    return get_model_info(model).get("kind") == "translator"
+def release_live_model() -> str:
+    """The Live model the study release approves (`models.voice_primary.model`
+    in data/study/release.yaml): the one source of the model every Live
+    session opens with. "" when the record names none; the service then
+    refuses to start rather than pick one."""
+    from study_release import get_study_release
+
+    model = get_study_release().live_model
+    if not model:
+        logger.error("The study release record names no Live model "
+                     "(models.voice_primary.model); Gemini Live will not start")
+    return model
 
 
 def model_supports_rag(model: str) -> bool:
@@ -183,7 +188,10 @@ class GeminiLiveConfig:
     location: str = "us-central1"
     api_key: Optional[str] = None
 
-    # Model settings
+    # Model settings: the study release record's, never config.yaml's or a
+    # client's (release_live_model). GEMINI_LIVE_MODEL overrides it for
+    # development only, and the fingerprint then reports RELEASE DRIFT.
+    #
     # Verified against the live service on 2026-10-04. The previous default,
     # gemini-live-2.5-flash-preview-native-audio-09-2025, is refused with 1008:
     # it is no longer served for bidiGenerateContent. Real-time voice had therefore
@@ -194,7 +202,7 @@ class GeminiLiveConfig:
     # gemini-2.5-flash-native-audio-preview-09-2025. A real audio round trip on this
     # one transcribed "What should I give for severe pain at home?" and replied
     # "Managing severe pain at home" in 5.1 seconds.
-    model: str = "gemini-3.1-flash-live-preview"
+    model: str = field(default_factory=release_live_model)
 
     # Voice settings
     default_voice: str = DEFAULT_VOICE
@@ -256,9 +264,14 @@ class GeminiLiveConfig:
                     yaml_location = gemini_config.get("location", "us-central1")
                     config.location = _expand_env_vars(yaml_location)
 
-                    # Expand env vars in model (if any)
-                    yaml_model = gemini_config.get("model", config.model)
-                    config.model = _expand_env_vars(yaml_model)
+                    # The release record names the Live model; config.yaml does not.
+                    yaml_model = gemini_config.get("model")
+                    if yaml_model and _expand_env_vars(yaml_model) != config.model:
+                        logger.warning(
+                            "Ignoring gemini_live.model=%r in %s: the study release "
+                            "record names the Live model (%r)",
+                            yaml_model, config_path, config.model,
+                        )
                     config.default_voice = gemini_config.get(
                         "default_voice", DEFAULT_VOICE
                     )
@@ -290,9 +303,12 @@ class GeminiLiveConfig:
         )
         config.api_key = os.getenv("GEMINI_API_KEY")
 
-        # Override model from environment if set
+        # A development override of the release's model. It is what sessions
+        # open with, so the release fingerprint reports it as drift.
         env_model = os.getenv("GEMINI_LIVE_MODEL")
         if env_model:
+            logger.warning("GEMINI_LIVE_MODEL=%s overrides the release's Live model %s "
+                           "(RELEASE DRIFT)", env_model, config.model)
             config.model = env_model
 
         # Validate configuration

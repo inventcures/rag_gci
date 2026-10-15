@@ -19,18 +19,15 @@ class GeminiLiveClient {
      * @param {Object} options - Configuration options
      * @param {string} options.serverUrl - WebSocket server URL
      * @param {string} [options.language='en-IN'] - Initial language code
-     * @param {string} [options.model] - Gemini Live model ID (server default if omitted)
      * @param {Function} [options.onAudioReceived] - Callback for audio responses
      * @param {Function} [options.onTranscription] - Callback for transcription updates
      * @param {Function} [options.onError] - Callback for errors
      * @param {Function} [options.onStatusChange] - Callback for status updates
      * @param {Function} [options.onConnectionChange] - Callback for connection state changes
-     * @param {Function} [options.onModelChange] - Callback when server confirms a model switch
      */
     constructor(options) {
         this.serverUrl = options.serverUrl;
         this.language = options.language || 'en-IN';
-        this.model = options.model || null;
 
         // Callbacks
         this.onAudioReceived = options.onAudioReceived || (() => {});
@@ -38,7 +35,6 @@ class GeminiLiveClient {
         this.onError = options.onError || console.error;
         this.onStatusChange = options.onStatusChange || (() => {});
         this.onConnectionChange = options.onConnectionChange || (() => {});
-        this.onModelChange = options.onModelChange || (() => {});
 
         // Internal state
         this.ws = null;
@@ -56,7 +52,7 @@ class GeminiLiveClient {
         this.nextPlayTime = 0;
         this.activeSources = new Set();
 
-        // Barge-in noise gate (suppresses ambient noise while the
+        // assistant speaks)
         // assistant speaks; disabled for translation mode)
         this.bargeInGateEnabled = true;
 
@@ -138,9 +134,7 @@ class GeminiLiveClient {
                     // Send initial configuration
                     this.ws.send(JSON.stringify({
                         type: 'config',
-                        language: this.language,
-                        model: this.model,
-                        user_id: this.getUserId()
+                        language: this.language
                     }));
 
                     this.onConnectionChange('connected');
@@ -358,11 +352,6 @@ class GeminiLiveClient {
                     console.log('RAG context injected:', message.chars, 'characters');
                     break;
 
-                case 'model_changed':
-                    console.log('Model changed:', message.model || 'default');
-                    this.onModelChange(message.model);
-                    break;
-
                 default:
                     console.log('Unknown message type:', message.type);
             }
@@ -476,8 +465,7 @@ class GeminiLiveClient {
 
     /**
      * Enable/disable the mic noise gate in the audio worklet.
-     * Active only while the assistant is speaking, and only for
-     * assistant models (translation mode hears everything).
+     * Active only while the assistant is speaking.
      * @param {boolean} enabled - Whether the gate should be active
      */
     setMicGate(enabled) {
@@ -506,23 +494,6 @@ class GeminiLiveClient {
     }
 
     /**
-     * Set the Gemini Live model (e.g., 'gemini-3.1-flash-live-preview').
-     * The server closes the current session; the new model is used from
-     * the next recording onward.
-     * @param {string|null} model - Model ID, or null for the server default
-     */
-    setModel(model) {
-        this.model = model || null;
-
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-                type: 'set_model',
-                model: this.model
-            }));
-        }
-    }
-
-    /**
      * Send a text message (for testing or hybrid mode)
      * @param {string} text - Text to send
      */
@@ -533,19 +504,6 @@ class GeminiLiveClient {
                 text: text
             }));
         }
-    }
-
-    /**
-     * Get or generate a user ID
-     * @returns {string} User ID
-     */
-    getUserId() {
-        let userId = localStorage.getItem('gemini_user_id');
-        if (!userId) {
-            userId = 'web_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('gemini_user_id', userId);
-        }
-        return userId;
     }
 
     /**
@@ -605,7 +563,6 @@ class GeminiLiveClient {
             isPlaying: this.isPlaying,
             isConnected: this.ws?.readyState === WebSocket.OPEN,
             language: this.language,
-            model: this.model,
             audioQueueLength: this.audioQueue.length
         };
     }

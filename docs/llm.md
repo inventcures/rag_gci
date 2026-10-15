@@ -12,7 +12,7 @@ Before this, those calls were spread across Groq (Llama 3.1, Qwen3), OpenAI
 (gpt-4o, gpt-4o-mini), a MedGemma endpoint and Gemini, each with its own key and
 error handling. Those paths are gone.
 
-Gemini Live voice (`gemini-3.8-live`) is a speech model on its own session and is
+Gemini Live voice (the model the study release names, `models.voice_primary.model`) is a speech model on its own session and is
 not part of this client.
 
 ## Configuration
