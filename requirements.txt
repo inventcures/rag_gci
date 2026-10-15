@@ -6,8 +6,8 @@ pydantic>=2.5.0
 python-multipart>=0.0.6
 
 # RAG and ML Dependencies
-chromadb>=0.4.18
-sentence-transformers>=2.2.2
+chromadb==1.5.9  # exact: the stored vectors depend on it (ticket 18)
+sentence-transformers==6.1.0  # exact: the embeddings depend on it
 transformers>=4.36.0
 torch>=2.1.0
 fastembed>=0.1.6
@@ -39,6 +39,11 @@ retell-sdk>=4.0.0  # For Retell.AI Custom LLM integration
 
 # Knowledge Graph
 neo4j>=5.14.0  # Neo4j Python driver for knowledge graph
+
+# GraphRAG (graphrag_integration/). Its own model layer stays off unless it is
+# region-pinned (GraphRAGConfig.model_residency); the answer path reads only
+# the local parquet index. Exact, so a release names what it ran.
+graphrag==3.3.0
 
 # Mobile API Authentication
 PyJWT>=2.8.0

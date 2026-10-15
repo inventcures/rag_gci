@@ -12,6 +12,63 @@ from pathlib import Path
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import types  # noqa: E402
+from contextlib import contextmanager  # noqa: E402
+
+# Indexing calls GraphRAG's own model layer, so since ticket 18 it runs only
+# when that layer is region-pinned (Vertex AI in asia-south1). These settings
+# are, and `no_network_build_index` stands in for GraphRAG's build_index so
+# that no test indexes for real whether or not graphrag is installed.
+PINNED_SETTINGS = {
+    "models": {
+        "default_chat_model": {"type": "chat", "model_provider": "vertex_ai",
+                               "model": "gemini-3.5-flash", "vertex_location": "asia-south1"},
+        "default_embedding_model": {"type": "embedding", "model_provider": "vertex_ai",
+                                    "model": "gemini-embedding-001", "vertex_location": "asia-south1"},
+    }
+}
+
+
+@contextmanager
+def modules_replaced(modules):
+    """Put `modules` in sys.modules for the block, restoring only those names.
+
+    patch.dict(sys.modules) would also drop every module first imported inside
+    the block (numpy through pandas), and numpy cannot be imported twice."""
+    saved = {name: sys.modules.get(name) for name in modules}
+    sys.modules.update(modules)
+    try:
+        yield
+    finally:
+        for name, module in saved.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+
+
+def pinned_config():
+    """A GraphRAGConfig over ./data/graphrag whose model layer is region-pinned."""
+    from graphrag_integration.config import GraphRAGConfig
+
+    return GraphRAGConfig(root_dir="./data/graphrag", settings=PINNED_SETTINGS)
+
+
+@contextmanager
+def no_network_build_index():
+    """GraphRAG's index API replaced by a no-op, so indexing never leaves the process."""
+    async def build_index(*args, **kwargs):
+        return []
+
+    index = types.ModuleType("graphrag.api.index")
+    index.build_index = build_index
+    api = types.ModuleType("graphrag.api")
+    api.build_index, api.index = build_index, index
+    root = types.ModuleType("graphrag")
+    root.api = api
+    with modules_replaced({"graphrag": root, "graphrag.api": api, "graphrag.api.index": index}):
+        yield
+
 
 def test_indexer_creation():
     """Test basic indexer creation."""
@@ -97,12 +154,10 @@ def test_indexer_mock_indexing():
 
 
 def test_indexer_full_index():
-    """Test full indexing pipeline (uses mock if GraphRAG not installed)."""
-    from graphrag_integration.config import GraphRAGConfig
+    """Test the full indexing pipeline with a region-pinned model layer."""
     from graphrag_integration.indexer import GraphRAGIndexer, IndexingStatus
 
-    config = GraphRAGConfig(root_dir="./data/graphrag")
-    indexer = GraphRAGIndexer(config)
+    indexer = GraphRAGIndexer(pinned_config())
 
     progress_updates = []
 
@@ -112,7 +167,8 @@ def test_indexer_full_index():
     indexer.add_callback(track_progress)
 
     # Run indexing
-    result = asyncio.run(indexer.index_documents())
+    with no_network_build_index():
+        result = asyncio.run(indexer.index_documents())
 
     assert result["status"] in ["success", "mock"]
     assert indexer.status == IndexingStatus.COMPLETED
@@ -126,14 +182,13 @@ def test_indexer_full_index():
 
 def test_indexer_stats():
     """Test statistics collection."""
-    from graphrag_integration.config import GraphRAGConfig
     from graphrag_integration.indexer import GraphRAGIndexer
 
-    config = GraphRAGConfig(root_dir="./data/graphrag")
-    indexer = GraphRAGIndexer(config)
+    indexer = GraphRAGIndexer(pinned_config())
 
     # Run indexing first
-    asyncio.run(indexer.index_documents())
+    with no_network_build_index():
+        asyncio.run(indexer.index_documents())
 
     stats = indexer.get_stats()
     assert isinstance(stats, dict)
@@ -149,17 +204,16 @@ def test_indexer_stats():
 
 def test_indexer_error_handling():
     """Test error retrieval."""
-    from graphrag_integration.config import GraphRAGConfig
     from graphrag_integration.indexer import GraphRAGIndexer
 
-    config = GraphRAGConfig(root_dir="./data/graphrag")
-    indexer = GraphRAGIndexer(config)
+    indexer = GraphRAGIndexer(pinned_config())
 
     # Initially no error
     assert indexer.get_error() is None
 
     # After successful indexing, still no error
-    asyncio.run(indexer.index_documents())
+    with no_network_build_index():
+        asyncio.run(indexer.index_documents())
     assert indexer.get_error() is None
 
     print("PASS: Error handling")
