@@ -119,7 +119,19 @@ class TestEvidenceBadges:
         """Test evidence system initialization"""
         system = EvidenceBadgeSystem()
         assert system is not None
-    
+
+    def test_badge_without_distances_says_no_distance_and_claims_no_retrieval_strength(self):
+        """No distance is never treated as a moderate one (an invented 0.5)."""
+        system = EvidenceBadgeSystem()
+        sources = [{"filename": "handbook.pdf"}]
+        answer = "Opioid titration is done by the treating doctor."
+        none = system.calculate_evidence_badge("pain", sources, [], answer).to_dict()
+        weak = system.calculate_evidence_badge("pain", sources, [1.0], answer).to_dict()
+        assert none["mean_distance"] is None
+        assert none["distance_basis"] == "no distance"
+        assert weak["mean_distance"] == 1.0
+        assert none["confidence_score"] < weak["confidence_score"]
+
     def test_source_quality_analysis(self):
         """Test source quality analysis"""
         system = EvidenceBadgeSystem()
