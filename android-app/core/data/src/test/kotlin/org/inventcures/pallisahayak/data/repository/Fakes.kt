@@ -45,10 +45,15 @@ class FakeApi : PalliSahayakApi {
         )
     }
 
-    fun voice(transcript: String, answer: String, emergencyLevel: String = "none") {
+    fun voice(
+        transcript: String,
+        answer: String,
+        emergencyLevel: String = "none",
+        audioBase64: String? = null,
+    ) {
         voiceResponse = VoiceQueryResponse(
             answer = answer,
-            audio_base64 = null,
+            audio_base64 = audioBase64,
             confidence = 0.8,
             disclaimer = null,
             emergency_level = emergencyLevel,

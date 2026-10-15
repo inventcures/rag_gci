@@ -1584,6 +1584,14 @@ old `/api/bolna/query` function route is gone).
 `RETELL_POST_CALL_ANALYSIS=true`) are listed under `providers.outside_india`
 in `data/study/release.yaml`, and `-p r` (`RETELL_ENABLED=true`) is set.
 
+**Who is calling.** When Retell opens `/ws/retell/llm/{call_id}`, the server
+asks Retell's API for that call with `RETELL_API_KEY` and refuses the socket
+unless Retell reports it as a live call (`registered` or `ongoing`) on this
+account. The caller's number, the agent and the call's metadata come from that
+record; the numbers in the socket's `call_details` frame are ignored. No new
+secret: the key the webhooks already use. The server must be able to reach
+`api.retellai.com` when a call connects.
+
 #### ngrok Static Domain Setup (Recommended)
 
 By default, ngrok generates a new random URL each time you restart it. To avoid updating Retell every time, use a **static domain**.

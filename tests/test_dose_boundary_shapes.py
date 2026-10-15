@@ -121,6 +121,146 @@ INFLECTED_SCHEDULE_WORDS = [
 ]
 
 
+# Counts of a dose form and schedules in each Supported Language that Live
+# speaks (final review, round 3, finding 1). Before this, the count nouns were
+# English and Hindi only, so every row here passed the Dose Boundary and Live
+# spoke it. The first rows are the review's own strings.
+# (answer, Supported Language, the dose text that must not reach the participant)
+COUNTS_AND_SCHEDULES_IN_EACH_LANGUAGE = [
+    ("दर चार तासांनी दोन गोळ्या द्या", "mr-IN", "दोन गोळ्या"),
+    ("இரண்டு மாத்திரைகளை ஒவ்வொரு நான்கு மணி நேரத்திற்கும் கொடுக்கவும்", "ta-IN", "இரண்டு மாத்திரைகளை"),
+    ("દર ચાર કલાકે બે ગોળી આપો", "gu-IN", "બે ગોળી"),
+    ("প্রতি চার ঘণ্টা অন্তর দুটি ট্যাবলেট দিন", "bn-IN", "দুটি ট্যাবলেট"),
+    ("காலையில் 2 மாத்திரை சாப்பிடுங்கள்.", "ta-IN", "2 மாத்திரை"),
+    ("দিনে দুবার খান", "bn-IN", "দুবার"),
+    ("दिवसातून दोनदा घ्या", "mr-IN", "दोनदा"),
+    ("ਦੋ ਗੋਲੀਆਂ ਲਓ", "pa-IN", "ਦੋ ਗੋਲੀਆਂ"),
+    ("Take ½ tablet", "en-IN", "½ tablet"),
+    ("Take 1½ tablets at night.", "en-IN", "1½ tablets"),
+    ("Give ¼ tablet when the pain starts.", "en-IN", "¼ tablet"),
+    ("Use ¾ teaspoon of the syrup.", "en-IN", "¾ teaspoon"),
+    ("½ गोली दें।", "hi-IN", "½ गोली"),
+    ("हर चार घंटे में दवा दें।", "hi-IN", "हर चार घंटे"),
+    # Bengali
+    ("রাতে ২টি ট্যাবলেট খান।", "bn-IN", "২টি ট্যাবলেট"),
+    ("দিনে তিন বার এই ওষুধ দিন।", "bn-IN", "তিন বার"),
+    ("প্রতি ৬ ঘণ্টায় ওষুধ দিন।", "bn-IN", "প্রতি ৬ ঘণ্টায়"),
+    ("চোখে দুই ফোঁটা দিন।", "bn-IN", "দুই ফোঁটা"),
+    ("ওষুধটি চার ঘণ্টা পর পর দিন।", "bn-IN", "চার ঘণ্টা পর পর"),
+    # Marathi
+    ("दिवसातून तीन वेळा औषध द्या.", "mr-IN", "तीन वेळा"),
+    ("जेवणानंतर 2 गोळ्या द्या.", "mr-IN", "2 गोळ्या"),
+    ("डोळ्यात दोन थेंब टाका.", "mr-IN", "दोन थेंब"),
+    ("दर ६ तासांनी औषध द्या.", "mr-IN", "दर ६ तासांनी"),
+    # Gujarati
+    ("જમ્યા પછી બે વખત દવા આપો.", "gu-IN", "બે વખત"),
+    ("દર 6 કલાકે દવા આપો.", "gu-IN", "દર 6 કલાકે"),
+    ("એક ચમચી સીરપ આપો.", "gu-IN", "એક ચમચી"),
+    ("અડધી ગોળી આપો.", "gu-IN", "અડધી ગોળી"),
+    # Punjabi
+    ("ਹਰ ਚਾਰ ਘੰਟੇ ਬਾਅਦ ਦਵਾਈ ਦਿਓ।", "pa-IN", "ਹਰ ਚਾਰ ਘੰਟੇ"),
+    ("ਅੱਧੀ ਗੋਲੀ ਦਿਓ।", "pa-IN", "ਅੱਧੀ ਗੋਲੀ"),
+    ("ਅੱਖ ਵਿੱਚ 2 ਬੂੰਦਾਂ ਪਾਓ।", "pa-IN", "2 ਬੂੰਦਾਂ"),
+    # Tamil
+    ("ஒரு நாளைக்கு மூன்று தடவை கொடுக்கவும்.", "ta-IN", "மூன்று தடவை"),
+    ("இரண்டு சொட்டு கண்ணில் விடவும்.", "ta-IN", "இரண்டு சொட்டு"),
+    ("அரை மாத்திரை கொடுக்கவும்.", "ta-IN", "அரை மாத்திரை"),
+    ("இரவில் இரண்டு வேளை கொடுக்கவும்.", "ta-IN", "இரண்டு வேளை"),
+    # Telugu
+    ("రెండు మాత్రలు వేసుకోండి.", "te-IN", "రెండు మాత్రలు"),
+    ("ప్రతి నాలుగు గంటలకు మందు ఇవ్వండి.", "te-IN", "ప్రతి నాలుగు గంటలకు"),
+    ("నాలుగు గంటలకోసారి మందు ఇవ్వండి.", "te-IN", "నాలుగు గంటలకోసారి"),
+    ("అర మాత్ర ఇవ్వండి.", "te-IN", "అర మాత్ర"),
+    # Kannada
+    ("ಎರಡು ಮಾತ್ರೆಗಳನ್ನು ನೀಡಿ.", "kn-IN", "ಎರಡು ಮಾತ್ರೆಗಳನ್ನು"),
+    ("ಪ್ರತಿ ನಾಲ್ಕು ಗಂಟೆಗೆ ಔಷಧಿ ನೀಡಿ.", "kn-IN", "ಪ್ರತಿ ನಾಲ್ಕು ಗಂಟೆಗೆ"),
+    ("ನಾಲ್ಕು ಗಂಟೆಗೊಮ್ಮೆ ಔಷಧಿ ನೀಡಿ.", "kn-IN", "ನಾಲ್ಕು ಗಂಟೆಗೊಮ್ಮೆ"),
+    ("ಮೂರು ಸಲ ಔಷಧಿ ನೀಡಿ.", "kn-IN", "ಮೂರು ಸಲ"),
+    # Malayalam
+    ("രണ്ട് ഗുളിക കഴിക്കുക.", "ml-IN", "രണ്ട് ഗുളിക"),
+    ("ഓരോ നാല് മണിക്കൂറിലും മരുന്ന് നൽകുക.", "ml-IN", "ഓരോ നാല് മണിക്കൂറിലും"),
+    ("ദിവസം മൂന്നു നേരം മരുന്ന് നൽകുക.", "ml-IN", "മൂന്നു നേരം"),
+    ("ദിവസം രണ്ട് തവണ മരുന്ന് നൽകുക.", "ml-IN", "രണ്ട് തവണ"),
+    ("കണ്ണിൽ രണ്ടു തുള്ളി ഒഴിക്കുക.", "ml-IN", "രണ്ടു തുള്ളി"),
+    # Odia
+    ("ଦୁଇଟି ଟାବଲେଟ ଦିଅନ୍ତୁ।", "od-IN", "ଦୁଇଟି ଟାବଲେଟ"),
+    ("ପ୍ରତି ଚାରି ଘଣ୍ଟାରେ ଔଷଧ ଦିଅନ୍ତୁ।", "od-IN", "ପ୍ରତି ଚାରି ଘଣ୍ଟାରେ"),
+    ("ତିନି ଥର ଔଷଧ ଦିଅନ୍ତୁ।", "od-IN", "ତିନି ଥର"),
+]
+
+# Ordinary sentences built from the same words: a number word with no dose
+# form after it, a time span with no "every", "give" (Bengali "দিন" is also
+# "day"), "perhaps" (Tamil "ஒரு வேளை"), "only" (Telugu "మాత్రమే" starts with
+# "మాత్ర"), "advice" (Kannada "ಸಲಹೆ" starts with "ಸಲ"), "o'clock".
+# Each must reach the participant untouched.
+ORDINARY_SENTENCES_WITH_COUNT_WORDS = [
+    ("রোগীকে জল দিন।", "bn-IN"),
+    ("দুই ঘণ্টা বিশ্রাম নিন।", "bn-IN"),
+    ("আমি আপনাকে দুটি কথা বলি।", "bn-IN"),
+    ("चार तासांनी परत या.", "mr-IN"),
+    ("दोन गोष्टी लक्षात ठेवा.", "mr-IN"),
+    ("બે દીકરા ઘરે છે.", "gu-IN"),
+    ("ਦੋ ਗੱਲਾਂ ਯਾਦ ਰੱਖੋ।", "pa-IN"),
+    ("ஒரு வேளை வலி அதிகமானால் மருத்துவரை அழைக்கவும்.", "ta-IN"),
+    ("நான்கு மணிக்கு மருத்துவர் வருவார்.", "ta-IN"),
+    ("రెండు మాత్రమే మిగిలాయి.", "te-IN"),
+    ("ಎರಡು ಸಲಹೆಗಳನ್ನು ನೆನಪಿಡಿ.", "kn-IN"),
+    ("രണ്ട് കുട്ടികൾ വീട്ടിലുണ്ട്.", "ml-IN"),
+    ("കുറച്ച് നേരം വിശ്രമിക്കുക.", "ml-IN"),
+    ("ଦୁଇ ଜଣ ଘରେ ଅଛନ୍ତି।", "od-IN"),
+    ("About ½ of patients feel tired.", "en-IN"),
+]
+
+
+class TestCountsAndSchedulesInEveryLanguage(unittest.TestCase):
+    """A tablet count or a schedule is withheld in every Supported Language."""
+
+    def test_count_or_schedule_in_each_language_is_withheld(self):
+        for answer, language, dose in COUNTS_AND_SCHEDULES_IN_EACH_LANGUAGE:
+            with self.subTest(language=language, answer=answer):
+                result = DosageGuard().apply(answer, language=language, query=QUESTION)
+                self.assertTrue(result.blocked, f"dose passed the gate: {answer!r}")
+                self.assertNotIn(dose, result.response)
+
+    def test_the_whole_count_or_schedule_is_found(self):
+        """The detector reports the dose span itself, not a fragment beside it."""
+        import dose_detector
+
+        for answer, _language, dose in COUNTS_AND_SCHEDULES_IN_EACH_LANGUAGE:
+            with self.subTest(answer=answer):
+                found = [f.pattern for f in dose_detector.detect_doses(answer)]
+                self.assertTrue(
+                    any(dose in p or p in dose for p in found), f"{dose!r} not in {found}"
+                )
+
+    def test_ordinary_sentence_with_a_count_word_passes_untouched(self):
+        for answer, language in ORDINARY_SENTENCES_WITH_COUNT_WORDS:
+            with self.subTest(language=language, answer=answer):
+                result = DosageGuard().apply(answer, language=language, query=QUESTION)
+                self.assertFalse(result.blocked, f"redacted a non-dose: {result.findings}")
+                self.assertEqual(result.response, answer)
+
+    def test_a_nukta_letter_matches_in_either_encoding(self):
+        """"দেড়" (one and a half) is one code point or two, depending on the keyboard."""
+        import dose_detector
+
+        for rra in ("ড়", "ড়"):
+            answer = f"দে{rra} ট্যাবলেট দিন।"
+            with self.subTest(encoding=[hex(ord(c)) for c in rra]):
+                self.assertTrue(dose_detector.contains_dose(answer))
+
+    def test_live_withholds_the_review_turns(self):
+        """Live's audio is withheld for each turn the review heard released."""
+        from gemini_live.turn_release import check_live_turn
+
+        for answer, language, _dose in COUNTS_AND_SCHEDULES_IN_EACH_LANGUAGE[:4]:
+            with self.subTest(language=language):
+                release = check_live_turn([b"audio"], answer, QUESTION, language)
+                self.assertTrue(release.dosage_blocked)
+                self.assertTrue(release.withheld)
+                self.assertEqual(release.audio, [])
+
+
 class TestIndicWordsMatchWholeWordsOnly(unittest.TestCase):
     """An Indic dose word inside a longer word is not a dose."""
 

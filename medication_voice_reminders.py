@@ -30,7 +30,7 @@ import time
 import hashlib
 import random
 
-from reminder_text import ensure_dose_free, medicine_label
+from reminder_text import ensure_dose_free, medicine_label, strip_doses
 
 # Setup logger first
 logger = logging.getLogger(__name__)
@@ -156,10 +156,18 @@ class MedicationVoiceReminder:
         }
 
     def to_client_dict(self) -> Dict[str, Any]:
-        """The reminder as the mobile app receives it: no dose, no call script."""
+        """The reminder as the mobile app receives it: no dose, no call script.
+
+        A dose typed into the medicine name or the notes is removed too
+        (decisions D33, D34): "Paracetamol 500mg twice daily" reaches the app as
+        "Paracetamol", and a name that is only a dose as "your medicine". The
+        stored reminder keeps what was written.
+        """
         data = self.to_dict()
         for name in self.CLIENT_HIDDEN_FIELDS:
             data.pop(name, None)
+        data["medication_name"] = medicine_label(self.medication_name, self.language)
+        data["notes"] = strip_doses(self.notes)
         return data
 
 

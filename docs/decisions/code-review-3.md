@@ -150,3 +150,21 @@ Decisions taken while implementing the 26 tickets with Matt Pocock's `implement`
 - Admin: the Notify tab is gone.
 
 **For the clinical lead:** the handoff copy still says "A healthcare professional will contact you shortly", but no one is assigned to handoff requests (see the 2026-10-15 handoff decision). That promise needs an owner or a rewording.
+
+### Final review fixes
+
+A review of the whole round-3 change (`b1f0ea4..b936db5`) found ten defects, each traced to a concrete input. All ten are fixed here, each with a test that failed on the old code.
+
+| # | Decision | Why |
+|---|---|---|
+| D56 | The Dose Boundary catches tablet counts, "N times a day" and "every N hours" in every Supported Language (bn, mr, gu, pa, ta, te, kn, ml, or and hi were missing them), plus ½ ¼ ¾ fractions. "Times" words count only after a number and interval words only after "every + number", as in English. Ambiguous bare words (Bengali দিন, Tamil வேளை) are not dose words. The Android detector mirrors the same tables. | Live answers in the caller's language, and four Live turns that named a count and schedule were released with the audio. The wave-1 note that counts are withheld "in every Supported Language" is only true from here on. |
+| D57 | When the Emergency Override fires, Live's audio is withheld on web voice and WhatsApp, and the guarded text (108 guidance first) is spoken instead. Spoken text keeps a bracketed phone number such as "(108/102)". | Live's own audio carried the dose and never the 108 guidance. The citation stripper removed the number from the spoken guidance in all eleven languages. |
+| D58 | WhatsApp clarification questions pass the Dose Boundary; blocked ones are dropped. A stalled WhatsApp Live session is closed. After a Live answer was recorded, a later failure does not also answer on Sarvam. `/remind` promises voice calls only when the release allows Bolna. | Each was a model text sent unguarded, a stale reply to the next voice note, a second answer and row, or a promise the default release refuses. |
+| D59 | `/api/medication/voice-reminder/callback` is admin-only. `/ws/retell/llm/{call_id}` serves only a call Retell's API confirms as live, and takes the caller's number from that record, never from a client frame. | Neither was verified, and the Retell socket let anyone claim a participant's number. Retell appends the call id to the URL, so a query-string secret would not work, and it would not have fixed the identity. |
+| D60 | Mobile reminders return the medicine name and notes without a dose. The Android app plays the server's audio only when its own Dose Boundary leaves the answer whole. | A dose typed into the name came back as written, and the on-device check protected only the text. |
+
+**What participants will notice (needs a study release):** counts and schedules in every language are withheld (some nursing advice such as "turn every two hours" is now withheld too, the safe direction, as in English); emergencies on Live voice speak the 108 guidance first; WhatsApp never asks a clarifying question that names a dose; app reminders show no dose.
+
+**Operators:** the Retell socket needs `RETELL_API_KEY` and outbound access to api.retellai.com when a call connects.
+
+**For the clinical lead's review:** the new count, schedule and interval words in ten languages (listed in the PR). Still open: `/remind` creates Bolna voice reminders under the default release, which are refused and marked failed.

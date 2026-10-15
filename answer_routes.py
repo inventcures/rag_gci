@@ -97,7 +97,7 @@ NO_ANSWER_TEXT: Dict[str, str] = {
     # Medication reminders (ticket 06 keeps doses out of what they say)
     "POST /api/medication/voice-reminder": "schedules a reminder call",
     "GET /api/medication/voice-reminders/{user_id}": _RECORD,
-    "POST /api/medication/voice-reminder/callback": "provider callback",
+    "POST /api/medication/voice-reminder/callback": "records a call outcome (admin)",
     "GET /api/medication/adherence/{user_id}": _RECORD,
     "GET /api/medication/pending-calls": _RECORD,
     # Knowledge graph and GraphRAG administration

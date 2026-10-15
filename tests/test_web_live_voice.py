@@ -350,6 +350,34 @@ class WhatLiveSaysPassesTheDoseBoundary(WebVoiceSocket):
         spoken = [f for f in frames if f["type"] == "transcription" and f.get("role") == "assistant"]
         self.assertEqual(spoken[0]["text"], deferral_for("en-IN"))
 
+    def test_under_the_emergency_override_the_guidance_is_spoken_instead_of_lives_audio(self):
+        """The Emergency Override keeps the text, guidance first; Live's own
+        audio never carried that guidance, so it is withheld and the guarded
+        text is spoken instead."""
+        from dosage_guard import emergency_guidance_for
+
+        said: List[str] = []
+
+        async def speak(text: str, language: str) -> bytes:
+            said.append(text)
+            return b"SPOKEN-GUIDED-TEXT"
+
+        ScriptedLiveService.script = [([b"LIVE-DOSE-AUDIO"], "Give morphine 10 mg now.",
+                                       "My father is not breathing and unconscious")]
+        with mock.patch("web_voice_fallback.speak_for_web", speak):
+            with self.client.websocket_connect("/ws/voice") as ws:
+                self.start(ws, {})
+                frames = self.turn(ws)
+        audio = [f["bytes"] for f in frames if f["type"] == "audio"]
+        self.assertNotIn(b"LIVE-DOSE-AUDIO", audio)
+        self.assertEqual(audio, [b"SPOKEN-GUIDED-TEXT"])
+        self.assertEqual(len(said), 1)
+        # Heard first, with the number to call (not cut as a citation would be).
+        self.assertTrue(said[0].startswith("Call emergency services 108/102 immediately!"), said[0])
+        spoken = [f for f in frames if f["type"] == "transcription" and f.get("role") == "assistant"]
+        self.assertTrue(spoken[0]["text"].startswith(emergency_guidance_for("en-IN")))
+        self.assertTrue(spoken[0].get("withheld"))
+
     def test_the_deferral_is_in_the_sessions_language(self):
         from dosage_guard import deferral_for
 

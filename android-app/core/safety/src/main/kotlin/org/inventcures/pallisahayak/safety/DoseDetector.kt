@@ -1,5 +1,7 @@
 package org.inventcures.pallisahayak.safety
 
+import java.text.Normalizer
+
 /**
  * Detects dose-shaped text in a response.
  *
@@ -11,12 +13,15 @@ package org.inventcures.pallisahayak.safety
  *
  * What counts as a dose (one reason per family, the names the study rows store):
  *
- *     numeric_dose   a number, in digits or in English or Hindi words, followed
- *                    by a unit: "mg", "milligrams", or the unit word of any
- *                    Supported Language in its own script
- *     fraction_dose  a count of a dose form: "half a tablet", "2 puffs", "३ गोली"
+ *     numeric_dose   a number, in digits (with "½", "¼", "¾") or in the words of
+ *                    any Supported Language, followed by a unit: "mg",
+ *                    "milligrams", or the unit word of any Supported Language
+ *                    in its own script
+ *     fraction_dose  a count of a dose form: "half a tablet", "2 puffs", "३ गोली",
+ *                    "দুটি ট্যাবলেট", "2 மாத்திரை"
  *     frequency      a schedule: "twice daily", "every four hours", "4-hourly",
- *                    "q4h", "BD", and the Indic day and time words
+ *                    "q4h", "BD", the Indic day and time words, and the Indic
+ *                    "N times" and "every N hours" ("দুবার", "दर चार तासांनी")
  *     titration      dose changes: "titrate", "step up", "maximum dose"
  *     start_stop     start, stop and switch decisions
  *
@@ -44,6 +49,18 @@ object DoseDetector {
     private const val DIGIT = "\\p{Nd}"
 
     private const val SNIPPET_CONTEXT = 40
+
+    /**
+     * The Indic letters with a nukta that Unicode never composes (NFC leaves
+     * "ড়" as "ড" + "়"), from the two-character form to the one character.
+     */
+    private val NUKTA_COMPOSED: Map<String, String> = (0x0900 until 0x0E00)
+        .map { String(Character.toChars(it)) }
+        .filter { ch ->
+            val nfd = Normalizer.normalize(ch, Normalizer.Form.NFD)
+            nfd.length == 2 && Normalizer.normalize(nfd, Normalizer.Form.NFC) != ch
+        }
+        .associateBy { Normalizer.normalize(it, Normalizer.Form.NFD) }
 
     private val LETTER_OR_MARK: String = letterOrMarkClass()
     private val INDIC_START = "(?<!$LETTER_OR_MARK)"
@@ -73,11 +90,22 @@ object DoseDetector {
     private val EN_WORD = alternation(DoseVocabulary.EN_NUMBER_WORDS)
     private val EN_NUMBER_PHRASE =
         "$B$EN_WORD(?:(?:\\s+|-)(?:and\\s+)?(?:a\\s+)?$EN_WORD)*$B"
-    private val HI_NUMBER_PHRASE = wholeWords(DoseVocabulary.HI_NUMBER_WORDS)
+    private val INDIC_NUMBER_PHRASE = wholeWords(
+        DoseVocabulary.HI_NUMBER_WORDS + DoseVocabulary.INDIC_NUMBER_WORDS.values.flatten(),
+    )
+
+    // Vulgar fractions are Unicode "No", not digits, so "½ tablet" needs them listed.
+    private const val FRACTIONS = "½¼¾⅓⅔⅛"
 
     // Not preceded by a letter, so "SpO2 drop" or "B12" does not start a dose.
-    private const val DIGITS = "(?<![A-Za-z])$DIGIT+(?:[.,/]$DIGIT+)?"
-    private val NUMBER = "(?:$DIGITS|$EN_NUMBER_PHRASE|$HI_NUMBER_PHRASE)"
+    private const val DIGITS =
+        "(?<![A-Za-z])(?:$DIGIT+(?:[.,/]$DIGIT+)?(?:\\s?[$FRACTIONS])?|[$FRACTIONS])"
+    private val NUMBER = "(?:$DIGITS|$EN_NUMBER_PHRASE|$INDIC_NUMBER_PHRASE)"
+
+    // A number as Indic answers write it: digits (with a Bengali or Odia count
+    // word joined on, "২টি"), or a number word of any Supported Language.
+    private val INDIC_COUNT =
+        "(?:$DIGITS(?:\\s?${wholeWords(DoseVocabulary.INDIC_COUNT_CLASSIFIERS)})?|$INDIC_NUMBER_PHRASE)"
 
     private val LATIN_UNIT = LATIN_UNITS.joinToString("|", "(?:", ")") + "(?![A-Za-z])"
 
@@ -93,7 +121,8 @@ object DoseDetector {
             COUNT_NOUNS_AFTER_ARTICLE.joinToString("|", "(?:", ")") + B +
             "|$NUMBER\\s+(?:of\\s+a\\s+)?" +
             COUNT_NOUNS_AFTER_NUMBER.joinToString("|", "(?:", ")") + B +
-            "|(?:$DIGITS|$HI_NUMBER_PHRASE)\\s*" + wholeWords(DoseVocabulary.HI_COUNT_NOUNS)
+            "|$INDIC_COUNT\\s*" +
+            wholeWords(DoseVocabulary.HI_COUNT_NOUNS + DoseVocabulary.INDIC_COUNT_NOUNS.values.flatten())
 
     private val INTERVAL = "(?:$DIGIT+(?:\\s*(?:-|–|to)\\s*$DIGIT+)?|$EN_NUMBER_PHRASE)"
 
@@ -110,7 +139,13 @@ object DoseDetector {
             "|${B}nocte$B|${B}mane$B" +
             // Upper case only: "bid" and "bd" are ordinary words in lower case.
             "|(?-i:$B(?:BD|BID|TDS|TID|QDS|QID)$B)" +
-            "|" + wholeWords(DoseVocabulary.INDIC_FREQUENCY_WORDS.values.flatten())
+            "|" + wholeWords(DoseVocabulary.INDIC_FREQUENCY_WORDS.values.flatten()) +
+            // "N times" and "once every N hours" in the Indic languages: "তিন বার".
+            "|$INDIC_COUNT\\s*" + wholeWords(DoseVocabulary.INDIC_TIMES_WORDS.values.flatten()) +
+            // "Every N hours": "दर चार तासांनी", "ஒவ்வொரு நான்கு மணி", "প্রতি ৬ ঘণ্টায়".
+            "|" + wholeWords(DoseVocabulary.INDIC_EVERY_WORDS.values.flatten()) + "\\s*$INDIC_COUNT" +
+            "(?:\\s*[-–]\\s*$INDIC_COUNT)?\\s*" +
+            wholeWords(DoseVocabulary.INDIC_INTERVAL_WORDS.values.flatten())
 
     private const val TITRATION_RE =
         "${B}titrate$B|${B}titrating$B|${B}step\\s*up$B|${B}step\\s*down$B" +
@@ -186,7 +221,9 @@ object DoseDetector {
      * "मि. ग्रा.", "मि.ग्रा"), and a space may be dropped ("एम जी", "एमजी").
      */
     private fun alternation(words: Collection<String>): String =
-        words.toSet().sortedByDescending { it.length }.joinToString("|", "(?:", ")") { word ->
+        words.flatMap(::spellings).toSet()
+            .sortedWith(compareByDescending<String> { it.length }.thenBy { it })
+            .joinToString("|", "(?:", ")") { word ->
             buildString {
                 for (ch in word) {
                     when {
@@ -200,6 +237,19 @@ object DoseDetector {
         }
 
     private const val REGEX_META = "\\^$|?*+()[]{}"
+
+    /**
+     * [word] in each Unicode encoding text arrives in: composed, decomposed, and
+     * with any nukta letter as one character ("ড়") or two ("ড" + "়"). The same
+     * word typed on two keyboards can differ this way, and the regex compares
+     * code points. The server builds the same set (`_spellings`).
+     */
+    private fun spellings(word: String): List<String> {
+        val composed = Normalizer.normalize(word, Normalizer.Form.NFC)
+        var oneCharNukta = composed
+        for ((pair, single) in NUKTA_COMPOSED) oneCharNukta = oneCharNukta.replace(pair, single)
+        return listOf(word, composed, Normalizer.normalize(word, Normalizer.Form.NFD), oneCharNukta)
+    }
 
     /**
      * A character class of every letter and combining mark in the Latin and

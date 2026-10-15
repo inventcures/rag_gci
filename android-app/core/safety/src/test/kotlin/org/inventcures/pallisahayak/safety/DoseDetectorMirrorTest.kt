@@ -124,6 +124,95 @@ class DoseDetectorMirrorTest {
         }
     }
 
+    /**
+     * The server's COUNTS_AND_SCHEDULES_IN_EACH_LANGUAGE rows (final review,
+     * round 3, finding 1): before them, counts were English and Hindi only.
+     */
+    @Test
+    fun `a count or schedule in each language is withheld`() {
+        val rows = listOf(
+            Triple("दर चार तासांनी दोन गोळ्या द्या", "mr-IN", "दोन गोळ्या"),
+            Triple("இரண்டு மாத்திரைகளை ஒவ்வொரு நான்கு மணி நேரத்திற்கும் கொடுக்கவும்", "ta-IN", "இரண்டு மாத்திரைகளை"),
+            Triple("દર ચાર કલાકે બે ગોળી આપો", "gu-IN", "બે ગોળી"),
+            Triple("প্রতি চার ঘণ্টা অন্তর দুটি ট্যাবলেট দিন", "bn-IN", "দুটি ট্যাবলেট"),
+            Triple("காலையில் 2 மாத்திரை சாப்பிடுங்கள்.", "ta-IN", "2 மாத்திரை"),
+            Triple("দিনে দুবার খান", "bn-IN", "দুবার"),
+            Triple("दिवसातून दोनदा घ्या", "mr-IN", "दोनदा"),
+            Triple("ਦੋ ਗੋਲੀਆਂ ਲਓ", "pa-IN", "ਦੋ ਗੋਲੀਆਂ"),
+            Triple("Take ½ tablet", "en-IN", "½ tablet"),
+            Triple("Take 1½ tablets at night.", "en-IN", "1½ tablets"),
+            Triple("Give ¼ tablet when the pain starts.", "en-IN", "¼ tablet"),
+            Triple("Use ¾ teaspoon of the syrup.", "en-IN", "¾ teaspoon"),
+            Triple("½ गोली दें।", "hi-IN", "½ गोली"),
+            Triple("हर चार घंटे में दवा दें।", "hi-IN", "हर चार घंटे"),
+            Triple("রাতে ২টি ট্যাবলেট খান।", "bn-IN", "২টি ট্যাবলেট"),
+            Triple("দিনে তিন বার এই ওষুধ দিন।", "bn-IN", "তিন বার"),
+            Triple("প্রতি ৬ ঘণ্টায় ওষুধ দিন।", "bn-IN", "প্রতি ৬ ঘণ্টায়"),
+            Triple("চোখে দুই ফোঁটা দিন।", "bn-IN", "দুই ফোঁটা"),
+            Triple("ওষুধটি চার ঘণ্টা পর পর দিন।", "bn-IN", "চার ঘণ্টা পর পর"),
+            Triple("दिवसातून तीन वेळा औषध द्या.", "mr-IN", "तीन वेळा"),
+            Triple("जेवणानंतर 2 गोळ्या द्या.", "mr-IN", "2 गोळ्या"),
+            Triple("डोळ्यात दोन थेंब टाका.", "mr-IN", "दोन थेंब"),
+            Triple("दर ६ तासांनी औषध द्या.", "mr-IN", "दर ६ तासांनी"),
+            Triple("જમ્યા પછી બે વખત દવા આપો.", "gu-IN", "બે વખત"),
+            Triple("દર 6 કલાકે દવા આપો.", "gu-IN", "દર 6 કલાકે"),
+            Triple("એક ચમચી સીરપ આપો.", "gu-IN", "એક ચમચી"),
+            Triple("અડધી ગોળી આપો.", "gu-IN", "અડધી ગોળી"),
+            Triple("ਹਰ ਚਾਰ ਘੰਟੇ ਬਾਅਦ ਦਵਾਈ ਦਿਓ।", "pa-IN", "ਹਰ ਚਾਰ ਘੰਟੇ"),
+            Triple("ਅੱਧੀ ਗੋਲੀ ਦਿਓ।", "pa-IN", "ਅੱਧੀ ਗੋਲੀ"),
+            Triple("ਅੱਖ ਵਿੱਚ 2 ਬੂੰਦਾਂ ਪਾਓ।", "pa-IN", "2 ਬੂੰਦਾਂ"),
+            Triple("ஒரு நாளைக்கு மூன்று தடவை கொடுக்கவும்.", "ta-IN", "மூன்று தடவை"),
+            Triple("இரண்டு சொட்டு கண்ணில் விடவும்.", "ta-IN", "இரண்டு சொட்டு"),
+            Triple("அரை மாத்திரை கொடுக்கவும்.", "ta-IN", "அரை மாத்திரை"),
+            Triple("இரவில் இரண்டு வேளை கொடுக்கவும்.", "ta-IN", "இரண்டு வேளை"),
+            Triple("రెండు మాత్రలు వేసుకోండి.", "te-IN", "రెండు మాత్రలు"),
+            Triple("ప్రతి నాలుగు గంటలకు మందు ఇవ్వండి.", "te-IN", "ప్రతి నాలుగు గంటలకు"),
+            Triple("నాలుగు గంటలకోసారి మందు ఇవ్వండి.", "te-IN", "నాలుగు గంటలకోసారి"),
+            Triple("అర మాత్ర ఇవ్వండి.", "te-IN", "అర మాత్ర"),
+            Triple("ಎರಡು ಮಾತ್ರೆಗಳನ್ನು ನೀಡಿ.", "kn-IN", "ಎರಡು ಮಾತ್ರೆಗಳನ್ನು"),
+            Triple("ಪ್ರತಿ ನಾಲ್ಕು ಗಂಟೆಗೆ ಔಷಧಿ ನೀಡಿ.", "kn-IN", "ಪ್ರತಿ ನಾಲ್ಕು ಗಂಟೆಗೆ"),
+            Triple("ನಾಲ್ಕು ಗಂಟೆಗೊಮ್ಮೆ ಔಷಧಿ ನೀಡಿ.", "kn-IN", "ನಾಲ್ಕು ಗಂಟೆಗೊಮ್ಮೆ"),
+            Triple("ಮೂರು ಸಲ ಔಷಧಿ ನೀಡಿ.", "kn-IN", "ಮೂರು ಸಲ"),
+            Triple("രണ്ട് ഗുളിക കഴിക്കുക.", "ml-IN", "രണ്ട് ഗുളിക"),
+            Triple("ഓരോ നാല് മണിക്കൂറിലും മരുന്ന് നൽകുക.", "ml-IN", "ഓരോ നാല് മണിക്കൂറിലും"),
+            Triple("ദിവസം മൂന്നു നേരം മരുന്ന് നൽകുക.", "ml-IN", "മൂന്നു നേരം"),
+            Triple("ദിവസം രണ്ട് തവണ മരുന്ന് നൽകുക.", "ml-IN", "രണ്ട് തവണ"),
+            Triple("കണ്ണിൽ രണ്ടു തുള്ളി ഒഴിക്കുക.", "ml-IN", "രണ്ടു തുള്ളി"),
+            Triple("ଦୁଇଟି ଟାବଲେଟ ଦିଅନ୍ତୁ।", "od-IN", "ଦୁଇଟି ଟାବଲେଟ"),
+            Triple("ପ୍ରତି ଚାରି ଘଣ୍ଟାରେ ଔଷଧ ଦିଅନ୍ତୁ।", "od-IN", "ପ୍ରତି ଚାରି ଘଣ୍ଟାରେ"),
+            Triple("ତିନି ଥର ଔଷଧ ଦିଅନ୍ତୁ।", "od-IN", "ତିନି ଥର"),
+            // "দেড়" (one and a half) with the nukta letter as two code points.
+            Triple("দেড় ট্যাবলেট দিন।", "bn-IN", "ট্যাবলেট"),
+        )
+        for ((answer, language, dose) in rows) assertDoseWithheld(answer, language, dose)
+    }
+
+    @Test
+    fun `an ordinary sentence with a count word passes untouched`() {
+        val rows = listOf(
+            "রোগীকে জল দিন।" to "bn-IN",
+            "দুই ঘণ্টা বিশ্রাম নিন।" to "bn-IN",
+            "আমি আপনাকে দুটি কথা বলি।" to "bn-IN",
+            "चार तासांनी परत या." to "mr-IN",
+            "दोन गोष्टी लक्षात ठेवा." to "mr-IN",
+            "બે દીકરા ઘરે છે." to "gu-IN",
+            "ਦੋ ਗੱਲਾਂ ਯਾਦ ਰੱਖੋ।" to "pa-IN",
+            "ஒரு வேளை வலி அதிகமானால் மருத்துவரை அழைக்கவும்." to "ta-IN",
+            "நான்கு மணிக்கு மருத்துவர் வருவார்." to "ta-IN",
+            "రెండు మాత్రమే మిగిలాయి." to "te-IN",
+            "ಎರಡು ಸಲಹೆಗಳನ್ನು ನೆನಪಿಡಿ." to "kn-IN",
+            "രണ്ട് കുട്ടികൾ വീട്ടിലുണ്ട്." to "ml-IN",
+            "കുറച്ച് നേരം വിശ്രമിക്കുക." to "ml-IN",
+            "ଦୁଇ ଜଣ ଘରେ ଅଛନ୍ତି।" to "od-IN",
+            "About ½ of patients feel tired." to "en-IN",
+        )
+        for ((answer, language) in rows) {
+            val result = boundary.apply(answer, language = language)
+            assertWithMessage("findings for $answer").that(result.doseFindings).isEmpty()
+            assertThat(result.text).isEqualTo(answer)
+        }
+    }
+
     @Test
     fun `stage IV is not read as the IV route`() {
         val answer = "Stage IV cancer can still be cared for at home with good support."
