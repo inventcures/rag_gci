@@ -479,6 +479,7 @@ class RetellCustomLLMHandler:
                             redacted=stream.redacted)
 
             if stream.sent:
+                result.setdefault("safety", {}).update(stream.safety_record())
                 await say(self._streamed_tail(session, stream, result, user_query), True)
                 return
 
@@ -519,7 +520,10 @@ class RetellCustomLLMHandler:
         generation (guarded on its own), then the spoken evidence note."""
         final = result.get("answer", "") if result.get("status") == "success" else ""
         remainder = final[len(stream.text):].strip() if final.startswith(stream.text) else ""
-        if remainder:
+        # Under the Emergency Override the stream has already spoken the 108
+        # guidance and the guard would leave the tail's text as it is, so the
+        # tail is not guarded again (that would speak the guidance twice).
+        if remainder and not stream.emergency:
             from safety_enhancements import guard_query_result
             tail = {"status": "success", "answer": remainder, "sources": []}
             guard_query_result(tail, query=user_query, language=session.language)

@@ -158,12 +158,20 @@ class TestGuardBehaviour(unittest.TestCase):
                 self.assertIn(expected, result.response)
 
     def test_emergency_overrides_the_refusal(self):
-        """A refusal must never swallow a myocardial infarction."""
+        """A refusal must never swallow a myocardial infarction.
+
+        The override comes from the CRITICAL alert on the question, passed in;
+        the "Call 108" in the answer plays no part (tests/test_emergency_override.py).
+        """
+        from safety_enhancements import EmergencyDetectionSystem
+
+        query = "patient has crushing chest pain, give me an ambulance"
         guard = DosageGuard()
         result = guard.apply(
             "Call 108 now. The patient has severe chest pain and is struggling to breathe.",
             language="en-IN",
-            query="patient has crushing chest pain, give me an ambulance",
+            query=query,
+            alert=EmergencyDetectionSystem().detect_emergency(query, None, "en-IN"),
         )
         self.assertFalse(result.blocked)
         self.assertTrue(result.emergency_overrode)

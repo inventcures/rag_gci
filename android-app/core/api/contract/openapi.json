@@ -231,10 +231,18 @@
         "type": "object"
       },
       "CreateReminderRequest": {
+        "description": "A reminder call from the app. The dosage, if sent, is stored with the\nreminder and never spoken (ADR 0004, decision D10). A call needs a phone\nnumber; a request without one is refused rather than scheduled.",
         "properties": {
           "dosage": {
-            "title": "Dosage",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dosage"
           },
           "frequency": {
             "anyOf": [
@@ -259,6 +267,17 @@
             "title": "Patient Id",
             "type": "string"
           },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
+          },
           "scheduled_time": {
             "title": "Scheduled Time",
             "type": "number"
@@ -267,7 +286,6 @@
         "required": [
           "patient_id",
           "medication_name",
-          "dosage",
           "scheduled_time",
           "language"
         ],
@@ -859,6 +877,69 @@
         "title": "SusSubmissionResponse",
         "type": "object"
       },
+      "SyncAcknowledgement": {
+        "description": "The server's answer for one pushed item.\n\nThe app removes an item from its queue only when its acknowledgement says\naccepted. `index` is the item's position in its list of the push; `id` is\nthe id the server stored it under.",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "observation",
+              "medication_reminder",
+              "interaction_log",
+              "vignette_response"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "invalid",
+                  "not_owned",
+                  "save_failed",
+                  "unavailable",
+                  "over_limit"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "index",
+          "status"
+        ],
+        "title": "SyncAcknowledgement",
+        "type": "object"
+      },
       "SyncPullResponse": {
         "properties": {
           "care_team_members": {
@@ -1009,6 +1090,13 @@
             "title": "Accepted",
             "type": "integer"
           },
+          "acknowledgements": {
+            "items": {
+              "$ref": "#/components/schemas/SyncAcknowledgement"
+            },
+            "title": "Acknowledgements",
+            "type": "array"
+          },
           "conflicts": {
             "items": {
               "additionalProperties": true,
@@ -1025,6 +1113,7 @@
         "required": [
           "accepted",
           "rejected",
+          "acknowledgements",
           "conflicts"
         ],
         "title": "SyncPushResponse",
@@ -1497,6 +1586,7 @@
     },
     "/api/mobile/v1/evaluation/export": {
       "get": {
+        "description": "SUS scores, vignette responses and interaction logs as CSV.\n\nA participant gets only their own records; an auditor gets everyone's.",
         "operationId": "export_evaluation_data_api_mobile_v1_evaluation_export_get",
         "parameters": [
           {
@@ -1952,25 +2042,8 @@
     },
     "/api/mobile/v1/medication/reminders": {
       "get": {
+        "description": "The caller's household's reminders, without the dose.\n\nAlways the caller's own: there is no parameter that names another user.",
         "operationId": "get_reminders_api_mobile_v1_medication_reminders_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "user_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "User Id"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -1979,16 +2052,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "security": [

@@ -92,15 +92,18 @@ Allows patients and caregivers to schedule medication reminders via WhatsApp.
 
 #### Set a Reminder
 ```
-/remind <medication_name> <times> <dosage> [instructions]
+/remind <medicine_name> <times>
 ```
 
 **Examples:**
 ```
-/remind Paracetamol 08:00,20:00 500mg after food
-/remind Morphine 08:00,14:00,20:00 10mg with water
-/remind Ondansetron 06:00,18:00 4mg before meals
+/remind Paracetamol 08:00,20:00
+/remind Ondansetron 06:00,18:00
 ```
+
+A reminder names the medicine and the time, never a dose (ADR 0004, decision
+D10 of the round-3 review). Anything typed after the times is stored with the
+reminder as its dosage but is never repeated back, sent or spoken.
 
 #### View Your Reminders
 ```
@@ -113,12 +116,10 @@ Allows patients and caregivers to schedule medication reminders via WhatsApp.
 
 1. Paracetamol
    🕐 08:00, 20:00
-   📋 500mg after food
    ✅ Active (ID: abc123...)
 
-2. Morphine
-   🕐 08:00, 14:00, 20:00
-   📋 10mg with water
+2. Ondansetron
+   🕐 06:00, 18:00
    ✅ Active (ID: def456...)
 ```
 
@@ -281,7 +282,7 @@ Caregivers can:
 |---------|-------------|
 | `/help` | Show available commands |
 | `/human` | Request human caregiver |
-| `/remind <med> <times> <dose>` | Set medication reminder |
+| `/remind <medicine> <times>` | Set medication reminder |
 | `/myreminders` | List all reminders |
 | `/deletereminder <id>` | Delete a reminder |
 | `TAKEN` | Mark medication as taken |

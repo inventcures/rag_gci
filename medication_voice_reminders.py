@@ -30,6 +30,8 @@ import time
 import hashlib
 import random
 
+from reminder_text import ensure_dose_free, medicine_label
+
 # Setup logger first
 logger = logging.getLogger(__name__)
 
@@ -112,7 +114,14 @@ class MedicationVoiceReminder:
     
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)
+    # When the reminder last changed; sync pull returns reminders changed after
+    # the client's last sync.
+    updated_at: datetime = field(default_factory=datetime.now)
     notes: str = ""
+
+    # Fields never sent to the app: the dose (decision D10, the stored dose is
+    # never spoken or sent) and the call script built from it.
+    CLIENT_HIDDEN_FIELDS = ("dosage", "tts_message")
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -137,8 +146,16 @@ class MedicationVoiceReminder:
             "voice_message_url": self.voice_message_url,
             "tts_message": self.tts_message,
             "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
             "notes": self.notes,
         }
+
+    def to_client_dict(self) -> Dict[str, Any]:
+        """The reminder as the mobile app receives it: no dose, no call script."""
+        data = self.to_dict()
+        for name in self.CLIENT_HIDDEN_FIELDS:
+            data.pop(name, None)
+        return data
 
 
 class MedicationVoiceReminderSystem:
@@ -151,27 +168,32 @@ class MedicationVoiceReminderSystem:
     - TTS for generating reminder messages
     """
     
-    # Voice message templates by language
+    # Voice message templates by language. They name the medicine and the time,
+    # never a dose (ADR 0004, decision D10): the stored dosage is kept in the
+    # data but has no placeholder here, and the medicine name is stripped of any
+    # dose by reminder_text.medicine_label before it is inserted.
     VOICE_TEMPLATES = {
         "en": {
             "greeting": "Hello, this is Palli Sahayak, your healthcare assistant.",
-            "reminder": "This is a reminder to take your {medication}. {dosage}.",
+            "reminder": "This is your {time} reminder to take {medication}.",
             "instructions": "Please take your medication now.",
             "confirmation": "Press 1 or say 'yes' after taking your medication.",
             "closing": "Thank you. Have a good day.",
-            "follow_up": "Did you take your {medication}? Press 1 for yes, 2 for no.",
+            "follow_up": "Did you take {medication}? Press 1 for yes, 2 for no.",
         },
         "hi": {
             "greeting": "नमस्ते, मैं पल्ली सहायक हूं, आपका स्वास्थ्य सहायक।",
-            "reminder": "यह {medication} लेने का reminder है। {dosage}।",
+            "reminder": "यह {time} बजे {medication} लेने का reminder है।",
             "instructions": "कृपया अभी अपनी दवा लें।",
             "confirmation": "दवा लेने के बाद 1 दबाएं या 'हां' कहें।",
-            "closing": "धन्यवाद। आपका दिन शुभ हो।",
+            # Not "have a good day": the dose detector reads the bare day word
+            # as a schedule, so the closing would be cut (same for ta and gu).
+            "closing": "धन्यवाद। अपना ध्यान रखें।",
             "follow_up": "क्या आपने {medication} ली? हां के लिए 1 दबाएं, न के लिए 2।",
         },
         "bn": {
             "greeting": "হ্যালো, আমি পল্লী সহায়ক, আপনার স্বাস্থ্য সহকারী।",
-            "reminder": "এটি {medication} খাওয়ার reminder। {dosage}।",
+            "reminder": "এটি {time}-এ {medication} খাওয়ার reminder।",
             "instructions": "অনুগ্রহ করে এখনই আপনার ওষুধ খান।",
             "confirmation": "ওষুধ খাওয়ার পরে 1 চাপুন বা 'হ্যাঁ' বলুন।",
             "closing": "ধন্যবাদ। আপনার দিন শুভ হোক।",
@@ -179,18 +201,18 @@ class MedicationVoiceReminderSystem:
         },
         "ta": {
             "greeting": "வணக்கம், நான் பல்லி சகாயக், உங்கள் சுகாதார உதவியாளர்.",
-            "reminder": "இது {medication} எடுக்கும் நினைவூட்டல். {dosage}.",
+            "reminder": "இது {time} மணிக்கு {medication} எடுக்கும் நினைவூட்டல்.",
             "instructions": "தயவுசெய்து இப்போதே உங்கள் மருந்தை எடுத்துக்கொள்ளுங்கள்.",
             "confirmation": "மருந்தை எடுத்த பிறகு 1 ஐ அழுத்தவும் அல்லது 'ஆம்' என்று கூறவும்.",
-            "closing": "நன்றி. உங்கள் நாள் நல்லதாக இருக்கட்டும்.",
+            "closing": "நன்றி. உங்களை கவனித்துக் கொள்ளுங்கள்.",
             "follow_up": "நீங்கள் {medication} எடுத்தீர்களா? ஆம் என்றால் 1, இல்லை என்றால் 2.",
         },
         "gu": {
             "greeting": "નમસ્તે, હું પલ્લી સહાયક છું, તમારો આરોગ્ય સહાયક.",
-            "reminder": "આ {medication} લેવાની યાદ અપાવનાર છે. {dosage}.",
+            "reminder": "આ {time} વાગ્યે {medication} લેવાની યાદ અપાવનાર છે.",
             "instructions": "કૃપા કરીને હવે તમારી દવા લો.",
             "confirmation": "દવા લીધા પછી 1 દબાવો અથવા 'હા' કહો.",
-            "closing": "આભાર. તમારો દિવસ શુભ રહે.",
+            "closing": "આભાર. તમારું ધ્યાન રાખજો.",
             "follow_up": "શું તમે {medication} લીધી? હા માટે 1, ના માટે 2.",
         },
     }
@@ -248,6 +270,11 @@ class MedicationVoiceReminderSystem:
                     data = json.load(f)
                     for reminder_data in data:
                         reminder = self._dict_to_reminder(reminder_data)
+                        # Earlier builds wrote the dose into the call script;
+                        # re-word every saved reminder from the current templates.
+                        reminder.tts_message = self._generate_reminder_message(
+                            reminder.medication_name, reminder.scheduled_time, reminder.language
+                        )
                         self.reminders[reminder.reminder_id] = reminder
                         if reminder.user_id not in self.user_reminders:
                             self.user_reminders[reminder.user_id] = []
@@ -259,15 +286,20 @@ class MedicationVoiceReminderSystem:
     def _save_reminders(self):
         """Save reminders to storage"""
         try:
-            reminders_file = self.storage_path / "voice_reminders.json"
-            data = [r.to_dict() for r in self.reminders.values()]
-            with open(reminders_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            self._write_reminders()
         except Exception as e:
             logger.error(f"Failed to save voice reminders: {e}")
+
+    def _write_reminders(self) -> None:
+        """Write every reminder to storage. Raises OSError when it cannot."""
+        reminders_file = self.storage_path / "voice_reminders.json"
+        data = [r.to_dict() for r in self.reminders.values()]
+        with open(reminders_file, 'w') as f:
+            json.dump(data, f, indent=2)
     
     def _dict_to_reminder(self, data: Dict) -> MedicationVoiceReminder:
         """Convert dict to MedicationVoiceReminder"""
+        created_at = datetime.fromisoformat(data.get("created_at", datetime.now().isoformat()))
         return MedicationVoiceReminder(
             reminder_id=data["reminder_id"],
             user_id=data["user_id"],
@@ -289,7 +321,8 @@ class MedicationVoiceReminderSystem:
             confirmation_timestamp=datetime.fromisoformat(data["confirmation_timestamp"]) if data.get("confirmation_timestamp") else None,
             voice_message_url=data.get("voice_message_url"),
             tts_message=data.get("tts_message"),
-            created_at=datetime.fromisoformat(data.get("created_at", datetime.now().isoformat())),
+            created_at=created_at,
+            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else created_at,
             notes=data.get("notes", ""),
         )
     
@@ -325,22 +358,30 @@ class MedicationVoiceReminderSystem:
             user_id: Patient identifier
             phone_number: Phone number in E.164 format (+91...)
             medication_name: Name of medication
-            dosage: Dosage instructions (e.g., "500mg with food")
+            dosage: Dosage as entered (e.g., "500mg with food"). Stored with the
+                reminder, never spoken (ADR 0004, decision D10).
             reminder_time: When to make the call
             language: Language code (en, hi, bn, ta, gu)
             preferred_provider: "bolna" or "retell"
             max_attempts: Max retry attempts
-            
+
         Returns:
             MedicationVoiceReminder object
+
+        Raises:
+            ValueError: the phone number is empty, so there is no one to call.
         """
+        phone_number = (phone_number or "").strip()
+        if not phone_number:
+            raise ValueError("a voice reminder needs a phone number to call")
+
         reminder_id = hashlib.md5(
             f"{user_id}_{medication_name}_{reminder_time.isoformat()}".encode()
         ).hexdigest()[:12]
-        
-        # Generate TTS message
+
+        # Generate TTS message: the medicine and the time, never the dose.
         tts_message = self._generate_reminder_message(
-            medication_name, dosage, language
+            medication_name, reminder_time, language
         )
         
         reminder = MedicationVoiceReminder(
@@ -370,21 +411,27 @@ class MedicationVoiceReminderSystem:
         logger.info(f"📞 Created voice reminder {reminder_id} for {medication_name} at {reminder_time}")
         return reminder
     
-    def _generate_reminder_message(self, medication: str, dosage: str, language: str) -> str:
-        """Generate TTS message for reminder"""
-        templates = self.VOICE_TEMPLATES.get(language, self.VOICE_TEMPLATES["en"])
-        
+    def _generate_reminder_message(self, medication: str, reminder_time: datetime, language: str) -> str:
+        """The call script: the medicine and the time, never a dose."""
+        if language not in self.VOICE_TEMPLATES:
+            language = "en"
+        templates = self.VOICE_TEMPLATES[language]
+        reminder_line = templates['reminder'].format(
+            medication=medicine_label(medication, language),
+            time=reminder_time.strftime("%H:%M"),
+        )
+
         message = f"""{templates['greeting']}
 
-{templates['reminder'].format(medication=medication, dosage=dosage)}
+{reminder_line}
 
 {templates['instructions']}
 
 {templates['confirmation']}
 
 {templates['closing']}"""
-        
-        return message
+
+        return ensure_dose_free(message)
     
     def _schedule_call(self, reminder: MedicationVoiceReminder):
         """Schedule a voice call"""
@@ -429,9 +476,16 @@ class MedicationVoiceReminderSystem:
             return
         
         reminder = self.reminders[reminder_id]
+        if not (reminder.phone_number or "").strip():
+            # A synced reminder can arrive without a number: never dial nobody.
+            logger.warning(f"Reminder {reminder_id} has no phone number; not calling")
+            reminder.call_status = CallStatus.FAILED
+            self._save_reminders()
+            return
         reminder.call_status = CallStatus.CALLING
         reminder.call_attempts += 1
         reminder.call_started_at = datetime.now()
+        reminder.updated_at = datetime.now()
         self._save_reminders()
         
         try:
@@ -541,6 +595,7 @@ class MedicationVoiceReminderSystem:
             return
         
         reminder.call_ended_at = datetime.now()
+        reminder.updated_at = datetime.now()
         reminder.call_duration = duration
         
         # Check if patient confirmed
@@ -646,55 +701,70 @@ class MedicationVoiceReminderSystem:
             "adherence_rate": round(adherence_rate, 1),
         }
 
+    def get_client_reminders(self, user_id: str) -> List[Dict[str, Any]]:
+        """This household's reminders as the mobile app receives them (no dose)."""
+        return [
+            self.reminders[r_id].to_client_dict()
+            for r_id in self.user_reminders.get(user_id, [])
+            if r_id in self.reminders
+        ]
+
     def get_reminders_modified_since(self, user_id: str, since: float) -> List[Dict[str, Any]]:
-        """Return reminders modified after the given Unix timestamp (for mobile sync)."""
-        since_dt = datetime.fromtimestamp(since)
-        results = []
-        for reminder in self.reminders.values():
-            if reminder.scheduled_time >= since_dt:
-                results.append(reminder.to_dict())
-        return results
+        """This household's reminders changed after a Unix timestamp (mobile sync pull).
 
-    def upsert_reminder_from_sync(self, reminder_data: Dict[str, Any]) -> None:
-        """Upsert a reminder from mobile sync."""
+        Only the caller's own reminders, in the app's view (no dose)."""
+        return [
+            self.reminders[r_id].to_client_dict()
+            for r_id in self.user_reminders.get(user_id, [])
+            if r_id in self.reminders and self.reminders[r_id].updated_at.timestamp() > since
+        ]
+
+    def upsert_reminder_from_sync(self, reminder_data: Dict[str, Any], user_id: str) -> str:
+        """Create or update a reminder pushed by the mobile app, owned by `user_id`.
+
+        The owner is the authenticated caller, never a `user_id` in the payload.
+        An existing reminder may change only its call status and confirmation.
+
+        Returns the reminder id. Raises ValueError for a malformed item and
+        PermissionError for a reminder that belongs to another household.
+        """
         reminder_id = reminder_data.get("reminder_id")
-        if not reminder_id:
-            return
+        if not reminder_id or not isinstance(reminder_id, str):
+            raise ValueError("reminder_id is required")
 
-        if reminder_id in self.reminders:
-            existing = self.reminders[reminder_id]
+        existing = self.reminders.get(reminder_id)
+        if existing is not None:
+            if existing.user_id != user_id:
+                raise PermissionError("reminder belongs to another household")
             if "call_status" in reminder_data:
                 try:
                     existing.call_status = CallStatus(reminder_data["call_status"])
                 except ValueError:
-                    pass
+                    raise ValueError("unknown call_status")
             if reminder_data.get("patient_confirmed"):
                 existing.patient_confirmed = True
+            existing.updated_at = datetime.now()
         else:
-            try:
-                scheduled = reminder_data.get("scheduled_time")
-                if isinstance(scheduled, (int, float)):
-                    scheduled_dt = datetime.fromtimestamp(scheduled)
-                else:
-                    scheduled_dt = datetime.now()
+            scheduled = reminder_data.get("scheduled_time")
+            if isinstance(scheduled, (int, float)):
+                scheduled_dt = datetime.fromtimestamp(scheduled)
+            else:
+                scheduled_dt = datetime.now()
+            reminder = MedicationVoiceReminder(
+                reminder_id=reminder_id,
+                user_id=user_id,
+                phone_number=reminder_data.get("phone_number", ""),
+                medication_name=reminder_data.get("medication_name", ""),
+                dosage=reminder_data.get("dosage", ""),
+                scheduled_time=scheduled_dt,
+                language=reminder_data.get("language", "en"),
+            )
+            self.reminders[reminder_id] = reminder
+            self.user_reminders.setdefault(user_id, []).append(reminder_id)
 
-                reminder = MedicationVoiceReminder(
-                    reminder_id=reminder_id,
-                    user_id=reminder_data.get("user_id", ""),
-                    phone_number=reminder_data.get("phone_number", ""),
-                    medication_name=reminder_data.get("medication_name", ""),
-                    dosage=reminder_data.get("dosage", ""),
-                    scheduled_time=scheduled_dt,
-                    language=reminder_data.get("language", "en"),
-                )
-                self.reminders[reminder_id] = reminder
-                user_id = reminder_data.get("user_id", "")
-                if user_id:
-                    if user_id not in self.user_reminders:
-                        self.user_reminders[user_id] = []
-                    self.user_reminders[user_id].append(reminder_id)
-            except Exception as e:
-                logger.error(f"Error upserting reminder from sync: {e}")
+        # Raises on failure, so sync push does not acknowledge an unsaved item.
+        self._write_reminders()
+        return reminder_id
 
 
 # Singleton instance

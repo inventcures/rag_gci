@@ -108,7 +108,7 @@ class TestDefenceInDepth(unittest.TestCase):
         from dosage_guard import DosageGuard, DosageGuardResult
 
         class StubGuard(DosageGuard):
-            def apply(self, response, language="en", query=""):
+            def apply(self, response, language="en", query="", alert=None):
                 return DosageGuardResult(
                     blocked=True,
                     response="stubbed",

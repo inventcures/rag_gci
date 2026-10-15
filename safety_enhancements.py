@@ -49,7 +49,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-from dosage_guard import get_dosage_guard  # noqa: E402  (local module, post-stdlib)
+from dosage_guard import EMERGENCY_GUIDANCE, get_dosage_guard  # noqa: E402  (local module, post-stdlib)
+from reminder_text import ensure_dose_free, medicine_label, strip_doses  # noqa: E402
 
 
 # ============================================================================
@@ -592,27 +593,27 @@ class EmergencyDetectionSystem:
         
         messages = {
             "en": {
-                EmergencyLevel.CRITICAL: "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!",
+                EmergencyLevel.CRITICAL: f"🚨 CRITICAL EMERGENCY DETECTED. {EMERGENCY_GUIDANCE['en']}",
                 EmergencyLevel.HIGH: "⚠️ URGENT: Please seek immediate medical attention.",
                 EmergencyLevel.MEDIUM: "⚡ Please consult a doctor as soon as possible.",
             },
             "hi": {
-                EmergencyLevel.CRITICAL: "🚨 गंभीर आपातकाल! तुरंत आपातकालीन सेवाओं (108/102) को कॉल करें!",
+                EmergencyLevel.CRITICAL: f"🚨 गंभीर आपातकाल! {EMERGENCY_GUIDANCE['hi']}",
                 EmergencyLevel.HIGH: "⚠️ तत्काल: कृपया तुरंत चिकित्सा सहायता लें।",
                 EmergencyLevel.MEDIUM: "⚡ कृपया जल्द से जल्द डॉक्टर से परामर्श करें।",
             },
             "bn": {
-                EmergencyLevel.CRITICAL: "🚨 গুরুতর জরুরী! অবিলম্বে জরুরী সেবায় (108/102) কল করুন!",
+                EmergencyLevel.CRITICAL: f"🚨 গুরুতর জরুরী! {EMERGENCY_GUIDANCE['bn']}",
                 EmergencyLevel.HIGH: "⚠️ জরুরী: দয়া করে অবিলম্বে চিকিৎসা সহায়তা নিন।",
                 EmergencyLevel.MEDIUM: "⚡ দয়া করে যত তাড়াতাড়ি সম্ভব একজন ডাক্তারের পরামর্শ নিন।",
             },
             "ta": {
-                EmergencyLevel.CRITICAL: "🚨 மிக முக்கிய அவசரம்! உடனடியாக அவசர சேவைகளை (108/102) அழைக்கவும்!",
+                EmergencyLevel.CRITICAL: f"🚨 மிக முக்கிய அவசரம்! {EMERGENCY_GUIDANCE['ta']}",
                 EmergencyLevel.HIGH: "⚠️ அவசரம்: தயவுசெய்து உடனடியாக மருத்துவ உதவியைப் பெறவும்.",
                 EmergencyLevel.MEDIUM: "⚡ தயவுசெய்து விரைவில் மருத்துவரை அணுகவும்.",
             },
             "gu": {
-                EmergencyLevel.CRITICAL: "🚨 ગંભીર આપત્તિ! તાત્કાલિક આપત્તિ સેવાઓ (108/102) ને કૉલ કરો!",
+                EmergencyLevel.CRITICAL: f"🚨 ગંભીર આપત્તિ! {EMERGENCY_GUIDANCE['gu']}",
                 EmergencyLevel.HIGH: "⚠️ તાત્કાલિક: કૃપા કરીને તાત્કાલિક વૈદ્યકીય સહાય લો.",
                 EmergencyLevel.MEDIUM: "⚡ કૃપા કરીને શક્ય તેટલી વહેલી તકે ડોક્ટરનો સંપર્ક કરો.",
             },
@@ -880,16 +881,31 @@ class MedicationReminderScheduler:
         # Return the reminder info for the main loop to handle
         return reminder
     
-    def get_reminder_message(self, reminder: MedicationReminder) -> str:
-        """Generate reminder message in appropriate language"""
+    def get_reminder_message(self, reminder: MedicationReminder, at_time: Optional[str] = None) -> str:
+        """
+        The WhatsApp reminder: the medicine and the time, never a dose.
+
+        The stored dosage stays on the reminder and is never sent (ADR 0004,
+        decision D10). The medicine name and any instructions are stripped of
+        dose shapes before they are inserted.
+
+        Args:
+            reminder: The reminder that is due.
+            at_time: The "HH:MM" slot that fired; defaults to every scheduled time.
+        """
+        language = reminder.language if reminder.language in ("en", "hi", "bn", "ta", "gu") else "en"
+        medicine = medicine_label(reminder.medication_name, language)
+        when = at_time or ", ".join(reminder.scheduled_times)
+        notes = strip_doses(reminder.instructions)
+        notes = f"\n\n{notes}" if notes else ""
         messages = {
-            "en": f"💊 Medication Reminder\n\nTime to take: {reminder.medication_name}\nDosage: {reminder.dosage}\n\n{reminder.instructions}\n\nReply 'TAKEN' when you've taken your medication.",
-            "hi": f"💊 दवा की याद दिलाने वाला\n\nलेने का समय: {reminder.medication_name}\nखुराक: {reminder.dosage}\n\n{reminder.instructions}\n\nदवा लेने के बाद 'TAKEN' जवाब दें।",
-            "bn": f"💊 ওষুধ স্মরণ করিয়ে দেওয়া\n\nখাওয়ার সময়: {reminder.medication_name}\nডোজ: {reminder.dosage}\n\n{reminder.instructions}\n\nওষুধ খাওয়ার পরে 'TAKEN' উত্তর দিন।",
-            "ta": f"💊 மருந்து நினைவூட்டல்\n\nஎடுக்கும் நேரம்: {reminder.medication_name}\nமருந்தளவு: {reminder.dosage}\n\n{reminder.instructions}\n\nமருந்தை எடுத்த பிறகு 'TAKEN' பதிலளிக்கவும்.",
-            "gu": f"💊 દવા યાદ અપાવનાર\n\nલેવાનો સમય: {reminder.medication_name}\nખુરાક: {reminder.dosage}\n\n{reminder.instructions}\n\nતમે દવા લીધા પછી 'TAKEN' જવાબ આપો.",
+            "en": f"💊 Medication Reminder\n\nTime to take: {medicine}\n🕐 {when}{notes}\n\nReply 'TAKEN' when you've taken your medication.",
+            "hi": f"💊 दवा की याद दिलाने वाला\n\nलेने का समय: {medicine}\n🕐 {when}{notes}\n\nदवा लेने के बाद 'TAKEN' जवाब दें।",
+            "bn": f"💊 ওষুধ স্মরণ করিয়ে দেওয়া\n\nখাওয়ার সময়: {medicine}\n🕐 {when}{notes}\n\nওষুধ খাওয়ার পরে 'TAKEN' উত্তর দিন।",
+            "ta": f"💊 மருந்து நினைவூட்டல்\n\nஎடுக்கும் நேரம்: {medicine}\n🕐 {when}{notes}\n\nமருந்தை எடுத்த பிறகு 'TAKEN' பதிலளிக்கவும்.",
+            "gu": f"💊 દવા યાદ અપાવનાર\n\nલેવાનો સમય: {medicine}\n🕐 {when}{notes}\n\nતમે દવા લીધા પછી 'TAKEN' જવાબ આપો.",
         }
-        return messages.get(reminder.language, messages["en"])
+        return ensure_dose_free(messages[language])
     
     def mark_taken(self, reminder_id: str) -> bool:
         """Mark a medication as taken"""
@@ -1521,6 +1537,8 @@ class SafetyResult:
     dosage_blocked: bool = False
     dosage_reason: Optional[str] = None
     emergency_overrode_dosage: bool = False
+    # The language asked for when the Deferral was served in English instead.
+    dosage_language_fallback: Optional[str] = None
     sources: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -1644,7 +1662,8 @@ class SafetyEnhancementsManager:
         sources = sources or []
         distances = distances or []
 
-        # 1. Emergency
+        # 1. Emergency, detected once on the question in the participant's
+        # language; the guard decides the Emergency Override from this alert.
         emergency_alert = None
         try:
             emergency_alert = self.emergency_system.detect_emergency(
@@ -1655,7 +1674,7 @@ class SafetyEnhancementsManager:
 
         # 2. Dosage restriction (study requirement, protocol section 7.7)
         guard_result = self.dosage_guard.apply(
-            response=response, language=language, query=query
+            response=response, language=language, query=query, alert=emergency_alert
         )
         final_response = guard_result.response
 
@@ -1700,6 +1719,7 @@ class SafetyEnhancementsManager:
             dosage_blocked=guard_result.blocked,
             dosage_reason=guard_result.reason,
             emergency_overrode_dosage=guard_result.emergency_overrode,
+            dosage_language_fallback=guard_result.language_fallback,
             sources=sources,
         )
 
@@ -1763,6 +1783,7 @@ def guard_query_result(
         "dosage_blocked": safety.dosage_blocked,
         "dosage_reason": safety.dosage_reason,
         "emergency_overrode_dosage": safety.emergency_overrode_dosage,
+        "dosage_language_fallback": safety.dosage_language_fallback,
     }
     if safety.dosage_blocked:
         logger.info(

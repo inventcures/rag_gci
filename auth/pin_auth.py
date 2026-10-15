@@ -2,6 +2,7 @@ import hashlib
 import secrets
 import json
 import time
+import uuid
 from pathlib import Path
 from typing import Optional
 import logging
@@ -17,6 +18,20 @@ DATA_DIR = Path("./data/auth/devices")
 # period, not a fresh five.
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_SECONDS = 15 * 60
+
+
+def _is_user_id(user_id: str) -> bool:
+    """True for a user id in the canonical UUID form registration issues.
+
+    The id names the record's file, and it arrives from the client on
+    /auth/login, so anything else (a path such as "../x") is refused before
+    any file is touched."""
+    if not isinstance(user_id, str):
+        return False
+    try:
+        return str(uuid.UUID(user_id)) == user_id
+    except ValueError:
+        return False
 
 
 class PinAuthenticator:
@@ -35,6 +50,9 @@ class PinAuthenticator:
         abha_id: Optional[str] = None,
         digital_literacy_score: Optional[int] = None,
     ) -> dict:
+        filepath = self._record_path(user_id)
+        if filepath is None:
+            raise ValueError("user_id must be a UUID")
         salt = secrets.token_hex(16)
         pin_hash = self._hash_pin(pin, salt)
 
@@ -54,7 +72,6 @@ class PinAuthenticator:
             "last_login_at": None,
         }
 
-        filepath = DATA_DIR / f"{user_id}.json"
         with open(filepath, "w") as f:
             json.dump(device_record, f, indent=2)
 
@@ -66,8 +83,8 @@ class PinAuthenticator:
 
         A locked account refuses even the correct PIN until the period ends.
         """
-        filepath = DATA_DIR / f"{user_id}.json"
-        if not filepath.exists():
+        filepath = self._record_path(user_id)
+        if filepath is None or not filepath.exists():
             return False
 
         with open(filepath) as f:
@@ -103,14 +120,21 @@ class PinAuthenticator:
             return False
 
     def get_user_record(self, user_id: str) -> Optional[dict]:
-        filepath = DATA_DIR / f"{user_id}.json"
-        if not filepath.exists():
+        filepath = self._record_path(user_id)
+        if filepath is None or not filepath.exists():
             return None
         with open(filepath) as f:
             record = json.load(f)
         record.pop("pin_hash", None)
         record.pop("pin_salt", None)
         return record
+
+    def _record_path(self, user_id: str) -> Optional[Path]:
+        """The device record's file for a well-formed user id, else None."""
+        if not _is_user_id(user_id):
+            logger.warning("Refused a device record lookup for a malformed user id")
+            return None
+        return DATA_DIR / f"{user_id}.json"
 
     def _hash_pin(self, pin: str, salt: str) -> str:
         return hashlib.pbkdf2_hmac(
