@@ -31,6 +31,21 @@ data class CacheBundleResponse(
  * Generated from the API contract. Do not edit by hand; run
  * scripts/generate_kotlin_client.py instead.
  */
+data class DeviceRegistrationRequest(
+    @Json(name = "abha_id") val abha_id: String? = null,
+    @Json(name = "digital_literacy_score") val digital_literacy_score: Long? = null,
+    @Json(name = "language") val language: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "phone_hash") val phone_hash: String,
+    @Json(name = "pin") val pin: String,
+    @Json(name = "role") val role: String,
+    @Json(name = "site_id") val site_id: String,
+)
+
+/**
+ * Generated from the API contract. Do not edit by hand; run
+ * scripts/generate_kotlin_client.py instead.
+ */
 data class LoginRequest(
     @Json(name = "pin") val pin: String,
     @Json(name = "user_id") val user_id: String,
@@ -59,6 +74,29 @@ data class MobileQueryResponse(
     @Json(name = "evidence_level") val evidence_level: String,
     @Json(name = "sources") val sources: List<Map<String, Any?>>,
     @Json(name = "validation_status") val validation_status: String,
+)
+
+/**
+ * Generated from the API contract. Do not edit by hand; run
+ * scripts/generate_kotlin_client.py instead.
+ */
+data class RefreshRequest(
+    @Json(name = "refresh_token") val refresh_token: String,
+)
+
+/**
+ * Generated from the API contract. Do not edit by hand; run
+ * scripts/generate_kotlin_client.py instead.
+ */
+data class ReleaseStatusResponse(
+    @Json(name = "activated") val activated: Boolean,
+    @Json(name = "approved") val approved: Boolean,
+    @Json(name = "drift") val drift: List<Map<String, Any?>>? = null,
+    @Json(name = "drifting") val drifting: Boolean,
+    @Json(name = "release_id") val release_id: String,
+    @Json(name = "release_name") val release_name: String? = null,
+    @Json(name = "status") val status: String,
+    @Json(name = "usable_with_participants") val usable_with_participants: Boolean,
 )
 
 /**

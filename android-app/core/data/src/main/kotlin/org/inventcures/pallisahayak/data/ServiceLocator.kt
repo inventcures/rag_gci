@@ -3,17 +3,16 @@ package org.inventcures.pallisahayak.data
 import android.content.Context
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
+import org.inventcures.pallisahayak.data.auth.ApiClients
+import org.inventcures.pallisahayak.data.auth.KeystoreTokenStore
+import org.inventcures.pallisahayak.data.auth.SessionManager
 import org.inventcures.pallisahayak.data.local.PalliDatabase
 import org.inventcures.pallisahayak.data.offline.ConnectivityMonitor
 import org.inventcures.pallisahayak.data.offline.HistoryRepository
 import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
+import org.inventcures.pallisahayak.data.release.ReleaseGate
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
-import org.inventcures.pallisahayak.data.repository.SessionContext
-import retrofit2.Retrofit
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import retrofit2.converter.moshi.MoshiConverterFactory
+import org.inventcures.pallisahayak.data.start.AppStart
 
 /**
  * Builds the object graph.
@@ -25,31 +24,28 @@ import retrofit2.converter.moshi.MoshiConverterFactory
  */
 object ServiceLocator {
 
-    /** Base URL. Overridable per build so a study deployment can point elsewhere. */
-    private const val BASE_URL = "https://palli-sahayak.invalid/api/mobile/v1/"
-
     /**
-     * Placeholder until registration exists.
+     * The server, from the build config (`-PpalliBaseUrl`, see core/data/build.gradle.kts).
      *
-     * A participant's id, role and release must come from registration rather than
-     * a constant. Until then `releaseApproved` is false, so anything recorded
-     * against this session is correctly marked as not from an approved release.
-     * Ticket 06 replaces this.
+     * A release build refuses to configure with a non-https or `.invalid` URL,
+     * so a build cannot ship pointing nowhere.
      */
-    val currentSession = SessionContext(
-        participantId = "placeholder",
-        careRole = "ASHA Worker",
-        siteId = "unassigned",
-        language = "hi-IN",
-        releaseId = "unassigned-dev",
-        releaseApproved = false,
-    )
+    val baseUrl: String = BuildConfig.BASE_URL
+
+    /** The study site this build is for (`-PpalliSiteId`), sent at Registration. */
+    val siteId: String = BuildConfig.SITE_ID
 
     @Volatile
     private var repositoryInstance: PalliSahayakRepository? = null
 
     @Volatile
     private var offlineGraph: OfflineGraph? = null
+
+    @Volatile
+    private var clients: ApiClients? = null
+
+    @Volatile
+    private var startInstance: AppStart? = null
 
     /**
      * Everything the offline screens need, built once alongside the repository.
@@ -58,22 +54,26 @@ object ServiceLocator {
      * database handle and are meaningless apart from each other.
      */
     val offline: OfflineGraph
-        get() = offlineGraph ?: error(
-            "ServiceLocator.initialise(context) has not been called. " +
-                "MainActivity should do this in onCreate before setContent.",
-        )
+        get() = offlineGraph ?: notInitialised()
 
     val repository: PalliSahayakRepository
-        get() = repositoryInstance ?: error(
-            "ServiceLocator.initialise(context) has not been called. " +
-                "MainActivity should do this in onCreate before setContent.",
-        )
+        get() = repositoryInstance ?: notInitialised()
+
+    /** Registration, PIN sign-in and the token the API calls carry. */
+    val sessions: SessionManager
+        get() = clients?.sessions ?: notInitialised()
+
+    /** The release gate and the first screen. */
+    val start: AppStart
+        get() = startInstance ?: notInitialised()
 
     @Synchronized
-    fun initialise(context: Context, api: PalliSahayakApi? = null) {
+    fun initialise(context: Context) {
         if (repositoryInstance != null) return
 
-        val client = OkHttpClient.Builder()
+        // BASIC logs the request line and status, never headers, so the bearer
+        // token does not reach logcat.
+        val base = OkHttpClient.Builder()
             .addInterceptor(
                 HttpLoggingInterceptor().apply {
                     level = HttpLoggingInterceptor.Level.BASIC
@@ -81,25 +81,22 @@ object ServiceLocator {
             )
             .build()
 
-        val retrofit = Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(client)
-            .addConverterFactory(
-                // KotlinJsonAdapterFactory is required. Without it Moshi's
-                // reflective adapter cannot read Kotlin default parameter values,
-                // so the generated data classes fail to deserialise and every
-                // request falls into the offline branch with no error anywhere.
-                MoshiConverterFactory.create(
-                    Moshi.Builder().add(KotlinJsonAdapterFactory()).build(),
-                ),
-            )
-            .build()
+        val api = ApiClients(baseUrl = baseUrl, tokens = KeystoreTokenStore(context), base = base)
+        clients = api
 
         val database = PalliDatabase.get(context)
 
         repositoryInstance = PalliSahayakRepository(
-            api = api ?: retrofit.create(PalliSahayakApi::class.java),
+            api = api.api,
             interactions = database.interactions(),
+        )
+
+        // A debug build always opens (ReleaseGate explains why); a release build
+        // opens only on a release the server confirms as approved and activated.
+        startInstance = AppStart(
+            api = api.authApi,
+            gate = ReleaseGate(developmentBuild = BuildConfig.DEBUG),
+            sessions = api.sessions,
         )
 
         offlineGraph = OfflineGraph(
@@ -108,6 +105,11 @@ object ServiceLocator {
             connectivity = ConnectivityMonitor(context),
         )
     }
+
+    private fun notInitialised(): Nothing = error(
+        "ServiceLocator.initialise(context) has not been called. " +
+            "MainActivity should do this in onCreate before setContent.",
+    )
 }
 
 /**

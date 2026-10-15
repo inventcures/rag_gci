@@ -337,6 +337,9 @@ INDEX_UNAVAILABLE_MESSAGE: Dict[str, str] = {
 
 
 def index_unavailable_message(language: Optional[str]) -> str:
-    """The refusal for `language` ("hi", "hi-IN", ...), in English when there is none."""
-    primary = (language or "en").split("-")[0].split("_")[0].lower()
-    return INDEX_UNAVAILABLE_MESSAGE.get(primary, INDEX_UNAVAILABLE_MESSAGE["en"])
+    """The refusal for `language` (any spelling of a Supported Language: "hi",
+    "hi-IN", "od-IN"), in English when there is none."""
+    from supported_languages import get_language
+
+    lang = get_language(language)
+    return INDEX_UNAVAILABLE_MESSAGE.get(lang.code if lang else "en", INDEX_UNAVAILABLE_MESSAGE["en"])

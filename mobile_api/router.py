@@ -13,16 +13,18 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.responses import JSONResponse, Response
-from typing import Optional
 
 from auth.jwt_handler import REFRESH
-from auth.middleware import require_auth, get_jwt_handler
+from fastapi.security import HTTPAuthorizationCredentials
+from auth.middleware import require_auth, require_socket_auth, get_jwt_handler, security
 from auth.pin_auth import PinAuthenticator
 from auth.models import AuthenticatedUser
+from auth.policy import authenticate_token
 from mobile_api.schemas import (
     MobileQueryRequest, MobileQueryResponse,
     VoiceQueryResponse,
     DeviceRegistrationRequest, LoginRequest, RefreshRequest, AuthResponse,
+    ReleaseStatusResponse,
     SyncPushRequest, SyncPushResponse,
     SyncPullResponse,
     CreateObservationRequest, ObservationResponse,
@@ -356,7 +358,7 @@ async def voice_query(
     )
 
 
-@mobile_router.get("/release/status")
+@mobile_router.get("/release/status", response_model=ReleaseStatusResponse)
 async def release_status():
     """
     Whether this build is allowed to be used with participants.
@@ -399,6 +401,7 @@ async def sync_push(
     return SyncPushResponse(
         accepted=result["accepted"],
         rejected=result["rejected"],
+        acknowledgements=result["acknowledgements"],
         conflicts=result["conflicts"],
     )
 
@@ -508,20 +511,15 @@ async def create_observation(
 # -- Medication Reminders ---------------------------------------------------
 
 @mobile_router.get("/medication/reminders")
-async def get_reminders(
-    user_id: Optional[str] = None,
-    user: AuthenticatedUser = Depends(require_auth),
-):
+async def get_reminders(user: AuthenticatedUser = Depends(require_auth)):
+    """The caller's household's reminders, without the dose.
+
+    Always the caller's own: there is no parameter that names another user."""
     from mobile_api.dependencies import get_medication_manager
     medication_manager = get_medication_manager()
     if medication_manager is None:
         return {"reminders": []}
-    target_user = user_id or user.user_id
-    try:
-        reminders = await medication_manager.get_reminders(target_user)
-        return {"reminders": reminders}
-    except Exception:
-        return {"reminders": []}
+    return {"reminders": medication_manager.get_client_reminders(user.user_id)}
 
 
 @mobile_router.post("/medication/reminder", response_model=ReminderResponse)
@@ -529,20 +527,30 @@ async def create_reminder(
     request: CreateReminderRequest,
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    # Only for a patient in the caller's household (404 otherwise, like the
+    # other per-patient routes).
+    await _require_own_patient(get_memory_manager(), user, request.patient_id)
     from mobile_api.dependencies import get_medication_manager
     medication_manager = get_medication_manager()
     if medication_manager is None:
         raise HTTPException(status_code=503, detail="Medication manager not available")
+    if not (request.phone_number or "").strip():
+        # A reminder call with no number to ring would be scheduled and never
+        # reach anyone. The app keeps its own reminders on the device.
+        raise HTTPException(status_code=422, detail="A reminder call needs a phone number")
     from datetime import datetime
     scheduled_dt = datetime.fromtimestamp(request.scheduled_time)
-    result = medication_manager.create_voice_reminder(
-        user_id=user.user_id,
-        phone_number="",
-        medication_name=request.medication_name,
-        dosage=request.dosage,
-        reminder_time=scheduled_dt,
-        language=request.language,
-    )
+    try:
+        result = medication_manager.create_voice_reminder(
+            user_id=user.user_id,
+            phone_number=request.phone_number,
+            medication_name=request.medication_name,
+            dosage=request.dosage or "",
+            reminder_time=scheduled_dt,
+            language=request.language,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     reminder_id = result.reminder_id if hasattr(result, "reminder_id") else str(uuid.uuid4())
     return ReminderResponse(reminder_id=reminder_id, status="created")
 
@@ -655,18 +663,37 @@ async def submit_interaction_logs(
     user: AuthenticatedUser = Depends(require_auth),
 ):
     count = await _interaction_logger.ingest_batch(request.logs, user_id=user.user_id)
-    return InteractionLogResponse(accepted=count, status="accepted")
+    # A log that could not be saved is logged by the logger and not counted.
+    return InteractionLogResponse(accepted=count, status="accepted" if count == len(request.logs) else "partial")
+
+
+async def require_participant_or_auditor(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> AuthenticatedUser:
+    """The caller of the evaluation export: a participant or an auditor, or 401.
+
+    An auditor is the holder of an admin token (auth/policy.py), signed with a
+    key the app never sees. A mobile role claim cannot make anyone an auditor,
+    because anyone can register on the app with any role."""
+    user = authenticate_token(credentials.credentials)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return user
 
 
 @mobile_router.get("/evaluation/export")
 async def export_evaluation_data(
     format: str = Query("csv", description="Export format: csv or json"),
-    user: AuthenticatedUser = Depends(require_auth),
+    user: AuthenticatedUser = Depends(require_participant_or_auditor),
 ):
+    """SUS scores, vignette responses and interaction logs as CSV.
+
+    A participant gets only their own records; an auditor gets everyone's."""
+    owner = None if user.is_admin else user.user_id
     if format == "csv":
-        sus_csv = _evaluation_exporter.export_sus_csv()
-        vignettes_csv = _evaluation_exporter.export_vignettes_csv()
-        logs_csv = _evaluation_exporter.export_interaction_logs_csv()
+        sus_csv = _evaluation_exporter.export_sus_csv(user_id=owner)
+        vignettes_csv = _evaluation_exporter.export_vignettes_csv(user_id=owner)
+        logs_csv = _evaluation_exporter.export_interaction_logs_csv(user_id=owner)
         return {
             "format": "csv",
             "sus_scores": sus_csv,
@@ -689,7 +716,12 @@ async def get_cache_bundle(
 
     Served with an ETag: a client that already holds this bundle gets 304."""
     builder = CacheBundleBuilder(rag_pipeline=get_rag_pipeline(), safety_manager=get_safety_manager())
-    bundle, key = await builder.get_bundle(language)
+    try:
+        bundle, key = await builder.get_bundle(language)
+    except ValueError:
+        # Outside the eleven Supported Languages: no bundle, rather than one in
+        # a language the participant did not choose.
+        raise HTTPException(status_code=422, detail="There is no offline bundle for this language.")
     etag = f'"{key}"'
     if etag in [tag.strip() for tag in request.headers.get("if-none-match", "").split(",")]:
         return Response(status_code=304, headers={"ETag": etag})
@@ -822,9 +854,14 @@ async def submit_feedback(
 async def websocket_voice(
     websocket: WebSocket,
     language: str = Query("en-IN"),
+    user: AuthenticatedUser = Depends(require_socket_auth),
 ):
     """
     Real-time voice conversation.
+
+    Opens only for a signed-in participant: the app sends its access token as
+    ``Authorization: Bearer <token>`` on the upgrade request, and each turn is
+    recorded under the person, role and site that token names.
 
     The connection carries one session. Each audio frame ends a turn, which is
     grounded through the same pipeline the text route uses and then passed
@@ -842,7 +879,12 @@ async def websocket_voice(
     """
     await websocket.accept()
 
-    session = VoiceSession(language=language)
+    session = VoiceSession(
+        language=language,
+        participant_id=user.user_id,
+        care_role=user.role,
+        site_id=user.site_id,
+    )
     handler = VoiceTurnHandler(
         rag_pipeline=get_rag_pipeline(),
         safety_manager=get_safety_manager(),
@@ -946,11 +988,19 @@ async def websocket_voice(
 
 
 async def _synthesise_voice(text: str, language: str):
-    """Turn an answer into audio, or None when synthesis is unavailable."""
+    """Turn an answer into audio in the Supported Language's Sarvam voice, or
+    None when synthesis is unavailable. A language outside the eleven has no
+    voice, so the answer stays text-only; it is never spoken in Hindi."""
+    from sarvam_integration.config import sarvam_voice
+
+    voice = sarvam_voice(language)
+    if voice is None:
+        logger.warning("No Sarvam voice for %s; the answer is text only", language)
+        return None
     try:
         from sarvam_integration import SarvamClient
 
-        result = await SarvamClient().text_to_speech(text, language)
+        result = await SarvamClient().text_to_speech(text, voice.language, voice=voice.name)
         return result.audio_base64
     except Exception:
         # A spoken answer missing is a degraded turn, not a failed one. The text

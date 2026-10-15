@@ -383,7 +383,10 @@ class TestMedicationReminders:
         
         message = scheduler.get_reminder_message(reminder)
         assert "Paracetamol" in message
-        assert "500mg" in message
+        assert "08:00" in message
+        # The stored dose is never sent (ADR 0004, decision D10).
+        assert "500mg" not in message
+        assert "Take with food" in message
         assert "TAKEN" in message
 
 

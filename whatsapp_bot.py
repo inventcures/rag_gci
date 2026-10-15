@@ -29,6 +29,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 from observability import span, trace_request
 from post_work import after_reply
+from reminder_text import ensure_dose_free, medicine_label
 from supported_languages import (
     ENGLISH_CODE,
     PROVIDER_EDGE,
@@ -78,7 +79,6 @@ try:
         SessionManager,
         AudioHandler,
         get_config as get_gemini_config,
-        SUPPORTED_LANGUAGES as GEMINI_LANGUAGES,
     )
     GEMINI_LIVE_AVAILABLE = True
 except ImportError:
@@ -110,15 +110,10 @@ class EnhancedSTTService:
     @staticmethod
     def _to_bcp47(language: str) -> str:
         """Sarvam's code for a language: the table's Sarvam spelling for a
-        Supported Language, another code Saaras transcribes as is, and
-        "unknown" (Saaras detects it) for anything else. Never Hindi."""
-        from sarvam_integration.config import SARVAM_STT_LANGUAGES
-
+        Supported Language, and "unknown" (Saaras detects it) for anything
+        else. Never Hindi."""
         lang = get_language(language)
-        if lang is not None:
-            return lang.voice(PROVIDER_SARVAM).language
-        bcp47 = language if "-" in language else f"{language}-IN"
-        return bcp47 if bcp47 in SARVAM_STT_LANGUAGES else "unknown"
+        return lang.voice(PROVIDER_SARVAM).language if lang is not None else "unknown"
 
     async def transcribe_audio(self, audio_file_path: str, detected_language: Optional[str] = None) -> Dict[str, Any]:
         """Transcribe audio with language detection"""
@@ -859,13 +854,13 @@ class EnhancedWhatsAppBot:
             
             # MEDICATION REMINDER COMMANDS
             elif text_lower.startswith("/remind") or text_lower.startswith("/setreminder"):
-                await self._handle_medication_reminder_command(text, from_number)
+                await self._handle_medication_reminder_command(from_number=from_number, text=text)
                 return
             elif text_lower == "/myreminders":
                 await self._handle_list_reminders_command(from_number)
                 return
             elif text_lower.startswith("/deletereminder"):
-                await self._handle_delete_reminder_command(text, from_number)
+                await self._handle_delete_reminder_command(from_number=from_number, text=text)
                 return
             elif text_lower == "/help":
                 await self._send_help_message(from_number)
@@ -1650,29 +1645,35 @@ class EnhancedWhatsAppBot:
     # =========================================================================
     
     async def _handle_medication_reminder_command(self, from_number: str, text: str):
-        """Handle /remind command to set up medication reminders"""
+        """
+        Handle /remind: set a reminder that names the medicine and the time.
+
+        Anything typed after the times (often the dose) is stored on the
+        reminder as its dosage, and never repeated back or spoken (ADR 0004,
+        decision D10).
+        """
         if not self.reminder_scheduler:
             await self.twilio_api.send_text_message(
                 from_number,
                 "Medication reminder feature is not available right now. Please try again later."
             )
             return
-        
+
         try:
-            # Parse command: /remind <medication> <time> <dosage>
-            # Example: /remind Paracetamol 08:00,20:00 500mg after food
+            # Parse command: /remind <medication> <times> [anything else, stored only]
+            # Example: /remind Paracetamol 08:00,20:00
             parts = text.split(maxsplit=3)
             if len(parts) < 3:
                 help_msg = """💊 Medication Reminder Setup
 
-Usage: /remind <medication_name> <times> <dosage> [instructions]
+Usage: /remind <medicine_name> <times>
 
 Examples:
-• /remind Paracetamol 08:00,20:00 500mg after food
-• /remind Morphine 08:00,14:00,20:00 10mg with water
-• /remind Ondansetron 06:00,18:00 4mg before meals
+• /remind Paracetamol 08:00,20:00
+• /remind Ondansetron 06:00,18:00
 
-Times should be in 24-hour format (HH:MM) separated by commas."""
+Times should be in 24-hour format (HH:MM) separated by commas.
+Take your medicine as your doctor or nurse advised."""
                 await self.twilio_api.send_text_message(from_number, help_msg)
                 return
             
@@ -1725,9 +1726,8 @@ Times should be in 24-hour format (HH:MM) separated by commas."""
             times_formatted = ", ".join(times)
             confirm_msg = f"""✅ Medication Reminder Set!
 
-💊 {medication}
+💊 {medicine_label(medication)}
 🕐 Times: {times_formatted}
-📋 Dosage: {dosage_and_instructions}
 
 I'll remind you when it's time to take your medication.
 Reply 'TAKEN' after taking it."""
@@ -1739,7 +1739,7 @@ Reply 'TAKEN' after taking it."""
             confirm_msg += f"""\n\nTo view all reminders: /myreminders
 To delete: /deletereminder {reminder.reminder_id}"""
             
-            await self.twilio_api.send_text_message(from_number, confirm_msg)
+            await self.twilio_api.send_text_message(from_number, ensure_dose_free(confirm_msg))
             logger.debug(f"Created medication reminder {reminder.reminder_id} for {from_number}")
             
         except Exception as e:
@@ -1764,7 +1764,7 @@ To delete: /deletereminder {reminder.reminder_id}"""
             if not reminders:
                 await self.twilio_api.send_text_message(
                     from_number,
-                    "💊 You don't have any medication reminders set up.\n\nTo create one:\n/remind <medication> <times> <dosage>"
+                    "💊 You don't have any medication reminders set up.\n\nTo create one:\n/remind <medicine> <times>"
                 )
                 return
             
@@ -1772,15 +1772,14 @@ To delete: /deletereminder {reminder.reminder_id}"""
             for i, r in enumerate(reminders, 1):
                 times = ", ".join(r.scheduled_times)
                 status = "✅ Active" if r.active else "⏸️ Paused"
-                lines.append(f"{i}. {r.medication_name}")
+                lines.append(f"{i}. {medicine_label(r.medication_name)}")
                 lines.append(f"   🕐 {times}")
-                lines.append(f"   📋 {r.dosage}")
                 lines.append(f"   {status} (ID: {r.reminder_id[:8]}...)")
                 lines.append("")
-            
+
             lines.append("To delete a reminder:\n/deletereminder <ID>")
-            
-            message = "\n".join(lines)
+
+            message = ensure_dose_free("\n".join(lines))
             message = self._ensure_whatsapp_length_limit(message)
             await self.twilio_api.send_text_message(from_number, message)
             
@@ -1856,7 +1855,7 @@ To delete: /deletereminder {reminder.reminder_id}"""
                 total_scheduled = len(recent_reminder.taken_history) + 1
                 taken_count = len(recent_reminder.taken_history)
                 
-                msg = f"✅ Great! I've recorded that you took your {recent_reminder.medication_name}."
+                msg = f"✅ Great! I've recorded that you took {medicine_label(recent_reminder.medication_name)}."
                 if total_scheduled > 1:
                     adherence = (taken_count / total_scheduled) * 100
                     msg += f"\n📊 Your adherence: {adherence:.0f}%"
@@ -1914,7 +1913,7 @@ I can help you with palliative care information and reminders.
 📱 Commands:
 • Ask any question - I'll search medical documents
 • /lang <code> - Set language (hi, en, bn, ta, gu)
-• /remind <med> <times> <dose> - Set medication reminder
+• /remind <medicine> <times> - Set medication reminder
 • /myreminders - View your reminders
 • /deletereminder <id> - Delete a reminder
 • /human - Talk to a human caregiver
@@ -1939,7 +1938,7 @@ async def _on_medication_confirmed(self, reminder):
     try:
         message = f"""✅ Voice Confirmation Received
 
-Thank you for confirming that you took your {reminder.medication_name}.
+Thank you for confirming that you took {medicine_label(reminder.medication_name)}.
 
 Keep up the good work with your medication schedule! 💊"""
         
@@ -1955,14 +1954,13 @@ async def _on_medication_call_failed(self, reminder):
     try:
         message = f"""⚠️ Medication Reminder Call
 
-We tried calling you to remind you about your {reminder.medication_name}, but couldn't reach you.
+We tried calling you to remind you about {medicine_label(reminder.medication_name)} ({reminder.scheduled_time.strftime("%H:%M")}), but couldn't reach you.
 
-Please take your medication if you haven't already:
-📋 {reminder.dosage}
+Please take your medication as your doctor or nurse advised, if you haven't already.
 
 Reply 'TAKEN' after taking it."""
-        
-        await self.twilio_api.send_text_message(reminder.user_id, message)
+
+        await self.twilio_api.send_text_message(reminder.user_id, ensure_dose_free(message))
         logger.warning("Voice reminder call failed")
         logger.debug(f"Voice call failed for {reminder.medication_name} to {reminder.user_id}")
         

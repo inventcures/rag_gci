@@ -74,9 +74,6 @@ try:
         SarvamSTTResult,
         SarvamTTSResult,
         SarvamTranslateResult,
-        SARVAM_LANGUAGE_CONFIGS,
-        SARVAM_STT_LANGUAGES,
-        SARVAM_TTS_LANGUAGES,
     )
     SARVAM_AVAILABLE = True
 except ImportError:
@@ -843,8 +840,14 @@ async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
     and voice routes apply, so the HTTP body carries only the guarded answer.
     """
     from safety_enhancements import guard_query_result
+    from supported_languages import ENGLISH_CODE, get_language
 
-    result = await pipeline.query(query, source_language=language)
+    # The pipeline works in the table's short codes; a language outside the
+    # eleven is answered in English. The guard sees what was asked for, so an
+    # English Deferral served in its place is recorded as a fallback.
+    supported = get_language(language)
+    source_language = supported.code if supported else ENGLISH_CODE
+    result = await pipeline.query(query, source_language=source_language)
     guard_query_result(result, query=query, language=language)
     return result
 
@@ -5836,6 +5839,24 @@ def create_app(args: Any = None) -> FastAPI:
             ],
         }
 
+    @app.get("/api/voice/languages")
+    async def voice_languages():
+        """The languages the web voice client's picker offers: the Supported
+        Languages Gemini Live speaks, from the Supported Language table."""
+        from supported_languages import SUPPORTED_LANGUAGES
+
+        return {
+            "languages": [
+                {
+                    "tag": lang.tag,
+                    "name": lang.name,
+                    "native_name": lang.native_name,
+                    "greeting": lang.greeting,
+                }
+                for lang in SUPPORTED_LANGUAGES if lang.live_supported
+            ],
+        }
+
     @app.get("/")
     async def root():
         return {"message": "Simple RAG Server - No Database Required!"}
@@ -5867,15 +5888,19 @@ def create_app(args: Any = None) -> FastAPI:
         }
     
     @app.post("/api/query")
-    async def api_query(query: str = Form(...)):
+    async def api_query(query: str = Form(...), language: str = Form("en")):
         """Direct API endpoint for queries.
+
+        `language` is the Supported Language the question was asked in (a code
+        or tag such as "hi" or "hi-IN"; English when omitted). It reaches the
+        pipeline and the guard, so a Hindi question gets the Hindi Deferral.
 
         The answer passes the same boundary as the mobile and voice routes
         (emergency, dosage guard, evidence grade) before it is returned. If the
         guard cannot run, the except below returns an error, never the draft.
         """
         try:
-            return await answer_web_query(rag_pipeline, query)
+            return await answer_web_query(rag_pipeline, query, language=language)
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
@@ -6078,7 +6103,11 @@ def create_app(args: Any = None) -> FastAPI:
             # Parse request
             data = json.loads(body)
             query = data.get("query", "")
-            language = data.get("language", "en")
+            # One code per Supported Language (Odia is "or", whatever Bolna's
+            # LLM reports); outside the eleven, English, never Hindi.
+            from supported_languages import ENGLISH_CODE, get_language
+            reported = get_language(data.get("language"))
+            language = reported.code if reported is not None else ENGLISH_CODE
             context = data.get("context", "")
             source = data.get("source", "unknown")
             caller_id = bolna_caller_id(data)
@@ -6325,8 +6354,13 @@ def create_app(args: Any = None) -> FastAPI:
     @app.post("/api/medication/voice-reminder")
     async def create_voice_reminder_endpoint(request: Request):
         """
-        Create a new medication voice reminder.
-        
+        Create a new medication voice reminder (admin only, auth/policy.py).
+
+        The call names the medicine and the time, never the dose: "dosage" is
+        stored with the reminder and never spoken (ADR 0004, decision D10).
+        A request without a phone number, medicine or valid time is refused
+        with 422 and nothing is scheduled.
+
         Request Body:
         {
             "user_id": "phone_number",
@@ -6338,30 +6372,41 @@ def create_app(args: Any = None) -> FastAPI:
         }
         """
         if not MEDICATION_VOICE_AVAILABLE:
-            return JSONResponse({"error": "Voice reminder system not available"}, status_code=503)
-        
+            return JSONResponse({"status": "error", "error": "Voice reminder system not available"},
+                                status_code=503)
+
         try:
             data = await request.json()
-            
-            reminder = voice_reminder_system.create_voice_reminder(
-                user_id=data.get("user_id"),
-                phone_number=data.get("phone_number"),
-                medication_name=data.get("medication_name"),
-                dosage=data.get("dosage"),
-                reminder_time=datetime.fromisoformat(data.get("reminder_time")),
-                language=data.get("language", "en"),
-                preferred_provider=data.get("provider", "bolna")
-            )
-            
-            return JSONResponse({
-                "status": "success",
-                "reminder_id": reminder.reminder_id,
-                "scheduled_time": reminder.scheduled_time.isoformat()
-            })
-            
-        except Exception as e:
-            logger.error(f"Error creating voice reminder: {e}")
-            return JSONResponse({"error": str(e)}, status_code=500)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="The body must be JSON")
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=422, detail="The body must be a JSON object")
+        phone_number = str(data.get("phone_number") or "").strip()
+        if not phone_number:
+            raise HTTPException(status_code=422, detail="A reminder call needs a phone number")
+        medication_name = str(data.get("medication_name") or "").strip()
+        if not medication_name:
+            raise HTTPException(status_code=422, detail="A reminder needs a medicine name")
+        try:
+            reminder_time = datetime.fromisoformat(str(data.get("reminder_time") or ""))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="reminder_time must be an ISO date and time")
+
+        reminder = voice_reminder_system.create_voice_reminder(
+            user_id=str(data.get("user_id") or phone_number),
+            phone_number=phone_number,
+            medication_name=medication_name,
+            dosage=str(data.get("dosage") or ""),
+            reminder_time=reminder_time,
+            language=data.get("language", "en"),
+            preferred_provider=data.get("provider", "bolna")
+        )
+
+        return JSONResponse({
+            "status": "success",
+            "reminder_id": reminder.reminder_id,
+            "scheduled_time": reminder.scheduled_time.isoformat()
+        })
     
     @app.get("/api/medication/voice-reminders/{user_id}")
     async def get_user_voice_reminders_endpoint(user_id: str):
@@ -6617,23 +6662,26 @@ def create_app(args: Any = None) -> FastAPI:
                 "provider": "sarvam_ai",
                 "stt_model": get_stt_model(),
                 "tts_model": get_tts_model(),
-                "stt_languages": len(SARVAM_STT_LANGUAGES),
-                "tts_languages": len(SARVAM_TTS_LANGUAGES),
+                "languages": len(_sarvam_languages()),
             })
         except Exception as e:
             return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
 
+    def _sarvam_languages() -> List[Dict[str, str]]:
+        """The Supported Languages Sarvam listens and speaks in, from the table:
+        each one's Sarvam code (Odia is "od-IN"), tag and name."""
+        from supported_languages import PROVIDER_SARVAM, SUPPORTED_LANGUAGES
+
+        return [
+            {"sarvam_code": lang.voice(PROVIDER_SARVAM).language, "tag": lang.tag, "name": lang.name}
+            for lang in SUPPORTED_LANGUAGES if lang.voice(PROVIDER_SARVAM)
+        ]
+
     @app.get("/api/sarvam/languages")
     async def sarvam_languages_endpoint():
-        """List supported Sarvam languages."""
-        return JSONResponse({
-            "stt_languages": SARVAM_STT_LANGUAGES if SARVAM_AVAILABLE else [],
-            "tts_languages": SARVAM_TTS_LANGUAGES if SARVAM_AVAILABLE else [],
-            "language_configs": {
-                code: {"name": cfg["name"], "stt": cfg["stt_supported"], "tts": cfg["tts_supported"]}
-                for code, cfg in (SARVAM_LANGUAGE_CONFIGS or {}).items()
-            } if SARVAM_AVAILABLE else {},
-        })
+        """The languages the Sarvam path listens and speaks in: the Supported
+        Languages (supported_languages.py), the same eleven for STT and TTS."""
+        return JSONResponse({"languages": _sarvam_languages() if SARVAM_AVAILABLE else []})
 
     @app.post("/api/sarvam/stt")
     async def sarvam_stt_endpoint(request: Request):

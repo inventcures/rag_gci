@@ -194,6 +194,9 @@ class InteractionLog:
     validation_status: str = ""
     dosage_blocked: bool = False
     dosage_reason: Optional[str] = None
+    # Set when the Deferral went out in English because the participant's
+    # language had no copy (ADR 0004's English fallback); the language asked for.
+    dosage_language_fallback: Optional[str] = None
     handoff_triggered: bool = False
 
     # -- operational --
@@ -444,6 +447,7 @@ class StudyInteractionLogger:
             validation_status=str(safety.get("validation_status") or ""),
             dosage_blocked=bool(safety.get("dosage_blocked", False)),
             dosage_reason=safety.get("dosage_reason"),
+            dosage_language_fallback=safety.get("dosage_language_fallback"),
             is_offline=is_offline,
             is_cache_hit=is_cache_hit,
             error=error,

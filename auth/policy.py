@@ -98,6 +98,7 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     "/openapi.json": RoutePolicy(Access.PUBLIC, "API schema only"),
     "/voice": RoutePolicy(Access.PUBLIC, "static web voice client"),
     "/api/voice/models": RoutePolicy(Access.PUBLIC, "read by the web voice client"),
+    "/api/voice/languages": RoutePolicy(Access.PUBLIC, "the web voice client's language picker"),
     "/ws/voice": RoutePolicy(Access.PUBLIC, "web Live voice; identity from the session is ticket 12"),
     "/api/pageindex/health": PUBLIC,
     "/api/retell/health": PUBLIC,
@@ -123,7 +124,7 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     "/api/mobile/v1/auth/login": RoutePolicy(Access.PUBLIC, "own verification: PIN"),
     "/api/mobile/v1/auth/refresh": RoutePolicy(Access.PUBLIC, "own verification: the refresh token (ticket 08)"),
     "/api/mobile/v1/ws/voice": RoutePolicy(
-        Access.PUBLIC, "the Android client opens it without a token; no identity is read from it"
+        Access.PARTICIPANT, "access token on the upgrade request; turns recorded under it (ticket 22)"
     ),
     # -- participant-facing answers outside the app ----------------------------
     "/api/query": PARTICIPANT,

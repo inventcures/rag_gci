@@ -13,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 CACHE_DIR = Path("./data/cache/mobile")
 
-SUPPORTED_LANGUAGES = ["ta-IN", "te-IN", "kn-IN", "ml-IN", "bn-IN", "as-IN", "hi-IN", "en-IN"]
-
 EMERGENCY_KEYWORDS = {
     "en": ["bleeding", "unconscious", "not breathing", "chest pain", "seizure", "suicide", "severe pain", "choking"],
     "hi": ["खून बह रहा", "बेहोश", "सांस नहीं", "छाती में दर्द", "दौरा", "तेज दर्द"],
@@ -31,7 +29,7 @@ EMERGENCY_KEYWORDS = {
 # questions were in English and matched nothing, and one of the twenty was a
 # dosage question the Dose Boundary would refuse.
 from offline.questions import ENGLISH as DEFAULT_TOP_QUERIES  # noqa: E402,F401
-from offline.questions import has_translation, questions_for  # noqa: E402
+from offline.questions import bundle_language, has_translation, questions_for  # noqa: E402
 
 
 def _normalise_for_hash(question_text: str) -> str:
@@ -97,7 +95,16 @@ class CacheBundleBuilder:
         Building runs twenty full answers; it used to run on every download.
         Bundles are kept in memory and on disk (so a restart does not rebuild),
         and concurrent requests for the same language share one build.
+
+        ``language`` is any spelling of a Supported Language ("od-IN" and
+        "or-IN" share Odia's one bundle). A language outside the eleven raises
+        ValueError: there is no bundle in it, and none in another language is
+        handed over in its place.
         """
+        tag = bundle_language(language)
+        if tag is None:
+            raise ValueError(f"{language!r} is not a Supported Language; there is no offline bundle for it")
+        language = tag
         questions = await self._questions(language)
         key = self._bundle_key(language, questions)
         cached = _BUNDLES.get(language)

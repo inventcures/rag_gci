@@ -10,6 +10,26 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// The server the app talks to and the study site it registers participants at.
+// Passed per build (`./gradlew :app:assembleRelease -PpalliBaseUrl=https://... -PpalliSiteId=...`)
+// so a study deployment points at its own server without a code change.
+//
+// Debug defaults to the host machine as the Android emulator sees it. The release
+// default is the production host named in the Android specification; a release
+// build refuses to configure with anything that is not https, or with the old
+// `.invalid` placeholder, so it cannot ship pointing nowhere.
+val debugBaseUrl: String = providers.gradleProperty("palliDebugBaseUrl")
+    .getOrElse("http://10.0.2.2:8000/")
+val releaseBaseUrl: String = providers.gradleProperty("palliBaseUrl")
+    .getOrElse("https://api.pallisahayak.org/")
+val studySiteId: String = providers.gradleProperty("palliSiteId").getOrElse("unassigned")
+
+check(releaseBaseUrl.startsWith("https://") && !releaseBaseUrl.contains(".invalid")) {
+    "palliBaseUrl must be an https URL of a real server, was '$releaseBaseUrl'"
+}
+
+fun quoted(value: String) = "\"" + value.replace("\"", "\\\"") + "\""
+
 android {
     namespace = "org.inventcures.pallisahayak.data"
     compileSdk = 35
@@ -17,6 +37,20 @@ android {
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "SITE_ID", quoted(studySiteId))
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField("String", "BASE_URL", quoted(debugBaseUrl))
+        }
+        release {
+            buildConfigField("String", "BASE_URL", quoted(releaseBaseUrl))
+        }
     }
 
     compileOptions {

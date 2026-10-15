@@ -8,8 +8,9 @@ the dose detector passes it, alone and joined to the sentence before it. A
 failing sentence is dropped. At the end, if anything was dropped, the
 redaction note follows, or the Deferral when too little is left to stand as
 an answer: Redacted Answer semantics, as `DosageGuard.apply` gives the whole
-text. When the question is an emergency the guard stands aside, as it does
-for the whole text.
+text. When the question raises a CRITICAL alert the Emergency Override
+applies, as it does for the whole text: the 108 guidance in the caller's
+language goes out first, then the sentences unfiltered.
 
 A channel opts in by opening `streaming_to(stream)` around its `query()` call;
 the answer generator streams into the active stream instead of waiting for
@@ -22,7 +23,7 @@ import contextvars
 import re
 import time
 from contextlib import contextmanager
-from typing import AsyncIterator, Awaitable, Callable, Iterator, List, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Optional
 
 import dosage_guard
 
@@ -85,11 +86,16 @@ class AnswerStream:
         self._send = send
         self.language = language
         guard = guard or _default_guard()
-        # An emergency question passes untouched, as with the whole text.
-        self.emergency = bool(guard and guard._is_emergency(query, ""))
+        # The alert is computed once, on the question, as on the whole-text
+        # path; only a CRITICAL one invokes the Emergency Override.
+        self.alert = guard.detect_alert(query, language) if guard else None
+        self.emergency = dosage_guard._is_critical_alert(self.alert)
         self.max_words = max_words
         self.sent: List[str] = []
         self.redacted = 0
+        # The language asked for, when the closing note or Deferral went out
+        # in English because it has no copy (as DosageGuardResult records it).
+        self.language_fallback: Optional[str] = None
         self.truncated = False
         self.used = False
         self.started = time.perf_counter()
@@ -107,6 +113,12 @@ class AnswerStream:
             if words + len(sentence.split()) > self.max_words:
                 self.truncated = True
                 return
+        if self.emergency and not self.sent:
+            # Under the override the caller hears the 108 guidance before
+            # anything else, as `DosageGuard.apply` puts it first.
+            guidance = dosage_guard.emergency_guidance_for(self.language)
+            self.sent.append(guidance)
+            await self._send(guidance)
         self.sent.append(sentence)
         if self.first_sent_s is None:
             self.first_sent_s = time.perf_counter() - self.started
@@ -133,12 +145,21 @@ class AnswerStream:
         """The redaction note, or the Deferral, after a dropped sentence."""
         if not self.redacted:
             return
+        _, self.language_fallback = dosage_guard._copy_language(self.language)
         if len(self.text) >= dosage_guard._MIN_REMAINING_CHARS:
             closing = dosage_guard._redaction_note(self.language).strip()
         else:
             closing = dosage_guard._refusal_for(self.language)
         self.sent.append(closing)
         await self._send(closing)
+
+    def safety_record(self) -> Dict[str, Any]:
+        """The Dose Boundary fields of the safety record for what was streamed,
+        named as `guard_query_result` names them for a whole answer."""
+        return {
+            "dosage_blocked": bool(self.redacted),
+            "dosage_language_fallback": self.language_fallback,
+        }
 
     async def consume(self, deltas: AsyncIterator[str],
                       clean: Callable[[str], str] = lambda s: s) -> str:

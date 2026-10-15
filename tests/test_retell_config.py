@@ -21,45 +21,27 @@ class TestRetellConfig:
         from retell_integration.config import (
             RETELL_API_BASE,
             RETELL_SYSTEM_PROMPT,
-            RETELL_LANGUAGE_CONFIGS,
-            CARTESIA_VOICE_IDS,
             RetellAgentConfig,
             get_palli_sahayak_retell_config,
         )
         assert RETELL_API_BASE is not None
         assert RETELL_SYSTEM_PROMPT is not None
-        assert len(RETELL_LANGUAGE_CONFIGS) > 0
-        assert len(CARTESIA_VOICE_IDS) > 0
 
     def test_cartesia_voice_ids(self):
-        """Test Cartesia voice ID configuration."""
-        from retell_integration.config import CARTESIA_VOICE_IDS
+        """The Cartesia voices the table names are all known, as UUIDs."""
+        from supported_languages import CARTESIA_VOICES, PROVIDER_RETELL, SUPPORTED_LANGUAGES
 
-        # Check required languages
-        assert "hi" in CARTESIA_VOICE_IDS
-        assert "en" in CARTESIA_VOICE_IDS
-
-        # Check voice structure
-        for lang, config in CARTESIA_VOICE_IDS.items():
-            assert "voice_id" in config
-            assert "voice_name" in config
-            assert len(config["voice_id"]) == 36  # UUID format
+        for lang in SUPPORTED_LANGUAGES:
+            voice = lang.voice(PROVIDER_RETELL)
+            if voice is not None:
+                assert len(CARTESIA_VOICES[voice.name]) == 36  # UUID format
 
     def test_language_configs(self):
-        """Test language configuration structure."""
-        from retell_integration.config import RETELL_LANGUAGE_CONFIGS
+        """Hindi and English agents listen in hi-IN and en-IN (the table's languages)."""
+        from retell_integration.config import get_palli_sahayak_retell_config
 
-        # Check Hindi config
-        assert "hi" in RETELL_LANGUAGE_CONFIGS
-        hi_config = RETELL_LANGUAGE_CONFIGS["hi"]
-        assert hi_config["retell_language"] == "hi-IN"
-        assert "voice" in hi_config
-        assert "welcome_message" in hi_config
-
-        # Check English config
-        assert "en" in RETELL_LANGUAGE_CONFIGS
-        en_config = RETELL_LANGUAGE_CONFIGS["en"]
-        assert en_config["retell_language"] == "en-IN"
+        assert get_palli_sahayak_retell_config("wss://x", language="hi").language == "hi-IN"
+        assert get_palli_sahayak_retell_config("wss://x", language="en").language == "en-IN"
 
     def test_system_prompt_content(self):
         """Test system prompt contains required elements."""
@@ -73,12 +55,13 @@ class TestRetellConfig:
 
     def test_retell_agent_config_dataclass(self):
         """Test RetellAgentConfig dataclass."""
-        from retell_integration.config import RetellAgentConfig, CARTESIA_VOICE_IDS
+        from retell_integration.config import RetellAgentConfig
+        from supported_languages import CARTESIA_VOICES
 
         config = RetellAgentConfig(
             agent_name="Test Agent",
             llm_websocket_url="wss://example.com/ws",
-            voice_id=CARTESIA_VOICE_IDS["hi"]["voice_id"],
+            voice_id=CARTESIA_VOICES["Hindi Narrator Woman"],
             webhook_url="https://example.com/webhook"
         )
 
@@ -89,12 +72,13 @@ class TestRetellConfig:
 
     def test_retell_agent_config_to_dict(self):
         """Test RetellAgentConfig.to_dict() method."""
-        from retell_integration.config import RetellAgentConfig, CARTESIA_VOICE_IDS
+        from retell_integration.config import RetellAgentConfig
+        from supported_languages import CARTESIA_VOICES
 
         config = RetellAgentConfig(
             agent_name="Test Agent",
             llm_websocket_url="wss://example.com/ws",
-            voice_id=CARTESIA_VOICE_IDS["hi"]["voice_id"],
+            voice_id=CARTESIA_VOICES["Hindi Narrator Woman"],
             webhook_url="https://example.com/webhook"
         )
 

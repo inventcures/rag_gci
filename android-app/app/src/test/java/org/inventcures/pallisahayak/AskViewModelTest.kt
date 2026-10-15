@@ -427,10 +427,26 @@ private class StubApi : PalliSahayakApi {
         ),
     )
 
+    // Signing in is covered by auth/SignInAndTokenRefreshTest. This suite drives
+    // the signed client directly, so none of these is called here.
+    override suspend fun register(
+        @Body body: org.inventcures.pallisahayak.api.generated.DeviceRegistrationRequest,
+    ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.AuthResponse> =
+        error("not used by this suite")
+
     override suspend fun login(
         @Body body: org.inventcures.pallisahayak.api.generated.LoginRequest,
     ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.AuthResponse> =
-        error("login is ticket 06")
+        error("not used by this suite")
+
+    override suspend fun refresh(
+        @Body body: org.inventcures.pallisahayak.api.generated.RefreshRequest,
+    ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.AuthResponse> =
+        error("not used by this suite")
+
+    override suspend fun releaseStatus():
+        retrofit2.Response<org.inventcures.pallisahayak.api.generated.ReleaseStatusResponse> =
+        error("not used by this suite")
 }
 
 /** Runs work inline on the calling thread. */

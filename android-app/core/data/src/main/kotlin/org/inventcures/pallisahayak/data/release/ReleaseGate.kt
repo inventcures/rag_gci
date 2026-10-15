@@ -56,7 +56,24 @@ sealed interface GateDecision {
         val detail: String,
         /** True when the cause is a record that is unsigned rather than a bad build. */
         val awaitingApproval: Boolean = false,
+        /** Which refusal this is, so the screen can say it in the participant's language. */
+        val reason: BlockReason = BlockReason.UNUSABLE,
     ) : GateDecision
+}
+
+/** Why the gate refused, one value per refusal [ReleaseGate] can give. */
+enum class BlockReason {
+    /** The build no longer matches its approved record. */
+    DRIFTING,
+
+    /** Not signed off by the study team (or the server could not say). */
+    NOT_APPROVED,
+
+    /** Approved, but the study has not opened it to participants. */
+    NOT_ACTIVATED,
+
+    /** Any other state the gate does not recognise as usable. */
+    UNUSABLE,
 }
 
 /**
@@ -96,6 +113,7 @@ class ReleaseGate(
                 headline = "This build has changed since it was approved",
                 detail = "It no longer matches the approved record. The study team " +
                     "needs to look at this before anyone uses it.",
+                reason = BlockReason.DRIFTING,
             )
         }
 
@@ -107,6 +125,7 @@ class ReleaseGate(
                 detail = "It has not been signed off by the study team. Nothing is " +
                     "lost, and it will open once it is approved.",
                 awaitingApproval = true,
+                reason = BlockReason.NOT_APPROVED,
             )
         }
 
@@ -115,6 +134,7 @@ class ReleaseGate(
                 headline = "This version is not open yet",
                 detail = "It is approved but the study has not started using it yet.",
                 awaitingApproval = true,
+                reason = BlockReason.NOT_ACTIVATED,
             )
         }
 

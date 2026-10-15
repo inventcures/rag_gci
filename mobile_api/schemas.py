@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Literal, Optional, List
 from enum import Enum
 
 
@@ -46,6 +46,22 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class ReleaseStatusResponse(BaseModel):
+    """What the app may know about the running study release (``client_view()``).
+
+    Declared so the contract carries the release gate's fields and the Android
+    client is generated against them rather than a hand-kept copy.
+    """
+    release_id: str
+    release_name: Optional[str] = None
+    status: str
+    activated: bool
+    approved: bool
+    usable_with_participants: bool
+    drifting: bool
+    drift: List[dict] = Field(default_factory=list)
+
+
 class AuthResponse(BaseModel):
     user_id: str
     token: str
@@ -61,9 +77,23 @@ class SyncPushRequest(BaseModel):
     device_timestamp: float
 
 
+class SyncAcknowledgement(BaseModel):
+    """The server's answer for one pushed item.
+
+    The app removes an item from its queue only when its acknowledgement says
+    accepted. `index` is the item's position in its list of the push; `id` is
+    the id the server stored it under."""
+    kind: Literal["observation", "medication_reminder", "interaction_log", "vignette_response"]
+    index: int
+    id: Optional[str] = None
+    status: Literal["accepted", "rejected"]
+    reason: Optional[Literal["invalid", "not_owned", "save_failed", "unavailable", "over_limit"]] = None
+
+
 class SyncPushResponse(BaseModel):
     accepted: int
     rejected: int
+    acknowledgements: List[SyncAcknowledgement]
     conflicts: List[dict]
 
 
@@ -95,9 +125,16 @@ class ObservationResponse(BaseModel):
 
 
 class CreateReminderRequest(BaseModel):
+    """
+    A reminder call from the app. The dosage, if sent, is stored with the
+    reminder and never spoken (ADR 0004, decision D10). A call needs a phone
+    number; a request without one is refused rather than scheduled.
+    """
+
     patient_id: str
     medication_name: str
-    dosage: str
+    dosage: Optional[str] = None
+    phone_number: Optional[str] = None
     scheduled_time: float
     language: str
     frequency: Optional[str] = None

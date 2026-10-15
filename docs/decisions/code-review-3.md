@@ -63,3 +63,25 @@ Decisions taken while implementing the 26 tickets with Matt Pocock's `implement`
 - Check before go-live: Bolna's custom function calls to `/api/bolna/query` must carry both a signature and the Bearer key. If Bolna does not sign those calls, they will be refused.
 
 **For the clinical lead's review:** the index-unavailable message (ten languages), the WhatsApp "voice unavailable" and "language set" messages (eleven languages) and the English unsupported-language notice, all machine-drafted, and the Indic schedule words added to the dose detector.
+
+### Wave 2 (tickets 02, 04, 06, 09, 15, 22)
+
+| # | Decision | Why |
+|---|---|---|
+| D31 | (02) The Emergency Override still lets the dose through, with the 108 guidance put first, in the participant's language. Only a CRITICAL alert on the question triggers it. | This is what CONTEXT.md, ADR 0004 and the ticket say. Whether doses should also be removed under the override is the clinical lead's call. |
+| D32 | (04) All eleven languages get their own Deferral and Redacted Answer note. The Hindi Deferral's "अगली बार" became "अगली मुलाक़ात", and new copy avoids the Indic words for "time" and "day". | The detector reads those words as dose frequencies, so the old Hindi Deferral contained a dose match of its own. |
+| D33 | (06) Reminder text is built in one place (`reminder_text.py`). Doses are cleaned span by span, including from the medicine name. A mobile reminder needs a phone number from the caller. | Running the reminder through `DosageGuard.apply` would replace the whole reminder with the Deferral. A name can carry a dose too ("Paracetamol 500mg"). The token carries no phone number. |
+| D34 | (09) The household is the authenticated `user_id`. An auditor is anyone holding an admin token. Sync push acknowledges each item by (kind, index). Reminders reach the app without the dose. | A participant chooses their own mobile role at registration, so that role cannot grant the full export. Logs and vignettes can arrive without an id. Sending the stored dose would open a new dose path, which D10 rules out. |
+| D35 | (15) Bolna and Retell get voices only for the languages the old tables really voiced (hi, en, mr, ta). Every other language raises an error instead of falling back to Hindi. Live does not speak Odia or Punjabi. | No Cartesia voice ids were invented. An operator should check whether more Indic voices exist before adding them to the table. |
+| D36 | (22) The Android app registers with a PIN, keeps its tokens encrypted with an Android Keystore key, and refreshes once when it gets a 401. A failed refresh sends the participant back to the PIN only when the server refuses it, not when the network is down. The mobile voice socket now needs an access token. The release base URL defaults to `https://api.pallisahayak.org/`. | Being offline is normal at the study sites. androidx.security is deprecated and adds to the APK size. The host is the one the Android spec names; confirm it before a release build. |
+
+**What participants will notice (wave 2, all need a study release):**
+- An answer that says "call 108" no longer lets a dose through. Every CRITICAL question gets the 108 guidance first, in the participant's language, on every channel.
+- Marathi, Kannada, Malayalam, Odia, Punjabi, Telugu and Gujarati participants get the Deferral and note in their own language. A Hindi web question gets the Hindi Deferral.
+- Reminder calls and WhatsApp reminders name the medicine and the time, never a dose. The Hindi, Tamil and Gujarati call closings say "take care".
+- The app's reminder list and sync now return the household's own reminders, without the dose. A participant's export shows only their own records.
+- Assamese leaves the web voice picker. Live refuses Odia, Punjabi and Assamese plainly instead of answering in English. Bolna no longer builds Punjabi or Malayalam agents that spoke Hindi.
+- The Android app shows a refusal screen for an unapproved release, then a language picker, Care Role and PIN. Its new strings are English only so far.
+- Over-redaction to know about: the detector treats bare Indic day words (दिन) as a schedule, so some ordinary sentences are withheld. This errs on the safe side and is listed for the clinical lead.
+
+**For the clinical lead's review:** `dosage_guard.EMERGENCY_GUIDANCE` (mr, te, kn, ml, pa, or), the Deferral and note copy for mr, kn, ml, or, pa, te and gu, the two reworded Hindi lines, the reminder lines and closings, and the 11 voice greetings.

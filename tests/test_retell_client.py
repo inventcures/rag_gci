@@ -83,13 +83,14 @@ class TestRetellClientMethods:
     async def test_create_agent_no_key(self):
         """Test create_agent fails without API key."""
         from retell_integration.client import RetellClient
-        from retell_integration.config import RetellAgentConfig, CARTESIA_VOICE_IDS
+        from retell_integration.config import RetellAgentConfig
+        from supported_languages import CARTESIA_VOICES
 
         client = RetellClient(api_key="")
         config = RetellAgentConfig(
             agent_name="Test Agent",
             llm_websocket_url="wss://example.com/ws",
-            voice_id=CARTESIA_VOICE_IDS["hi"]["voice_id"],
+            voice_id=CARTESIA_VOICES["Hindi Narrator Woman"],
             webhook_url="https://example.com/webhook"
         )
 
@@ -164,7 +165,8 @@ class TestRetellClientWithMockedNetwork:
         """Test successful agent creation."""
         import aiohttp
         from retell_integration.client import RetellClient
-        from retell_integration.config import RetellAgentConfig, CARTESIA_VOICE_IDS
+        from retell_integration.config import RetellAgentConfig
+        from supported_languages import CARTESIA_VOICES
 
         # Mock response
         mock_response = AsyncMock()
@@ -187,7 +189,7 @@ class TestRetellClientWithMockedNetwork:
             config = RetellAgentConfig(
                 agent_name="Test Agent",
                 llm_websocket_url="wss://example.com/ws",
-                voice_id=CARTESIA_VOICE_IDS["hi"]["voice_id"],
+                voice_id=CARTESIA_VOICES["Hindi Narrator Woman"],
                 webhook_url="https://example.com/webhook"
             )
 

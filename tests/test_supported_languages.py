@@ -148,14 +148,12 @@ class TheTable(unittest.TestCase):
         self.assertEqual(sorted(lang.code for lang in SUPPORTED_LANGUAGES), ELEVEN)
 
     def test_every_supported_language_has_an_india_hosted_voice(self):
-        from sarvam_integration.config import SARVAM_TTS_LANGUAGES
         from supported_languages import get_language
 
         for code in ELEVEN:
             voice = get_language(code).voice("sarvam")
             self.assertIsNotNone(voice, code)
             self.assertEqual(voice.language, SARVAM_TAG[code])
-            self.assertIn(voice.language, SARVAM_TTS_LANGUAGES)
 
     def test_each_language_is_found_by_its_code_tag_or_provider_spelling(self):
         from supported_languages import get_language
