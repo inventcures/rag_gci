@@ -5,8 +5,10 @@ import org.inventcures.pallisahayak.api.generated.ReleaseStatusResponse
 import org.inventcures.pallisahayak.data.auth.AuthState
 import org.inventcures.pallisahayak.data.auth.SessionManager
 import org.inventcures.pallisahayak.data.release.GateDecision
+import org.inventcures.pallisahayak.data.release.InMemoryReleaseStatusCache
 import org.inventcures.pallisahayak.data.release.ReleaseGate
 import org.inventcures.pallisahayak.data.release.ReleaseStatus
+import org.inventcures.pallisahayak.data.release.ReleaseStatusCache
 import org.inventcures.pallisahayak.data.repository.SessionContext
 import java.io.IOException
 
@@ -30,8 +32,11 @@ sealed interface StartScreen {
  *
  * The release gate runs first, before registration is offered (criterion 6):
  * a build the server does not confirm as approved and activated opens on the
- * refusal screen, and a server that cannot be reached counts as not approved.
- * Then the sign-in state decides between registration, the PIN and the app.
+ * refusal screen. When the server cannot be reached, the last status it
+ * confirmed as usable for this build stands in ([ReleaseStatusCache]), so a
+ * phone with no signal can still answer from the Cached Answer Bundle; with no
+ * such status, no signal counts as not approved. Then the sign-in state decides
+ * between registration, the PIN and the app.
  *
  * [api] is the unsigned client: the release status is read before there is a
  * session (`auth/policy.py`).
@@ -40,19 +45,38 @@ class AppStart(
     private val api: PalliSahayakApi,
     private val gate: ReleaseGate,
     private val sessions: SessionManager,
+    private val releaseCache: ReleaseStatusCache = InMemoryReleaseStatusCache(),
 ) {
     /** Ask the server about this release, and decide the first screen. */
     suspend fun decide(): StartScreen = screenFor(release(), sessions.state.value)
 
-    /** The server's view of the running release, or [ReleaseStatus.unknown] when it cannot say. */
+    /**
+     * The server's view of the running release. When the server cannot say, the
+     * last usable status it gave, else [ReleaseStatus.unknown].
+     *
+     * Only a status the server actually returned updates the cache: a usable one
+     * is remembered, and any other clears it, so a release seen unapproved (or
+     * drifting, or deactivated) is refused offline as well.
+     */
     suspend fun release(): ReleaseStatus {
+        val fetched = fetchRelease() ?: return releaseCache.lastApproved() ?: ReleaseStatus.unknown()
+        if (fetched.usableWithParticipants && !fetched.drifting) {
+            releaseCache.remember(fetched)
+        } else {
+            releaseCache.forget()
+        }
+        return fetched
+    }
+
+    /** The status the server returned, or null when it could not be asked. */
+    private suspend fun fetchRelease(): ReleaseStatus? {
         val response = try {
             api.releaseStatus()
         } catch (error: IOException) {
-            return ReleaseStatus.unknown()
+            return null
         }
         val body = response.body()
-        return if (response.isSuccessful && body != null) body.toReleaseStatus() else ReleaseStatus.unknown()
+        return if (response.isSuccessful && body != null) body.toReleaseStatus() else null
     }
 
     /** The screen for a release status and a sign-in state. */

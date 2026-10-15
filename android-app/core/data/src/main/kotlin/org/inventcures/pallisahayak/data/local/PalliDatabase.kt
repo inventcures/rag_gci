@@ -6,13 +6,16 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import org.inventcures.pallisahayak.data.reminders.ReminderDao
 import org.inventcures.pallisahayak.data.reminders.ReminderEntity
+import org.inventcures.pallisahayak.data.sync.SyncItemEntity
+import org.inventcures.pallisahayak.data.sync.SyncQueueDao
 
 /**
  * The app's on-device store.
  *
- * Two tables only. Interactions are written by the server-side recording path and
- * pushed when a connection exists; cached answers come from the offline bundle
- * built by `offline/cache_builder.py`.
+ * Interactions are recorded here; cached answers come from the offline bundle
+ * built by `offline/cache_builder.py`; households and reminders are the
+ * participant's own; and the sync queue holds what the server has not yet
+ * acknowledged (an observation or an offline interaction), until it does.
  *
  * The database is deliberately small. The app holds no clinical records of its
  * own: patient observations live on the server and sync through the mobile API, so
@@ -25,8 +28,9 @@ import org.inventcures.pallisahayak.data.reminders.ReminderEntity
         HouseholdEntity::class,
         HouseholdMemberEntity::class,
         ReminderEntity::class,
+        SyncItemEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class PalliDatabase : RoomDatabase() {
@@ -38,6 +42,8 @@ abstract class PalliDatabase : RoomDatabase() {
     abstract fun households(): HouseholdDao
 
     abstract fun reminders(): ReminderDao
+
+    abstract fun syncQueue(): SyncQueueDao
 
     companion object {
         private const val NAME = "palli-sahayak.db"
@@ -69,8 +75,22 @@ abstract class PalliDatabase : RoomDatabase() {
             // throws at open time instead, which is a loud failure in front of the
             // developer who caused it. That is the right trade for study data.
             Room.databaseBuilder(context, PalliDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
+
+        /**
+         * Adds the sync queue, same reasoning as 1 to 2: additive, written out,
+         * and no recorded interaction is touched.
+         */
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS sync_queue (" +
+                        "id TEXT NOT NULL, kind TEXT NOT NULL, payload_json TEXT NOT NULL, " +
+                        "queued_at INTEGER NOT NULL, refused_reason TEXT, PRIMARY KEY(id))",
+                )
+            }
+        }
 
         /**
          * Adds the reminders table, same reasoning as 1 to 2.

@@ -142,6 +142,14 @@ interface CachedAnswerDao {
     @Query("DELETE FROM cached_answers WHERE bundle_version != :keepVersion")
     suspend fun deleteOtherVersions(keepVersion: String)
 
+    /**
+     * Drop one language's rows from older bundles, once a newer bundle for that
+     * language has landed. Scoped to the language, unlike [deleteOtherVersions],
+     * because each language's bundle has its own version.
+     */
+    @Query("DELETE FROM cached_answers WHERE language = :language AND bundle_version != :keepVersion")
+    suspend fun deleteStale(language: String, keepVersion: String)
+
     @Query("SELECT COUNT(*) FROM cached_answers WHERE language = :language")
     suspend fun countForLanguage(language: String): Int
 }

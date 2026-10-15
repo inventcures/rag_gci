@@ -4,8 +4,13 @@ package org.inventcures.pallisahayak.safety
  * The client dose boundary and emergency ordering.
  *
  * Applies, in order:
- *   1. Emergency detection. A CRITICAL alert outranks the dose boundary and the
- *      response passes through untouched.
+ *   1. Emergency detection, on the question and never on the response. A CRITICAL
+ *      alert outranks the dose boundary and the response passes through untouched.
+ *      The alert is the higher of the level the caller passes in (the server's,
+ *      which the server computes from the question) and the on-device detector's
+ *      reading of the question in the participant's language. An answer that
+ *      merely mentions "unconscious" or "call 108" must not lift the boundary:
+ *      that is the response-text fallback ticket 02 removed from the server.
  *   2. Dose restriction. Dose-bearing sentences are removed and the remainder kept;
  *      if too little survives, the whole answer becomes a deferral.
  *   3. Verification. The redacted text is re-checked, and anything still matching
@@ -18,12 +23,21 @@ class DoseBoundary(
     private val emergencyDetector: EmergencyDetector = EmergencyDetector(),
 ) {
 
+    /**
+     * Apply the boundary to [response].
+     *
+     * [transcript] is the question as the participant asked it (typed, or as
+     * transcribed), in [language]; never the response. [alert] is the Emergency
+     * level already known for that question, such as the server's.
+     */
     fun apply(
         response: String?,
         language: String = "en-IN",
         transcript: String? = null,
+        alert: EmergencySeverity = EmergencySeverity.NONE,
     ): SafetyResult {
-        val severity = emergencyDetector.detect(transcript, language)
+        val detected = emergencyDetector.detect(transcript, language)
+        val severity = if (alert.level >= detected.level) alert else detected
 
         if (severity.overridesDoseBoundary) {
             return SafetyResult(
