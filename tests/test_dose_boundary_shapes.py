@@ -63,6 +63,50 @@ UNIT_WORD_IN_EACH_LANGUAGE = [
 ]
 
 
+# Ordinary words that contain a dose vocabulary word inside them. Each must reach
+# the participant untouched: the frequency word (बार, रात, ਵਾਰ, ...) is only a
+# dose signal as a whole word, not as part of "बारे" (about) or "घरात" (at home).
+NOT_A_DOSE_IN_EACH_SCRIPT = [
+    ("परिवार को बीमारी के बारे में बताएँ।", "hi-IN"),        # बार in बारे
+    ("दिनेश घर पर आराम कर रहे हैं।", "hi-IN"),              # दिन in दिनेश
+    ("घरात आराम करा.", "mr-IN"),                             # रात in घरात
+    ("ਪਰਿਵਾਰ ਨਾਲ ਗੱਲ ਕਰੋ।", "pa-IN"),                         # ਵਾਰ in ਪਰਿਵਾਰ
+    ("તહેવાર પર પરિવાર સાથે રહો.", "gu-IN"),                  # વાર in તહેવાર, પરિવાર
+    ("ಅವರು ಒಬ್ಬರೇ ಇರಬಾರದು.", "kn-IN"),                       # ಬಾರ in ಇರಬಾರದು
+    ("முறையாக ஓய்வு எடுங்கள்.", "ta-IN"),                      # முறை in முறையாக
+    ("రోజా పువ్వు అందంగా ఉంది.", "te-IN"),                     # రోజ in రోజా
+    ("ସରୋଜ ଘରେ ଅଛନ୍ତି।", "od-IN"),                             # ରୋଜ in ସରୋଜ
+]
+
+# The same vocabulary used as whole words still marks a schedule.
+SCHEDULE_AS_WHOLE_WORDS = [
+    ("मॉर्फिन दिन में दो बार दें।", "hi-IN"),
+    ("यह दवा रोज़ सुबह दें।", "hi-IN"),
+    ("ਇਹ ਦਵਾਈ ਦੋ ਵਾਰ ਦਿਓ।", "pa-IN"),
+    ("ಈ ಔಷಧಿಯನ್ನು ಪ್ರತಿ ದಿನ ನೀಡಿ.", "kn-IN"),
+]
+
+
+class TestIndicWordsMatchWholeWordsOnly(unittest.TestCase):
+    """An Indic dose word inside a longer word is not a dose."""
+
+    def test_word_containing_a_frequency_word_passes_untouched(self):
+        for answer, language in NOT_A_DOSE_IN_EACH_SCRIPT:
+            with self.subTest(language=language, answer=answer):
+                result = DosageGuard().apply(answer, language=language, query=QUESTION)
+                self.assertFalse(result.blocked, f"redacted a non-dose: {result.findings}")
+                self.assertEqual(result.response, answer)
+
+    def test_frequency_word_on_its_own_is_still_withheld(self):
+        for answer, language in SCHEDULE_AS_WHOLE_WORDS:
+            with self.subTest(language=language, answer=answer):
+                result = DosageGuard().apply(answer, language=language, query=QUESTION)
+                self.assertTrue(result.blocked, f"schedule passed the gate: {answer!r}")
+                # The Deferral itself may use the same word ("अगली बार"), so
+                # check that the schedule sentence is gone, not the word.
+                self.assertNotIn(answer, result.response)
+
+
 class TestDoseBoundaryCatchesEveryShape(unittest.TestCase):
     """Each dose the review saw pass is now blocked at the answer gate."""
 
