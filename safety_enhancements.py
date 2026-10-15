@@ -49,7 +49,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-from dosage_guard import get_dosage_guard  # noqa: E402  (local module, post-stdlib)
+from dosage_guard import EMERGENCY_GUIDANCE, get_dosage_guard  # noqa: E402  (local module, post-stdlib)
 
 
 # ============================================================================
@@ -592,27 +592,27 @@ class EmergencyDetectionSystem:
         
         messages = {
             "en": {
-                EmergencyLevel.CRITICAL: "🚨 CRITICAL EMERGENCY DETECTED. Call emergency services (108/102) immediately!",
+                EmergencyLevel.CRITICAL: f"🚨 CRITICAL EMERGENCY DETECTED. {EMERGENCY_GUIDANCE['en']}",
                 EmergencyLevel.HIGH: "⚠️ URGENT: Please seek immediate medical attention.",
                 EmergencyLevel.MEDIUM: "⚡ Please consult a doctor as soon as possible.",
             },
             "hi": {
-                EmergencyLevel.CRITICAL: "🚨 गंभीर आपातकाल! तुरंत आपातकालीन सेवाओं (108/102) को कॉल करें!",
+                EmergencyLevel.CRITICAL: f"🚨 गंभीर आपातकाल! {EMERGENCY_GUIDANCE['hi']}",
                 EmergencyLevel.HIGH: "⚠️ तत्काल: कृपया तुरंत चिकित्सा सहायता लें।",
                 EmergencyLevel.MEDIUM: "⚡ कृपया जल्द से जल्द डॉक्टर से परामर्श करें।",
             },
             "bn": {
-                EmergencyLevel.CRITICAL: "🚨 গুরুতর জরুরী! অবিলম্বে জরুরী সেবায় (108/102) কল করুন!",
+                EmergencyLevel.CRITICAL: f"🚨 গুরুতর জরুরী! {EMERGENCY_GUIDANCE['bn']}",
                 EmergencyLevel.HIGH: "⚠️ জরুরী: দয়া করে অবিলম্বে চিকিৎসা সহায়তা নিন।",
                 EmergencyLevel.MEDIUM: "⚡ দয়া করে যত তাড়াতাড়ি সম্ভব একজন ডাক্তারের পরামর্শ নিন।",
             },
             "ta": {
-                EmergencyLevel.CRITICAL: "🚨 மிக முக்கிய அவசரம்! உடனடியாக அவசர சேவைகளை (108/102) அழைக்கவும்!",
+                EmergencyLevel.CRITICAL: f"🚨 மிக முக்கிய அவசரம்! {EMERGENCY_GUIDANCE['ta']}",
                 EmergencyLevel.HIGH: "⚠️ அவசரம்: தயவுசெய்து உடனடியாக மருத்துவ உதவியைப் பெறவும்.",
                 EmergencyLevel.MEDIUM: "⚡ தயவுசெய்து விரைவில் மருத்துவரை அணுகவும்.",
             },
             "gu": {
-                EmergencyLevel.CRITICAL: "🚨 ગંભીર આપત્તિ! તાત્કાલિક આપત્તિ સેવાઓ (108/102) ને કૉલ કરો!",
+                EmergencyLevel.CRITICAL: f"🚨 ગંભીર આપત્તિ! {EMERGENCY_GUIDANCE['gu']}",
                 EmergencyLevel.HIGH: "⚠️ તાત્કાલિક: કૃપા કરીને તાત્કાલિક વૈદ્યકીય સહાય લો.",
                 EmergencyLevel.MEDIUM: "⚡ કૃપા કરીને શક્ય તેટલી વહેલી તકે ડોક્ટરનો સંપર્ક કરો.",
             },
@@ -1644,7 +1644,8 @@ class SafetyEnhancementsManager:
         sources = sources or []
         distances = distances or []
 
-        # 1. Emergency
+        # 1. Emergency, detected once on the question in the participant's
+        # language; the guard decides the Emergency Override from this alert.
         emergency_alert = None
         try:
             emergency_alert = self.emergency_system.detect_emergency(
@@ -1655,7 +1656,7 @@ class SafetyEnhancementsManager:
 
         # 2. Dosage restriction (study requirement, protocol section 7.7)
         guard_result = self.dosage_guard.apply(
-            response=response, language=language, query=query
+            response=response, language=language, query=query, alert=emergency_alert
         )
         final_response = guard_result.response
 

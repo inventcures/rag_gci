@@ -8,8 +8,9 @@ the dose detector passes it, alone and joined to the sentence before it. A
 failing sentence is dropped. At the end, if anything was dropped, the
 redaction note follows, or the Deferral when too little is left to stand as
 an answer: Redacted Answer semantics, as `DosageGuard.apply` gives the whole
-text. When the question is an emergency the guard stands aside, as it does
-for the whole text.
+text. When the question raises a CRITICAL alert the Emergency Override
+applies, as it does for the whole text: the 108 guidance in the caller's
+language goes out first, then the sentences unfiltered.
 
 A channel opts in by opening `streaming_to(stream)` around its `query()` call;
 the answer generator streams into the active stream instead of waiting for
@@ -85,8 +86,10 @@ class AnswerStream:
         self._send = send
         self.language = language
         guard = guard or _default_guard()
-        # An emergency question passes untouched, as with the whole text.
-        self.emergency = bool(guard and guard._is_emergency(query, ""))
+        # The alert is computed once, on the question, as on the whole-text
+        # path; only a CRITICAL one invokes the Emergency Override.
+        self.alert = guard.detect_alert(query, language) if guard else None
+        self.emergency = dosage_guard._is_critical_alert(self.alert)
         self.max_words = max_words
         self.sent: List[str] = []
         self.redacted = 0
@@ -107,6 +110,12 @@ class AnswerStream:
             if words + len(sentence.split()) > self.max_words:
                 self.truncated = True
                 return
+        if self.emergency and not self.sent:
+            # Under the override the caller hears the 108 guidance before
+            # anything else, as `DosageGuard.apply` puts it first.
+            guidance = dosage_guard.emergency_guidance_for(self.language)
+            self.sent.append(guidance)
+            await self._send(guidance)
         self.sent.append(sentence)
         if self.first_sent_s is None:
             self.first_sent_s = time.perf_counter() - self.started

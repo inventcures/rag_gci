@@ -325,19 +325,25 @@ class VoiceSafetyWrapper:
         return None
     
     def _format_emergency_voice_response(self, alert: EmergencyAlert, language: str) -> str:
-        """Format emergency response for voice output"""
-        responses = {
-            "en": f"""{alert.message}
+        """
+        The spoken reply to a CRITICAL question: the 108 guidance first, in the
+        caller's Supported Language (the same line the Dose Boundary puts first
+        under the Emergency Override), then any further English or Hindi copy.
+        A caller in another language hears the guidance alone rather than an
+        English paragraph.
+        """
+        from dosage_guard import emergency_guidance_for
+        from supported_languages import get_language
 
-This is an emergency. Please call 108 immediately for an ambulance.
+        guidance = emergency_guidance_for(language)
+        supported = get_language(language)
+        follow_up = {
+            "en": f"""This is an emergency. Please call 108 immediately for an ambulance.
 
 {alert.action_required}""",
-            "hi": f"""{alert.message}
-
-यह आपातकाल है। कृपया तुरंत 108 पर कॉल करें।""",
-        }
-        
-        return responses.get(language, responses["en"])
+            "hi": "यह आपातकाल है। कृपया तुरंत 108 पर कॉल करें।",
+        }.get(supported.code if supported else "en")
+        return f"{guidance}\n\n{follow_up}" if follow_up else guidance
     
     def _format_handoff_voice_response(self, handoff, language: str) -> str:
         """Format handoff response for voice output"""
