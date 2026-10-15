@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 SKIP_DIRS = {
     ".git", "kotaemon-main", "__pycache__", "cache", "out", "data",
     "uploads", "node_modules", ".venv", "build", ".gradle",
+    # agent worktrees are full copies of the repo; counting them inflates every figure
+    ".claude",
 }
 
 
