@@ -1257,7 +1257,11 @@ class HumanHandoffSystem:
         # Caregiver availability
         self.available_caregivers: List[str] = []
         self.caregiver_assignments: Dict[str, str] = {}  # request_id -> caregiver_id
-        
+
+        self._save_lock = threading.Lock()
+        self._write_lock = threading.Lock()
+        self._save_timer: Optional[threading.Timer] = None
+
         self._load_requests()
     
     def _load_requests(self):
@@ -1285,20 +1289,46 @@ class HumanHandoffSystem:
             except Exception as e:
                 logger.error(f"Failed to load resolved requests: {e}")
     
+    # A handoff request is created inside a user's turn, and both files are
+    # rewritten in full, with every request's conversation history. That used
+    # to happen on the event loop per request, growing with every handoff.
+    # Saves are now coalesced and written from a timer thread, atomically, with
+    # the compact (C) JSON encoder.
+    SAVE_DELAY_SECONDS = 0.5
+
     def _save_requests(self):
-        """Save handoff requests"""
+        """Schedule a write of both request files (coalesced, off the caller)."""
+        with self._save_lock:
+            if self._save_timer is not None and self._save_timer.is_alive():
+                return
+            self._save_timer = threading.Timer(self.SAVE_DELAY_SECONDS, self._write_requests)
+            self._save_timer.daemon = True
+            self._save_timer.start()
+
+    def flush(self) -> None:
+        """Write pending changes now (shutdown, tests)."""
+        with self._save_lock:
+            timer, self._save_timer = self._save_timer, None
+        if timer is not None:
+            timer.cancel()
+            self._write_requests()
+
+    def _write_requests(self) -> None:
         try:
-            pending_file = self.storage_path / "pending.json"
-            resolved_file = self.storage_path / "resolved.json"
-            
-            with open(pending_file, 'w') as f:
-                json.dump([r.to_dict() for r in self.pending_requests.values()], f, indent=2)
-            
-            with open(resolved_file, 'w') as f:
-                json.dump([r.to_dict() for r in self.resolved_requests.values()], f, indent=2)
+            with self._write_lock:
+                for name, requests in (("pending.json", self.pending_requests),
+                                       ("resolved.json", self.resolved_requests)):
+                    path = self.storage_path / name
+                    data = [r.to_dict() for r in list(requests.values())]
+                    tmp = path.with_name(f"{name}.{os.getpid()}.{threading.get_ident()}.tmp")
+                    # json.dumps, not json.dump: only the one-shot encoder is C.
+                    text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+                    with open(tmp, "w", encoding="utf-8") as f:
+                        f.write(text)
+                    os.replace(tmp, path)
         except Exception as e:
             logger.error(f"Failed to save requests: {e}")
-    
+
     def _dict_to_request(self, data: Dict) -> HandoffRequest:
         """Convert dict to HandoffRequest"""
         return HandoffRequest(
@@ -1363,7 +1393,9 @@ class HumanHandoffSystem:
             reason=reason,
             priority=priority,
             context=context,
-            conversation_history=conversation_history,
+            # A copy: the caller's live history keeps growing, and the file is
+            # written from another thread.
+            conversation_history=list(conversation_history or []),
             timestamp=datetime.now(),
         )
         

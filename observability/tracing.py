@@ -142,16 +142,58 @@ class Span:
         }
 
 
+# Open append descriptors, by file path. A turn writes 10-20 spans; opening,
+# creating the directory and closing for each one was most of their cost (more
+# on a network volume). One os.write on an O_APPEND descriptor per line, so
+# lines from several processes cannot interleave.
+_fds: Dict[str, int] = {}
+
+
+def _fd_for(path: Path) -> int:
+    key = str(path)
+    fd = _fds.get(key)
+    if fd is not None:
+        try:
+            if os.fstat(fd).st_nlink > 0:
+                return fd
+        except OSError:
+            pass
+        # The file was removed (retention, a test's cleanup): reopen.
+        _close_fd(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(key, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    # Only one file is written at a time: yesterday's (or an old TRACE_DIR's)
+    # is done with.
+    for other in [k for k in _fds if k != key]:
+        _close_fd(other)
+    _fds[key] = fd
+    return fd
+
+
+def _close_fd(key: str) -> None:
+    fd = _fds.pop(key, None)
+    if fd is not None:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+
+def close_trace_files() -> None:
+    """Close the open trace files (shutdown, tests)."""
+    with _write_lock:
+        for key in list(_fds):
+            _close_fd(key)
+
+
 def _write(record: Dict[str, Any]) -> None:
     if not _enabled():
         return
     try:
-        directory = trace_dir()
-        directory.mkdir(parents=True, exist_ok=True)
-        path = directory / f"{record['ts'][:10]}.jsonl"
-        line = json.dumps(record, separators=(",", ":")) + "\n"
-        with _write_lock, open(path, "a", encoding="utf-8") as handle:
-            handle.write(line)
+        path = trace_dir() / f"{record['ts'][:10]}.jsonl"
+        line = (json.dumps(record, separators=(",", ":")) + "\n").encode("utf-8")
+        with _write_lock:
+            os.write(_fd_for(path), line)
     except Exception:
         # Tracing must never cost a caller their answer.
         logger.debug("trace write failed", exc_info=True)

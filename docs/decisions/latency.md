@@ -569,3 +569,67 @@ Each entry: what was decided, the alternatives, and why.
   there is no p95 to report and no load-test script yet (20 concurrent
   queries on /api/query, 1 vs 2 workers); write and run it on the server
   once the per-worker items above are resolved.
+
+## Round 2 (2026-10-15): what was left after the 18 tickets
+
+Ranked plan, with what was done and what was not, in
+`docs/latency/round-2-plan.md`. Nothing in this round changes what a caller
+reads or hears.
+
+- **Handoff store written off the turn.** `HumanHandoffSystem._save_requests`
+  rewrote `pending.json` and `resolved.json` in full on the event loop each
+  time a request was created, with every request's conversation history,
+  through `json.dump(f)` (always the pure-Python encoder). Nothing resolves
+  requests, so the files only grow: at 300 pending requests with 50-turn
+  histories one save took 351 ms, every other caller waiting. Saves are now
+  coalesced on a 0.5 s timer thread, written atomically with `json.dumps`,
+  and flushed at shutdown. The request keeps a copy of the history, not the
+  caller's live list. Alternative not taken: an append-only JSONL, which
+  would change the files a handoff reviewer reads.
+- **One handoff store per process.** `VoiceSafetyWrapper` built its own
+  `HumanHandoffSystem` over the same files, so Bolna and Retell handoffs and
+  text-channel handoffs overwrote each other. It now uses the safety
+  manager's. The wrapper's own `ResponseLengthOptimizer` was *not* shared:
+  sharing it would count each voice turn twice in the comprehension profile,
+  which feeds `optimize_response` and could change answer length.
+- **`/health` counts the index in a thread.** `count()` is an HTTP round trip
+  when `CHROMA_HOST` is set, and health probes are frequent.
+- **Trace files stay open.** Each span did `mkdir`, `open`, `write`, `close`;
+  a turn writes 10 to 20 spans. One `O_APPEND` descriptor per day file now,
+  one `os.write` per line (so processes still cannot interleave lines),
+  reopened if the file was removed. 36 us to 16 us per span here; more on a
+  network volume. A background writer queue was not used: tests and
+  scripts read the file straight after a span ends.
+- **Patient context fetched alongside retrieval**, not after it. It depends
+  only on the caller and the question. Today it returns at once (no profiles
+  exist), so the gain is latent; once profiles exist the longitudinal summary
+  is an O(entities x observations) scan. The prompt is unchanged. An unused
+  fetch (a turn that finds no documents) is cancelled.
+- **Gemini client built at startup**, in a thread, and on Vertex the first
+  OAuth token fetched too. Before, the first answer built it on the event
+  loop (`google.auth.default()`, possibly a metadata-server call). The token
+  fetch uses a private google-genai method, guarded: a renamed method only
+  loses the warm-up.
+- **Longitudinal records written compact.** Before Python 3.13, `indent=2`
+  made `json.dumps` pure Python: 119 ms against 24 ms for a 20k-observation
+  record on 3.12, holding the GIL for every other caller. Same on 3.13 (its C
+  encoder handles indent), so this only matters on 3.12 and earlier.
+- **Rejected:** a speculative answer started while WhatsApp's clarification
+  LLM call runs. A speculative turn that is then discarded would still write
+  study, audit and conversation rows for an answer nobody saw.
+- **Rejected for now:** hedged (duplicate) Gemini requests for the tail. They
+  double the cost of every hedged call, and there are no production p95
+  numbers yet to say whether the tail is worth it.
+- **Rejected:** more workers. The server is Gemini-bound and its CPU work is
+  off the loop; per-worker state (ticket 18) still blocks it, and the load
+  test that would justify it needs the server.
+- **Found, not fixed (changes answers; needs the clinical lead):** the
+  handoff keywords stop the answer for ordinary questions.
+  `check_handoff_needed` matches substrings, and a match makes
+  `process_query` return `should_respond: False`, so the caller gets only a
+  handoff message ("a counselor will reach out within 10 minutes") and no
+  answer, while nothing in the code ever resolves a handoff. Checked here:
+  "My mother is scared at night, what can I do?" (emotional_support), "As a
+  caregiver, how do I turn her in bed?" (user_request), "He lives alone, how
+  do we manage his pain?" (emotional_support), "Is there an interaction
+  between morphine and paracetamol?" (complex_medical) all get no answer.

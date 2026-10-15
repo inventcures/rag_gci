@@ -130,16 +130,19 @@ class VoiceSafetyWrapper:
     def __init__(self):
         self.safety_manager = None
         self.emergency_system = EmergencyDetectionSystem()
-        self.handoff_system = HumanHandoffSystem()
         self.response_optimizer = ResponseLengthOptimizer()
         self.evidence_system = EvidenceBadgeSystem()
-        
+
         if SAFETY_AVAILABLE:
             try:
                 self.safety_manager = get_safety_manager()
                 logger.info("✅ Voice Safety Wrapper initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize safety manager: {e}")
+        # One handoff store per process: a second instance over the same files
+        # rewrote them from its own memory, dropping the other's requests.
+        self.handoff_system = (getattr(self.safety_manager, "handoff_system", None)
+                               or HumanHandoffSystem())
         
         # Event callbacks for integrations
         self.event_callbacks: Dict[VoiceSafetyEvent, List[Callable]] = {

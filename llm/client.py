@@ -603,6 +603,30 @@ def get_llm_client() -> LLMClient:
     return _client
 
 
+async def warm_up(client: Optional[LLMClient] = None) -> bool:
+    """Build the shared client's Gemini connection object off the event loop
+    (startup). Returns whether it is ready; never raises."""
+    client = client or get_llm_client()
+    if client.settings.transport == "unconfigured":
+        return False
+    started = time.perf_counter()
+    try:
+        genai_client = await asyncio.to_thread(client._genai_client)
+        if client.settings.transport == "vertex":
+            # The first OAuth token exchange would otherwise sit inside the
+            # first caller's answer. Private in google-genai, so best-effort:
+            # a renamed method only loses the warm-up.
+            fetch = getattr(getattr(genai_client, "_api_client", None), "_access_token", None)
+            if callable(fetch):
+                await asyncio.to_thread(fetch)
+    except Exception:
+        logger.warning("LLM client warm-up failed; it will be built on first use", exc_info=True)
+        return False
+    record_span("llm.warm_up", (time.perf_counter() - started) * 1000,
+                transport=client.settings.transport)
+    return True
+
+
 def set_llm_client(client: Optional[LLMClient]) -> Optional[LLMClient]:
     """Replace the shared client (tests, or reconfiguration at startup)."""
     global _client

@@ -1550,7 +1550,10 @@ class LongitudinalMemoryManager:
         """Write then rename, so a concurrent reader (the mobile sync scan) sees
         the old file or the new one, never half of one."""
         tmp_path = file_path.with_name(file_path.name + ".tmp")
-        tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        # Compact: before Python 3.13, indent made json use its pure-Python
+        # encoder (5x slower on a 20k-observation record: 119 ms against 24),
+        # holding the GIL, and so every other caller, for the whole record.
+        tmp_path.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
         os.replace(tmp_path, file_path)
 
     async def add_observation(
