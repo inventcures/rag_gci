@@ -279,7 +279,7 @@ class AskViewModelTest {
 
         val state = vm.state.value
         assertThat(state.isAsking).isFalse()
-        assertThat(state.errorMessage).isNotNull()
+        assertThat(state.problem).isNotNull()
         // Recorded even though it failed, because protocol 4.1 excludes failures
         // from the adoption numerator and they have to be on disk to be excluded.
         assertThat(interactions.recent(limit = 1)).hasSize(1)
@@ -368,7 +368,7 @@ class AskViewModelTest {
         vm.onMicPressed()
         vm.onMicReleased()
         awaitIdle(vm)
-        assertThat(vm.state.value.errorMessage).isNotNull()
+        assertThat(vm.state.value.problem).isNotNull()
         // Still recorded, because protocol 4.1 excludes failures from the adoption
         // numerator and they have to be on disk to be excluded from it.
         assertThat(interactions.recent(limit = 1)).hasSize(1)

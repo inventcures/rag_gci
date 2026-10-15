@@ -41,6 +41,7 @@ from mobile_api.schemas import (
     FeedbackRequest, FeedbackResponse,
 )
 from mobile_api.dependencies import get_rag_pipeline, get_safety_manager, get_memory_manager
+from safety_enhancements import guard_answer_payload
 
 from evaluation.sus_collector import SusCollector
 from evaluation.vignette_manager import VignetteManager
@@ -781,8 +782,11 @@ async def import_fhir(
 @mobile_router.get("/patient/{patient_id}/insights", response_model=PatientInsightsResponse)
 async def get_patient_insights(
     patient_id: str,
+    language: str = Query("en"),
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    """The memory agents' insights for one of the caller's patients. The insight
+    text is model-written, so it passes the Dose Boundary before it is returned."""
     await _require_own_patient(get_memory_manager(), user, patient_id)
     try:
         from mobile_api.dependencies import get_memory_agents_query
@@ -792,10 +796,14 @@ async def get_patient_insights(
         from mobile_api.dependencies import get_memory_agents_store
         store = get_memory_agents_store()
         insights = await store.get_patient_insights(patient_id)
+        guarded, safety = guard_answer_payload(
+            [i.to_dict() for i in insights], query="", language=language,
+            safety_manager=get_safety_manager())
         return PatientInsightsResponse(
             patient_id=patient_id,
-            insights=[i.to_dict() for i in insights],
-            total=len(insights),
+            insights=guarded,
+            total=len(guarded),
+            safety=safety,
         )
     except Exception as e:
         logger.error(f"Failed to fetch patient insights: {e}")
@@ -808,6 +816,9 @@ async def query_patient_memory(
     request: PatientMemoryQueryRequest,
     user: AuthenticatedUser = Depends(require_auth),
 ):
+    """Answer a question from the patient's remembered conversations. A summary
+    of past talk can repeat a dose, so the answer passes the Dose Boundary, with
+    the question's emergency alert, in the caller's language."""
     await _require_own_patient(get_memory_manager(), user, patient_id)
     try:
         from mobile_api.dependencies import get_memory_agents_query
@@ -815,7 +826,10 @@ async def query_patient_memory(
         if query_agent is None:
             raise HTTPException(status_code=503, detail="Memory agent not available")
         result = await query_agent.query(patient_id, request.question)
-        return PatientMemoryQueryResponse(**result.to_dict())
+        guarded, safety = guard_answer_payload(
+            result.to_dict(), query=request.question, language=request.language,
+            answer_key="answer", safety_manager=get_safety_manager())
+        return PatientMemoryQueryResponse(**guarded, safety=safety)
     except HTTPException:
         raise
     except Exception as e:

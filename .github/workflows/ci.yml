@@ -146,9 +146,14 @@ jobs:
 
       - name: Unit tests, contract drift and generated client
         working-directory: android-app
+        # :core:safety holds the client Dose Boundary and :core:data the
+        # repository, sync queue and release gate; their tests ran nowhere until
+        # round 3, so a broken safety invariant on the phone went unnoticed.
         run: |
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest \
+          ./gradlew :core:safety:test \
+                    :core:data:testDebugUnitTest \
+                    :app:testDebugUnitTest \
                     :core:api:verifyApiContract \
                     :core:api:verifyGeneratedClient \
                     :app:assembleDebug

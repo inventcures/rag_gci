@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.inventcures.pallisahayak.data.AskProblem
 import org.inventcures.pallisahayak.data.AskUiState
 import org.inventcures.pallisahayak.data.AskViewModel
 import org.inventcures.pallisahayak.safety.AnswerKind
@@ -47,9 +48,9 @@ import org.inventcures.pallisahayak.safety.EmergencySeverity
 /**
  * The ask screen.
  *
- * Strings are English only for now. The other ten languages are a data change
- * once a native speaker has reviewed them, and shipping machine translations to a
- * patient would be worse than shipping none.
+ * Every string is a resource, in English and Hindi (values-hi, machine-drafted and
+ * awaiting clinical-language review). The other Supported Languages are a data
+ * change under the table's code once a native speaker has written them.
  */
 @Composable
 fun AskScreen(
@@ -96,7 +97,7 @@ fun AskScreen(
             EmergencyBanner(state.emergency)
         }
 
-        state.errorMessage?.let {
+        state.problem?.let { problem ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -104,7 +105,7 @@ fun AskScreen(
                 ),
             ) {
                 Text(
-                    text = it,
+                    text = stringResource(problem.message),
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -172,15 +173,16 @@ private fun QuestionInput(
 private fun AnswerCard(state: AskUiState) {
     if (!state.hasAnswer) return
 
-    val (container, label) = when {
+    val (container, labelRes) = when {
         state.answerKind == AnswerKind.DEFERRAL ->
-            Color(0xFFFFF4E5) to "Not answered. Take this to your next consultation."
+            Color(0xFFFFF4E5) to R.string.answer_deferral_label
 
         state.answerKind == AnswerKind.REDACTED_ANSWER ->
-            Color(0xFFFFF4E5) to "Part of this answer was held back."
+            Color(0xFFFFF4E5) to R.string.answer_redacted_label
 
         else -> Color(0xFFF1F8F2) to null
     }
+    val label = labelRes?.let { stringResource(it) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -386,3 +388,12 @@ private fun ReplayButton(onReplay: () -> Unit) {
         }
     }
 }
+
+/** The words for each [AskProblem], in the screen's language. */
+private val AskProblem.message: Int
+    get() = when (this) {
+        AskProblem.UNEXPECTED -> R.string.problem_unexpected
+        AskProblem.MICROPHONE_NEEDED -> R.string.problem_microphone_needed
+        AskProblem.UNREACHABLE -> R.string.problem_unreachable
+        AskProblem.OFFLINE_NOT_SAVED -> R.string.problem_offline_not_saved
+    }

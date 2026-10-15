@@ -3,151 +3,232 @@ package org.inventcures.pallisahayak.safety
 /**
  * Detects dose-shaped text in a response.
  *
- * Mirrors the server-side guard in `dosage_guard.py`. The duplication is
+ * Mirrors the server's one dose detector, `dose_detector.py`, pattern for
+ * pattern and with its vocabulary ([DoseVocabulary]). The duplication is
  * deliberate and is the defence in depth ADR 0004 calls for: the server filters
- * every response it generates, and the client filters again, because a route that
- * ever bypasses the server filter must not be able to put a dose on screen.
+ * every response it generates, and the client filters again, because a route
+ * that ever bypasses the server filter must not be able to put a dose on screen.
  *
- * Indic numerals are normalised before matching. A dose written as "१० मि.ग्रा."
- * or "๑๐ มิลลิกรัม" is exactly as much a dose as "10 mg", and a regex over \d alone
- * misses all of them.
+ * What counts as a dose (one reason per family, the names the study rows store):
+ *
+ *     numeric_dose   a number, in digits or in English or Hindi words, followed
+ *                    by a unit: "mg", "milligrams", or the unit word of any
+ *                    Supported Language in its own script
+ *     fraction_dose  a count of a dose form: "half a tablet", "2 puffs", "३ गोली"
+ *     frequency      a schedule: "twice daily", "every four hours", "4-hourly",
+ *                    "q4h", "BD", and the Indic day and time words
+ *     titration      dose changes: "titrate", "step up", "maximum dose"
+ *     start_stop     start, stop and switch decisions
+ *
+ * A few phrases contain a number without being a dose ("aged 70", "chapter 5",
+ * "Stage IV"). Each exception covers only its own span: a dose elsewhere in the
+ * same sentence is still a dose.
+ *
+ * Indic words match whole words only: "बार" is a schedule word, "बारे" ("about")
+ * is not. Digits are not word letters, so "3गोली" still reads as a count.
+ *
+ * Written with explicit character classes rather than `\d`, `\w` and `\b`,
+ * because those mean ASCII on the JVM, where the unit tests run, and Unicode on
+ * Android, where ICU implements the regex engine. `\p{Nd}` matches every Indic
+ * digit on both, so "१० मि.ग्रा." is caught with no digit normalisation.
  */
 object DoseDetector {
 
-    private val INDIC_DIGITS = mapOf(
-        '०' to '0', '१' to '1', '२' to '2', '३' to '3', '४' to '4',
-        '५' to '5', '६' to '6', '७' to '7', '८' to '8', '९' to '9',
-        '౦' to '0', '౧' to '1', '౨' to '2', '౩' to '3', '౪' to '4',
-        '౫' to '5', '౬' to '6', '౭' to '7', '౮' to '8', '౯' to '9',
-        '೦' to '0', '೧' to '1', '೨' to '2', '೩' to '3', '೪' to '4',
-        '೫' to '5', '೬' to '6', '೭' to '7', '೮' to '8', '೯' to '9',
-        '൦' to '0', '൧' to '1', '൨' to '2', '൩' to '3', '൪' to '4',
-        '൫' to '5', '൬' to '6', '൭' to '7', '൮' to '8', '൯' to '9',
-        '੦' to '0', '੧' to '1', '੨' to '2', '੩' to '3', '੪' to '4',
-        '੫' to '5', '੬' to '6', '੭' to '7', '੮' to '8', '੯' to '9',
-        // Thai. Absent from the first draft, so a dose written as
-        // "๑๐ มิลลิกรัม" passed straight through the guard.
-        '๐' to '0', '๑' to '1', '๒' to '2', '๓' to '3', '๔' to '4',
-        '๕' to '5', '๖' to '6', '๗' to '7', '๘' to '8', '๙' to '9',
-        '૦' to '0', '૧' to '1', '૨' to '2', '૩' to '3', '૪' to '4',
-        '૫' to '5', '૬' to '6', '૭' to '7', '૮' to '8', '૯' to '9',
-        '௦' to '0', '௧' to '1', '௨' to '2', '௩' to '3', '௪' to '4',
-        '௫' to '5', '௬' to '6', '௭' to '7', '௮' to '8', '௯' to '9',
-        '০' to '0', '১' to '1', '২' to '2', '৩' to '3', '৪' to '4',
-        '৫' to '5', '৬' to '6', '৭' to '7', '৮' to '8', '৯' to '9',
-        '໐' to '0', '໑' to '1', '໒' to '2', '໓' to '3', '໔' to '4',
-        '໕' to '5', '໖' to '6', '໗' to '7', '໘' to '8', '໙' to '9',
+    /** Python's `\w`: a Unicode letter, number or underscore. */
+    private const val WORD = "[\\p{L}\\p{N}_]"
+
+    /** Python's `\b`: a position between a word character and anything else. */
+    private const val B = "(?:(?<=$WORD)(?!$WORD)|(?<!$WORD)(?=$WORD))"
+
+    /** Any decimal digit, in any script. */
+    private const val DIGIT = "\\p{Nd}"
+
+    private const val SNIPPET_CONTEXT = 40
+
+    private val LETTER_OR_MARK: String = letterOrMarkClass()
+    private val INDIC_START = "(?<!$LETTER_OR_MARK)"
+    private val INDIC_END = "(?!$LETTER_OR_MARK)"
+
+    // Latin-script units, longest first so a spelled-out unit is reported whole.
+    private val LATIN_UNITS = listOf(
+        "microgrammes?", "micrograms?", "milligrammes?", "milligrams?",
+        "millilitres?", "milliliters?", "grammes?", "grams?",
+        "international\\s+units?", "units?",
+        "mcg", "µg", "μg", "ug", "mg", "gm", "g", "ml", "iu", "cc", "gy",
     )
 
-    private const val UNIT_ALTERNATION =
-        "(?:mg|mcg|µg|ug|gm|g|ml|ML|IU|cc|%|units?)"
+    // Counts of a dose form. These may follow "a"/"an"/"half"; the others need a
+    // number, so "it can be given as an injection" is not a dose.
+    private val COUNT_NOUNS_AFTER_ARTICLE = listOf(
+        "tablets?", "tabs?", "capsules?", "caps?", "pills?", "doses?",
+        "drops?", "spoonfuls?", "teaspoons?(?:ful)?s?", "tsp",
+        "tablespoons?(?:ful)?s?", "tbsp", "syrup", "sachets?", "satchets?",
+    )
+    private val COUNT_NOUNS_AFTER_NUMBER = COUNT_NOUNS_AFTER_ARTICLE + listOf(
+        "puffs?", "sprays?", "inhalations?", "patch(?:es)?", "ampoules?",
+        "ampules?", "vials?", "injections?", "suppositor(?:y|ies)",
+        "lozenges?",
+    )
 
-    private const val INDIC_UNITS =
-        "(?:मि\\.?\\s?ग्रा\\.?|मिलीग्रा\\.?|ग्राम|मि\\.?\\s?ली\\.?|मिली" +
-            "|ಮಿ\\.?\\s?ಗ್ರಾ\\.?|ಗ್ರಾಂ|ಮಿ\\.?\\s?ಲೀ" +
-            "|மி\\.?\\s?கி\\.?|மிலி\\.?\\s?கிராம்|மி\\.?\\s?லி\\.?" +
-            "|మి\\.?\\s?గ్రా\\.?|గ్రామ్|మి\\.?\\s?లీ" +
-            "|ਮਿਗ੍ਰਾ|ਗ੍ਰਾਮ|ਮਿਲੀ" +
-            "|મિ\\.?\\s?ગ્રા\\.?|ગ્રામ|મિ\\.?\\s?લી" +
-            "|ମିଗ୍ରା|ଗ୍ରାମ|ମିଲୀ" +
-            "|മിഗ്രാ|ഗ്രാം|മിലി" +
-            // Bengali was absent from this alternation entirely, so a dose written
-            // as "\u09a1\u09ef\u09a0 \u09ae\u09bf\u09b2\u09bf\u0997\u09cd\u09b0\u09be\u09ae" passed straight through.
-            "|\u09ae\u09bf\u09b2\u09bf\u0997\u09cd\u09b0\u09be\u09ae|\u0997\u09cd\u09b0\u09be\u09ae|\u09ae\u09bf\u09b2\u09bf" +
-            "|ਮਿਲੀਗ੍ਰਾਮ|ਮਿਲੀਲੀਟਰ" +
-            "|มิลลิกรัม|มิลลิลิตร)"
+    private val EN_WORD = alternation(DoseVocabulary.EN_NUMBER_WORDS)
+    private val EN_NUMBER_PHRASE =
+        "$B$EN_WORD(?:(?:\\s+|-)(?:and\\s+)?(?:a\\s+)?$EN_WORD)*$B"
+    private val HI_NUMBER_PHRASE = wholeWords(DoseVocabulary.HI_NUMBER_WORDS)
 
-    private const val FRACTION_DOSE =
-        "(?:half|quarter|third|one|a|an|\\d+(?:\\.\\d+)?)\\s+" +
-            "(?:tablet|tab|tablets|capsule|cap|capsules|pill|pills|" +
-            "dose|drop|drops|spoonful|teaspoon|tsp|tablespoon|tbsp|syrup|sachet|satchet)"
+    // Not preceded by a letter, so "SpO2 drop" or "B12" does not start a dose.
+    private const val DIGITS = "(?<![A-Za-z])$DIGIT+(?:[.,/]$DIGIT+)?"
+    private val NUMBER = "(?:$DIGITS|$EN_NUMBER_PHRASE|$HI_NUMBER_PHRASE)"
 
-    private const val FREQUENCY =
-        "(?:once|twice|thrice|four\\s+times|three\\s+times)\\s+" +
+    private val LATIN_UNIT = LATIN_UNITS.joinToString("|", "(?:", ")") + "(?![A-Za-z])"
+
+    // Unit words are not closed on the right: they follow a number, which already
+    // anchors them, and they take suffixes (Telugu plural "-లు", Tamil case
+    // endings) that a closing boundary would cut off.
+    private val INDIC_UNIT = alternation(DoseVocabulary.UNIT_WORDS.values.flatten())
+
+    private val NUMERIC_DOSE_RE = "$NUMBER\\s*(?:$LATIN_UNIT|%|$INDIC_UNIT)"
+
+    private val COUNT_DOSE_RE =
+        "$B(?:half|quarter|third|one|a|an)\\s+(?:of\\s+a\\s+)?" +
+            COUNT_NOUNS_AFTER_ARTICLE.joinToString("|", "(?:", ")") + B +
+            "|$NUMBER\\s+(?:of\\s+a\\s+)?" +
+            COUNT_NOUNS_AFTER_NUMBER.joinToString("|", "(?:", ")") + B +
+            "|(?:$DIGITS|$HI_NUMBER_PHRASE)\\s*" + wholeWords(DoseVocabulary.HI_COUNT_NOUNS)
+
+    private val INTERVAL = "(?:$DIGIT+(?:\\s*(?:-|–|to)\\s*$DIGIT+)?|$EN_NUMBER_PHRASE)"
+
+    private val FREQUENCY_RE =
+        "$B(?:once|twice|thrice|three\\s+times|four\\s+times)\\s+" +
             "(?:a\\s+|per\\s+|every\\s+)?(?:day|daily|night|morning|evening|" +
+            // No trailing boundary: "twice weekly" must match as "twice week".
             "bedtime|meals?|mealtime|week|hourly|hours)" +
-            "|\\bevery\\s+\\d+\\s*(?:hours?|hrs?|minutes?|mins?|days?)\\b" +
-            "|\\b\\d+\\s*times\\s+(?:a|per)\\s+(?:day|daily|week)\\b" +
-            "|\\bprn\\b|\\bas\\s+needed\\b|\\bstat\\b|\\bod\\b|\\bpo\\b|\\bIV\\b|\\bIM\\b|\\bSC\\b"
+            "|${B}every\\s+$INTERVAL\\s*(?:hours?|hrs?|minutes?|mins?|days?)$B" +
+            "|$B$INTERVAL\\s*times\\s+(?:a|per|each)\\s+(?:day|daily|week)$B" +
+            "|$B$INTERVAL\\s*[-–]?\\s*hourly$B" +
+            "|${B}q\\s?$DIGIT+\\s?h(?:rs?|ourly)?$B" +
+            "|${B}prn$B|${B}as\\s+needed$B|${B}stat$B|${B}od$B|${B}po$B|${B}IV$B|${B}IM$B|${B}SC$B" +
+            "|${B}nocte$B|${B}mane$B" +
+            // Upper case only: "bid" and "bd" are ordinary words in lower case.
+            "|(?-i:$B(?:BD|BID|TDS|TID|QDS|QID)$B)" +
+            "|" + wholeWords(DoseVocabulary.INDIC_FREQUENCY_WORDS.values.flatten())
 
-    private const val INDIC_FREQUENCY =
-        "(?:दिन|रोज़|रोज|दिनों|सुबह|शाम|रात|बार)" +
-            "|(?:ದಿನ|ದೀನ|ಬಾರ)" +
-            "|(?:தினம்|தின|நாள்|வாரம்|முறை)" +
-            "|(?:రోజు|రోజ|తరువాత|సార్లు)" +
-            "|(?:ਰੋਜ਼|ਰੋਜ|ਵਾਰ)" +
-            "|(?:રોજ|દિવસ|વાર)" +
-            "|(?:ଦିନ|ରୋଜ)"
+    private const val TITRATION_RE =
+        "${B}titrate$B|${B}titrating$B|${B}step\\s*up$B|${B}step\\s*down$B" +
+            "|${B}escalate$B|${B}increase\\s+the\\s+(?:dose|dosage)$B" +
+            "|${B}decrease\\s+the\\s+(?:dose|dosage)$B|${B}start\\s+at$B.*$B(?:mg|ml)$B" +
+            "|${B}maximum\\s+dose$B|${B}max\\s+dose$B"
 
-    private const val TITRATION =
-        "\\btitrate\\b|\\btitrating\\b|\\bstep\\s*up\\b|\\bstep\\s*down\\b" +
-            "|\\bescalate\\b|\\bincrease\\s+the\\s+(?:dose|dosage)\\b" +
-            "|\\bdecrease\\s+the\\s+(?:dose|dosage)\\b|\\bstart\\s+at\\b.*\\b(?:mg|ml)\\b" +
-            "|\\bmaximum\\s+dose\\b|\\bmax\\s+dose\\b"
+    private const val START_STOP_RE =
+        "${B}start\\s+(?:the\\s+)?$WORD+\\s+(?:at\\s+)?$DIGIT" +
+            "|${B}stop\\s+(?:the\\s+)?$WORD+$B|${B}discontinue$B" +
+            "|${B}switch\\s+to$B|${B}substitute\\s+with$B"
 
-    private const val START_STOP =
-        "\\bstart\\s+(?:the\\s+)?\\w+\\s+(?:at\\s+)?\\d" +
-            "|\\bstop\\s+(?:the\\s+)?\\w+\\b|\\bdiscontinue\\b" +
-            "|\\bswitch\\s+to\\b|\\bsubstitute\\s+with\\b"
-
-    // No trailing word boundary on the unit alternation: Indic units commonly end
-    // in a full stop or a combining mark, where a boundary would fail to match.
-    private val NUMERIC_DOSE = Regex("\\d+(?:\\.\\d+)?\\s*(?:$UNIT_ALTERNATION|$INDIC_UNITS)", RegexOption.IGNORE_CASE)
-    private val FRACTION = Regex("\\b$FRACTION_DOSE\\b", RegexOption.IGNORE_CASE)
-    private val FREQUENCY_RE = Regex("(?:$FREQUENCY)|(?:$INDIC_FREQUENCY)", RegexOption.IGNORE_CASE)
-    private val TITRATION_RE = Regex(TITRATION, RegexOption.IGNORE_CASE)
-    private val START_STOP_RE = Regex(START_STOP, RegexOption.IGNORE_CASE)
+    private val PATTERNS: List<Pair<String, Regex>> = listOf(
+        "numeric_dose" to Regex(NUMERIC_DOSE_RE, RegexOption.IGNORE_CASE),
+        "fraction_dose" to Regex(COUNT_DOSE_RE, RegexOption.IGNORE_CASE),
+        "frequency" to Regex(FREQUENCY_RE, RegexOption.IGNORE_CASE),
+        "titration" to Regex(TITRATION_RE, RegexOption.IGNORE_CASE),
+        "start_stop" to Regex(START_STOP_RE, RegexOption.IGNORE_CASE),
+    )
 
     /**
-     * Non-dose numbers that must not trip the guard.
-     *
-     * Without these the guard would fire on "Chapter 5", "2 hour intervals" and
-     * "1-2 hourly", and over-firing destroys the tool: a family asking about
-     * turning every two hours would be told to raise it at the next consultation.
+     * Spans that contain a number but are not doses. A match is excused only
+     * where it overlaps one of these spans; the rest of the sentence is still
+     * checked, so "For patients aged 70, give morphine 10 mg" is still a dose.
      */
-    private val FALSE_POSITIVES = listOf(
-        Regex("\\b\\d+\\s*(?:chapter|section|page|step|grade|level|site)s?\\b", RegexOption.IGNORE_CASE),
-        Regex("\\b(?:age|aged)\\s*\\d+\\b", RegexOption.IGNORE_CASE),
-        Regex("\\b\\d+\\s*(?:mm|cm)\\s*(?:diameter|width|length|depth)\\b", RegexOption.IGNORE_CASE),
+    private val NOT_A_DOSE: List<Regex> = listOf(
+        Regex(
+            "$B$DIGIT+\\s*(?:chapter|section|page|step|grade|level|site visit|site)s?$B" +
+                "|$B(?:chapter|section|page|step|grade|level|stage|class|type)\\s*(?:$DIGIT+|[IV]+)[a-c]?$B",
+            RegexOption.IGNORE_CASE,
+        ),
+        Regex("$B(?:age|aged)\\s*(?:$DIGIT+|$EN_NUMBER_PHRASE)", RegexOption.IGNORE_CASE),
+        Regex("$B$DIGIT+\\s*(?:mm|cm)\\s*(?:diameter|width|length|depth)$B", RegexOption.IGNORE_CASE),
     )
 
-    private val PATTERNS = listOf(
-        "numeric_dose" to NUMERIC_DOSE,
-        "fraction_dose" to FRACTION,
-        "frequency" to FREQUENCY_RE,
-        "titration" to TITRATION_RE,
-        "start_stop" to START_STOP_RE,
-    )
-
-    fun normalise(text: String): String =
-        text.map { INDIC_DIGIT_TO_NORMAL[it] ?: it }.joinToString("")
-
-    private val INDIC_DIGIT_TO_NORMAL: Map<Char, Char> =
-        INDIC_DIGITS.entries.associate { (from, to) -> from to to }
-
+    /**
+     * Every dose-shaped span in [text], strongest reason first, one per distinct
+     * matched text. Empty for null or empty text.
+     */
     fun detect(text: String?): List<DoseFinding> {
-        if (text.isNullOrBlank()) return emptyList()
+        if (text.isNullOrEmpty()) return emptyList()
 
-        val normalised = normalise(text)
+        val excused = NOT_A_DOSE.flatMap { pattern ->
+            pattern.findAll(text).map { it.range.first to it.range.last + 1 }.toList()
+        }
         val findings = mutableListOf<DoseFinding>()
         val seen = mutableSetOf<String>()
-
         for ((reason, pattern) in PATTERNS) {
-            for (match in pattern.findAll(normalised)) {
-                val value = match.value.trim()
-                if (value.lowercase() in seen) continue
-                val start = (match.range.first - 40).coerceAtLeast(0)
-                val end = (match.range.last + 41).coerceAtMost(normalised.length)
-                if (isFalsePositive(normalised.substring(start, end))) continue
-                seen.add(value.lowercase())
-                findings.add(DoseFinding(reason, value, normalised.substring(start, end).trim()))
+            for (match in pattern.findAll(text)) {
+                val start = match.range.first
+                val end = match.range.last + 1
+                if (excused.any { (s, e) -> start < e && s < end }) continue
+                if (!seen.add(match.value.lowercase().trim())) continue
+                val snippet = text.substring(
+                    (start - SNIPPET_CONTEXT).coerceAtLeast(0),
+                    (end + SNIPPET_CONTEXT).coerceAtMost(text.length),
+                ).trim()
+                findings.add(DoseFinding(reason, match.value, snippet))
             }
         }
         return findings
     }
 
-    private fun isFalsePositive(sentence: String): Boolean =
-        FALSE_POSITIVES.any { it.containsMatchIn(sentence) }
-
     fun containsDose(text: String?): Boolean = detect(text).isNotEmpty()
+
+    /** Indic words that match only where no letter or combining mark adjoins. */
+    private fun wholeWords(words: Collection<String>): String =
+        INDIC_START + alternation(words) + INDIC_END
+
+    /**
+     * Literal words as a regex alternation, longest first. A full stop in an
+     * abbreviation is often dropped or followed by a space ("मि.ग्रा.",
+     * "मि. ग्रा.", "मि.ग्रा"), and a space may be dropped ("एम जी", "एमजी").
+     */
+    private fun alternation(words: Collection<String>): String =
+        words.toSet().sortedByDescending { it.length }.joinToString("|", "(?:", ")") { word ->
+            buildString {
+                for (ch in word) {
+                    when {
+                        ch == '.' -> append("\\.?\\s?")
+                        ch == ' ' -> append("\\s?")
+                        ch in REGEX_META -> append('\\').append(ch)
+                        else -> append(ch)
+                    }
+                }
+            }
+        }
+
+    private const val REGEX_META = "\\^$|?*+()[]{}"
+
+    /**
+     * A character class of every letter and combining mark in the Latin and
+     * Indic blocks (U+0900 to U+0DFF), plus the zero-width joiners that sit
+     * inside Indic words. Built the way the server builds it, from the Unicode
+     * categories, because a vowel sign such as "ि" is a mark rather than a
+     * letter and must still count as part of a word.
+     */
+    private fun letterOrMarkClass(): String {
+        val inWord = setOf(
+            Character.UPPERCASE_LETTER, Character.LOWERCASE_LETTER, Character.TITLECASE_LETTER,
+            Character.MODIFIER_LETTER, Character.OTHER_LETTER,
+            Character.NON_SPACING_MARK, Character.COMBINING_SPACING_MARK,
+        ).map { it.toInt() }.toSet()
+        val ranges = mutableListOf<IntRange>()
+        for (code in 0x0900 until 0x0E00) {
+            if (Character.getType(code) !in inWord) continue
+            val last = ranges.lastOrNull()
+            if (last != null && last.last + 1 == code) {
+                ranges[ranges.size - 1] = last.first..code
+            } else {
+                ranges.add(code..code)
+            }
+        }
+        val body = ranges.joinToString("") { range ->
+            if (range.first == range.last) hex(range.first) else "${hex(range.first)}-${hex(range.last)}"
+        }
+        return "[A-Za-z\\u200C\\u200D$body]"
+    }
+
+    private fun hex(code: Int): String = "\\u%04X".format(code)
 }

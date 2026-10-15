@@ -13,7 +13,7 @@ import functools
 import threading
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Tuple, Union
 from datetime import datetime
 import pickle
 import hashlib
@@ -31,7 +31,7 @@ load_dotenv()
 import gradio as gr
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -850,6 +850,43 @@ async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
     result = await pipeline.query(query, source_language=source_language)
     guard_query_result(result, query=query, language=language)
     return result
+
+
+def gate_answer_payload(payload: Any, *, query: str, language: str = "en",
+                        answer_key: Optional[str] = None) -> Tuple[Any, Dict[str, Any]]:
+    """
+    The answer gate for a route that returns structured model- or graph-derived
+    data (knowledge graph, GraphRAG, PageIndex): every string in `payload` passes
+    the Dose Boundary, `answer_key` with the question's emergency alert.
+
+    Returns the guarded copy and the safety record to attach as "safety". Every
+    route listed in answer_routes.ANSWER_ROUTES goes through this or through
+    `answer_web_query`'s guard.
+    """
+    from safety_enhancements import guard_answer_payload
+
+    return guard_answer_payload(payload, query=query, language=language,
+                                answer_key=answer_key)
+
+
+class InProcessRequest:
+    """The one part of a Request a JSON route reads (`await request.json()`),
+    for calling that route function in process with a body already in hand."""
+
+    def __init__(self, body: Dict[str, Any]):
+        self._body = body
+
+    async def json(self) -> Dict[str, Any]:
+        """The request body."""
+        return self._body
+
+
+def route_response_body(response: Any) -> Any:
+    """The decoded body of what a route function returned (a JSONResponse or a
+    plain dict), as an HTTP client would have read it."""
+    if isinstance(response, Response):
+        return json.loads(bytes(response.body).decode("utf-8"))
+    return response
 
 
 class SimpleRAGPipeline:
@@ -3912,205 +3949,96 @@ class SimpleAdminUI:
                 extractor.extract(text, use_llm=False)
             )
 
-            entities_data = [e.to_dict() for e in entities]
-            relationships_data = [r.to_dict() for r in relationships]
+            # Same gate as POST /api/kg/extract.
+            (entities_data, relationships_data), _ = gate_answer_payload(
+                [[e.to_dict() for e in entities], [r.to_dict() for r in relationships]],
+                query=text)
 
             return entities_data, relationships_data
 
         except Exception as e:
             return {"error": str(e)}, {}
 
-    def _handle_kg_query(self, question: str):
+    async def _admin_call(self, name: str, *args: Any) -> Any:
+        """Call one of the server's route functions in process, by name.
+
+        `admin_api` is filled in by create_app() once the routes exist. A tab
+        used outside a server has none and says so."""
+        api = getattr(self, "admin_api", None) or {}
+        function = api.get(name)
+        if function is None:
+            return {"status": "error", "error": "This tab needs the running server"}
+        return route_response_body(await function(*args))
+
+    async def _handle_kg_query(self, question: str):
         """Handle knowledge graph query."""
         if not question or not question.strip():
             return {"error": "Please enter a question"}
-
         try:
-            import aiohttp
-
-            async def query_kg():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/kg/query",
-                        json={"question": question}
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(query_kg())
-            return result
-
+            return await self._admin_call("kg_query", question)
         except Exception as e:
-            return {"error": str(e), "message": "Make sure the server is running"}
+            logger.error(f"KG query tab failed: {e}")
+            return {"error": str(e)}
 
-    def _handle_kg_treatments(self, symptom: str):
+    async def _handle_kg_treatments(self, symptom: str):
         """Handle treatment lookup for a symptom."""
         if not symptom or not symptom.strip():
             return {"error": "Please enter a symptom"}
-
         try:
-            import aiohttp
-
-            async def get_treatments():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"http://localhost:8000/api/kg/treatments/{symptom}"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_treatments())
-            return result
-
+            return await self._admin_call("kg_treatments", symptom)
         except Exception as e:
+            logger.error(f"KG treatments tab failed: {e}")
             return {"error": str(e)}
 
-    def _handle_kg_side_effects(self, medication: str):
+    async def _handle_kg_side_effects(self, medication: str):
         """Handle side effects lookup for a medication."""
         if not medication or not medication.strip():
             return {"error": "Please enter a medication name"}
-
         try:
-            import aiohttp
-
-            async def get_side_effects():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"http://localhost:8000/api/kg/side-effects/{medication}"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_side_effects())
-            return result
-
+            return await self._admin_call("kg_side_effects", medication)
         except Exception as e:
+            logger.error(f"KG side-effects tab failed: {e}")
             return {"error": str(e)}
 
-    def _handle_kg_health(self):
+    async def _handle_kg_health(self):
         """Handle knowledge graph health check."""
         try:
-            import aiohttp
-
-            async def check_health():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/kg/health"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(check_health())
-            return result
-
+            return await self._admin_call("kg_health")
         except Exception as e:
+            logger.error(f"KG health tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_kg_stats(self):
+    async def _handle_kg_stats(self):
         """Handle knowledge graph statistics."""
         try:
-            import aiohttp
-
-            async def get_stats():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/kg/stats"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_stats())
-            return result
-
+            return await self._admin_call("kg_stats")
         except Exception as e:
+            logger.error(f"KG stats tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_kg_import(self):
+    async def _handle_kg_import(self):
         """Handle importing base knowledge."""
         try:
-            import aiohttp
-
-            async def import_base():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/kg/import-base"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(import_base())
-            return result
-
+            return await self._admin_call("kg_import")
         except Exception as e:
+            logger.error(f"KG import tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
     # ==========================================================================
     # GRAPHRAG UI HANDLERS
     # ==========================================================================
 
-    def _handle_graphrag_query(self, query: str, method: str):
+    async def _handle_graphrag_query(self, query: str, method: str):
         """Handle GraphRAG query."""
         if not query.strip():
             return "Please enter a query", [], {}
-
         try:
-            import aiohttp
-
-            async def do_query():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/graphrag/query",
-                        json={"query": query, "method": method}
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(do_query())
-
+            result = await self._admin_call("graphrag_query", query, method)
             if result.get("status") == "success":
-                search_result = result.get("result", {})
+                # The route is gated; the tab gates what it shows as well, so
+                # the panel cannot display a dose whatever answered it.
+                search_result, _ = gate_answer_payload(
+                    result.get("result", {}), query=query, answer_key="response")
                 response = search_result.get("response", "No response")
                 entities = search_result.get("entities", [])
                 metadata = {
@@ -4119,85 +4047,32 @@ class SimpleAdminUI:
                     **search_result.get("metadata", {})
                 }
                 return response, entities, metadata
-            else:
-                return f"Error: {result.get('error', 'Unknown error')}", [], {}
-
+            return f"Error: {result.get('error', 'Unknown error')}", [], {}
         except Exception as e:
+            logger.error(f"GraphRAG query tab failed: {e}")
             return f"Error: {str(e)}", [], {}
 
-    def _handle_graphrag_start_indexing(self, method: str, update_mode: bool):
+    async def _handle_graphrag_start_indexing(self, method: str, update_mode: bool):
         """Handle starting GraphRAG indexing."""
         try:
-            import aiohttp
-
-            async def start_indexing():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/graphrag/index",
-                        json={"method": method, "update_mode": update_mode}
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(start_indexing())
-            return result
-
+            return await self._admin_call("graphrag_index", method, update_mode)
         except Exception as e:
+            logger.error(f"GraphRAG indexing tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_graphrag_index_status(self):
+    async def _handle_graphrag_index_status(self):
         """Handle getting GraphRAG indexing status."""
         try:
-            import aiohttp
-
-            async def get_status():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/graphrag/index/status"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_status())
-            return result
-
+            return await self._admin_call("graphrag_index_status")
         except Exception as e:
+            logger.error(f"GraphRAG index-status tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_graphrag_entity_search(self, query: str, entity_type: str):
+    async def _handle_graphrag_entity_search(self, query: str, entity_type: str):
         """Handle GraphRAG entity search."""
         try:
-            import aiohttp
-
-            async def search_entities():
-                type_param = "" if entity_type == "All" else f"&entity_type={entity_type}"
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"http://localhost:8000/api/graphrag/entities?query={query}&top_k=20{type_param}"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(search_entities())
-
+            result = await self._admin_call(
+                "graphrag_entities", query, None if entity_type == "All" else entity_type)
             if result.get("status") == "success":
                 entities = result.get("entities", [])
                 # Format for dataframe
@@ -4213,68 +4088,31 @@ class SimpleAdminUI:
                         round(e.get("score", 0), 2)
                     ])
                 return table_data, entities
-            else:
-                return [], [{"error": result.get("error", "Unknown error")}]
-
+            return [], [{"error": result.get("error", "Unknown error")}]
         except Exception as e:
+            logger.error(f"GraphRAG entity tab failed: {e}")
             return [], [{"error": str(e)}]
 
-    def _handle_graphrag_stats(self):
+    async def _handle_graphrag_stats(self):
         """Handle getting GraphRAG statistics."""
         try:
-            import aiohttp
-
-            async def get_stats():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/graphrag/stats"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_stats())
-
+            result = await self._admin_call("graphrag_stats")
             if result.get("status") == "success":
                 return result.get("stats", {})
-            else:
-                return {"error": result.get("error", "Unknown error")}
-
+            return {"error": result.get("error", "Unknown error")}
         except Exception as e:
+            logger.error(f"GraphRAG stats tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_graphrag_verify(self):
+    async def _handle_graphrag_verify(self):
         """Handle GraphRAG index verification."""
         try:
-            import aiohttp
-
-            async def verify_index():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/graphrag/verify"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(verify_index())
-
+            result = await self._admin_call("graphrag_verify")
             if result.get("status") == "success":
                 return result.get("verification", {})
-            else:
-                return {"error": result.get("error", "Unknown error")}
-
+            return {"error": result.get("error", "Unknown error")}
         except Exception as e:
+            logger.error(f"GraphRAG verify tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
     # =========================================================================
@@ -5552,58 +5390,58 @@ def create_app(args: Any = None) -> FastAPI:
 
     async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
         """
-        Stream audio responses from Gemini Live back to the WebSocket client.
+        Relay Gemini Live's turns to the WebSocket client, each one only after
+        what Live said has passed the Dose Boundary.
+
+        A turn's audio is held until the turn completes; then its transcript is
+        checked (gemini_live.turn_release) and either the audio is released, or
+        the guarded text (a Redacted Answer or the Deferral) is sent instead and
+        the audio never is. Per turn the client receives: the audio (when
+        released), the assistant transcription, the caller's transcription,
+        then turn_complete.
 
         Args:
             websocket: The WebSocket connection
             session: The active Gemini Live session
             user_id: User identifier for logging
         """
+        from gemini_live.turn_release import check_live_turn
+
+        held: List[bytes] = []
         try:
             logger.info(f"Starting response stream for user {user_id}")
 
             async for response in session.receive_audio():
-                # Check if it's a special marker
                 if isinstance(response, bytes):
-                    if response == b"__TURN_COMPLETE__":
-                        # Turn complete - send transcriptions
-                        await websocket.send_json({"type": "turn_complete"})
+                    if response == session.TURN_COMPLETE:
+                        spoken = session.get_response_transcription(clear=True)
+                        heard = session.get_transcription(clear=True)
+                        release = check_live_turn(held, spoken, heard, session.language)
+                        held = []
 
-                        # Send assistant response transcription
-                        response_text = session.get_response_transcription(clear=True)
-                        if response_text:
-                            await websocket.send_json({
-                                "type": "transcription",
-                                "role": "assistant",
-                                "text": response_text
-                            })
-
-                        # Send user input transcription
-                        user_text = session.get_transcription(clear=True)
-                        if user_text:
+                        for chunk in release.audio:
+                            await websocket.send_bytes(chunk)
+                        if release.text:
+                            frame = {"type": "transcription", "role": "assistant",
+                                     "text": release.text}
+                            if release.withheld:
+                                frame["withheld"] = True
+                            await websocket.send_json(frame)
+                        if heard:
                             await websocket.send_json({
                                 "type": "transcription",
                                 "role": "user",
-                                "text": user_text
+                                "text": heard
                             })
+                        await websocket.send_json({"type": "turn_complete"})
 
-                    elif response == b"__INTERRUPTED__":
-                        # User interrupted - notify client
+                    elif response == session.INTERRUPTED:
+                        # Barge-in: the unreleased audio is dropped, never played.
+                        held = []
                         await websocket.send_json({"type": "interrupted"})
 
                     else:
-                        # Regular audio chunk - send as binary
-                        await websocket.send_bytes(response)
-
-                elif isinstance(response, dict):
-                    # Handle dict responses (transcriptions, etc.)
-                    if "text" in response:
-                        await websocket.send_json({
-                            "type": "transcription",
-                            "role": response.get("role", "assistant"),
-                            "text": response["text"],
-                            "partial": response.get("partial", False)
-                        })
+                        held.append(response)
 
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected during response stream for {user_id}")
@@ -5630,10 +5468,24 @@ def create_app(args: Any = None) -> FastAPI:
         - Server sends binary audio responses (Int16 PCM, 24kHz, mono)
         - Server sends JSON transcription/status messages
         - Client can send {"type": "set_language", "language": "hi-IN"} to switch language
-        - Client can send {"type": "set_model", "model": "gemini-3.1-flash-live-preview"}
-          to switch the Live model (takes effect on next start_audio)
+        - Server sends a turn's audio only after its transcript has passed the
+          Dose Boundary; otherwise only the guarded text (stream_gemini_responses)
+
+        Who is calling comes from the socket's Authorization header (a
+        participant's access token), never from a frame: a `user_id` in the
+        config is ignored. Without a participant token the session is
+        ephemeral, keyed on this socket alone, so it loads no one's context and
+        leaves no longitudinal record (latency decision 07).
+
+        The Live model is the study release's (release.yaml
+        models.voice_primary.model). A client cannot choose it: a `model` in
+        the config and any `set_model` are refused with an error frame.
         """
         await websocket.accept()
+        from auth.policy import authenticate_connection
+        from participants import ephemeral
+
+        caller = authenticate_connection(websocket)
 
         # Check if Gemini Live is available
         if not gemini_live_enabled:
@@ -5646,8 +5498,16 @@ def create_app(args: Any = None) -> FastAPI:
 
         session = None
         language = "en-IN"
-        model = None
-        user_id = f"web_{datetime.now().timestamp()}_{id(websocket)}"
+        # The session manager keys sessions, and the answer path keys patient
+        # context and the longitudinal record, on this id. An administrator is
+        # not a participant here, so an admin token is ephemeral too.
+        anonymous = caller is None or caller.is_admin
+        if not anonymous:
+            user_id = caller.user_id
+        else:
+            user_id = ephemeral("web_voice", uuid.uuid4().hex)
+        model_refusal = ("The Live model is fixed by the study release and cannot be "
+                         "chosen by the client.")
         response_task = None
         # The Live connection opens when the config arrives, while the caller
         # is still getting ready to speak, not when their first audio does.
@@ -5659,6 +5519,8 @@ def create_app(args: Any = None) -> FastAPI:
         try:
             while True:
                 data = await websocket.receive()
+                if data.get("type") == "websocket.disconnect":
+                    break
 
                 # Handle text messages (JSON commands)
                 if "text" in data:
@@ -5669,17 +5531,19 @@ def create_app(args: Any = None) -> FastAPI:
                         if msg_type == "config":
                             # Initial configuration
                             language = message.get("language", "en-IN")
-                            model = message.get("model") or model
-                            user_id = message.get("user_id", user_id)
-                            logger.info(f"Config received: user={user_id}, language={language}, model={model or 'default'}")
+                            requested = message.get("model")
+                            if requested and requested != gemini_session_manager.service.model:
+                                logger.warning(f"Refused client-chosen Live model {requested!r} for {user_id}")
+                                await websocket.send_json({"type": "error", "error": model_refusal})
+                            logger.info(f"Config received: user={user_id}, language={language}")
 
                             await websocket.send_json({
                                 "type": "config_ack",
-                                "user_id": user_id,
                                 "language": language,
-                                "model": model
+                                "model": gemini_session_manager.service.model,
+                                "anonymous": anonymous,
                             })
-                            await preconnect.open(user_id, language, model)
+                            await preconnect.open(user_id, language, None)
 
                         elif msg_type == "start_audio":
                             # Create or get session for this user
@@ -5693,7 +5557,7 @@ def create_app(args: Any = None) -> FastAPI:
                                     user_id=user_id,
                                     language=language,
                                     voice="Aoede",  # Warm, empathetic voice for healthcare
-                                    model=model
+                                    model=None,  # the study release's
                                 )
 
                                 await websocket.send_json({
@@ -5728,7 +5592,7 @@ def create_app(args: Any = None) -> FastAPI:
                                 await preconnect.settle()
                                 await gemini_session_manager.close_session(user_id)
                                 session = None
-                                await preconnect.open(user_id, language, model)
+                                await preconnect.open(user_id, language, None)
 
                                 await websocket.send_json({
                                     "type": "language_changed",
@@ -5736,22 +5600,9 @@ def create_app(args: Any = None) -> FastAPI:
                                 })
 
                         elif msg_type == "set_model":
-                            # Switch Live model - requires new session
-                            new_model = message.get("model") or None
-                            if new_model != model:
-                                logger.info(f"Switching model from {model or 'default'} to {new_model or 'default'} for {user_id}")
-                                model = new_model
-
-                                # Close existing session; reconnect on the new model
-                                await preconnect.settle()
-                                await gemini_session_manager.close_session(user_id)
-                                session = None
-                                await preconnect.open(user_id, language, model)
-
-                            await websocket.send_json({
-                                "type": "model_changed",
-                                "model": model
-                            })
+                            # The study release fixes the Live model.
+                            logger.warning(f"Refused set_model {message.get('model')!r} for {user_id}")
+                            await websocket.send_json({"type": "error", "error": model_refusal})
 
                         elif msg_type == "text":
                             # Text message (for hybrid mode)
@@ -5818,25 +5669,27 @@ def create_app(args: Any = None) -> FastAPI:
 
     @app.get("/api/voice/models")
     async def voice_models():
-        """List Gemini Live models selectable from the voice web app."""
+        """The Live model web voice runs: the study release's, and only it.
+        Clients cannot choose a model, so there is nothing else to list."""
         if not GEMINI_LIVE_AVAILABLE:
             return {"enabled": False, "default": None, "models": []}
 
         from gemini_live import SUPPORTED_MODELS
-        gemini_config = get_gemini_config()
+        from gemini_live.config import release_live_model
 
+        model_id = release_live_model()
+        info = SUPPORTED_MODELS.get(model_id, {})
         return {
             "enabled": gemini_live_enabled,
-            "default": gemini_config.model,
+            "default": model_id,
             "models": [
                 {
                     "id": model_id,
-                    "label": info["label"],
-                    "description": info["description"],
-                    "kind": info["kind"],
+                    "label": info.get("label", model_id),
+                    "description": info.get("description", ""),
+                    "kind": info.get("kind", "assistant"),
                 }
-                for model_id, info in SUPPORTED_MODELS.items()
-            ],
+            ] if model_id else [],
         }
 
     @app.get("/api/voice/languages")
@@ -5992,13 +5845,16 @@ def create_app(args: Any = None) -> FastAPI:
         return _pageindex_storage.get_stats()
 
     @app.post("/api/pageindex/query")
-    async def pageindex_query(query: str = Form(...), doc_ids: str = Form("")):
-        """Query via PageIndex tree search."""
+    async def pageindex_query(query: str = Form(...), doc_ids: str = Form(""),
+                              language: str = Form("en")):
+        """Query via PageIndex tree search. The context and reasoning pass the
+        Dose Boundary before they are returned."""
         if not _pageindex_enabled or not _pageindex_engine:
             return {"error": "PageIndex not enabled"}
         doc_id_list = [d.strip() for d in doc_ids.split(",") if d.strip()] or None
         result = await _pageindex_engine.search(query, doc_ids=doc_id_list)
-        return result.to_dict()
+        guarded, safety = gate_answer_payload(result.to_dict(), query=query, language=language)
+        return {**guarded, "safety": safety}
 
     @app.post("/api/pageindex/index")
     async def pageindex_index_doc(doc_id: str = Form(...)):
@@ -6057,7 +5913,9 @@ def create_app(args: Any = None) -> FastAPI:
         tree = _pageindex_storage.load_tree(doc_id)
         if not tree:
             return {"error": f"Tree not found for document {doc_id}"}
-        return tree
+        # Node summaries are model-written: they pass the Dose Boundary too.
+        guarded, _ = gate_answer_payload(tree, query="")
+        return guarded
 
     # ==========================================================================
     # BOLNA.AI INTEGRATION ENDPOINTS
@@ -6960,10 +6818,13 @@ def create_app(args: Any = None) -> FastAPI:
                 include_vector_results=body.get("include_vector", False),
                 top_k=body.get("top_k", 10)
             )
+            guarded, safety = gate_answer_payload(
+                result, query=question, language=body.get("language", "en"))
 
             return JSONResponse({
                 "status": "success",
-                **result
+                **guarded,
+                "safety": safety,
             })
 
         except Exception as e:
@@ -7001,12 +6862,12 @@ def create_app(args: Any = None) -> FastAPI:
 
             # Extract entities
             entities, relationships = await kg_rag.entity_extractor.extract(text)
-
-            return JSONResponse({
-                "status": "success",
+            guarded, safety = gate_answer_payload({
                 "entities": [e.to_dict() for e in entities],
-                "relationships": [r.to_dict() for r in relationships]
-            })
+                "relationships": [r.to_dict() for r in relationships],
+            }, query=text, language=body.get("language", "en"))
+
+            return JSONResponse({"status": "success", **guarded, "safety": safety})
 
         except Exception as e:
             logger.error(f"KG extraction error: {e}")
@@ -7026,9 +6887,11 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             result = await kg_rag.get_entity_graph(entity_name, depth=depth)
+            guarded, safety = gate_answer_payload(result, query=entity_name)
             return JSONResponse({
                 "status": "success",
-                **result
+                **guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG entity graph error: {e}")
@@ -7048,10 +6911,12 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             treatments = await kg_rag.get_treatments_for_symptom(symptom)
+            guarded, safety = gate_answer_payload(treatments, query=symptom)
             return JSONResponse({
                 "status": "success",
                 "symptom": symptom,
-                "treatments": treatments
+                "treatments": guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG treatments error: {e}")
@@ -7071,10 +6936,12 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             side_effects = await kg_rag.get_side_effects(medication)
+            guarded, safety = gate_answer_payload(side_effects, query=medication)
             return JSONResponse({
                 "status": "success",
                 "medication": medication,
-                "side_effects": side_effects
+                "side_effects": guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG side effects error: {e}")
@@ -7094,10 +6961,12 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             results = await kg_rag.search_entities(q, entity_type=entity_type, limit=limit)
+            guarded, safety = gate_answer_payload(results, query=q)
             return JSONResponse({
                 "status": "success",
                 "query": q,
-                "results": results
+                "results": guarded,
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"KG search error: {e}")
@@ -7119,6 +6988,8 @@ def create_app(args: Any = None) -> FastAPI:
             from fastapi.responses import HTMLResponse
 
             result = await kg_rag.get_entity_graph(entity_name, depth=depth)
+            # The node labels and titles drawn into the page pass the gate first.
+            result, _ = gate_answer_payload(result, query=entity_name)
 
             if "visualization" in result and result["visualization"]:
                 viz_data = VisualizationData.from_dict(result["visualization"])
@@ -7270,9 +7141,13 @@ def create_app(args: Any = None) -> FastAPI:
                     "error": f"Unknown method: {method}. Use: auto, global, local, drift, basic"
                 }, status_code=400)
 
+            guarded, safety = gate_answer_payload(
+                result.to_dict(), query=query, language=body.get("language", "en"),
+                answer_key="response")
             return JSONResponse({
                 "status": "success",
-                "result": result.to_dict()
+                "result": guarded,
+                "safety": safety,
             })
 
         except Exception as e:
@@ -7370,10 +7245,12 @@ def create_app(args: Any = None) -> FastAPI:
                 top_k=top_k,
                 entity_type=entity_type
             )
+            guarded, safety = gate_answer_payload(entities, query=query)
             return JSONResponse({
                 "status": "success",
-                "entities": entities,
-                "count": len(entities)
+                "entities": guarded,
+                "count": len(guarded),
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"GraphRAG entity search error: {e}")
@@ -7395,11 +7272,13 @@ def create_app(args: Any = None) -> FastAPI:
             relationships = await graphrag_query_engine.data_loader.get_entity_relationships(
                 entity_name=entity_name
             )
+            guarded, safety = gate_answer_payload(relationships, query=entity_name)
             return JSONResponse({
                 "status": "success",
                 "entity": entity_name,
-                "relationships": relationships,
-                "count": len(relationships)
+                "relationships": guarded,
+                "count": len(guarded),
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"GraphRAG relationship error: {e}")
@@ -7419,11 +7298,14 @@ def create_app(args: Any = None) -> FastAPI:
 
         try:
             reports = await graphrag_query_engine.data_loader.get_community_reports_by_level(level)
+            # Community reports are model-written summaries of the index.
+            guarded, safety = gate_answer_payload(reports[:top_k], query="")
             return JSONResponse({
                 "status": "success",
                 "level": level,
-                "communities": reports[:top_k],
-                "count": len(reports[:top_k])
+                "communities": guarded,
+                "count": len(guarded),
+                "safety": safety,
             })
         except Exception as e:
             logger.error(f"GraphRAG communities error: {e}")
@@ -7453,6 +7335,28 @@ def create_app(args: Any = None) -> FastAPI:
                 "status": "error",
                 "error": str(e)
             }, status_code=500)
+
+    # The admin panel's Knowledge Graph and GraphRAG tabs call these route
+    # functions in process. The panel is gated as a mount (auth/policy.py), so
+    # its caller is already a signed-in admin; calling over HTTP-to-self had no
+    # credential and got 401. No token is minted or forwarded for this.
+    admin_ui.admin_api = {
+        "kg_query": lambda question: kg_query_endpoint(InProcessRequest({"question": question})),
+        "kg_treatments": lambda symptom: kg_treatments_endpoint(symptom),
+        "kg_side_effects": lambda medication: kg_side_effects_endpoint(medication),
+        "kg_health": kg_health_endpoint,
+        "kg_stats": kg_stats_endpoint,
+        "kg_import": kg_import_base_endpoint,
+        "graphrag_query": lambda query, method: graphrag_query(
+            InProcessRequest({"query": query, "method": method})),
+        "graphrag_index": lambda method, update_mode: graphrag_index(
+            InProcessRequest({"method": method, "update_mode": update_mode})),
+        "graphrag_index_status": graphrag_index_status,
+        "graphrag_entities": lambda query, entity_type: graphrag_entities(
+            query=query, entity_type=entity_type, top_k=20),
+        "graphrag_stats": graphrag_stats,
+        "graphrag_verify": graphrag_verify_index,
+    }
 
     # ==========================================================================
     # END GRAPHRAG INTEGRATION

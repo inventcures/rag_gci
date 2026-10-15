@@ -82,3 +82,10 @@ cannot perform.
   language review). A language with no copy gets the English text rather than no
   answer, and the safety record names the language asked for
   (`dosage_language_fallback`).
+- Every route that returns model- or graph-derived text passes the guard, not only
+  the main query (round 3, ticket 03). Structured graph and index data (knowledge
+  graph, GraphRAG, PageIndex, patient memory) goes through `guard_answer_payload`,
+  which guards every string in it. `answer_routes.py` classifies every server
+  route as an answer route or not, and a route left unclassified fails
+  `tests/test_every_answer_route_passes_the_dose_boundary.py`, which drives every answer route with
+  a stub that emits a dose.

@@ -5,6 +5,7 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
+import org.inventcures.pallisahayak.data.sync.wire.SyncApi
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.Executor
@@ -41,8 +42,13 @@ class ApiClients(
         .authenticator(TokenRefreshAuthenticator(sessions))
         .build()
 
+    private val signed: Retrofit = retrofit(baseUrl, client)
+
     /** The signed API, which the repository asks questions through. */
-    val api: PalliSahayakApi = retrofit(baseUrl, client).create(PalliSahayakApi::class.java)
+    val api: PalliSahayakApi = signed.create(PalliSahayakApi::class.java)
+
+    /** The signed sync push, which is not a generated operation. */
+    val sync: SyncApi = signed.create(SyncApi::class.java)
 
     private companion object {
         /**

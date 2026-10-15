@@ -8,8 +8,12 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import org.inventcures.pallisahayak.data.model.Language
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.inventcures.pallisahayak.R
 import org.inventcures.pallisahayak.data.model.CareRole
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -43,6 +47,10 @@ class RoleAndLanguageUiTest {
     @get:Rule
     val compose = createComposeRule()
 
+    /** The English resources, as the default-locale test device reads them. */
+    private fun string(id: Int): String =
+        ApplicationProvider.getApplicationContext<android.content.Context>().getString(id)
+
     @Test
     fun switchingRoleTakesOneTapAndAsksForNothing() {
         val selections = mutableListOf<CareRole>()
@@ -50,7 +58,7 @@ class RoleAndLanguageUiTest {
             RoleSwitcher(active = CareRole.ASHA_WORKER, onSelect = { selections += it })
         }
 
-        compose.onNodeWithContentDescription(CareRole.PATIENT.label).performClick()
+        compose.onNodeWithContentDescription(string(R.string.role_patient)).performClick()
 
         assertEquals(listOf(CareRole.PATIENT), selections)
     }
@@ -77,7 +85,7 @@ class RoleAndLanguageUiTest {
 
         // Measured, not assumed. A badge that shrank to a 16dp dot would still have
         // a correct content description and still be useless in the field.
-        compose.onNodeWithContentDescription("Active role. ${CareRole.FAMILY_CAREGIVER.label}")
+        compose.onNodeWithContentDescription("Active role. ${string(R.string.role_family_caregiver)}")
             .assertHeightIsAtLeast(56.dp)
     }
 
@@ -90,5 +98,25 @@ class RoleAndLanguageUiTest {
         // user would hear that claim made.
         compose.onNodeWithContentDescription("Active role. Speaking as a patient")
             .assertExists()
+    }
+
+    @Test
+    fun settingsSwitchTheActiveRoleAndTheLanguageWithOneTapEach() {
+        val roles = mutableListOf<CareRole>()
+        val languages = mutableListOf<Language>()
+        compose.setContent {
+            SettingsScreen(
+                activeRole = CareRole.ASHA_WORKER,
+                onRoleSelect = { roles += it },
+                language = Language.ENGLISH,
+                onLanguageSelect = { languages += it },
+            )
+        }
+
+        compose.onNodeWithContentDescription(string(R.string.role_patient)).performScrollTo().performClick()
+        compose.onNodeWithContentDescription(Language.HINDI.endonym).performScrollTo().performClick()
+
+        assertEquals(listOf(CareRole.PATIENT), roles)
+        assertEquals(listOf(Language.HINDI), languages)
     }
 }

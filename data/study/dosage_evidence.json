@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-15T08:09:02+00:00",
-  "commit": "69ad335",
+  "generated_at": "2026-10-15T09:06:40+00:00",
+  "commit": "f3d2a75",
   "branch": "claude/review-3-tickets-nb6jkm",
   "dirty": false,
   "invariants": {
@@ -36,15 +36,17 @@
       "statement": "Only a CRITICAL emergency overrides the boundary; HIGH does not.",
       "tests": [
         "fun `SI-4 a critical emergency is never withheld`",
+        "fun `SI-4 an answer saying call 108 does not lift the boundary`",
         "fun `SI-4 an unknown language falls back to English rather than to none`",
         "fun `SI-4 detection works in the languages the server cannot cover`",
         "fun `SI-4 empty input is not an emergency`",
         "fun `SI-4 highest severity wins when several patterns match`",
         "fun `SI-4 only critical severity overrides`",
         "fun `SI-4 severe pain is high and does not override the dose boundary`",
-        "fun `SI-4 severity survives parsing a server label`"
+        "fun `SI-4 severity survives parsing a server label`",
+        "fun `SI-4 the level passed in for the question counts, and only CRITICAL overrides`"
       ],
-      "count": 8,
+      "count": 10,
       "required_minimum": 2,
       "met": true
     }
@@ -76,6 +78,18 @@
     "test_dose_deferral_languages.py::test_web_language_tag_reaches_the_pipeline_as_the_table_code",
     "test_dose_deferral_languages.py::test_web_language_outside_the_eleven_is_answered_in_english_with_the_fallback_recorded",
     "test_dose_deferral_languages.py::test_web_question_without_a_language_is_still_english",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_every_answer_route_withholds_a_stubbed_dose",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_a_graph_answer_carries_the_safety_record",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_the_memory_answer_is_a_redacted_answer_in_the_callers_language",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_every_route_of_the_app_is_classified",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_a_new_route_without_a_classification_is_reported",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_no_route_is_both_an_answer_route_and_not",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_every_answer_route_is_driven_with_a_dose",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_the_tests_named_for_other_channels_exist",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_a_critical_question_gets_the_guidance_first_but_graph_data_keeps_no_dose",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_clean_data_passes_unchanged",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_a_language_outside_the_eleven_records_the_fallback",
+    "test_every_answer_route_passes_the_dose_boundary.py::test_the_tab_never_displays_a_dose",
     "test_reminders_never_state_a_dose.py::test_the_call_script_names_the_medicine_and_the_time_in_every_reminder_language",
     "test_reminders_never_state_a_dose.py::test_the_call_script_is_spoken_whole_in_every_reminder_language",
     "test_reminders_never_state_a_dose.py::test_the_stored_dose_stays_in_the_data",

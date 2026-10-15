@@ -1,18 +1,30 @@
 package org.inventcures.pallisahayak.data
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.inventcures.pallisahayak.data.auth.ApiClients
+import org.inventcures.pallisahayak.data.auth.AuthState
 import org.inventcures.pallisahayak.data.auth.KeystoreTokenStore
 import org.inventcures.pallisahayak.data.auth.SessionManager
 import org.inventcures.pallisahayak.data.local.PalliDatabase
+import org.inventcures.pallisahayak.data.model.Language
 import org.inventcures.pallisahayak.data.offline.ConnectivityMonitor
 import org.inventcures.pallisahayak.data.offline.HistoryRepository
 import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
+import org.inventcures.pallisahayak.data.offline.OfflineBundleDownloader
+import org.inventcures.pallisahayak.data.prefs.SharedPreferencesStore
 import org.inventcures.pallisahayak.data.release.ReleaseGate
+import org.inventcures.pallisahayak.data.release.SharedPreferencesReleaseCache
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
+import org.inventcures.pallisahayak.data.settings.ActiveSettings
 import org.inventcures.pallisahayak.data.start.AppStart
+import org.inventcures.pallisahayak.data.sync.SyncQueue
+import org.inventcures.pallisahayak.data.sync.SyncScheduler
 
 /**
  * Builds the object graph.
@@ -47,6 +59,9 @@ object ServiceLocator {
     @Volatile
     private var startInstance: AppStart? = null
 
+    @Volatile
+    private var settingsInstance: ActiveSettings? = null
+
     /**
      * Everything the offline screens need, built once alongside the repository.
      *
@@ -67,6 +82,10 @@ object ServiceLocator {
     val start: AppStart
         get() = startInstance ?: notInitialised()
 
+    /** The Active Role and language the settings screen switches. */
+    val settings: ActiveSettings
+        get() = settingsInstance ?: notInitialised()
+
     @Synchronized
     fun initialise(context: Context) {
         if (repositoryInstance != null) return
@@ -85,25 +104,74 @@ object ServiceLocator {
         clients = api
 
         val database = PalliDatabase.get(context)
+        val bundle = OfflineAnswerResolver(database.cachedAnswers())
+        val connectivity = ConnectivityMonitor(context)
+        val queue = SyncQueue(database.syncQueue(), api.sync)
+        syncQueueInstance = queue
+
+        settingsInstance = ActiveSettings(SharedPreferencesStore(context))
 
         repositoryInstance = PalliSahayakRepository(
             api = api.api,
             interactions = database.interactions(),
+            bundle = bundle,
+            outbox = queue,
         )
 
         // A debug build always opens (ReleaseGate explains why); a release build
-        // opens only on a release the server confirms as approved and activated.
+        // opens only on a release the server confirms as approved and activated,
+        // or, with no signal, on the last such status for this very build.
         startInstance = AppStart(
             api = api.authApi,
             gate = ReleaseGate(developmentBuild = BuildConfig.DEBUG),
             sessions = api.sessions,
+            releaseCache = SharedPreferencesReleaseCache(context, buildId(context)),
         )
 
         offlineGraph = OfflineGraph(
             history = HistoryRepository(database.interactions()),
-            bundle = OfflineAnswerResolver(database.cachedAnswers()),
-            connectivity = ConnectivityMonitor(context),
+            bundle = bundle,
+            connectivity = connectivity,
         )
+
+        // The background job: whenever a signed-in participant has signal, fetch
+        // the Cached Answer Bundle for their language and push the sync queue.
+        val downloader = OfflineBundleDownloader(api.api, database.cachedAnswers())
+        val sessions = api.sessions
+        SyncScheduler(
+            queue = queue,
+            online = combine(connectivity.online, sessions.state) { online, auth ->
+                online && auth is AuthState.SignedIn
+            },
+            scope = backgroundScope,
+            onOnline = {
+                // The language in force now (settings), else the registered one.
+                val signedIn = sessions.state.value as? AuthState.SignedIn
+                val language = settingsInstance?.language?.value
+                    ?: Language.fromTag(signedIn?.session?.language)
+                language?.let { downloader.refresh(it) }
+            },
+        ).start()
+    }
+
+    /** The sync queue, for screens that record an observation offline. */
+    val syncQueue: SyncQueue
+        get() = syncQueueInstance ?: notInitialised()
+
+    @Volatile
+    private var syncQueueInstance: SyncQueue? = null
+
+    /** Lives as long as the process; sync and bundle downloads run here. */
+    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Changes on every install or update of the app, so a release status
+     * confirmed for one build is never read back for the next.
+     */
+    @Suppress("DEPRECATION")
+    private fun buildId(context: Context): String {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        return "${info.versionName}:${info.lastUpdateTime}"
     }
 
     private fun notInitialised(): Nothing = error(

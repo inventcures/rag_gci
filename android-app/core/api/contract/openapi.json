@@ -664,6 +664,18 @@
             "title": "Patient Id",
             "type": "string"
           },
+          "safety": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -679,6 +691,11 @@
       },
       "PatientMemoryQueryRequest": {
         "properties": {
+          "language": {
+            "default": "en",
+            "title": "Language",
+            "type": "string"
+          },
           "question": {
             "maxLength": 2000,
             "minLength": 1,
@@ -719,6 +736,18 @@
           "raw_memories_used": {
             "title": "Raw Memories Used",
             "type": "integer"
+          },
+          "safety": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety"
           }
         },
         "required": [
@@ -2160,6 +2189,7 @@
     },
     "/api/mobile/v1/patient/{patient_id}/insights": {
       "get": {
+        "description": "The memory agents' insights for one of the caller's patients. The insight\ntext is model-written, so it passes the Dose Boundary before it is returned.",
         "operationId": "get_patient_insights_api_mobile_v1_patient__patient_id__insights_get",
         "parameters": [
           {
@@ -2168,6 +2198,16 @@
             "required": true,
             "schema": {
               "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "title": "Language",
               "type": "string"
             }
           }
@@ -2207,6 +2247,7 @@
     },
     "/api/mobile/v1/patient/{patient_id}/query-memory": {
       "post": {
+        "description": "Answer a question from the patient's remembered conversations. A summary\nof past talk can repeat a dose, so the answer passes the Dose Boundary, with\nthe question's emergency alert, in the caller's language.",
         "operationId": "query_patient_memory_api_mobile_v1_patient__patient_id__query_memory_post",
         "parameters": [
           {

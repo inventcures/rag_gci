@@ -11,36 +11,45 @@ import org.junit.Test
 /**
  * The language and role vocabulary, checked against the code that has to agree with it.
  *
- * Two of these tests read files outside the Kotlin source tree on purpose. The
- * client list and `offline/questions.py` must contain the same eleven languages,
- * because the offline bundle zips the two lists together. A mismatch pairs the wrong
- * question with the wrong answer and raises nothing. Asserting the count is not
- * enough, so the tags themselves are compared.
+ * One test reads a file outside the Kotlin source tree on purpose. The client
+ * list and the server's Supported Language table must hold the same eleven
+ * languages under the same codes: a request, a bundle or a string resource under
+ * another spelling ("od-IN" for Odia) misses. Asserting the count is not enough,
+ * so the codes and tags themselves are compared.
  */
 class LanguageAndRoleTest {
 
     /** Repository root, found by walking up from the module directory. */
     private fun repoRoot(): File {
         var dir = File(System.getProperty("user.dir") ?: ".")
-        while (!File(dir, "offline/questions.py").exists()) {
-            dir = dir.parentFile ?: error("could not locate offline/questions.py")
+        while (!File(dir, "supported_languages.py").exists()) {
+            dir = dir.parentFile ?: error("could not locate supported_languages.py")
         }
         return dir
     }
 
-    private fun serverLanguages(): List<String> {
-        val source = File(repoRoot(), "offline/questions.py").readText()
-        val block = Regex("SUPPORTED_LANGUAGES: List\\[str\\] = \\[(.*?)]", RegexOption.DOT_MATCHES_ALL)
-            .find(source)
-            ?.groupValues
-            ?.get(1)
-            ?: error("SUPPORTED_LANGUAGES not found in offline/questions.py")
-        return Regex("\"([a-z]{2}-IN)\"").findAll(block).map { it.groupValues[1] }.toList()
+    /** The Supported Language table's (code, tag) pairs, read from the server's source. */
+    private fun tableLanguages(): Set<Pair<String, String>> {
+        val source = File(repoRoot(), "supported_languages.py").readText()
+        return Regex("SupportedLanguage\\(\\s*\"([a-z]{2})\", \"([a-z]{2}-IN)\"")
+            .findAll(source)
+            .map { it.groupValues[1] to it.groupValues[2] }
+            .toSet()
+            .also { check(it.size == 11) { "expected the eleven table rows, found $it" } }
     }
 
     @Test
-    fun `the client supports exactly the eleven languages the server does`() {
-        assertEquals(serverLanguages(), Language.ALL.map { it.tag })
+    fun `the client supports exactly the Supported Language table's eleven, by its codes`() {
+        // Odia is "or-IN" in the table. The app sent "od-IN" until ticket 24.
+        assertEquals(tableLanguages(), Language.ALL.map { it.code to it.tag }.toSet())
+    }
+
+    @Test
+    fun `an Odia tag stored by an older build still resolves to Odia`() {
+        assertEquals(Language.ODIA, Language.fromTag("od-IN"))
+        assertEquals(Language.ODIA, Language.fromTag("od"))
+        assertEquals(Language.ODIA, Language.fromTag("or"))
+        assertEquals("or-IN", Language.fromTag("od-IN")?.tag)
     }
 
     @Test
