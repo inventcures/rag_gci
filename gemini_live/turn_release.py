@@ -6,7 +6,9 @@ text check could run. The web voice socket therefore holds a turn's audio
 until the turn completes, checks the transcript of what Live said, and only
 then releases the audio. A turn that names a dose releases the guarded text
 (a Redacted Answer or the Deferral) and never the audio; a turn whose speech
-cannot be checked (audio with no transcript) releases the Deferral. This is
+cannot be checked (audio with no transcript) releases the Deferral. A turn
+under the Emergency Override releases its guarded text (the 108 guidance
+first), to be spoken in place of Live's audio, which never said it. This is
 the same rule the WhatsApp Live path applies to a voice note
 (whatsapp_bot._process_with_gemini_live, step 7).
 """
@@ -66,4 +68,10 @@ def check_live_turn(audio: List[bytes], spoken: str, heard: str, language: str) 
                        safety.dosage_reason)
         return TurnRelease(text=check["answer"], withheld=bool(audio), dosage_blocked=True,
                            safety=check["safety"])
+    if safety.emergency_overrode_dosage:
+        # The Emergency Override keeps the answer and puts the 108 guidance
+        # first, in the text only: Live's audio never said it (and may name the
+        # dose the override let through). The guarded text is spoken instead.
+        logger.warning("Emergency Override on a Live turn; audio withheld, guidance spoken")
+        return TurnRelease(text=check["answer"], withheld=bool(audio), safety=check["safety"])
     return TurnRelease(audio=list(audio), text=check["answer"], safety=check["safety"])

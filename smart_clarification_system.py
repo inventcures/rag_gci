@@ -121,6 +121,7 @@ class SmartClarificationSystem:
             
             # Combine rule-based and LLM results
             final_result = self._combine_analysis_results(rule_based_result, llm_result)
+            final_result = self._without_dose_questions(final_result)
             
             # Only initiate clarification if really needed
             if final_result["needs_clarification"] and final_result["confidence"] > 0.7:
@@ -282,6 +283,29 @@ Examples that NEED clarification:
                 "suggested_questions": []
             }
     
+    @staticmethod
+    def _without_dose_questions(result: Dict[str, Any]) -> Dict[str, Any]:
+        """`result` with every suggested question that names a dose dropped.
+
+        The questions can be the model's own text and are sent to the
+        participant as written, so each passes the Dose Boundary first. When
+        none is left, no clarification is asked and the query is answered.
+        """
+        from dosage_guard import get_dosage_guard
+
+        guard = get_dosage_guard()
+        questions = result.get("suggested_questions") or []
+        kept = [q for q in questions
+                if isinstance(q, str) and q.strip() and not guard.apply(q, "en").blocked]
+        if len(kept) == len(questions):
+            return result
+        logger.warning("Dropped %d clarification question(s) at the Dose Boundary",
+                       len(questions) - len(kept))
+        result = {**result, "suggested_questions": kept}
+        if not kept:
+            result["needs_clarification"] = False
+        return result
+
     def _combine_analysis_results(self, rule_result: Dict, llm_result: Dict) -> Dict:
         """Intelligently combine rule-based and LLM analysis"""
         

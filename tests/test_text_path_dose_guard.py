@@ -25,6 +25,7 @@ not accept **kw: a forgiving fake is what hid the mobile route's wrong kwargs.
 
 import asyncio
 import inspect
+import json
 import os
 import sys
 import tempfile
@@ -280,6 +281,29 @@ class WhatsAppAnswersAreGuarded(unittest.TestCase):
         bot = make_bot(RealisticRag())
         run(bot._process_query_directly(self.NUMBER, "how much morphine?"))
         self.assert_bot_clean(bot, "WhatsApp (after clarification)")
+
+    def test_a_clarification_question_that_names_a_dose_is_never_sent(self):
+        """The model writes the clarification questions: one naming a dose is
+        dropped at the Dose Boundary, and only the dose-free one is asked."""
+        from llm.client import set_llm_client
+        from smart_clarification_system import SmartClarificationSystem
+        from tests.test_llm_callers_agents import FakeLLM
+
+        set_llm_client(FakeLLM(json.dumps({
+            "needs_clarification": True, "clarity_level": "ambiguous", "confidence": 0.95,
+            "reasoning": "which dose",
+            "suggested_questions": ["Is she taking 10 mg every 4 hours?",
+                                    "How long has the pain been worse?"],
+        })))
+        self.addCleanup(set_llm_client, None)
+        bot = make_bot(RealisticRag())
+        bot.clarification_system = SmartClarificationSystem()
+        run(bot._handle_twilio_text_message(self.NUMBER, "my mother's morphine medicine isn't working"))
+        self.assertTrue(bot.twilio_api.texts, "nothing was sent")
+        self.assertIn("How long has the pain been worse?", bot.twilio_api.texts[-1])
+        self.assert_bot_clean(bot, "WhatsApp clarification question")
+        run(bot._handle_twilio_text_message(self.NUMBER, "since last week"))
+        self.assert_bot_clean(bot, "WhatsApp after the clarification")
 
     def test_twilio_voice_note_text_and_tts(self):
         bot = make_bot(RealisticRag())
