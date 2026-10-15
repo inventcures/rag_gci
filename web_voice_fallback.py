@@ -175,23 +175,38 @@ class WebSarvamTurns:
 
     One per socket, so the turn history stays with the connection. The answer
     is the VoiceTurnHandler's: the same grounding, the same Dose Boundary and
-    the same voice length as the mobile voice routes.
+    the same voice length as the mobile voice routes. Each answered turn
+    writes one study row (channel "web_voice", voice path "fallback"), keyed
+    like the Live path's rows on the socket's session key: a signed-in
+    participant's id, or an ephemeral id, which the log records as
+    "anonymous".
     """
 
-    def __init__(self, rag_pipeline: Any, safety_manager: Any, participant_id: str = "",
-                 study_logger: Any = None) -> None:
+    def __init__(self, rag_pipeline: Any, safety_manager: Any, session_key: str,
+                 participant: Any = None) -> None:
+        # The row is written here, as "web_voice"; the handler writes none.
         self.handler = VoiceTurnHandler(rag_pipeline=rag_pipeline, safety_manager=safety_manager,
-                                        study_logger=study_logger, synthesise=None)
-        # An empty participant id makes the answer path's id ephemeral.
-        self.session = VoiceSession(participant_id=participant_id)
+                                        study_logger=None, synthesise=None)
+        self.session_key = session_key
+        self.participant = participant
+        # The answer path keys patient context on the participant; without
+        # one its id is ephemeral.
+        self.session = VoiceSession(
+            participant_id=getattr(participant, "user_id", "") if participant is not None else "",
+            care_role=getattr(participant, "role", "") or "",
+            site_id=getattr(participant, "site_id", "") or "",
+        )
 
-    async def answer(self, websocket: Any, pcm: bytes, language: str, reason: str) -> Optional[VoiceTurn]:
+    async def answer(self, websocket: Any, pcm: bytes, language: str, reason: str,
+                     session_id: str = "") -> Optional[VoiceTurn]:
         """
         Answer one recording and send its frames.
 
         `reason` is why Sarvam answers: "operator_forced_fallback", or the
-        deadline Live missed. It is recorded on the turn, on its frames and in
-        the deployment's voice report (forced turns apart from Live failures).
+        deadline Live missed. It is recorded on the turn, on its frames, in its
+        study row and in the deployment's voice report (forced turns apart
+        from Live failures). `session_id` groups the row with the Live
+        session it replaced, when there was one.
         """
         self.session.language = language
         turn = None
@@ -207,6 +222,7 @@ class WebSarvamTurns:
         turn.voice_path = VOICE_PATH_FALLBACK
         turn.fallback_reason = reason
         record_voice_path(CHANNEL, reason)
+        await self._record(turn, language, session_id or self.session.session_id)
 
         audio = await speak_for_web(turn.answer, language)
         if audio:
@@ -220,3 +236,17 @@ class WebSarvamTurns:
         await websocket.send_json({"type": "turn_complete", "voice_path": VOICE_PATH_FALLBACK,
                                    "fallback_reason": reason})
         return turn
+
+    async def _record(self, turn: VoiceTurn, language: str, session_id: str) -> None:
+        """The turn's one study row, written before any of it is sent."""
+        from study_logging import record_answer
+
+        await record_answer(
+            channel=CHANNEL, voice_path=VOICE_PATH_FALLBACK, user_id=self.session_key,
+            session_id=session_id, site_id=self.session.site_id, care_role=self.session.care_role,
+            query=turn.transcript, response=turn.answer, language=language,
+            result={"sources": [s for s in turn.sources if isinstance(s, dict)],
+                    "retrieval": turn.retrieval, "kg_check": turn.kg_check},
+            safety={**turn.safety, "answer_kind": turn.answer_kind, "fallback_reason": turn.fallback_reason},
+            provider="sarvam", stt_model="saaras-v3", tts_model="bulbul-v3",
+        )

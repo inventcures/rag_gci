@@ -331,6 +331,71 @@ class AWithheldWebTurnIsSpoken(WebVoiceOnSarvam):
         self.assertEqual(self.sarvam.tts, [])
 
 
+class AWebSarvamTurnWritesOneStudyRow(WebVoiceOnSarvam):
+    """A Sarvam-answered web turn writes exactly one row: web_voice, fallback."""
+
+    def setUp(self):
+        super().setUp()
+        import study_logging
+        from study_logging import StudyInteractionLogger
+
+        self.log_dir = Path(tempfile.mkdtemp(prefix="t16-rows-"))
+        log = StudyInteractionLogger(log_dir=self.log_dir, use_analytics=False, use_expert_sampling=False)
+        for patcher in (mock.patch.object(study_logging, "_logger", log),
+                        mock.patch.dict(os.environ, {"RETRIEVAL_AUDIT_DIR": tempfile.mkdtemp()})):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def rows(self) -> List[Dict]:
+        from study_logging import read_entries
+
+        return read_entries(log_dir=self.log_dir)
+
+    def forced_turn(self, headers=None) -> List[Dict]:
+        forced_sarvam_control(self)
+        with self.client.websocket_connect("/ws/voice", headers=headers or {}) as ws:
+            ws.send_json({"type": "config", "language": "en-IN", "user_id": "patient-of-someone-else"})
+            self.frames_until(ws, "config_ack")
+            ws.send_json({"type": "start_audio"})
+            ws.send_bytes(b"\x00\x01" * 160)
+            return self.exchange(ws, {"type": "stop_audio"})
+
+    def assert_one_fallback_row(self) -> Dict:
+        rows = self.rows()
+        self.assertEqual(len(rows), 1, rows)
+        self.assertEqual(rows[0]["channel"], "web_voice")
+        self.assertEqual(rows[0]["voice_path"], VOICE_PATH_FALLBACK)
+        self.assertEqual(rows[0]["query"], HEARD)
+        self.assertIn("comfortable", rows[0]["response"])
+        return rows[0]
+
+    def test_a_signed_in_participants_forced_turn_is_keyed_on_their_token(self):
+        from study_logging import pseudonymise
+
+        self.forced_turn(headers=self.signed_in)
+        row = self.assert_one_fallback_row()
+        self.assertEqual(row["participant_id"], pseudonymise("asha-1"))
+
+    def test_an_anonymous_forced_turn_is_recorded_as_anonymous(self):
+        self.forced_turn()
+        row = self.assert_one_fallback_row()
+        self.assertEqual(row["participant_id"], "anonymous")
+
+    def test_a_stalled_live_turn_writes_only_the_sarvam_row(self):
+        import web_voice_fallback
+
+        with mock.patch.object(web_voice_fallback, "FIRST_TOKEN_TIMEOUT_S", 0.1), \
+                mock.patch.object(web_voice_fallback, "PER_TURN_STALL_TIMEOUT_S", 0.3), \
+                mock.patch("tests.test_web_live_voice.ScriptedLiveSession", QuietLiveSession):
+            with self.client.websocket_connect("/ws/voice", headers=self.signed_in) as ws:
+                _, live = self.start(ws, {})
+                ws.send_bytes(b"\x00\x01" * 160)
+                ws.send_json({"type": "stop_audio"})
+                self.frames_until(ws, "turn_complete")
+        row = self.assert_one_fallback_row()
+        self.assertEqual(row["session_id"], live.session_id)
+
+
 # --------------------------------------------------------------------------
 # WhatsApp voice notes.
 # --------------------------------------------------------------------------
