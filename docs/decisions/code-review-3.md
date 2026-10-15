@@ -85,3 +85,26 @@ Decisions taken while implementing the 26 tickets with Matt Pocock's `implement`
 - Over-redaction to know about: the detector treats bare Indic day words (दिन) as a schedule, so some ordinary sentences are withheld. This errs on the safe side and is listed for the clinical lead.
 
 **For the clinical lead's review:** `dosage_guard.EMERGENCY_GUIDANCE` (mr, te, kn, ml, pa, or), the Deferral and note copy for mr, kn, ml, or, pa, te and gu, the two reworded Hindi lines, the reminder lines and closings, and the 11 voice greetings.
+
+### Wave 3 (tickets 03, 12, 23, 24)
+
+| # | Decision | Why |
+|---|---|---|
+| D37 | (03) Every route that returns model- or graph-derived text passes the Dose Boundary, which guards every string of a structured payload, not only an "answer" field. The Emergency Override applies to the answer field only. The route table marks the rest as `NO_ANSWER_TEXT` (stored records, the caller's own transcripts, metadata). | A dose can sit in a KG entity or a community report as easily as in an answer. Withholding a dose in a side field under a CRITICAL question errs in the safe direction. |
+| D38 | (03) The Gradio admin tabs call the route functions in process instead of over HTTP to localhost. | Since ticket 05 those HTTP calls carry no admin token and got 401, so every tab showed "Error". |
+| D39 | (12) The study release record names the Live model, and nothing else can choose it. Config, the client and `set_model` are refused. `GEMINI_LIVE_MODEL` stays as a development override that shows as drift. The record's `gemini-3.8-live` was corrected to `gemini-3.1-flash-live-preview`. | The service never ran `gemini-3.8-live` and would refuse to start with it. HANDOVER's verified round trip is on `gemini-3.1-flash-live-preview`. **The PI and technical lead must confirm this model id**, because the record is what they approve. |
+| D40 | (12) Web voice holds each Live turn's audio until the turn is complete, then checks the transcript at the Dose Boundary. A blocked turn releases the Deferral, and audio with no transcript is withheld. Web voice sessions are keyed to the token or are anonymous; the frame's `user_id` is ignored. Translator mode is deleted. | Live's audio and transcript are not aligned, so only the whole turn can be checked, as on WhatsApp. **This adds latency: speech starts only when the turn ends.** |
+| D41 | (23) The Android client trusts a CRITICAL from the server and takes the higher of the two levels. Its dose detector mirrors the server's rows. Offline it answers from a downloaded bundle and queues counts-only interaction logs. Sync runs in a process-scoped coroutine, not WorkManager. | ADR 0004 says the server decides the emergency. WorkManager can't be fetched here and costs APK budget; the trade is that a push waits for the app process. |
+| D42 | (23) The release status is cached per build with no expiry, so an approved build opens with no signal. | Being offline is normal at the study sites. A revoked release keeps opening offline only until the phone next has signal, and offline it can only answer from the bundle. |
+| D43 | (24) Settings has a working Active Role switch and language list. The chosen language sets both the answer language and the screen language. Hindi strings ship now; the other ten languages follow the same pattern. Odia goes out as `or-IN`. | Recreating the Activity would re-run the release gate, which refuses offline. Machine drafts of nine more scripts would only add to clinical review. |
+
+**What participants and operators will notice (wave 3, all need a study release):**
+- Mobile patient-memory answers and insights, and admin KG, GraphRAG and PageIndex output, now withhold doses. Those responses gain a `safety` field, and the mobile ones accept a `language`.
+- Temporal recommendations no longer suggest an opioid rotation; that wording now defers to the care team.
+- Web voice: a turn that speaks a dose plays the Deferral instead. Speech starts only when Gemini finishes the turn, which makes every answer slower to start. The web page can no longer pick a model or use translator mode.
+- The Android app shows the 108 banner for emergency questions in every language and for any question the server flags CRITICAL. Offline, saved questions get their saved answer, labelled as saved, and an approved build opens with no signal.
+- The Android Settings screen switches Active Role and language. On a Hindi phone, or with Hindi chosen, every screen is in Hindi.
+
+**For the PI and technical lead:** confirm the Live model id in `study/release.yaml` (D39), accept or reject the web voice latency trade (D40), and reconcile ADR 0007 and HANDOVER line 76, which still say "3.8 Live". Commit the Room schema `4.json` from the first real Android build.
+
+**For the clinical lead's review:** the 76 machine-drafted Hindi app strings in `android-app/app/src/main/res/values-hi/strings.xml`, and the reworded temporal recommendations (including whether "continue the current regimen" still reads as a start/stop judgement).
