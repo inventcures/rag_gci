@@ -10,6 +10,14 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path("./data/auth/devices")
 
+# Wrong PINs allowed before the account locks, and how long the lock lasts. The
+# lock lifts on its own after the cooling-off period, so a participant who
+# mistyped is not locked out of the study for good. Each wrong PIN after a lock
+# has lifted starts a new cooling-off period, so a guesser gets one try per
+# period, not a fresh five.
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_SECONDS = 15 * 60
+
 
 class PinAuthenticator:
     def __init__(self):
@@ -54,6 +62,10 @@ class PinAuthenticator:
         return {"user_id": user_id, "status": "registered"}
 
     def verify_pin(self, user_id: str, pin: str) -> bool:
+        """True when the PIN matches and the account is not in a cooling-off period.
+
+        A locked account refuses even the correct PIN until the period ends.
+        """
         filepath = DATA_DIR / f"{user_id}.json"
         if not filepath.exists():
             return False
@@ -61,22 +73,31 @@ class PinAuthenticator:
         with open(filepath) as f:
             record = json.load(f)
 
-        if record.get("failed_attempts", 0) >= 5:
-            logger.warning(f"User {user_id} locked out after 5 failed attempts")
-            return False
+        failed = record.get("failed_attempts", 0)
+        now = time.time()
+        if failed >= MAX_FAILED_ATTEMPTS:
+            locked_until = record.get("last_failed_at", 0.0) + LOCKOUT_SECONDS
+            if now < locked_until:
+                logger.warning(
+                    f"User {user_id} locked out after {failed} failed attempts, "
+                    f"for {int(locked_until - now)}s more"
+                )
+                return False
 
         expected_hash = record["pin_hash"]
         salt = record["pin_salt"]
         actual_hash = self._hash_pin(pin, salt)
 
-        if actual_hash == expected_hash:
+        if secrets.compare_digest(actual_hash, expected_hash):
             record["failed_attempts"] = 0
-            record["last_login_at"] = time.time()
+            record.pop("last_failed_at", None)
+            record["last_login_at"] = now
             with open(filepath, "w") as f:
                 json.dump(record, f, indent=2)
             return True
         else:
-            record["failed_attempts"] = record.get("failed_attempts", 0) + 1
+            record["failed_attempts"] = failed + 1
+            record["last_failed_at"] = now
             with open(filepath, "w") as f:
                 json.dump(record, f, indent=2)
             return False

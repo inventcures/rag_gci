@@ -74,6 +74,10 @@ class EvidenceBadge:
     recommendation: str
     consult_physician: bool
     sources: List[Dict[str, Any]] = field(default_factory=list)
+    # Mean retrieval distance the confidence was computed from. None when the
+    # retrieval mode had no distance (tree or graph results): the badge then
+    # says "no distance" rather than pretend to one.
+    mean_distance: Optional[float] = None
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -83,7 +87,9 @@ class EvidenceBadge:
             "recommendation": self.recommendation,
             "consult_physician": self.consult_physician,
             "badge_emoji": self.get_badge_emoji(),
-            "sources": self.sources
+            "sources": self.sources,
+            "mean_distance": None if self.mean_distance is None else round(self.mean_distance, 3),
+            "distance_basis": "no distance" if self.mean_distance is None else "retrieval",
         }
     
     def get_badge_emoji(self) -> str:
@@ -194,13 +200,17 @@ class EvidenceBadgeSystem:
         """
         Calculate evidence badge based on sources and query type
         """
-        # Calculate base confidence from vector distances
+        # Calculate base confidence from vector distances. Only real
+        # retrieval distances count: with none (tree or graph results) the
+        # retrieval term earns nothing, because a stand-in value would
+        # overstate the evidence.
+        avg_distance: Optional[float] = None
         if distances:
             avg_distance = sum(distances) / len(distances)
             # Convert distance to confidence (lower distance = higher confidence)
             base_confidence = max(0.0, min(1.0, 1.0 - (avg_distance / 2.0)))
         else:
-            base_confidence = 0.5
+            base_confidence = 0.0
         
         # Analyze source quality
         source_quality_score = self._analyze_source_quality(sources)
@@ -235,7 +245,8 @@ class EvidenceBadgeSystem:
             source_quality=source_quality_desc,
             recommendation=recommendation,
             consult_physician=consult_physician,
-            sources=sources[:3]  # Include top 3 sources
+            sources=sources[:3],  # Include top 3 sources
+            mean_distance=avg_distance,
         )
     
     def _analyze_source_quality(self, sources: List[Dict[str, Any]]) -> float:

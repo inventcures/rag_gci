@@ -150,3 +150,55 @@ def test_repr():
         engine = PageIndexQueryEngine(config, storage)
         r = repr(engine)
         assert "PageIndexQueryEngine" in r
+
+
+def _engine_with_two_docs(tmpdir):
+    """A cache-enabled engine over two indexed documents; navigation picks the root."""
+    config = PageIndexConfig(root_dir=tmpdir)
+    config.search.cache_enabled = True
+    storage = PageIndexStorage(config)
+    for doc_id in ("doc1", "doc2"):
+        tree = {"node_id": "0001", "title": doc_id, "level": 0,
+                "text": f"content of {doc_id}", "children": []}
+        storage.save_tree(doc_id, tree, {"filename": f"{doc_id}.pdf"})
+    engine = PageIndexQueryEngine(config, storage)
+    engine._llm.chat_async = AsyncMock(
+        return_value='{"thinking": "relevant", "node_list": ["0001"]}'
+    )
+    return engine, storage
+
+
+def test_same_query_with_different_doc_ids_returns_only_those_documents():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        engine, _ = _engine_with_two_docs(tmpdir)
+
+        first = _run(engine.search("pain", doc_ids=["doc1"]))
+        second = _run(engine.search("pain", doc_ids=["doc2"]))
+        everything = _run(engine.search("pain"))
+
+        assert [s["doc_id"] for s in first.doc_sources] == ["doc1"]
+        assert [s["doc_id"] for s in second.doc_sources] == ["doc2"]
+        assert sorted(s["doc_id"] for s in everything.doc_sources) == ["doc1", "doc2"]
+
+
+def test_repeated_search_is_still_served_from_the_cache():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        engine, _ = _engine_with_two_docs(tmpdir)
+        _run(engine.search("pain", doc_ids=["doc1"]))
+        calls = engine._llm.chat_async.await_count
+        _run(engine.search("pain", doc_ids=["doc1"]))
+        assert engine._llm.chat_async.await_count == calls
+
+
+def test_an_upload_clears_the_cache():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        engine, storage = _engine_with_two_docs(tmpdir)
+        before = _run(engine.search("pain"))
+        assert "doc3" not in [s["doc_id"] for s in before.doc_sources]
+
+        # An upload ends with the new document's tree being saved.
+        tree = {"node_id": "0001", "title": "doc3", "level": 0, "text": "new upload", "children": []}
+        storage.save_tree("doc3", tree, {"filename": "doc3.pdf"})
+
+        after = _run(engine.search("pain"))
+        assert "doc3" in [s["doc_id"] for s in after.doc_sources]

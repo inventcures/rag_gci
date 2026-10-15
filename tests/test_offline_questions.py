@@ -24,6 +24,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from dose_detector import FRACTION_DOSE, NUMERIC_DOSE, detect_doses  # noqa: E402
 from offline.questions import (  # noqa: E402
     ENGLISH,
     SUPPORTED_LANGUAGES,
@@ -127,10 +128,11 @@ class TestNoDosageQuestion(unittest.TestCase):
     because the user is told an answer exists and then does not receive it.
     """
 
-    DOSAGE_TERMS = re.compile(
-        r"\b(dosage|dose|doses|titrate|titrating|escalate|milligram|strength)\b"
-        r"|\b(ডোজ|মাত্রা|剂量|मात्रा|ডোজ)"
-        r"|\d+\s*(mg|ml|mcg)",
+    # Words that ask for a dose. What a dose itself looks like is the Dose
+    # Boundary's detector's job, checked separately below.
+    DOSE_REQUEST_TERMS = re.compile(
+        r"\b(dosage|dose|doses|titrate|titrating|escalate|strength)\b"
+        r"|\b(ডোজ|মাত্রা|मात्रा)",
         re.I,
     )
 
@@ -139,8 +141,20 @@ class TestNoDosageQuestion(unittest.TestCase):
             for question in questions_for(lang):
                 with self.subTest(lang=lang, question=question[:40]):
                     self.assertIsNone(
-                        self.DOSAGE_TERMS.search(question),
+                        self.DOSE_REQUEST_TERMS.search(question),
                         f"{lang} bundle contains a dosage question: {question!r}",
+                    )
+
+    def test_no_question_states_an_amount(self):
+        for lang in SUPPORTED_LANGUAGES:
+            for question in questions_for(lang):
+                with self.subTest(lang=lang, question=question[:40]):
+                    amounts = [
+                        f.pattern for f in detect_doses(question)
+                        if f.reason in (NUMERIC_DOSE, FRACTION_DOSE)
+                    ]
+                    self.assertEqual(
+                        amounts, [], f"{lang} bundle question states a dose: {question!r}"
                     )
 
     def test_the_removed_morphine_dosage_question_is_gone(self):
