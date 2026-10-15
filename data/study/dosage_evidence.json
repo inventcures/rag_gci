@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-15T10:12:44+00:00",
-  "commit": "fa90129",
+  "generated_at": "2026-10-15T10:52:26+00:00",
+  "commit": "ada2bc0",
   "branch": "claude/review-3-tickets-nb6jkm",
   "dirty": false,
   "invariants": {
@@ -122,8 +122,6 @@
     "test_text_path_dose_guard.py::test_twilio_text_message_and_its_translation",
     "test_text_path_dose_guard.py::test_query_after_clarification",
     "test_text_path_dose_guard.py::test_twilio_voice_note_text_and_tts",
-    "test_text_path_dose_guard.py::test_cloud_api_text_message_and_tts",
-    "test_text_path_dose_guard.py::test_cloud_api_voice_note_text_and_tts",
     "test_text_path_dose_guard.py::test_every_query_call_goes_through_the_guard",
     "test_text_path_dose_guard.py::test_a_failing_guard_sends_the_error_not_the_draft",
     "test_text_path_dose_guard.py::test_prompts_do_not_request_doses",

@@ -131,3 +131,22 @@ Decisions taken while implementing the 26 tickets with Matt Pocock's `implement`
 **Before a release that turns on a phone provider:** list its outside services in `study/release.yaml`, and register the custom LLM in Bolna (model `palli-sahayak-guarded`, one URL per language, `RAG_API_KEY` as the key). That registration was built from Bolna's documentation and has not been tried against a live Bolna account.
 
 **For the clinical lead's review:** nothing new to translate. The Bolna and Retell decision (D11) still waits on them.
+
+### Wave 5 (tickets 25, 26)
+
+| # | Decision | Why |
+|---|---|---|
+| D51 | (25) One Care Role vocabulary (`asha_worker`, `family_caregiver`, `patient`) on the server and the app. Registration and the mobile question routes refuse any other value with 422. A study row records the Active Role the app sends, else the registered role; a role outside the three is recorded as unknown (`""`), never mapped. | Mapping "caregiver" or "healthcare_worker" onto a Care Role would be a guess in the study record. The app only sends the three, so the refusal cannot push a phone into its offline fallback. |
+| D52 | (25) Keyword role detection is deleted, the sync default of `asha_worker` is gone, and observations are attributed to the speaker's role instead of "patient". | Nothing called the keyword detector, and a guessed or defaulted role corrupts who asked what. |
+| D53 | (26) Nothing claims a notification that did not happen. "A human caregiver has been notified" is removed from the en and hi CRITICAL and HIGH actions (the 108 guidance stays). The care-team notify route, the admin Notify tab and `AlertManager.send_alert` are deleted. | Each one reported a notification as sent after only a log line. |
+| D54 | (26) Start-up no longer builds the memory agents, the meta agent or Context-1 (D12); their packages stay. Patient insights answer empty and query-memory answers 503. `/feedback` stores feedback with no LLM call. Dead code is removed: the unused Live provider in `voice_router.py` and the WhatsApp Cloud API handlers (with their two dose tests, so the evidence record lists 83 server-side dose tests instead of 85). | D12 asks only that they are not constructed. Deleting a dead path deletes the tests that drove it; no live path lost a dose test. |
+| D55 | (26) Adherence is counted per patient: reminders carry an optional `patient_id`, and stats filter to it under the caller's own id. | The route passed the patient id as the user id, so stats were always empty. |
+
+**What participants and researchers will notice (wave 5, all need a study release):**
+- Emergency replies in English and Hindi no longer say a caregiver was notified.
+- The app's adherence screen shows real counts per patient. App feedback is stored.
+- Patient-memory answers in the app are unavailable (503) and insights are empty, since the memory agents no longer start.
+- Study rows record the Active Role; a role outside the three reads as unknown. Registering with any other role is refused.
+- Admin: the Notify tab is gone.
+
+**For the clinical lead:** the handoff copy still says "A healthcare professional will contact you shortly", but no one is assigned to handoff requests (see the 2026-10-15 handoff decision). That promise needs an owner or a rewording.
