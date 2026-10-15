@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-15T10:52:26+00:00",
-  "commit": "ada2bc0",
+  "generated_at": "2026-10-15T11:49:05+00:00",
+  "commit": "e311795",
   "branch": "claude/review-3-tickets-nb6jkm",
   "dirty": false,
   "invariants": {
@@ -52,6 +52,11 @@
     }
   },
   "server_dosage_tests": [
+    "test_dose_boundary_shapes.py::test_count_or_schedule_in_each_language_is_withheld",
+    "test_dose_boundary_shapes.py::test_the_whole_count_or_schedule_is_found",
+    "test_dose_boundary_shapes.py::test_ordinary_sentence_with_a_count_word_passes_untouched",
+    "test_dose_boundary_shapes.py::test_a_nukta_letter_matches_in_either_encoding",
+    "test_dose_boundary_shapes.py::test_live_withholds_the_review_turns",
     "test_dose_boundary_shapes.py::test_word_containing_a_frequency_word_passes_untouched",
     "test_dose_boundary_shapes.py::test_frequency_word_on_its_own_is_still_withheld",
     "test_dose_boundary_shapes.py::test_inflected_schedule_word_is_still_withheld",
@@ -107,6 +112,8 @@
     "test_reminders_never_state_a_dose.py::test_a_reminder_with_no_phone_number_is_rejected_and_not_scheduled",
     "test_reminders_never_state_a_dose.py::test_a_reminder_from_the_app_is_spoken_without_its_dose",
     "test_reminders_never_state_a_dose.py::test_the_app_need_not_send_a_dose",
+    "test_reminders_never_state_a_dose.py::test_a_dose_written_into_the_name_or_notes_does_not_reach_the_app",
+    "test_reminders_never_state_a_dose.py::test_a_name_that_is_only_a_dose_reaches_the_app_as_your_medicine",
     "test_reminders_never_state_a_dose.py::test_creating_a_voice_reminder_needs_a_token",
     "test_reminders_never_state_a_dose.py::test_a_reminder_with_no_phone_number_is_rejected_and_not_scheduled",
     "test_reminders_never_state_a_dose.py::test_an_admin_reminder_is_spoken_without_its_dose",
@@ -121,6 +128,7 @@
     "test_text_path_dose_guard.py::test_admin_query_tab_shows_the_guarded_answer",
     "test_text_path_dose_guard.py::test_twilio_text_message_and_its_translation",
     "test_text_path_dose_guard.py::test_query_after_clarification",
+    "test_text_path_dose_guard.py::test_a_clarification_question_that_names_a_dose_is_never_sent",
     "test_text_path_dose_guard.py::test_twilio_voice_note_text_and_tts",
     "test_text_path_dose_guard.py::test_every_query_call_goes_through_the_guard",
     "test_text_path_dose_guard.py::test_a_failing_guard_sends_the_error_not_the_draft",
