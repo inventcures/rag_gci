@@ -131,6 +131,17 @@ async def require_bolna(request: Request) -> None:
         raise _reject("Bolna", "missing or wrong key")
 
 
+async def require_bolna_key(request: Request) -> None:
+    """Bolna's custom LLM: the Bearer key (RAG_API_KEY), required.
+
+    Bolna's OpenAI-compatible LLM requests carry only `Authorization: Bearer`
+    (no signature), so the key registered with the custom LLM is the check.
+    """
+    api_key = _secret("RAG_API_KEY", "Bolna")
+    if not verify_bearer(api_key, request.headers.get("authorization")):
+        raise _reject("Bolna", "missing or wrong key")
+
+
 async def require_retell(request: Request) -> None:
     """Retell: a valid, recent X-Retell-Signature keyed by RETELL_API_KEY."""
     api_key = _secret("RETELL_API_KEY", "Retell")

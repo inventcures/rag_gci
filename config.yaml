@@ -177,7 +177,11 @@ gemini_live:
 
 # Bolna.ai Voice AI Configuration (Primary for Phone Calls)
 bolna:
-  enabled: true  # Set to true when Bolna is configured
+  # Off: Bolna sends call audio and text outside India (Twilio, Deepgram,
+  # Cartesia). It serves only when this is true (or BOLNA_ENABLED=true, or
+  # -p b) AND the study release lists its services under
+  # providers.outside_india (phone_residency.py, decision D11).
+  enabled: false
   api_key: ${BOLNA_API_KEY}
   agent_id: ${BOLNA_AGENT_ID}
 
@@ -185,25 +189,9 @@ bolna:
   agent_name: "Palli Sahayak"
   agent_type: "free_flowing"
 
-  # ASR (Speech-to-Text) - Deepgram
-  transcriber:
-    provider: "deepgram"
-    model: "nova-2"
-    stream: true
-
-  # LLM - OpenAI
-  llm:
-    provider: "openai"
-    model: "gpt-4o-mini"
-    temperature: 0.3
-    max_tokens: 500
-
-  # TTS (Text-to-Speech) - ElevenLabs
-  synthesizer:
-    provider: "elevenlabs"
-    model: "eleven_multilingual_v2"
-    voice: "Rachel"
-    stream: true
+  # Transcriber, LLM and synthesizer: the agent bolna_integration/config.py
+  # builds (Deepgram nova-3, this server as a custom LLM, Cartesia sonic-3).
+  # This file never chose them; the outside ones are listed by phone_residency.
 
   # Language support
   default_language: "hi"

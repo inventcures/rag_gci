@@ -110,7 +110,7 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     "/api/temporal/health": PUBLIC,
     # -- webhooks and provider sockets: their own verification (ticket 07) ---
     "/api/bolna/webhook": own_verification("Bolna signature and key"),
-    "/api/bolna/query": own_verification("Bolna signature and key"),
+    "/api/bolna/llm/{language}/v1/chat/completions": own_verification("Bolna custom-LLM key"),
     "/api/medication/voice-reminder/callback": own_verification("phone provider callback"),
     "/api/retell/webhook": own_verification("Retell signature"),
     "/ws/retell/llm/{call_id}": own_verification("Retell custom-LLM socket"),

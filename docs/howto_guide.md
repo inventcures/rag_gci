@@ -560,21 +560,24 @@ voice assistant for the Palli Sahayak Voice AI Agent Helpline.
 
 ### 7.5 RAG Integration
 
-Bolna calls your RAG API via function calling:
+The agent's LLM is this server (Bolna "custom LLM", OpenAI chat-completions
+protocol). Bolna sends each turn to
 
-```json
-{
-  "name": "query_rag_knowledge_base",
-  "description": "Query palliative care knowledge base",
-  "parameters": {
-    "user_query": "What helps with pain?",
-    "user_language": "hi",
-    "conversation_context": "User asked about pain management"
-  }
-}
-```
+**Endpoint:** `POST /api/bolna/llm/<language>/v1/chat/completions`
 
-**Endpoint:** `POST /api/bolna/query`
+with `Authorization: Bearer $RAG_API_KEY`, and speaks the reply exactly as
+written: the answer has passed the Dose Boundary, and no hosted LLM rewords it.
+Register the model in Bolna (Settings, Integrations, LLM, Custom LLM) with
+name `palli-sahayak-guarded`, URL `https://your-domain.com/api/bolna/llm/hi/v1`
+(one per agent language) and `RAG_API_KEY` as its key.
+
+**Study release (decision D11).** Bolna sends call audio and text outside India
+(Bolna, Twilio, Deepgram, Cartesia). Its routes answer 503 until every one of
+`bolna, bolna.cartesia, bolna.deepgram, bolna.post_call_analysis, bolna.twilio` is listed under
+`providers.outside_india` in `data/study/release.yaml` and Bolna is turned on
+(`bolna.enabled: true`, `BOLNA_ENABLED=true` or `-p b`). Retell works the same
+way with `retell, retell.cartesia` (`RETELL_ENABLED`, `-p r`), plus
+`retell.post_call_analysis` when `RETELL_POST_CALL_ANALYSIS=true`.
 
 ### 7.6 Webhook Events
 
@@ -605,7 +608,7 @@ async def bolna_webhook(event: dict):
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/bolna/query` | POST | RAG query from Bolna |
+| `/api/bolna/llm/<language>/v1/chat/completions` | POST | The agent's LLM: one turn, the guarded answer |
 | `/api/bolna/webhook` | POST | Receive Bolna events |
 | `/api/bolna/stats` | GET | Call statistics |
 | `/api/bolna/calls` | GET | Call history |
@@ -613,14 +616,12 @@ async def bolna_webhook(event: dict):
 ### 7.8 Testing Bolna Integration
 
 ```bash
-# Test RAG endpoint
-curl -X POST http://localhost:8000/api/bolna/query \
+# One turn, as Bolna sends it (needs the release listing and BOLNA_ENABLED)
+curl -X POST http://localhost:8000/api/bolna/llm/en/v1/chat/completions \
+  -H "Authorization: Bearer $RAG_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "query": "What helps with pain?",
-    "language": "en",
-    "source": "bolna_call"
-  }'
+  -d '{"model": "palli-sahayak-guarded", "stream": false,
+       "messages": [{"role": "user", "content": "What helps with pain?"}]}'
 
 # Check stats
 curl http://localhost:8000/api/bolna/stats
@@ -1347,16 +1348,19 @@ DELETE /api/documents/{filename}
 
 ### 11.3 Bolna Endpoints
 
-#### Query from Bolna
+#### One turn from Bolna's custom LLM
 ```http
-POST /api/bolna/query
+POST /api/bolna/llm/hi/v1/chat/completions
+Authorization: Bearer <RAG_API_KEY>
 Content-Type: application/json
 
 {
-  "query": "What is morphine?",
-  "language": "hi",
-  "context": "User asking about pain medication",
-  "source": "bolna_call"
+  "model": "palli-sahayak-guarded",
+  "stream": true,
+  "messages": [
+    {"role": "system", "content": "... Caller number: +91...; call id: ..."},
+    {"role": "user", "content": "What is morphine?"}
+  ]
 }
 ```
 
@@ -1564,48 +1568,21 @@ A: Use a reverse proxy (nginx) with SSL certificates, or deploy behind a load ba
 2. Create account and obtain API key
 3. Add to .env: `RETELL_API_KEY=your_key`
 4. Create an agent with Custom LLM option
-5. Configure Custom Function for RAG queries (see below)
+5. Point its Custom LLM at this server's WebSocket (see below)
 
-#### Custom Function Configuration
+#### Custom LLM, not a custom function
 
-When using Retell.AI with ngrok for local development, configure the Custom Function with these values:
+The Retell agent's LLM is this server: `get_palli_sahayak_retell_config()`
+sets `llm_websocket_url` to `wss://<your-domain>/ws/retell/llm`, and Retell
+speaks what the socket sends, which has passed the Dose Boundary. Do not set
+up a Retell-hosted LLM with a custom function calling this server: that LLM
+rewords the answer and nothing checks its words for a dose (ticket 17; the
+old `/api/bolna/query` function route is gone).
 
-| Field | Value |
-|-------|-------|
-| **Name** | `query_rag_knowledge_base` |
-| **Description** | Query the Palli Sahayak palliative care knowledge base to get accurate medical information about symptoms, medications, caregiving guidance, and emotional support for patients and families. |
-| **API Endpoint** | `POST` `https://<your-ngrok-subdomain>.ngrok-free.app/api/bolna/query` |
-| **Timeout (ms)** | `120000` |
-| **Headers** | `Content-Type`: `application/json` |
-
-**Parameters JSON Schema:**
-```json
-{
-  "type": "object",
-  "properties": {
-    "user_query": {
-      "type": "string",
-      "description": "The user's question about palliative care, symptoms, medications, or caregiving"
-    },
-    "user_language": {
-      "type": "string",
-      "enum": ["hi", "en", "mr", "ta"],
-      "description": "Language code for the response (hi=Hindi, en=English, mr=Marathi, ta=Tamil)"
-    },
-    "conversation_context": {
-      "type": "string",
-      "description": "Recent conversation history for context-aware responses"
-    }
-  },
-  "required": ["user_query"]
-}
-```
-
-**Notes:**
-- Replace `<your-ngrok-subdomain>` with your actual ngrok subdomain
-- The `/api/bolna/query` endpoint works for all voice providers
-- Increase timeout for complex queries that require RAG processing
-- Set `user_language` to match the caller's preferred language
+**Study release (decision D11).** Retell's routes refuse until
+`retell, retell.cartesia` (and `retell.post_call_analysis` when
+`RETELL_POST_CALL_ANALYSIS=true`) are listed under `providers.outside_india`
+in `data/study/release.yaml`, and `-p r` (`RETELL_ENABLED=true`) is set.
 
 #### ngrok Static Domain Setup (Recommended)
 
@@ -1630,11 +1607,11 @@ ngrok http 8000 --domain=YOUR-DOMAIN.ngrok-free.dev
 ngrok http 8000 --domain=untoppable-extraterritorially-nellie.ngrok-free.dev
 ```
 
-**Step 3: Update Retell Custom Function (One Time)**
+**Step 3: Update the Retell agent's LLM WebSocket URL (One Time)**
 
-Set your Retell Custom Function API Endpoint to:
+Set the agent's custom LLM WebSocket URL to:
 ```
-https://YOUR-DOMAIN.ngrok-free.dev/api/bolna/query
+wss://YOUR-DOMAIN.ngrok-free.dev/ws/retell/llm
 ```
 
 This URL will remain constant across ngrok restarts.

@@ -4,8 +4,8 @@ Each Bolna caller is their own participant.
 Before this, every Bolna request carried source="bolna_call", and the endpoint
 used f"bolna_{source}" as the user id: every caller shared one participant, one
 conversation history and one study pseudonym. Bolna fills system variables into
-the custom function's params, so the agent config now sends from_number and
-execution_id and the endpoint keys on them.
+the agent's prompt, which reaches this server's custom LLM route (ticket 17), so
+the prompt carries from_number and execution_id and the route keys on them.
 """
 
 import os
@@ -54,20 +54,26 @@ class CallerId(unittest.TestCase):
 
 class Wiring(unittest.TestCase):
     def test_the_endpoint_uses_the_caller_id_everywhere(self):
+        import inspect
+
+        import simple_rag_server
+
         source = open(os.path.join(ROOT, "simple_rag_server.py"), encoding="utf-8").read()
-        start = source.index('@app.post("/api/bolna/query"')
+        start = source.index('@app.post("/api/bolna/llm/')
         route = source[start:source.index("@app.", start + 10)]
-        self.assertNotIn('bolna_{source}', route)
+        self.assertIn("caller_id = bolna_caller_id(fields)", route)
+        turn = inspect.getsource(simple_rag_server.answer_bolna_turn)
+        self.assertNotIn('bolna_{source}', turn)
         # safety check, query, voice optimisation and the study row (ticket 13)
-        self.assertEqual(route.count("user_id=caller_id"), 4)
+        self.assertEqual(turn.count("user_id=caller_id"), 4)
 
     def test_the_agent_config_sends_the_system_variables(self):
         from bolna_integration.config import get_palli_sahayak_agent_config
 
         config = get_palli_sahayak_agent_config(server_url="https://example.org", language="hi")
         text = repr(config)
-        self.assertIn("%(from_number)s", text)
-        self.assertIn("%(execution_id)s", text)
+        self.assertIn("{from_number}", text)
+        self.assertIn("{execution_id}", text)
 
 
 if __name__ == "__main__":

@@ -125,9 +125,25 @@ class HttpChannels(StudyLogHarness):
         self.assertEqual(row["source_count"], 1)
 
     def test_a_bolna_turn_writes_one_row_with_its_refusal(self):
-        response = self.client.post("/api/bolna/query", json={
-            "query": QUESTION, "language": "en", "from_number": CALLER, "execution_id": "e1"})
-        self.assertEqual(response.json()["status"], "success", response.text)
+        # Bolna's agent LLM is this server (ticket 17); released and enabled here,
+        # tests/test_phone_providers_residency.py covers the refusal.
+        import phone_residency
+        from webhook_auth import require_bolna_key
+
+        for patcher in (
+            mock.patch.object(phone_residency, "released_services",
+                              lambda: set(phone_residency.services("bolna"))),
+            mock.patch.object(phone_residency, "bolna_enabled", lambda: True),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.app.dependency_overrides[require_bolna_key] = lambda: None
+        self.addCleanup(self.app.dependency_overrides.pop, require_bolna_key, None)
+        response = self.client.post("/api/bolna/llm/en/v1/chat/completions", json={
+            "model": "palli-sahayak", "messages": [
+                {"role": "system", "content": f"Caller number: {CALLER}; call id: e1"},
+                {"role": "user", "content": QUESTION}]})
+        self.assertEqual(response.status_code, 200, response.text)
         row = self.assert_one_refusal_row("bolna", "phone")
         self.assertEqual(row["provider"], "bolna")
         self.assertEqual(row["participant_id"], pseudonymise(f"bolna_{CALLER}"))

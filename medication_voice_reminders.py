@@ -482,6 +482,17 @@ class MedicationVoiceReminderSystem:
             reminder.call_status = CallStatus.FAILED
             self._save_reminders()
             return
+        if reminder.preferred_provider in ("bolna", "retell"):
+            # The call would carry the participant's number and voice outside
+            # India: only when the study release lists the provider (D11).
+            from phone_residency import refusal
+
+            residency = refusal(reminder.preferred_provider)
+            if residency:
+                logger.warning(f"Reminder {reminder_id} not called: {residency}")
+                reminder.call_status = CallStatus.FAILED
+                self._save_reminders()
+                return
         reminder.call_status = CallStatus.CALLING
         reminder.call_attempts += 1
         reminder.call_started_at = datetime.now()
