@@ -23,7 +23,7 @@ traffic.
 | # | Item | Saves | Effort | Changes what users get | Status |
 |---|---|---|---|---|---|
 | 1 | Summarise a week of production traces (`scripts/trace_summary.py data/traces/*.jsonl`) and run `scripts/benchmark_answer_path.py --pipeline live` on the server | tells us where p95 really is | an hour on the server | no | needs the server |
-| 2 | Handoff keywords stop the answer for ordinary questions ("scared", "alone", "caregiver", "interaction"), and nobody resolves the handoff | an answer instead of none | small code change, a clinical decision | **yes** | found, needs the clinical lead |
+| 2 | Handoff keywords stop the answer for ordinary questions ("scared", "alone", "caregiver", "interaction"), and nobody resolves the handoff | an answer instead of none | small code change, a clinical decision | **yes** | built behind `safety.handoff_mode`, off; needs the clinical lead and a study release |
 | 3 | WhatsApp in Hindi and other languages: translation waits for the whole 10.8 s English answer. Stream the English answer and translate each paragraph as it completes | ~2-3 s on the translated message | medium | **yes** (translation by paragraph) | proposed, needs an eval and a study release |
 | 4 | Stream text answers to the Android app (`AnswerStream` from round 1, as server-sent events) | first words at ~7.5 s instead of 10.8 s | medium, mostly Android | no (same text, sooner) | proposed |
 | 5 | Text answers think for ~7 s before the first word at `low`. Judge `minimal` with a tighter prompt against `low` | ~6 s per text answer if it holds up | small code, needs the Gemini key for the eval | **yes** | proposed, needs the key |

@@ -421,3 +421,11 @@ evaluation:
   vignettes_without_tool: 10
   interaction_log_retention_days: 365
   export_formats: ["csv", "json"]
+# Safety
+safety:
+  # What a handoff keyword ("scared", "alone", "caregiver", "interaction", ...)
+  # does to a turn. "stop" ends the turn with a handoff message and no answer;
+  # "answer" answers unless it is an emergency or an explicit request for a
+  # person. "answer" needs clinical review and a study release first
+  # (data/study/release.yaml records "stop"). SAFETY_HANDOFF_MODE wins.
+  handoff_mode: "stop"

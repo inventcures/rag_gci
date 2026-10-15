@@ -1221,6 +1221,49 @@ def _match_without_articles(keyword: str, query_lower: str) -> bool:
     return needle in normalise(query_lower)
 
 
+# What a handoff keyword does to the turn (SAFETY_HANDOFF_MODE, or
+# safety.handoff_mode in config.yaml). Part of the study release fingerprint.
+#   stop    any matched keyword ends the turn with a handoff message and no
+#           answer. The behaviour the study release was built with.
+#   answer  only an emergency, or an explicit request for a person ("talk to
+#           a human", "speak to a nurse"), ends the turn. Other matches
+#           ("scared", "alone", "caregiver", "interaction") are recorded as a
+#           handoff request for follow-up and the question is answered.
+# "answer" changes what participants get: it needs clinical review and a
+# study release before it is switched on. docs/decisions/latency.md.
+HANDOFF_MODES = ("stop", "answer")
+DEFAULT_HANDOFF_MODE = "stop"
+
+# Explicit requests for a person. Matched with _match_without_articles, so
+# "can I talk to a nurse" matches "talk to nurse".
+_EXPLICIT_HANDOFF_REQUESTS = (
+    "talk to human", "talk to a human", "speak to human", "real person",
+    "speak to doctor", "talk to doctor", "speak to nurse", "talk to nurse",
+    "connect me to", "transfer me",
+)
+
+
+def handoff_mode(config_path: Path = Path("config.yaml")) -> str:
+    """The configured handoff mode; anything unrecognised is "stop"."""
+    value = os.getenv("SAFETY_HANDOFF_MODE")
+    if not value:
+        try:
+            import yaml
+
+            config = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+            value = ((config or {}).get("safety") or {}).get("handoff_mode")
+        except Exception:
+            value = None
+    value = str(value or DEFAULT_HANDOFF_MODE).strip().lower()
+    return value if value in HANDOFF_MODES else DEFAULT_HANDOFF_MODE
+
+
+def is_explicit_handoff_request(query: str) -> bool:
+    """Whether the caller asked for a person, not just used a trigger word."""
+    lowered = query.lower()
+    return any(_match_without_articles(phrase, lowered) for phrase in _EXPLICIT_HANDOFF_REQUESTS)
+
+
 class HumanHandoffSystem:
     """
     Manages warm handoffs to human caregivers/nurses.
@@ -1582,9 +1625,15 @@ class SafetyEnhancementsManager:
                 conversation_history=conversation_history or [],
             )
             result["handoff_request"] = handoff
-            result["should_respond"] = False
-            result["response_additions"]["handoff"] = self.handoff_system.get_handoff_message(handoff, language)
-            return result
+            stops = (handoff_mode() == "stop"
+                     or handoff_reason == HandoffReason.EMERGENCY
+                     or is_explicit_handoff_request(query))
+            if stops:
+                result["should_respond"] = False
+                result["response_additions"]["handoff"] = self.handoff_system.get_handoff_message(handoff, language)
+                return result
+            # "answer" mode: recorded for a person to follow up, and answered.
+            result["actions"].append("handoff_recorded")
         
         # 3. Analyze user comprehension
         self.response_optimizer.analyze_user_message(user_id, query)
