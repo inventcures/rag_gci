@@ -15,13 +15,14 @@ from fastapi import (
 from fastapi.responses import JSONResponse, Response
 from typing import Optional
 
-from auth.middleware import require_auth, get_current_user, get_jwt_handler
+from auth.jwt_handler import REFRESH
+from auth.middleware import require_auth, get_jwt_handler
 from auth.pin_auth import PinAuthenticator
 from auth.models import AuthenticatedUser
 from mobile_api.schemas import (
     MobileQueryRequest, MobileQueryResponse,
     VoiceQueryResponse,
-    DeviceRegistrationRequest, LoginRequest, AuthResponse,
+    DeviceRegistrationRequest, LoginRequest, RefreshRequest, AuthResponse,
     SyncPushRequest, SyncPushResponse,
     SyncPullResponse,
     CreateObservationRequest, ObservationResponse,
@@ -176,17 +177,36 @@ async def login(request: LoginRequest):
 
 
 @mobile_router.post("/auth/refresh", response_model=AuthResponse)
-async def refresh_token(user: AuthenticatedUser = Depends(get_current_user)):
+async def refresh_token(request: RefreshRequest):
+    """Renew a session with a refresh token; an access token is refused.
+
+    The new pair keeps the session's end where the PIN sign-in put it, so
+    renewing never removes the need for the PIN. Role and site are read from
+    the device record, not the token, and a device no longer registered
+    cannot renew.
+    """
     jwt_handler = get_jwt_handler()
     if jwt_handler is None:
         raise HTTPException(status_code=500, detail="Auth not initialized")
 
+    payload = jwt_handler.verify_token(request.refresh_token, expected_type=REFRESH)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    user_id = payload["user_id"]
+    record = _pin_auth.get_user_record(user_id)
+    if record is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
     token_pair = jwt_handler.create_token_pair(
-        user_id=user.user_id, role=user.role, site_id=user.site_id,
+        user_id=user_id,
+        role=record.get("role", ""),
+        site_id=record.get("site_id", ""),
+        session_expires_at=float(payload["exp"]),
     )
 
     return AuthResponse(
-        user_id=user.user_id,
+        user_id=user_id,
         token=token_pair.access_token,
         expires_at=token_pair.expires_at,
         refresh_token=token_pair.refresh_token,

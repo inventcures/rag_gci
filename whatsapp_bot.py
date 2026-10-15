@@ -22,7 +22,7 @@ import base64
 from urllib.parse import unquote
 
 import requests
-from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi import Depends, FastAPI, Request, HTTPException, Form
 from fastapi.responses import JSONResponse, Response
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
@@ -40,6 +40,7 @@ from supported_languages import (
     detect_language,
     get_language,
 )
+from webhook_auth import require_twilio
 import edge_tts
 
 # Import the smart clarification system
@@ -297,9 +298,9 @@ class TwilioWhatsAppAPI:
     async def send_text_message(self, to: str, message: str) -> Dict[str, Any]:
         """Send text message via Twilio WhatsApp"""
         logger.info("📤 SEND_TEXT_MESSAGE CALLED:")
-        logger.info(f"  📱 To: {to}")
+        logger.debug(f"  📱 To: {to}")
         logger.info(f"  💬 Message length: {len(message)} chars")
-        logger.info(f"  💬 Message preview: {message[:100]}...")
+        logger.debug(f"  💬 Message preview: {message[:100]}...")
         
         try:
             if not self.client:
@@ -309,11 +310,11 @@ class TwilioWhatsAppAPI:
             # Ensure the 'to' number has whatsapp: prefix
             if not to.startswith("whatsapp:"):
                 to = f"whatsapp:{to}"
-            logger.info(f"  📱 Formatted to: {to}")
+            logger.debug(f"  📱 Formatted to: {to}")
             
             logger.info(f"  📋 Twilio text message params:")
             logger.debug(f"    From: {self.from_number}")
-            logger.info(f"    To: {to}")
+            logger.debug(f"    To: {to}")
             logger.info(f"    Body length: {len(message)}")
             
             # Send message using Twilio
@@ -338,7 +339,7 @@ class TwilioWhatsAppAPI:
                     "from": self.from_number
                 }
             }
-            logger.info(f"  ✅ Text message sent successfully: {result}")
+            logger.debug(f"  ✅ Text message sent successfully: {result}")
             return result
                         
         except Exception as e:
@@ -348,7 +349,7 @@ class TwilioWhatsAppAPI:
     async def send_audio_message(self, to: str, audio_file_path: str, public_url: str = None) -> Dict[str, Any]:
         """Send audio message via Twilio WhatsApp"""
         logger.info("📤 SEND_AUDIO_MESSAGE CALLED:")
-        logger.info(f"  📱 To: {to}")
+        logger.debug(f"  📱 To: {to}")
         logger.info(f"  📄 Audio file: {audio_file_path}")
         logger.info(f"  🌐 Public URL: {public_url}")
         
@@ -368,7 +369,7 @@ class TwilioWhatsAppAPI:
             # Ensure the 'to' number has whatsapp: prefix
             if not to.startswith("whatsapp:"):
                 to = f"whatsapp:{to}"
-            logger.info(f"  📱 Formatted to: {to}")
+            logger.debug(f"  📱 Formatted to: {to}")
             
             # For Twilio, we need a publicly accessible URL for the media
             if not public_url:
@@ -380,7 +381,7 @@ class TwilioWhatsAppAPI:
             
             logger.info(f"  📋 Twilio message params:")
             logger.debug(f"    From: {self.from_number}")
-            logger.info(f"    To: {to}")
+            logger.debug(f"    To: {to}")
             logger.info(f"    Media URL: {public_url}")
             
             # Send message with media using Twilio
@@ -405,7 +406,7 @@ class TwilioWhatsAppAPI:
                     "media_url": public_url
                 }
             }
-            logger.info(f"  ✅ Audio message sent successfully: {result}")
+            logger.debug(f"  ✅ Audio message sent successfully: {result}")
             return result
                         
         except Exception as e:
@@ -723,7 +724,7 @@ class EnhancedWhatsAppBot:
         
         app = FastAPI(title="Enhanced WhatsApp RAG Bot with Twilio")
         
-        @app.post("/webhook")
+        @app.post("/webhook", dependencies=[Depends(require_twilio)])
         async def handle_twilio_webhook(
             From: str = Form(...),
             To: str = Form(...),
@@ -765,9 +766,9 @@ class EnhancedWhatsAppBot:
                 logger.error(f"Media serve error: {e}")
                 raise HTTPException(status_code=500, detail="Media error")
         
-        @app.post("/api/set_language")
+        @app.post("/api/set_language", dependencies=[Depends(require_twilio)])
         async def set_user_language(phone_number: str, language: str):
-            """Set user's preferred language"""
+            """Set a user's preferred language; Twilio-signed requests only."""
             lang = get_language(language)
             if lang is not None:
                 self.user_preferences[phone_number] = {"language": lang.code}
@@ -880,7 +881,7 @@ class EnhancedWhatsAppBot:
 
             # SMART CLARIFICATION SYSTEM
             if self.clarification_system:
-                logger.info(f"  🧠 Analyzing query clarity: '{text}'")
+                logger.debug(f"  🧠 Analyzing query clarity: '{text}'")
                 
                 # Get conversation history for context
                 history = self._get_conversation_history(from_number)
@@ -890,7 +891,7 @@ class EnhancedWhatsAppBot:
                     text, from_number, history
                 )
                 
-                logger.info(f"  📊 Clarity analysis: {clarity_result}")
+                logger.debug(f"  📊 Clarity analysis: {clarity_result}")
                 
                 # Handle different clarification scenarios
                 if clarity_result.get("needs_clarification", False):
@@ -905,7 +906,7 @@ class EnhancedWhatsAppBot:
                             clarification_msg += f"\n\n({remaining} more question{'s' if remaining > 1 else ''} to help you better)"
                         
                         await self.twilio_api.send_text_message(from_number, clarification_msg)
-                        logger.info(f"  ❓ Sent clarification question: {question}")
+                        logger.debug(f"  ❓ Sent clarification question: {question}")
                         return
                     
                     elif clarity_result.get("suggested_questions"):
@@ -926,7 +927,7 @@ class EnhancedWhatsAppBot:
                 # If clarification was completed, use enhanced query
                 if clarity_result.get("clarification_complete", False):
                     enhanced_query = clarity_result.get("enhanced_query", text)
-                    logger.info(f"  ✅ Using enhanced query: {enhanced_query}")
+                    logger.debug(f"  ✅ Using enhanced query: {enhanced_query}")
                     text = enhanced_query
                     
                     # Send acknowledgment
@@ -936,7 +937,7 @@ class EnhancedWhatsAppBot:
                     )
                 
             # Query RAG pipeline (with potentially enhanced query)
-            logger.info(f"  🔍 About to query RAG pipeline with text: '{text}', user_id: '{from_number}', language: '{user_lang}'")
+            logger.debug(f"  🔍 About to query RAG pipeline with text: '{text}', user_id: '{from_number}', language: '{user_lang}'")
             result = await self._guarded_query(text, from_number, user_lang, answer_language="en")
             logger.info(f"  📊 RAG pipeline result status: {result.get('status')}, answer length: {len(result.get('answer', ''))}")
 
@@ -1016,7 +1017,7 @@ class EnhancedWhatsAppBot:
             # Transcribe audio
             logger.info(f"  🎤 Starting transcription of: {audio_file_path}")
             stt_result = await self.stt_service.transcribe_audio(audio_file_path)
-            logger.info(f"  🎤 Transcription result: {stt_result}")
+            logger.debug(f"  🎤 Transcription result: {stt_result}")
 
             # Clean up audio file
             try:
@@ -1520,7 +1521,7 @@ class EnhancedWhatsAppBot:
         try:
             user_lang = self._text_language(from_number, query)
             
-            logger.info(f"  🔍 Processing query directly: '{query}', language: '{user_lang}'")
+            logger.debug(f"  🔍 Processing query directly: '{query}', language: '{user_lang}'")
             result = await self._guarded_query(query, from_number, user_lang, answer_language="en")
             
             # Process the result normally (same logic as in main handler)
@@ -1733,7 +1734,7 @@ Reply 'TAKEN' after taking it."""
 To delete: /deletereminder {reminder.reminder_id}"""
             
             await self.twilio_api.send_text_message(from_number, confirm_msg)
-            logger.info(f"Created medication reminder {reminder.reminder_id} for {from_number}")
+            logger.debug(f"Created medication reminder {reminder.reminder_id} for {from_number}")
             
         except Exception as e:
             logger.error(f"Error creating medication reminder: {e}")
@@ -1889,7 +1890,7 @@ To delete: /deletereminder {reminder.reminder_id}"""
             message = self.safety_manager.handoff_system.get_handoff_message(handoff, "en")
             await self.twilio_api.send_text_message(from_number, message)
             
-            logger.info(f"Human handoff requested by {from_number}, request ID: {handoff.request_id}")
+            logger.debug(f"Human handoff requested by {from_number}, request ID: {handoff.request_id}")
             
         except Exception as e:
             logger.error(f"Error creating handoff request: {e}")
@@ -1937,7 +1938,7 @@ Thank you for confirming that you took your {reminder.medication_name}.
 Keep up the good work with your medication schedule! 💊"""
         
         await self.twilio_api.send_text_message(reminder.user_id, message)
-        logger.info(f"Voice confirmation received for {reminder.medication_name} from {reminder.user_id}")
+        logger.debug(f"Voice confirmation received for {reminder.medication_name} from {reminder.user_id}")
         
     except Exception as e:
         logger.error(f"Error sending confirmation message: {e}")
@@ -1956,7 +1957,8 @@ Please take your medication if you haven't already:
 Reply 'TAKEN' after taking it."""
         
         await self.twilio_api.send_text_message(reminder.user_id, message)
-        logger.warning(f"Voice call failed for {reminder.medication_name} to {reminder.user_id}")
+        logger.warning("Voice reminder call failed")
+        logger.debug(f"Voice call failed for {reminder.medication_name} to {reminder.user_id}")
         
     except Exception as e:
         logger.error(f"Error sending failed call message: {e}")
