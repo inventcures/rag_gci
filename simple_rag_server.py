@@ -220,10 +220,11 @@ from retrieval.embedding_runtime import configured_runtime, load_embedding_model
 from study_logging import append_line
 from observability import record_span, span, trace_request
 from retrieval_index import (
-    IndexMismatchError,
+    IndexDrift,
     check_live_index,
+    index_unavailable_message,
     load_identity_from_config,
-    write_index_metadata,
+    stamp_if_empty,
 )
 import requests
 import aiohttp
@@ -870,8 +871,9 @@ class SimpleRAGPipeline:
         self.document_processor = SimpleDocumentProcessor()
         self.embedding_model = None
         self.vector_db = None
-        self.index_drift = None
-        self.retrieval_available = False
+        # Set by _initialize_components; retrieval_available and the refusal
+        # in _query_impl read it.
+        self.index_drift: Optional[IndexDrift] = None
         # How often the translation fallback fired. The rate is the evidence that
         # cross-language retrieval is working; a high rate would mean it is not.
         self.translation_fallback_count = 0
@@ -966,21 +968,22 @@ class SimpleRAGPipeline:
             # changing the configured model does not reindex and querying
             # proceeds against stale vectors. That is exactly how an English-only
             # 384d index ended up serving Indic queries at a measured 0.00
-            # hit@5 without ever raising an error.
+            # hit@5 without ever raising an error. _query_impl reads the result
+            # and refuses every query while it shows drift.
+            stamp_if_empty(self.vector_db, self.embedding_identity)
             self.index_drift = check_live_index(self.vector_db, self.embedding_identity)
             if self.index_drift.has_drift:
                 logger.error(
-                    "Embedding index mismatch: configured %s at %dd, index holds %s. "
+                    "Embedding index mismatch: configured %s at %dd, index holds %s (%s). "
                     "Retrieval would return ungrounded results rather than fail, so "
-                    "the pipeline will refuse to answer until the corpus is reindexed. "
-                    "Run scripts/reindex_with_configured_model.py.",
+                    "the pipeline refuses every query. %s",
                     self.embedding_identity.model,
                     self.embedding_identity.dimension,
                     self.index_drift.observed,
+                    ", ".join(self.index_drift.reasons),
+                    self.index_drift.remediation,
                 )
-                self.retrieval_available = False
             else:
-                self.retrieval_available = True
                 logger.info("Embedding index matches the configured model.")
             
             # Initialize corruption detection and auto-rebuild managers
@@ -996,6 +999,49 @@ class SimpleRAGPipeline:
         except Exception as e:
             logger.error(f"Failed to initialize RAG pipeline: {e}")
             raise
+
+    @property
+    def retrieval_available(self) -> bool:
+        """False while the live index was built by a model other than the release's."""
+        drift = getattr(self, "index_drift", None)
+        return not (drift is not None and drift.has_drift)
+
+    def index_health(self) -> Dict[str, Any]:
+        """The index-identity part of /health: what was expected, what is there, what to do."""
+        drift = getattr(self, "index_drift", None)
+        report: Dict[str, Any] = drift.to_dict() if drift is not None else {"has_drift": False}
+        report["retrieval_available"] = self.retrieval_available
+        return report
+
+    def _index_mismatch_refusal(self, source_language: str, conversation_id: Optional[str],
+                                trace: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        The answer for every query while the index is mismatched, or None.
+
+        Status is "success" on purpose: every channel speaks a successful answer
+        as-is, while several replace a failed one with their own fallback (and
+        Gemini Live would answer from its own knowledge). `refusal_reason` marks
+        it for the record.
+        """
+        if self.retrieval_available:
+            return None
+        trace["retrieval"] = {
+            "rag_method": _rag_method,
+            "retrievers_active": [],
+            "refusal_reason": "index_mismatch",
+            "index_drift": list(self.index_drift.reasons),
+        }
+        logger.warning("Query refused: embedding index mismatch (%s)", ", ".join(self.index_drift.reasons))
+        return {
+            "status": "success",
+            "answer": index_unavailable_message(source_language),
+            "refusal_reason": "index_mismatch",
+            "model_used": "system",
+            "sources": [],
+            "context_used": 0,
+            "conversation_id": conversation_id,
+            "timestamp": datetime.now().isoformat(),
+        }
 
     def _initialize_longitudinal_memory(self):
         """
@@ -1595,7 +1641,14 @@ class SimpleRAGPipeline:
                         "conversation_id": conversation_id,
                         "timestamp": datetime.now().isoformat(),
                     }
-            
+
+            # An index built by another model answers confidently and wrongly,
+            # so nothing is retrieved from it. Emergency escalation above needs
+            # no retrieval and still runs.
+            refusal = self._index_mismatch_refusal(source_language, conversation_id, trace)
+            if refusal is not None:
+                return refusal
+
             # Patient context depends only on who asks and what, so it is
             # fetched while retrieval runs instead of after it.
             if user_id and self.context_injector:
@@ -5050,7 +5103,7 @@ def create_app(args: Any = None) -> FastAPI:
     
     # Debug: Print what we found
     logger.info(f"🔍 Checking Twilio configuration:")
-    logger.info(f"   TWILIO_ACCOUNT_SID: {'✅ Set' if twilio_sid else '❌ Not set'} ({twilio_sid[:10]}... if set)")
+    logger.info(f"   TWILIO_ACCOUNT_SID: {'✅ Set' if twilio_sid else '❌ Not set'}")
     logger.info(f"   TWILIO_AUTH_TOKEN: {'✅ Set' if twilio_token else '❌ Not set'} ({'*' * 10 if twilio_token else 'None'})")
     
     twilio_configured = (
@@ -5743,7 +5796,10 @@ def create_app(args: Any = None) -> FastAPI:
             gemini_status = "available but not enabled"
 
         return {
-            "status": "healthy",
+            # Degraded, not unhealthy: the server is up and must stay reachable
+            # so the operator can see why every query is refused.
+            "status": "healthy" if rag_pipeline.retrieval_available else "degraded",
+            "embedding_index": rag_pipeline.index_health(),
             "database": "file-based (no SQL database)",
             "whatsapp_bot": "configured" if whatsapp_bot else "not configured",
             "gemini_live": gemini_status,
