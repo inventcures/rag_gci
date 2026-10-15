@@ -62,6 +62,14 @@ android {
         jvmTarget = "17"
     }
 
+    testOptions {
+        unitTests {
+            // Plain JVM tests reach android.util.Log on the offline and sync
+            // failure paths; let the stub return instead of throwing.
+            isReturnDefaultValues = true
+        }
+    }
+
     sourceSets {
         getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
