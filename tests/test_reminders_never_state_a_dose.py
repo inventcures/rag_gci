@@ -148,7 +148,8 @@ class VoiceReminderCallsNeverStateADose(unittest.TestCase):
 
     def test_a_synced_reminder_with_no_phone_number_is_never_called(self):
         self.system.upsert_reminder_from_sync({"reminder_id": "r-sync", "user_id": "asha-1",
-                                               "medication_name": "Paracetamol", "dosage": STORED_DOSE})
+                                               "medication_name": "Paracetamol", "dosage": STORED_DOSE},
+                                              user_id="asha-1")
         bolna = mock.AsyncMock(name="_make_bolna_call")
         self.system.bolna_client = object()
         with mock.patch.object(self.system, "_make_bolna_call", bolna):
@@ -250,6 +251,13 @@ class MobileReminderRoute(unittest.TestCase):
         init_auth(jwt_secret="test-secret-for-mobile-reminder-checks")
         init_dependencies(None, None, None, self.system)
         self.addCleanup(init_dependencies, None, None, None, None)
+        # Household ownership is tests/test_household_record_boundary.py's job;
+        # here the patient is taken as the caller's.
+        import mobile_api.router as router_module
+
+        owned = mock.patch.object(router_module, "_require_own_patient", mock.AsyncMock())
+        owned.start()
+        self.addCleanup(owned.stop)
         app = FastAPI()
         app.include_router(mobile_router)
         self.client = TestClient(app)

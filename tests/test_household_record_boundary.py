@@ -107,6 +107,7 @@ class HouseholdRecordBoundary(unittest.TestCase):
         response = self.client.post(f"{BASE}/medication/reminder", headers=self.headers[household], json={
             "patient_id": patient or self.patient[household], "medication_name": medicine,
             "dosage": "500mg", "scheduled_time": time.time() + 3600, "language": "en",
+            "phone_number": "+910000000000",
         })
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()["reminder_id"]
@@ -166,7 +167,8 @@ class HouseholdRecordBoundary(unittest.TestCase):
     def test_reminder_for_another_households_patient_is_not_created(self) -> None:
         response = self.client.post(f"{BASE}/medication/reminder", headers=self.headers["B"], json={
             "patient_id": self.patient["A"], "medication_name": "Haloperidol",
-            "dosage": "", "scheduled_time": time.time() + 60, "language": "en"})
+            "dosage": "", "scheduled_time": time.time() + 60, "language": "en",
+            "phone_number": "+910000000000"})
         self.assertEqual(response.status_code, 404, response.text)
         self.assertNotIn("Haloperidol", self.listed("A") | self.listed("B"))
 
