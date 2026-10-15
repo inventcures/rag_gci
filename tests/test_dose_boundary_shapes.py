@@ -87,6 +87,40 @@ SCHEDULE_AS_WHOLE_WORDS = [
 ]
 
 
+# Inflected schedule words. Before whole-word matching, these were caught only
+# because a listed stem sat inside them (ಬಾರ in ಬಾರಿ, రోజ in రోజుకు, रात in
+# रात्री). Each is now listed in its own right, so the boundary is no weaker.
+INFLECTED_SCHEDULE_WORDS = [
+    ("यह दवा रोज़ाना दें।", "hi-IN"),
+    ("यह दवा रोजाना दें।", "hi-IN"),
+    ("यह दवा प्रतिदिन दें।", "hi-IN"),
+    ("यह दवा रात्रि में दें।", "hi-IN"),
+    ("रातों को यह दवा दें।", "hi-IN"),
+    ("मरीज़ को दो गोलियों से आराम मिला।", "hi-IN"),
+    ("आँख में पाँच बूंदों से आराम मिला।", "hi-IN"),
+    ("मरीज़ को दो खुराकें दें।", "hi-IN"),
+    ("रात्री ही दवा द्या.", "mr-IN"),
+    ("ಈ ಔಷಧಿಯನ್ನು ಎರಡು ಬಾರಿ ನೀಡಿ.", "kn-IN"),
+    ("ಈ ಔಷಧಿಯನ್ನು ದಿನಕ್ಕೆ ನೀಡಿ.", "kn-IN"),
+    ("ಈ ಔಷಧಿಯನ್ನು ದಿನವೂ ನೀಡಿ.", "kn-IN"),
+    ("ಈ ಔಷಧಿಯನ್ನು ಪ್ರತಿದಿನ ನೀಡಿ.", "kn-IN"),
+    ("ఈ మందు రోజుకు ఇవ్వండి.", "te-IN"),
+    ("ఈ మందు రోజూ ఇవ్వండి.", "te-IN"),
+    ("ఈ మందు మూడు రోజులు ఇవ్వండి.", "te-IN"),
+    ("இந்த மருந்தை தினமும் கொடுங்கள்.", "ta-IN"),
+    ("இந்த மருந்தை தினசரி கொடுங்கள்.", "ta-IN"),
+    ("இந்த மருந்தை நாளுக்கு கொடுங்கள்.", "ta-IN"),
+    ("இந்த மருந்தை வாரத்திற்கு கொடுங்கள்.", "ta-IN"),
+    ("ਇਹ ਦਵਾਈ ਰੋਜ਼ਾਨਾ ਦਿਓ।", "pa-IN"),
+    ("ਇਹ ਦਵਾਈ ਦੋ ਵਾਰੀ ਦਿਓ।", "pa-IN"),
+    ("આ દવા દરરોજ આપો.", "gu-IN"),
+    ("આ દવા દિવસમાં આપો.", "gu-IN"),
+    ("ଏହି ଔଷଧ ପ୍ରତିଦିନ ଦିଅନ୍ତୁ।", "od-IN"),
+    ("ଏହି ଔଷଧ ଦିନରେ ଦିଅନ୍ତୁ।", "od-IN"),
+    ("ଏହି ଔଷଧ ଦିନକୁ ଦିଅନ୍ତୁ।", "od-IN"),
+]
+
+
 class TestIndicWordsMatchWholeWordsOnly(unittest.TestCase):
     """An Indic dose word inside a longer word is not a dose."""
 
@@ -104,6 +138,13 @@ class TestIndicWordsMatchWholeWordsOnly(unittest.TestCase):
                 self.assertTrue(result.blocked, f"schedule passed the gate: {answer!r}")
                 # The Deferral itself may use the same word ("अगली बार"), so
                 # check that the schedule sentence is gone, not the word.
+                self.assertNotIn(answer, result.response)
+
+    def test_inflected_schedule_word_is_still_withheld(self):
+        for answer, language in INFLECTED_SCHEDULE_WORDS:
+            with self.subTest(language=language, answer=answer):
+                result = DosageGuard().apply(answer, language=language, query=QUESTION)
+                self.assertTrue(result.blocked, f"schedule passed the gate: {answer!r}")
                 self.assertNotIn(answer, result.response)
 
 
