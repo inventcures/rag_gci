@@ -68,5 +68,5 @@ if __name__ == "__main__":
     
     print("\n🚀 TO TEST WITH REAL DATA:")
     print("1. Start server: ./run_simple.sh --port 8002")
-    print("2. Test citations: python3 test_citations.py")
+    print("2. Test citations: POST a question to http://localhost:8002/api/query")
     print("3. Or test via WhatsApp after setting up webhook")

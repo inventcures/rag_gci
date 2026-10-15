@@ -34,31 +34,35 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        # requirements.txt minus the two entries that cannot be installed.
-        #
-        # Three entries cannot be installed: ktem and kotaemon are 404 on PyPI
-        # because they ship with the vendored kotaemon-main tree, and
-        # whisper-openai>=20231117 names a version that was never published, so only
-        # 1.0.0 resolves. Rather than hand-maintaining a second list that drifts,
-        # the impossible entries are filtered out of the real one, so a dependency
-        # added for a new feature reaches CI without anyone remembering to add it
-        # twice.
-        run: |
-          grep -vE '^(ktem|kotaemon)\s*$|^whisper-openai' requirements.txt > /tmp/req.txt
-          echo "filtered requirements:"; wc -l < /tmp/req.txt
-          pip install -r /tmp/req.txt
+        # The real requirements.txt, not a second list that drifts, so a dependency
+        # added for a new feature reaches CI without anyone adding it twice. It used
+        # to need filtering (ktem and kotaemon are 404 on PyPI); those entries left
+        # with the Kotaemon server, so the file installs as it stands.
+        run: pip install -r requirements.txt
 
       - name: Run the suite
         # The count is asserted, not just the exit code. Twice in this project a run
         # reported success while collecting nothing at all, which a bare exit code
         # cannot tell apart from a real pass.
+        #
+        # The count is read from pytest's "N tests collected" line. The previous
+        # check took the last line of `--collect-only -q`, which (with -q already in
+        # pytest.ini's addopts) is a per-file line such as "tests/x.py: 4", so it
+        # never saw the total and passed whatever was collected.
+        #
+        # MIN_TESTS is a floor, not the exact count: 1035 were collected when it
+        # was set (round-3 ticket 20). Raise it as the suite grows; lower it only in
+        # a commit that says which tests were removed and why.
+        env:
+          MIN_TESTS: "1000"
         run: |
           python -m pytest --tb=short
-          COUNT=$(python -m pytest --collect-only -q 2>/dev/null | tail -1)
-          echo "collected: $COUNT"
-          case "$COUNT" in
-            *"error"*|*"no tests ran"*) echo "nothing was collected"; exit 1 ;;
-          esac
+          COUNT=$(python -m pytest --collect-only 2>/dev/null | grep -Eo '^[0-9]+ tests? collected' | grep -Eo '^[0-9]+' || true)
+          echo "collected: ${COUNT:-0} (floor ${MIN_TESTS})"
+          if [ -z "$COUNT" ] || [ "$COUNT" -lt "$MIN_TESTS" ]; then
+            echo "collected ${COUNT:-0} tests, fewer than the floor of ${MIN_TESTS}"
+            exit 1
+          fi
 
   docs-current:
     name: Generated docs are current
@@ -126,11 +130,9 @@ jobs:
         # imports the FastAPI app, and the app imports auth, which imports PyJWT.
         # A hand-kept list of these was tried and missed jwt, so the gate failed on
         # a missing module while saying nothing about contract drift, which is the
-        # one thing this gate exists to report. The same filtered requirements the
-        # Python job uses is applied here instead, so it cannot drift out of sync.
-        run: |
-          grep -vE '^(ktem|kotaemon)\s*$|^whisper-openai' requirements.txt > /tmp/req.txt
-          pip install -r /tmp/req.txt
+        # one thing this gate exists to report. The same requirements file the
+        # Python job uses is installed here instead, so it cannot drift out of sync.
+        run: pip install -r requirements.txt
 
       - name: Release build and size budget
         working-directory: android-app

@@ -78,18 +78,10 @@ python3 launch_voice_ai_demos.py --demo retell
 ---
 
 ### 4. Clinical Unit Tests
-**File:** `test_realistic_clinical_scenarios.py`
-
-Run actual system tests with:
-```bash
-python3 test_realistic_clinical_scenarios.py
-```
-
-**Test Cases:**
-1. PT-ONCO-2026-001: Mrs. Lakshmi Devi, Stage III Breast Cancer
-2. PT-COPD-2026-042: Mr. Ramesh Patel, Severe COPD
-3. Emergency escalation for breathlessness
-4. Evidence badges with WHO/Max Healthcare citations
+The scripted clinical scenario demo was removed in round-3 review ticket 20: it
+asserted nothing and read medication doses aloud in its reminder script. The
+emergency escalation and evidence-badge behaviour it showed is tested in
+`tests/test_safety_enhancements.py` (`python -m pytest tests/test_safety_enhancements.py`).
 
 ---
 

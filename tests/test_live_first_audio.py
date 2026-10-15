@@ -133,7 +133,9 @@ class PreConnecting(unittest.TestCase):
         self.assertFalse(session.is_active)
 
     def test_settle_without_open_is_a_no_op(self):
-        asyncio.run(PreConnect(self.manager()).settle())
+        manager = self.manager()
+        asyncio.run(PreConnect(manager).settle())
+        self.assertEqual(manager.sessions, {})
 
 
 class FakeClassifier:

@@ -1,22 +1,15 @@
-# Complete Setup Instructions - Simple & Full Versions
+# Complete Setup Instructions
 
-This guide provides detailed step-by-step instructions for setting up both versions of the RAG server with all required API keys and configurations.
+This guide sets up the study server, `simple_rag_server.py`, with its API keys and configuration. It is the only server: the Kotaemon "full" version was removed because it had no Dose Boundary and no study release.
 
-## 🎯 **Choose Your Version**
+## 🎯 **The Server**
 
-### 🚀 **Simple Version** (Recommended)
+### 🚀 **Study server**
 - **File**: `simple_rag_server.py`
-- **Run**: `./start.sh --simple` or `./run_simple.sh`
+- **Run**: `./start.sh`, `./run_simple.sh`, `./run.sh` or `python simple_rag_server.py`
 - **Database**: None (file-based storage)
 - **Setup Time**: 2-5 minutes
 - **Dependencies**: ~15 packages
-
-### 🏢 **Full Version** (Advanced)
-- **File**: `rag_server.py` 
-- **Run**: `./start.sh --full` or `./run.sh`
-- **Database**: SQLite + advanced features
-- **Setup Time**: 15-30 minutes
-- **Dependencies**: ~50+ packages
 
 ---
 
@@ -27,7 +20,7 @@ This guide provides detailed step-by-step instructions for setting up both versi
 # Navigate to project directory
 cd rag_gci
 
-# One-command startup (auto-detects best version)
+# One-command startup
 ./start.sh
 
 # Or explicitly choose simple version
@@ -165,92 +158,7 @@ TWILIO_AUTH_TOKEN=your_real_32_char_auth_token_here
 
 ---
 
-## 🏢 **Full Version Setup**
-
-### Step 1: Run Automated Setup
-
-```bash
-# Navigate to project directory
-cd rag_gci
-
-# Run automated setup
-python setup.py
-```
-
-This will:
-- Create virtual environment
-- Install all dependencies
-- Create necessary directories
-- Generate .env template
-- Configure Kotaemon settings
-
-### Step 2: Get All API Keys
-
-#### 🔑 **Groq API Key** (Required)
-*Same as Simple version above*
-
-#### 🔑 **Twilio Credentials** (Optional)
-*Same as Simple version above*
-
-### Step 3: Configure Environment Variables
-
-The setup script creates a `.env` template. Edit it:
-
-```bash
-# Edit the generated .env file
-nano .env
-```
-
-**Full .env template for advanced version:**
-
-```bash
-# ===================================
-# FULL RAG SERVER CONFIGURATION
-# ===================================
-
-# GROQ API KEY (Required)
-# Get from: https://console.groq.com/
-GROQ_API_KEY=gsk_your_actual_groq_api_key_here_it_starts_with_gsk
-
-# TWILIO CREDENTIALS (Optional - for WhatsApp bot)
-# Get from: https://www.twilio.com/try-twilio
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_32_character_auth_token_here
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
-PUBLIC_BASE_URL=https://your-ngrok-url.ngrok.io
-
-# DATABASE CONFIGURATION
-DATABASE_URL=sqlite:///./data/rag_server.db
-
-# KOTAEMON SETTINGS
-KOTAEMON_DATA_DIR=./data
-KOTAEMON_UPLOAD_DIR=./uploads
-
-# APPLICATION SETTINGS
-ENVIRONMENT=development
-DEBUG=true
-LOG_LEVEL=INFO
-
-# ADVANCED FEATURES (Optional)
-ENABLE_USER_MANAGEMENT=false
-ENABLE_ANALYTICS=false
-MAX_FILE_SIZE_MB=50
-MAX_CHUNKS_PER_DOC=100
-```
-
-### Step 4: Start the Server
-
-```bash
-# Make script executable (if not already)
-chmod +x run.sh
-
-# Start the full server
-./run.sh
-```
-
----
-
-## 📱 **WhatsApp Bot Setup (Both Versions)**
+## 📱 **WhatsApp Bot Setup**
 
 ### Step 1: Configure Twilio Webhook
 
@@ -392,8 +300,8 @@ chmod +x run.sh
 # 3. Click "🔍 Check Health"
 # 4. If corrupted, click "🔧 Auto Rebuild"
 
-# Or test with script
-python test_corruption_recovery.py
+# Or rebuild with the study release's embedding model
+python scripts/reindex_with_configured_model.py --force
 
 # Manual rebuild if needed
 # Admin UI → Database Health → ⚡ Force Rebuild
@@ -418,7 +326,7 @@ python test_corruption_recovery.py
 
 ## ✅ **Verification Checklist**
 
-### For Simple Version:
+### For the study server:
 - [ ] Python 3.8+ installed
 - [ ] `pip install -r requirements_simple.txt` completed
 - [ ] `.env` file created with GROQ_API_KEY
@@ -428,15 +336,7 @@ python test_corruption_recovery.py
 - [ ] Can query and get responses
 - [ ] "🏥 Database Health" tab shows healthy status
 
-### For Full Version:
-- [ ] `python setup.py` completed successfully
-- [ ] All dependencies installed
-- [ ] `.env` file configured with all keys
-- [ ] Kotaemon directory structure exists
-- [ ] `./run.sh` starts without errors
-- [ ] Database initialized properly
-
-### For WhatsApp (Both Versions):
+### For WhatsApp:
 - [ ] Twilio account created
 - [ ] WhatsApp sandbox configured
 - [ ] Webhook URL set in Twilio
@@ -450,12 +350,8 @@ python test_corruption_recovery.py
 
 ### Smart Startup (Recommended):
 ```bash
-# Auto-detect best version and start
+# Start the study server
 ./start.sh
-
-# Choose specific version
-./start.sh --simple
-./start.sh --full
 
 # With validation
 ./start.sh --simple --validate
@@ -474,7 +370,7 @@ python test_corruption_recovery.py
 ./run_simple.sh --force-install    # Force reinstall
 ./run_simple.sh --port 9000        # Custom port
 
-# Full version
+# The same server, installing requirements.txt first
 ./run.sh                           # Normal start
 ./run.sh --host 127.0.0.1          # Custom host
 
@@ -489,9 +385,6 @@ python validate_setup.py           # Check configuration
 
 # If you want to test everything first
 ./start.sh --simple --validate
-
-# For production-like features
-./start.sh --full
 ```
 
 ---
@@ -513,4 +406,4 @@ ENVIRONMENT=development
 DEBUG=true
 ```
 
-**🚀 Ready to start? Choose Simple version for quick testing, Full version for production!**
+**🚀 Ready to start? Run `./start.sh`.**

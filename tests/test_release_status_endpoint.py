@@ -73,7 +73,7 @@ class ReleaseStatus(unittest.TestCase):
         with mock.patch.object(subprocess, "run", side_effect=AssertionError("git per request")), \
                 mock.patch("chromadb.PersistentClient", side_effect=AssertionError("chroma per request")):
             for _ in range(3):
-                self.status()
+                self.assertEqual(self.status()["release_name"], "evah-pilot-1")
 
     def test_refresh_recomputes(self):
         release = study_release.get_study_release()

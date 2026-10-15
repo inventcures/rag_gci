@@ -197,7 +197,7 @@ def corpus_snapshot(manifest: Path = DEFAULT_CORPUS_MANIFEST) -> str:
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
-# PyYAML is already a declared dependency (setup.py, gemini_live/config.py), so
+# PyYAML is already a declared dependency (requirements.txt, gemini_live/config.py), so
 # it is used rather than hand-rolling a parser. An earlier hand-rolled reader
 # mis-parsed nested lists and was replaced rather than debugged.
 

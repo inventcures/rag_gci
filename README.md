@@ -2,7 +2,9 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/inventcures/rag_gci)
 
-A comprehensive RAG (Retrieval-Augmented Generation) pipeline built with Kotaemon, featuring:
+A RAG (Retrieval-Augmented Generation) helpline server for palliative care. The study
+server is `simple_rag_server.py`: every answer passes the Dose Boundary
+(`dosage_guard.py`) and every interaction is stamped with the study release. It features:
 - 📄 Document processing and indexing
 - 🖥️ Web-based admin UI for corpus management  
 - 📱 WhatsApp bot with voice message support
@@ -13,7 +15,7 @@ A comprehensive RAG (Retrieval-Augmented Generation) pipeline built with Kotaemo
 ## Features
 
 ### 🎯 Core RAG Pipeline
-- Built on Kotaemon framework for robust document processing
+- File-based document store and ChromaDB index, embedded with the study release's model (bge-m3, ADR 0003)
 - Support for PDF, DOCX, TXT, HTML, XLSX files
 - Vector search with citation support
 - Multiple retrieval strategies and reranking
@@ -47,11 +49,9 @@ A comprehensive RAG (Retrieval-Augmented Generation) pipeline built with Kotaemo
 # Clone and navigate to the project
 cd rag_gci
 
-# Run the setup script
-python setup.py
-
-# Install dependencies (handled by setup)
+# Install dependencies (./run.sh does this, and creates .env, on first start)
 pip install -r requirements.txt
+cp .env.example .env
 ```
 
 ### 2. Configure API Keys
@@ -82,6 +82,8 @@ one client, configured by the `llm:` block in `config.yaml`. See
 
 ### 3. Start the Server
 
+Every option starts the study server, `simple_rag_server.py`.
+
 #### Option A: Using the run script (Recommended)
 ```bash
 ./run.sh
@@ -89,12 +91,12 @@ one client, configured by the `llm:` block in `config.yaml`. See
 
 #### Option B: Direct Python execution
 ```bash
-python main.py
+python simple_rag_server.py
 ```
 
 #### Option C: Custom configuration
 ```bash
-python main.py --host 0.0.0.0 --port 8000 --no-ngrok
+python simple_rag_server.py --host 0.0.0.0 --port 8000 --no-ngrok
 ```
 
 ### 4. Access the Application
@@ -199,7 +201,7 @@ result = await rag.query_with_auto_recovery("your question")
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   WhatsApp      │───▶│   FastAPI        │───▶│   RAG Pipeline  │
-│   Bot           │    │   Server         │    │   (Kotaemon)    │
+│   Bot           │    │   Server         │    │   (simple_rag)  │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
@@ -240,7 +242,7 @@ result = await rag.query_with_auto_recovery("your question")
 ### Settings Files
 - `config.yaml` - Main configuration
 - `.env` - Environment variables and API keys
-- `kotaemon-main/settings.yaml` - Kotaemon-specific settings
+- `data/study/release.yaml` - The approved study release (models, retrieval, approvals)
 
 ### Key Configuration Options
 
@@ -254,8 +256,9 @@ llm:
   
 # Embedding Configuration  
 embedding:
-  provider: "fastembed"
-  model: "BAAI/bge-small-en-v1.5"
+  provider: "sentence_transformers"
+  model: "BAAI/bge-m3"          # must match data/study/release.yaml (ADR 0003)
+  dimension: 1024
 
 # STT Configuration
 stt:
@@ -274,26 +277,19 @@ tts:
 
 ## Testing
 
-Run the comprehensive test suite:
+Every test lives under `tests/` and runs without network access or API keys:
 
 ```bash
-# Main pipeline tests
-python test_pipeline.py
-
-# Database corruption and recovery tests
-python test_corruption_recovery.py
+python -m pytest              # the whole suite, as CI runs it
+python -m pytest tests/test_dosage_guard.py -v   # one file
 ```
 
-Tests include:
-- ✅ Document processing and indexing
-- ✅ Query processing and responses
-- ✅ STT service functionality
-- ✅ TTS service functionality  
-- ✅ Multilingual support
-- ✅ **Database corruption detection**
-- ✅ **Auto-rebuild functionality**
-- ✅ **Recovery from corruption scenarios**
-- ✅ End-to-end pipeline
+To rebuild the index, use the reindex service. It refuses any embedding model but
+the one the study release records:
+
+```bash
+python scripts/reindex_with_configured_model.py --dry-run
+```
 
 ## Deployment
 
@@ -332,10 +328,6 @@ ngrok authtoken your_auth_token
 **"Error generating response: gemini: no GOOGLE_CLOUD_PROJECT or GEMINI_API_KEY"**
 - Set `GOOGLE_CLOUD_PROJECT` (Vertex AI) or `GEMINI_API_KEY` in `.env`
 
-**"kotaemon-main directory not found"**
-- Ensure Kotaemon codebase is in the project directory
-- Check the directory structure matches requirements
-
 **"ngrok not found"**
 - Install ngrok: `brew install ngrok`
 - Or run with `--no-ngrok` flag for local testing
@@ -365,7 +357,7 @@ ngrok authtoken your_auth_token
 - Check available disk space for backups
 - Ensure source documents are still in uploads/ directory
 - Review rebuild logs for specific error messages
-- Use manual rebuild script: `python test_corruption_recovery.py`
+- Use the reindex script: `python scripts/reindex_with_configured_model.py --force`
 
 ### Logs and Debugging
 
@@ -401,7 +393,6 @@ This solution is designed to work within free tiers:
 ## License
 
 This project is open source. Please check individual component licenses:
-- Kotaemon: [MIT License](https://github.com/Cinnamon/kotaemon/blob/main/LICENSE)
 - Other dependencies as per their respective licenses
 
 ## Support

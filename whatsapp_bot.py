@@ -693,13 +693,18 @@ class EnhancedWhatsAppBot:
         """Get conversation history for a user"""
         return self.conversation_history.get(user_id, [])
     
-    def _ensure_whatsapp_length_limit(self, message: str) -> str:
-        """Ensure message is under Twilio's WhatsApp character limit"""
-        if len(message) <= self.whatsapp_char_limit:
+    def _ensure_whatsapp_length_limit(self, message: str, limit: Optional[int] = None) -> str:
+        """Ensure message fits `limit` (default: Twilio's WhatsApp character limit).
+
+        A caller that adds a header and footer passes the room left for the body,
+        so the truncation notice is not itself cut off by the header's own limit.
+        """
+        limit = self.whatsapp_char_limit if limit is None else limit
+        if len(message) <= limit:
             return message
         
         # If message is too long, truncate it intelligently
-        truncated = message[:self.whatsapp_char_limit - 50]  # Leave room for truncation note
+        truncated = message[:limit - 50]  # Leave room for truncation note
         
         # Try to break at sentence boundary
         last_sentence_end = max(
@@ -1574,7 +1579,9 @@ class EnhancedWhatsAppBot:
         """
         answer = result["answer"]
         footer = f"\n\n(model {result.get('model_used', 'unknown')} used)"
-        english = self._with_header("🇬🇧 English:\n", self._ensure_whatsapp_length_limit(answer), footer)
+        header = "🇬🇧 English:\n"
+        room = self.whatsapp_char_limit - len(header) - len(footer)
+        english = self._with_header(header, self._ensure_whatsapp_length_limit(answer, room), footer)
 
         translation_task = None
         speech_task = None
