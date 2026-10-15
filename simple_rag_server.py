@@ -1728,7 +1728,9 @@ class SimpleRAGPipeline:
                     })
                 relevant_metadatas = filtered_metadatas
                 should_fuse = len(pi_result.selected_nodes) > 1
-                distances = [0.5] * len(filtered_metadatas)
+                # Tree search has no similarity distance; the badge says so
+                # rather than being handed an invented one.
+                distances = []
                 logger.info(f"PageIndex returned {len(pi_result.selected_nodes)} nodes, {len(context_text)} chars context")
 
             elif _rag_method == "hybrid" and _pageindex_enabled and _pageindex_engine:
@@ -1750,13 +1752,17 @@ class SimpleRAGPipeline:
                 # Vector context
                 vector_context_parts = []
                 vector_metas = []
+                vector_distances = []
                 if vector_results.get('documents') and vector_results['documents'][0]:
                     v_distances = vector_results.get('distances', [[]])[0]
                     for idx, (doc, meta) in enumerate(zip(vector_results['documents'][0], vector_results['metadatas'][0])):
-                        dist = v_distances[idx] if idx < len(v_distances) else 1.0
+                        has_distance = idx < len(v_distances)
+                        dist = v_distances[idx] if has_distance else 1.0
                         if dist <= 1.5:
                             vector_context_parts.append(f"Source: {meta['filename']} (chunk {meta['chunk_index']+1})\n{doc}")
                             vector_metas.append(meta)
+                            if has_distance:
+                                vector_distances.append(dist)
 
                 # Tree context
                 tree_context = pi_result.context if pi_result.context else ""
@@ -1788,7 +1794,8 @@ class SimpleRAGPipeline:
                 filtered_metadatas = vector_metas + tree_metas
                 relevant_metadatas = filtered_metadatas
                 should_fuse = True
-                distances = [0.5] * len(filtered_metadatas)
+                # Only the vector chunks have real distances; tree nodes have none.
+                distances = vector_distances
                 logger.info(f"Hybrid: {len(vector_context_parts)} vector chunks + {len(pi_result.selected_nodes)} tree nodes")
 
             else:

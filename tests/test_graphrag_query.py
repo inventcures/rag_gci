@@ -357,6 +357,42 @@ def test_auto_search():
     return True
 
 
+def _auto_method(query):
+    """The search method auto_search actually ran for `query`."""
+    from graphrag_integration.config import GraphRAGConfig
+    from graphrag_integration.query_engine import GraphRAGQueryEngine
+
+    engine = GraphRAGQueryEngine(GraphRAGConfig(root_dir="./data/graphrag"))
+    return asyncio.run(engine.auto_search(query)).method
+
+
+def test_auto_search_matches_whole_words_only():
+    """'all' inside 'palliative' must not make a definition question global."""
+    from graphrag_integration.query_engine import SearchMethod
+
+    assert _auto_method("What is palliative care?") != SearchMethod.GLOBAL
+    # Nor is "list" inside "specialist" a request for a list.
+    assert _auto_method("Who is a palliative care specialist?") not in (
+        SearchMethod.GLOBAL, SearchMethod.LOCAL)
+
+    print("PASS: auto_search matches whole words")
+    return True
+
+
+def test_auto_search_routes_simple_factual_questions_to_basic():
+    """A short factual question can choose basic search."""
+    from graphrag_integration.query_engine import SearchMethod
+
+    assert _auto_method("What is palliative care?") == SearchMethod.BASIC
+    assert _auto_method("What does hospice mean?") == SearchMethod.BASIC
+    # Entity-specific and thematic questions keep their methods.
+    assert _auto_method("What is the dosage of morphine for pain?") == SearchMethod.LOCAL
+    assert _auto_method("Give me an overview of all palliative care themes") == SearchMethod.GLOBAL
+
+    print("PASS: auto_search can choose basic")
+    return True
+
+
 def test_query_engine_repr():
     """Test query engine string representation."""
     from graphrag_integration.config import GraphRAGConfig
@@ -407,6 +443,8 @@ def run_all_tests():
         test_drift_search,
         test_basic_search,
         test_auto_search,
+        test_auto_search_matches_whole_words_only,
+        test_auto_search_routes_simple_factual_questions_to_basic,
         test_query_engine_repr,
     ]
 
