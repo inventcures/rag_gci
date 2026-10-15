@@ -10,8 +10,10 @@ import org.inventcures.pallisahayak.data.local.PalliDatabase
 import org.inventcures.pallisahayak.data.offline.ConnectivityMonitor
 import org.inventcures.pallisahayak.data.offline.HistoryRepository
 import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
+import org.inventcures.pallisahayak.data.prefs.SharedPreferencesStore
 import org.inventcures.pallisahayak.data.release.ReleaseGate
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
+import org.inventcures.pallisahayak.data.settings.ActiveSettings
 import org.inventcures.pallisahayak.data.start.AppStart
 
 /**
@@ -47,6 +49,9 @@ object ServiceLocator {
     @Volatile
     private var startInstance: AppStart? = null
 
+    @Volatile
+    private var settingsInstance: ActiveSettings? = null
+
     /**
      * Everything the offline screens need, built once alongside the repository.
      *
@@ -67,6 +72,10 @@ object ServiceLocator {
     val start: AppStart
         get() = startInstance ?: notInitialised()
 
+    /** The Active Role and language the settings screen switches. */
+    val settings: ActiveSettings
+        get() = settingsInstance ?: notInitialised()
+
     @Synchronized
     fun initialise(context: Context) {
         if (repositoryInstance != null) return
@@ -85,6 +94,8 @@ object ServiceLocator {
         clients = api
 
         val database = PalliDatabase.get(context)
+
+        settingsInstance = ActiveSettings(SharedPreferencesStore(context))
 
         repositoryInstance = PalliSahayakRepository(
             api = api.api,

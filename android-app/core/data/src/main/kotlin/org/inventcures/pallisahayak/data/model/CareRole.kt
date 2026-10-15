@@ -25,18 +25,15 @@ package org.inventcures.pallisahayak.data.model
 enum class CareRole(
     /** What the study reports. The server and every metric use this. */
     val wireName: String,
-    /** How the app frames it. Never implies access control. */
-    val label: String,
     /** Material icon name, drawn persistently so it is recognisable unread. */
     val iconKey: String,
 ) {
-    ASHA_WORKER("asha_worker", "Speaking as an ASHA Worker", "medical_services"),
-    FAMILY_CAREGIVER(
-        "family_caregiver",
-        "Speaking as a family caregiver",
-        "diversity_2",
-    ),
-    PATIENT("patient", "Speaking as a patient", "bed");
+    // How the app frames each role ("Speaking as a patient") is a string resource
+    // in the app module, so it reads in the participant's language. An English
+    // label here reached the Hindi screens until ticket 24.
+    ASHA_WORKER("asha_worker", "medical_services"),
+    FAMILY_CAREGIVER("family_caregiver", "diversity_2"),
+    PATIENT("patient", "bed");
 
     companion object {
         val ALL: List<CareRole> = entries

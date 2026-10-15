@@ -19,7 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +27,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import org.inventcures.pallisahayak.R
 
 /**
  * The three destinations, held in state rather than in a navigation library.
@@ -36,10 +39,10 @@ import androidx.compose.ui.unit.dp
  * for 2G devices. Revisit when there are back stacks, deep links or saved state per
  * destination; none of which exist.
  */
-enum class Destination(val label: String, val glyphKey: String) {
-    ASK("Ask", "ask"),
-    HISTORY("Visits", "history"),
-    SETTINGS("Settings", "settings"),
+enum class Destination(@StringRes val label: Int) {
+    ASK(R.string.nav_ask),
+    HISTORY(R.string.nav_history),
+    SETTINGS(R.string.nav_settings),
 }
 
 /**
@@ -56,7 +59,7 @@ fun AppScaffold(
     history: @Composable () -> Unit,
     settings: @Composable () -> Unit,
 ) {
-    var destination by remember { mutableStateOf(Destination.ASK) }
+    var destination by rememberSaveable { mutableStateOf(Destination.ASK) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.weight(1f)) {
@@ -69,6 +72,7 @@ fun AppScaffold(
         HorizontalDivider()
         NavigationBar {
             Destination.entries.forEach { entry ->
+                val label = stringResource(entry.label)
                 NavigationBarItem(
                     selected = destination == entry,
                     onClick = { destination = entry },
@@ -81,8 +85,8 @@ fun AppScaffold(
                     },
                     // Labelled as well as drawn, because a semi-literate user navigates
                     // by shape and everyone else benefits from the word.
-                    label = { Text(entry.label) },
-                    modifier = Modifier.semantics { contentDescription = entry.label },
+                    label = { Text(label) },
+                    modifier = Modifier.semantics { contentDescription = label },
                 )
             }
         }

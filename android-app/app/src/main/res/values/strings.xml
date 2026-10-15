@@ -12,6 +12,16 @@
     -->
     <string name="role_switch_explainer">Changing this changes how answers are framed. Everyone in the household reads the same record.</string>
     <string name="role_switch_title">Speaking as</string>
+    <string name="role_asha_worker">Speaking as an ASHA Worker</string>
+    <string name="role_family_caregiver">Speaking as a family caregiver</string>
+    <string name="role_patient">Speaking as a patient</string>
+    <!-- Short names under the switcher's icons, where the framing text would not fit. -->
+    <string name="role_short_asha_worker">ASHA</string>
+    <string name="role_short_family_caregiver">Family</string>
+    <string name="role_short_patient">Patient</string>
+    <!-- Announced by a screen reader on each role in the switcher. -->
+    <string name="role_state_active">currently speaking as</string>
+    <string name="role_state_switch">switch to</string>
 
     <!--
       Language.
@@ -22,6 +32,8 @@
     -->
     <string name="language_picker_title">Choose your language</string>
     <string name="language_picker_explainer">You can change this later in Settings. Answers will be spoken in the language you pick.</string>
+    <string name="language_state_selected">selected</string>
+    <string name="language_state_not_selected">not selected</string>
 
     <!--
       Offline.
@@ -40,10 +52,15 @@
 
     <!-- Criterion 4: the microphone stays visible and says why it is inert. -->
     <string name="mic_disabled_offline">Voice needs a connection</string>
+    <string name="mic_ask_by_voice">Ask by voice</string>
+    <string name="mic_unavailable_offline">Microphone unavailable offline</string>
 
     <!-- Criterion 7: a miss explains itself instead of going quiet. -->
     <string name="offline_miss_no_bundle">No offline questions have been downloaded yet. Connect once to download them.</string>
     <string name="offline_miss_not_in_bundle">That question is not one of the pre-answered offline questions. It needs a connection.</string>
+    <!-- The same two reasons, announced by a screen reader. -->
+    <string name="offline_miss_no_bundle_short">No questions downloaded yet</string>
+    <string name="offline_miss_not_in_bundle_short">This question needs a connection</string>
 
     <!--
       Answer kinds.
@@ -55,6 +72,8 @@
     <string name="kind_answer">Answer</string>
     <string name="kind_redacted">Dose information removed</string>
     <string name="kind_deferral">Deferred to your clinician</string>
+    <string name="answer_deferral_label">Not answered. Take this to your next consultation.</string>
+    <string name="answer_redacted_label">Part of this answer was held back.</string>
 
     <!-- Criterion 8: a cached answer is never presented as live. -->
     <string name="from_cache_badge">from offline bundle</string>
@@ -73,8 +92,22 @@
     <string name="replay_answer">Play the answer again</string>
 
     <string name="starting_up">Palli Sahayak is starting</string>
+    <string name="nav_ask">Ask</string>
+    <string name="nav_history">Visits</string>
     <string name="nav_settings">Settings</string>
-    <string name="settings_placeholder">Settings will be available before the study begins.</string>
+
+    <!--
+      Settings (ticket 24): the Active Role and the language. Switching either takes
+      one tap and asks for nothing; the next question is asked and recorded under it.
+    -->
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_explainer">Questions are asked and answered in this language, and the screens change to it.</string>
+
+    <!-- What went wrong on the ask screen (AskProblem). -->
+    <string name="problem_unexpected">Something went wrong. Please try again.</string>
+    <string name="problem_microphone_needed">Microphone access is needed to ask by voice.</string>
+    <string name="problem_unreachable">Could not reach the service. Please try again.</string>
+    <string name="problem_offline_not_saved">No connection, and this question is not one of the saved ones. Try again when there is signal.</string>
 
     <!--
       Found by the lint, not by an audit.

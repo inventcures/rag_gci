@@ -137,12 +137,14 @@ fun MicrophoneWhenOffline(
     modifier: Modifier = Modifier,
 ) {
     val tint = if (offline) Color(0xFF9CA3AF) else MaterialTheme.colorScheme.primary
+    val description = stringResource(
+        if (offline) R.string.mic_unavailable_offline else R.string.mic_ask_by_voice,
+    )
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .semantics {
-                contentDescription =
-                    if (offline) "Microphone unavailable offline" else "Ask by voice"
+                contentDescription = description
             }
             // A plain tap, and only a plain tap. No long press, no double tap and no
             // swipe: none are discoverable by someone who cannot read the hints, and
@@ -281,16 +283,17 @@ fun OfflineMissNotice(
     reason: OfflineMiss,
     modifier: Modifier = Modifier,
 ) {
+    val description = stringResource(
+        when (reason) {
+            OfflineMiss.NO_BUNDLE_DOWNLOADED -> R.string.offline_miss_no_bundle_short
+            OfflineMiss.NOT_IN_BUNDLE -> R.string.offline_miss_not_in_bundle_short
+        },
+    )
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(12.dp)
-            .semantics {
-                contentDescription = when (reason) {
-                    OfflineMiss.NO_BUNDLE_DOWNLOADED -> "No questions downloaded yet"
-                    OfflineMiss.NOT_IN_BUNDLE -> "This question needs a connection"
-                }
-            },
+            .semantics { contentDescription = description },
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFFEEF2FF),
             contentColor = Color(0xFF312E81),

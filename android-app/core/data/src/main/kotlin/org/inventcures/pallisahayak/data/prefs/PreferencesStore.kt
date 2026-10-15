@@ -27,7 +27,12 @@ interface PreferencesStore {
     /** True once the worker has made the choice, so onboarding does not reappear. */
     fun languageChosen(): Boolean
 
-    fun careRole(): CareRole
+    /**
+     * The Active Role chosen in settings, or null until someone switches it. Null
+     * rather than a default, so an unswitched phone runs as the registered role and
+     * not as an ASHA Worker it never chose.
+     */
+    fun careRole(): CareRole?
 
     fun setLanguage(language: Language)
 
@@ -53,7 +58,8 @@ class SharedPreferencesStore(context: Context) : PreferencesStore {
 
     override fun languageChosen(): Boolean = prefs.contains(KEY_LANGUAGE)
 
-    override fun careRole(): CareRole = CareRole.fromWire(prefs.getString(KEY_ROLE, null))
+    override fun careRole(): CareRole? =
+        prefs.getString(KEY_ROLE, null)?.let { stored -> CareRole.ALL.firstOrNull { it.wireName == stored } }
 
     override fun setLanguage(language: Language) {
         prefs.edit().putString(KEY_LANGUAGE, language.tag).apply()
@@ -83,7 +89,7 @@ class SharedPreferencesStore(context: Context) : PreferencesStore {
  */
 class InMemoryPreferencesStore(
     private var language: Language? = null,
-    private var role: CareRole = CareRole.ASHA_WORKER,
+    private var role: CareRole? = null,
 ) : PreferencesStore {
 
     private val changes = MutableStateFlow(0)
@@ -95,7 +101,7 @@ class InMemoryPreferencesStore(
 
     override fun languageChosen(): Boolean = language != null
 
-    override fun careRole(): CareRole = role
+    override fun careRole(): CareRole? = role
 
     override fun setLanguage(language: Language) {
         this.language = language
@@ -109,7 +115,7 @@ class InMemoryPreferencesStore(
 
     override fun clear() {
         language = null
-        role = CareRole.ASHA_WORKER
+        role = null
         changes.value += 1
     }
 }
