@@ -1,9 +1,9 @@
 """
-Authentication module for Palli Sahayak mobile API.
+Authentication for Palli Sahayak.
 
-Provides JWT-based authentication with PIN verification.
-Auth is opt-in: only /api/mobile/v1/* endpoints require it.
-Existing endpoints remain unauthenticated for backward compatibility.
+The mobile API signs participants in with a PIN and a JWT. Every route on the
+main server declares a policy (public, participant or admin) in
+auth/policy.py, and one dependency applies it.
 """
 
 from auth.jwt_handler import JWTHandler

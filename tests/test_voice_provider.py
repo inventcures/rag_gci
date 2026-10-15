@@ -107,12 +107,28 @@ class AuditTrail(TempControl):
         self.control.set_provider(PROVIDER_LIVE, "ashish", "already live")
         self.assertEqual(self.control.history(), [])
 
-    def test_an_audit_failure_does_not_lose_the_change(self):
+    def test_a_failed_audit_write_leaves_the_voice_provider_unchanged(self):
+        # ADR 0007: no provider change may exist without its attributed record.
+        # So a change whose audit write fails is rolled back and refused.
+        from voice_provider import AuditWriteError
+
         self.control.audit_path = Path("/proc/definitely/not/writable/audit.jsonl")
-        setting = self.control.set_provider(PROVIDER_SARVAM, "ashish", "incident")
-        # The operator's intent must land even if the audit write fails; the
-        # failure itself is logged loudly in the implementation.
-        self.assertEqual(setting.provider, PROVIDER_SARVAM)
+        with self.assertRaises(AuditWriteError):
+            self.control.set_provider(PROVIDER_SARVAM, "ashish", "incident")
+        self.assertTrue(self.control.current().live_enabled)
+        self.assertFalse(self.control.path.exists(), "no setting file should be left behind")
+        fresh = VoiceProviderControl(path=self.control.path, audit_path=self.control.audit_path)
+        self.assertTrue(fresh.current().live_enabled)
+
+    def test_a_failed_audit_write_restores_the_previous_setting(self):
+        from voice_provider import AuditWriteError
+
+        self.control.set_provider(PROVIDER_SARVAM, "ashish", "incident 412")
+        before = self.control.path.read_text(encoding="utf-8")
+        self.control.audit_path = Path("/proc/definitely/not/writable/audit.jsonl")
+        with self.assertRaises(AuditWriteError):
+            self.control.set_provider(PROVIDER_LIVE, "ashish", "restored")
+        self.assertEqual(self.control.path.read_text(encoding="utf-8"), before)
         self.assertFalse(self.control.current().live_enabled)
 
 

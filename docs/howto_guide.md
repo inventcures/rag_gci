@@ -836,6 +836,20 @@ asyncio.run(test())
 
 Access the admin dashboard at: `http://localhost:8000/admin`
 
+**Signing in.** The admin panel, the study dashboard (`/admin/study`) and every admin, study,
+clinical-data and upload API route need an admin token. Set `ADMIN_JWT_SECRET` (at least 32
+characters, not the mobile secret) for the server, then mint a token in your own name:
+
+```bash
+python scripts/issue_admin_token.py <your-name>      # valid 12 hours; --hours to change
+```
+
+Send it as `Authorization: Bearer <token>`. In a browser, enter it as the password of the
+sign-in prompt (any user name). Your name is what the voice-provider override records as the
+actor. Which routes are public, participant or admin is declared in `auth/policy.py`
+(`ROUTE_POLICIES`). Browsers may call the API only from the origins in `CORS_ALLOWED_ORIGINS`
+(or `server.cors_allowed_origins` in `config.yaml`); the default is none.
+
 **Available Tabs:**
 
 | Tab | Purpose |
