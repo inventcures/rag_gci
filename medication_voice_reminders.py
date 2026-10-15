@@ -30,6 +30,8 @@ import time
 import hashlib
 import random
 
+from reminder_text import ensure_dose_free, medicine_label
+
 # Setup logger first
 logger = logging.getLogger(__name__)
 
@@ -166,27 +168,32 @@ class MedicationVoiceReminderSystem:
     - TTS for generating reminder messages
     """
     
-    # Voice message templates by language
+    # Voice message templates by language. They name the medicine and the time,
+    # never a dose (ADR 0004, decision D10): the stored dosage is kept in the
+    # data but has no placeholder here, and the medicine name is stripped of any
+    # dose by reminder_text.medicine_label before it is inserted.
     VOICE_TEMPLATES = {
         "en": {
             "greeting": "Hello, this is Palli Sahayak, your healthcare assistant.",
-            "reminder": "This is a reminder to take your {medication}. {dosage}.",
+            "reminder": "This is your {time} reminder to take {medication}.",
             "instructions": "Please take your medication now.",
             "confirmation": "Press 1 or say 'yes' after taking your medication.",
             "closing": "Thank you. Have a good day.",
-            "follow_up": "Did you take your {medication}? Press 1 for yes, 2 for no.",
+            "follow_up": "Did you take {medication}? Press 1 for yes, 2 for no.",
         },
         "hi": {
             "greeting": "नमस्ते, मैं पल्ली सहायक हूं, आपका स्वास्थ्य सहायक।",
-            "reminder": "यह {medication} लेने का reminder है। {dosage}।",
+            "reminder": "यह {time} बजे {medication} लेने का reminder है।",
             "instructions": "कृपया अभी अपनी दवा लें।",
             "confirmation": "दवा लेने के बाद 1 दबाएं या 'हां' कहें।",
-            "closing": "धन्यवाद। आपका दिन शुभ हो।",
+            # Not "have a good day": the dose detector reads the bare day word
+            # as a schedule, so the closing would be cut (same for ta and gu).
+            "closing": "धन्यवाद। अपना ध्यान रखें।",
             "follow_up": "क्या आपने {medication} ली? हां के लिए 1 दबाएं, न के लिए 2।",
         },
         "bn": {
             "greeting": "হ্যালো, আমি পল্লী সহায়ক, আপনার স্বাস্থ্য সহকারী।",
-            "reminder": "এটি {medication} খাওয়ার reminder। {dosage}।",
+            "reminder": "এটি {time}-এ {medication} খাওয়ার reminder।",
             "instructions": "অনুগ্রহ করে এখনই আপনার ওষুধ খান।",
             "confirmation": "ওষুধ খাওয়ার পরে 1 চাপুন বা 'হ্যাঁ' বলুন।",
             "closing": "ধন্যবাদ। আপনার দিন শুভ হোক।",
@@ -194,18 +201,18 @@ class MedicationVoiceReminderSystem:
         },
         "ta": {
             "greeting": "வணக்கம், நான் பல்லி சகாயக், உங்கள் சுகாதார உதவியாளர்.",
-            "reminder": "இது {medication} எடுக்கும் நினைவூட்டல். {dosage}.",
+            "reminder": "இது {time} மணிக்கு {medication} எடுக்கும் நினைவூட்டல்.",
             "instructions": "தயவுசெய்து இப்போதே உங்கள் மருந்தை எடுத்துக்கொள்ளுங்கள்.",
             "confirmation": "மருந்தை எடுத்த பிறகு 1 ஐ அழுத்தவும் அல்லது 'ஆம்' என்று கூறவும்.",
-            "closing": "நன்றி. உங்கள் நாள் நல்லதாக இருக்கட்டும்.",
+            "closing": "நன்றி. உங்களை கவனித்துக் கொள்ளுங்கள்.",
             "follow_up": "நீங்கள் {medication} எடுத்தீர்களா? ஆம் என்றால் 1, இல்லை என்றால் 2.",
         },
         "gu": {
             "greeting": "નમસ્તે, હું પલ્લી સહાયક છું, તમારો આરોગ્ય સહાયક.",
-            "reminder": "આ {medication} લેવાની યાદ અપાવનાર છે. {dosage}.",
+            "reminder": "આ {time} વાગ્યે {medication} લેવાની યાદ અપાવનાર છે.",
             "instructions": "કૃપા કરીને હવે તમારી દવા લો.",
             "confirmation": "દવા લીધા પછી 1 દબાવો અથવા 'હા' કહો.",
-            "closing": "આભાર. તમારો દિવસ શુભ રહે.",
+            "closing": "આભાર. તમારું ધ્યાન રાખજો.",
             "follow_up": "શું તમે {medication} લીધી? હા માટે 1, ના માટે 2.",
         },
     }
@@ -263,6 +270,11 @@ class MedicationVoiceReminderSystem:
                     data = json.load(f)
                     for reminder_data in data:
                         reminder = self._dict_to_reminder(reminder_data)
+                        # Earlier builds wrote the dose into the call script;
+                        # re-word every saved reminder from the current templates.
+                        reminder.tts_message = self._generate_reminder_message(
+                            reminder.medication_name, reminder.scheduled_time, reminder.language
+                        )
                         self.reminders[reminder.reminder_id] = reminder
                         if reminder.user_id not in self.user_reminders:
                             self.user_reminders[reminder.user_id] = []
@@ -346,22 +358,30 @@ class MedicationVoiceReminderSystem:
             user_id: Patient identifier
             phone_number: Phone number in E.164 format (+91...)
             medication_name: Name of medication
-            dosage: Dosage instructions (e.g., "500mg with food")
+            dosage: Dosage as entered (e.g., "500mg with food"). Stored with the
+                reminder, never spoken (ADR 0004, decision D10).
             reminder_time: When to make the call
             language: Language code (en, hi, bn, ta, gu)
             preferred_provider: "bolna" or "retell"
             max_attempts: Max retry attempts
-            
+
         Returns:
             MedicationVoiceReminder object
+
+        Raises:
+            ValueError: the phone number is empty, so there is no one to call.
         """
+        phone_number = (phone_number or "").strip()
+        if not phone_number:
+            raise ValueError("a voice reminder needs a phone number to call")
+
         reminder_id = hashlib.md5(
             f"{user_id}_{medication_name}_{reminder_time.isoformat()}".encode()
         ).hexdigest()[:12]
-        
-        # Generate TTS message
+
+        # Generate TTS message: the medicine and the time, never the dose.
         tts_message = self._generate_reminder_message(
-            medication_name, dosage, language
+            medication_name, reminder_time, language
         )
         
         reminder = MedicationVoiceReminder(
@@ -391,21 +411,27 @@ class MedicationVoiceReminderSystem:
         logger.info(f"📞 Created voice reminder {reminder_id} for {medication_name} at {reminder_time}")
         return reminder
     
-    def _generate_reminder_message(self, medication: str, dosage: str, language: str) -> str:
-        """Generate TTS message for reminder"""
-        templates = self.VOICE_TEMPLATES.get(language, self.VOICE_TEMPLATES["en"])
-        
+    def _generate_reminder_message(self, medication: str, reminder_time: datetime, language: str) -> str:
+        """The call script: the medicine and the time, never a dose."""
+        if language not in self.VOICE_TEMPLATES:
+            language = "en"
+        templates = self.VOICE_TEMPLATES[language]
+        reminder_line = templates['reminder'].format(
+            medication=medicine_label(medication, language),
+            time=reminder_time.strftime("%H:%M"),
+        )
+
         message = f"""{templates['greeting']}
 
-{templates['reminder'].format(medication=medication, dosage=dosage)}
+{reminder_line}
 
 {templates['instructions']}
 
 {templates['confirmation']}
 
 {templates['closing']}"""
-        
-        return message
+
+        return ensure_dose_free(message)
     
     def _schedule_call(self, reminder: MedicationVoiceReminder):
         """Schedule a voice call"""
@@ -450,6 +476,12 @@ class MedicationVoiceReminderSystem:
             return
         
         reminder = self.reminders[reminder_id]
+        if not (reminder.phone_number or "").strip():
+            # A synced reminder can arrive without a number: never dial nobody.
+            logger.warning(f"Reminder {reminder_id} has no phone number; not calling")
+            reminder.call_status = CallStatus.FAILED
+            self._save_reminders()
+            return
         reminder.call_status = CallStatus.CALLING
         reminder.call_attempts += 1
         reminder.call_started_at = datetime.now()

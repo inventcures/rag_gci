@@ -109,9 +109,16 @@ class ObservationResponse(BaseModel):
 
 
 class CreateReminderRequest(BaseModel):
+    """
+    A reminder call from the app. The dosage, if sent, is stored with the
+    reminder and never spoken (ADR 0004, decision D10). A call needs a phone
+    number; a request without one is refused rather than scheduled.
+    """
+
     patient_id: str
     medication_name: str
-    dosage: str
+    dosage: Optional[str] = None
+    phone_number: Optional[str] = None
     scheduled_time: float
     language: str
     frequency: Optional[str] = None

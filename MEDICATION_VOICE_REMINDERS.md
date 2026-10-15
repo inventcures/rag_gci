@@ -65,20 +65,26 @@ Patients can confirm taking medication via:
 When a patient sets a medication reminder via WhatsApp, voice calls are **automatically scheduled**:
 
 ```
-Patient: /remind Paracetamol 08:00,20:00 500mg after food
+Patient: /remind Paracetamol 08:00,20:00
 
 Bot: ✅ Medication Reminder Set!
 
 💊 Paracetamol
 🕐 Times: 08:00, 20:00
-📋 Dosage: 500mg after food
 
 I'll remind you when it's time to take your medication.
 
 📞 Voice call reminders also set up for: 08:00, 20:00
 ```
 
+A reminder names the medicine and the time, never a dose (ADR 0004, decision
+D10 of the round-3 review). A `dosage` typed or sent is stored with the
+reminder but is never repeated back, sent or spoken.
+
 ### Via API
+
+Admin token required (`auth/policy.py`). A request without `phone_number`
+is refused with 422 and nothing is scheduled.
 
 ```bash
 POST /api/medication/voice-reminder
@@ -117,7 +123,7 @@ Content-Type: application/json
 **Voice Message (English):**
 > "Hello, this is Palli Sahayak, your healthcare assistant.
 > 
-> This is a reminder to take your Paracetamol. 500mg after food.
+> This is your 08:00 reminder to take Paracetamol.
 > 
 > Please take your medication now.
 > 
@@ -128,13 +134,13 @@ Content-Type: application/json
 **Voice Message (Hindi):**
 > "नमस्ते, मैं पल्ली सहायक हूं, आपका स्वास्थ्य सहायक।
 >
-> यह Paracetamol लेने का reminder है। 500mg after food।
+> यह 08:00 बजे Paracetamol लेने का reminder है।
 >
 > कृपया अभी अपनी दवा लें।
 >
 > दवा लेने के बाद 1 दबाएं या 'हां' कहें।
 >
-> धन्यवाद। आपका दिन शुभ हो।"
+> धन्यवाद। अपना ध्यान रखें।"
 
 ### 3. Patient Confirms
 - Presses **1** on keypad, OR
