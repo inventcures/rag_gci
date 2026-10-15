@@ -31,7 +31,7 @@ load_dotenv()
 import gradio as gr
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -867,6 +867,26 @@ def gate_answer_payload(payload: Any, *, query: str, language: str = "en",
 
     return guard_answer_payload(payload, query=query, language=language,
                                 answer_key=answer_key)
+
+
+class InProcessRequest:
+    """The one part of a Request a JSON route reads (`await request.json()`),
+    for calling that route function in process with a body already in hand."""
+
+    def __init__(self, body: Dict[str, Any]):
+        self._body = body
+
+    async def json(self) -> Dict[str, Any]:
+        """The request body."""
+        return self._body
+
+
+def route_response_body(response: Any) -> Any:
+    """The decoded body of what a route function returned (a JSONResponse or a
+    plain dict), as an HTTP client would have read it."""
+    if isinstance(response, Response):
+        return json.loads(bytes(response.body).decode("utf-8"))
+    return response
 
 
 class SimpleRAGPipeline:
@@ -3929,205 +3949,93 @@ class SimpleAdminUI:
                 extractor.extract(text, use_llm=False)
             )
 
-            entities_data = [e.to_dict() for e in entities]
-            relationships_data = [r.to_dict() for r in relationships]
+            # Same gate as POST /api/kg/extract.
+            (entities_data, relationships_data), _ = gate_answer_payload(
+                [[e.to_dict() for e in entities], [r.to_dict() for r in relationships]],
+                query=text)
 
             return entities_data, relationships_data
 
         except Exception as e:
             return {"error": str(e)}, {}
 
-    def _handle_kg_query(self, question: str):
+    async def _admin_call(self, name: str, *args: Any) -> Any:
+        """Call one of the server's route functions in process, by name.
+
+        `admin_api` is filled in by create_app() once the routes exist. A tab
+        used outside a server has none and says so."""
+        api = getattr(self, "admin_api", None) or {}
+        function = api.get(name)
+        if function is None:
+            return {"status": "error", "error": "This tab needs the running server"}
+        return route_response_body(await function(*args))
+
+    async def _handle_kg_query(self, question: str):
         """Handle knowledge graph query."""
         if not question or not question.strip():
             return {"error": "Please enter a question"}
-
         try:
-            import aiohttp
-
-            async def query_kg():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/kg/query",
-                        json={"question": question}
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(query_kg())
-            return result
-
+            return await self._admin_call("kg_query", question)
         except Exception as e:
-            return {"error": str(e), "message": "Make sure the server is running"}
+            logger.error(f"KG query tab failed: {e}")
+            return {"error": str(e)}
 
-    def _handle_kg_treatments(self, symptom: str):
+    async def _handle_kg_treatments(self, symptom: str):
         """Handle treatment lookup for a symptom."""
         if not symptom or not symptom.strip():
             return {"error": "Please enter a symptom"}
-
         try:
-            import aiohttp
-
-            async def get_treatments():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"http://localhost:8000/api/kg/treatments/{symptom}"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_treatments())
-            return result
-
+            return await self._admin_call("kg_treatments", symptom)
         except Exception as e:
+            logger.error(f"KG treatments tab failed: {e}")
             return {"error": str(e)}
 
-    def _handle_kg_side_effects(self, medication: str):
+    async def _handle_kg_side_effects(self, medication: str):
         """Handle side effects lookup for a medication."""
         if not medication or not medication.strip():
             return {"error": "Please enter a medication name"}
-
         try:
-            import aiohttp
-
-            async def get_side_effects():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"http://localhost:8000/api/kg/side-effects/{medication}"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_side_effects())
-            return result
-
+            return await self._admin_call("kg_side_effects", medication)
         except Exception as e:
+            logger.error(f"KG side-effects tab failed: {e}")
             return {"error": str(e)}
 
-    def _handle_kg_health(self):
+    async def _handle_kg_health(self):
         """Handle knowledge graph health check."""
         try:
-            import aiohttp
-
-            async def check_health():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/kg/health"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(check_health())
-            return result
-
+            return await self._admin_call("kg_health")
         except Exception as e:
+            logger.error(f"KG health tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_kg_stats(self):
+    async def _handle_kg_stats(self):
         """Handle knowledge graph statistics."""
         try:
-            import aiohttp
-
-            async def get_stats():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/kg/stats"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_stats())
-            return result
-
+            return await self._admin_call("kg_stats")
         except Exception as e:
+            logger.error(f"KG stats tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_kg_import(self):
+    async def _handle_kg_import(self):
         """Handle importing base knowledge."""
         try:
-            import aiohttp
-
-            async def import_base():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/kg/import-base"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(import_base())
-            return result
-
+            return await self._admin_call("kg_import")
         except Exception as e:
+            logger.error(f"KG import tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
     # ==========================================================================
     # GRAPHRAG UI HANDLERS
     # ==========================================================================
 
-    def _handle_graphrag_query(self, query: str, method: str):
+    async def _handle_graphrag_query(self, query: str, method: str):
         """Handle GraphRAG query."""
         if not query.strip():
             return "Please enter a query", [], {}
-
         try:
-            import aiohttp
-
-            async def do_query():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/graphrag/query",
-                        json={"query": query, "method": method}
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(do_query())
-
+            result = await self._admin_call("graphrag_query", query, method)
             if result.get("status") == "success":
-                # The endpoint is gated; the tab gates what it shows as well, so
+                # The route is gated; the tab gates what it shows as well, so
                 # the panel cannot display a dose whatever answered it.
                 search_result, _ = gate_answer_payload(
                     result.get("result", {}), query=query, answer_key="response")
@@ -4139,85 +4047,32 @@ class SimpleAdminUI:
                     **search_result.get("metadata", {})
                 }
                 return response, entities, metadata
-            else:
-                return f"Error: {result.get('error', 'Unknown error')}", [], {}
-
+            return f"Error: {result.get('error', 'Unknown error')}", [], {}
         except Exception as e:
+            logger.error(f"GraphRAG query tab failed: {e}")
             return f"Error: {str(e)}", [], {}
 
-    def _handle_graphrag_start_indexing(self, method: str, update_mode: bool):
+    async def _handle_graphrag_start_indexing(self, method: str, update_mode: bool):
         """Handle starting GraphRAG indexing."""
         try:
-            import aiohttp
-
-            async def start_indexing():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/graphrag/index",
-                        json={"method": method, "update_mode": update_mode}
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(start_indexing())
-            return result
-
+            return await self._admin_call("graphrag_index", method, update_mode)
         except Exception as e:
+            logger.error(f"GraphRAG indexing tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_graphrag_index_status(self):
+    async def _handle_graphrag_index_status(self):
         """Handle getting GraphRAG indexing status."""
         try:
-            import aiohttp
-
-            async def get_status():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/graphrag/index/status"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_status())
-            return result
-
+            return await self._admin_call("graphrag_index_status")
         except Exception as e:
+            logger.error(f"GraphRAG index-status tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_graphrag_entity_search(self, query: str, entity_type: str):
+    async def _handle_graphrag_entity_search(self, query: str, entity_type: str):
         """Handle GraphRAG entity search."""
         try:
-            import aiohttp
-
-            async def search_entities():
-                type_param = "" if entity_type == "All" else f"&entity_type={entity_type}"
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"http://localhost:8000/api/graphrag/entities?query={query}&top_k=20{type_param}"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(search_entities())
-
+            result = await self._admin_call(
+                "graphrag_entities", query, None if entity_type == "All" else entity_type)
             if result.get("status") == "success":
                 entities = result.get("entities", [])
                 # Format for dataframe
@@ -4233,68 +4088,31 @@ class SimpleAdminUI:
                         round(e.get("score", 0), 2)
                     ])
                 return table_data, entities
-            else:
-                return [], [{"error": result.get("error", "Unknown error")}]
-
+            return [], [{"error": result.get("error", "Unknown error")}]
         except Exception as e:
+            logger.error(f"GraphRAG entity tab failed: {e}")
             return [], [{"error": str(e)}]
 
-    def _handle_graphrag_stats(self):
+    async def _handle_graphrag_stats(self):
         """Handle getting GraphRAG statistics."""
         try:
-            import aiohttp
-
-            async def get_stats():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "http://localhost:8000/api/graphrag/stats"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(get_stats())
-
+            result = await self._admin_call("graphrag_stats")
             if result.get("status") == "success":
                 return result.get("stats", {})
-            else:
-                return {"error": result.get("error", "Unknown error")}
-
+            return {"error": result.get("error", "Unknown error")}
         except Exception as e:
+            logger.error(f"GraphRAG stats tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def _handle_graphrag_verify(self):
+    async def _handle_graphrag_verify(self):
         """Handle GraphRAG index verification."""
         try:
-            import aiohttp
-
-            async def verify_index():
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        "http://localhost:8000/api/graphrag/verify"
-                    ) as resp:
-                        return await resp.json()
-
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(verify_index())
-
+            result = await self._admin_call("graphrag_verify")
             if result.get("status") == "success":
                 return result.get("verification", {})
-            else:
-                return {"error": result.get("error", "Unknown error")}
-
+            return {"error": result.get("error", "Unknown error")}
         except Exception as e:
+            logger.error(f"GraphRAG verify tab failed: {e}")
             return {"status": "error", "error": str(e)}
 
     # =========================================================================
@@ -7517,6 +7335,28 @@ def create_app(args: Any = None) -> FastAPI:
                 "status": "error",
                 "error": str(e)
             }, status_code=500)
+
+    # The admin panel's Knowledge Graph and GraphRAG tabs call these route
+    # functions in process. The panel is gated as a mount (auth/policy.py), so
+    # its caller is already a signed-in admin; calling over HTTP-to-self had no
+    # credential and got 401. No token is minted or forwarded for this.
+    admin_ui.admin_api = {
+        "kg_query": lambda question: kg_query_endpoint(InProcessRequest({"question": question})),
+        "kg_treatments": lambda symptom: kg_treatments_endpoint(symptom),
+        "kg_side_effects": lambda medication: kg_side_effects_endpoint(medication),
+        "kg_health": kg_health_endpoint,
+        "kg_stats": kg_stats_endpoint,
+        "kg_import": kg_import_base_endpoint,
+        "graphrag_query": lambda query, method: graphrag_query(
+            InProcessRequest({"query": query, "method": method})),
+        "graphrag_index": lambda method, update_mode: graphrag_index(
+            InProcessRequest({"method": method, "update_mode": update_mode})),
+        "graphrag_index_status": graphrag_index_status,
+        "graphrag_entities": lambda query, entity_type: graphrag_entities(
+            query=query, entity_type=entity_type, top_k=20),
+        "graphrag_stats": graphrag_stats,
+        "graphrag_verify": graphrag_verify_index,
+    }
 
     # ==========================================================================
     # END GRAPHRAG INTEGRATION
