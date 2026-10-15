@@ -100,11 +100,17 @@ class Webhook(unittest.TestCase):
         async def slow_process(*args):
             await asyncio.sleep(1.0)
 
-        with mock.patch.object(bot, "_process_twilio_message", slow_process):
+        from tests.test_webhook_verification import twilio_signature
+
+        params = {"From": f"whatsapp:{NUMBER}", "To": "whatsapp:+1",
+                  "Body": "breathless at night", "MessageSid": "SM1"}
+        env = {"TWILIO_AUTH_TOKEN": "token", "PUBLIC_BASE_URL": "https://palli.example.org"}
+        signature = twilio_signature("token", "https://palli.example.org/webhook", params)
+        with mock.patch.object(bot, "_process_twilio_message", slow_process), \
+                mock.patch.dict(os.environ, env):
             client = TestClient(bot.create_webhook_app())
             t0 = time.perf_counter()
-            response = client.post("/webhook", data={"From": f"whatsapp:{NUMBER}", "To": "whatsapp:+1",
-                                                     "Body": "breathless at night", "MessageSid": "SM1"})
+            response = client.post("/webhook", data=params, headers={"X-Twilio-Signature": signature})
             took = time.perf_counter() - t0
         self.assertEqual(response.status_code, 200)
         self.assertLess(took, 0.2)

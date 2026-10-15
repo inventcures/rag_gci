@@ -55,7 +55,7 @@ class CallerId(unittest.TestCase):
 class Wiring(unittest.TestCase):
     def test_the_endpoint_uses_the_caller_id_everywhere(self):
         source = open(os.path.join(ROOT, "simple_rag_server.py"), encoding="utf-8").read()
-        start = source.index('@app.post("/api/bolna/query")')
+        start = source.index('@app.post("/api/bolna/query"')
         route = source[start:source.index("@app.", start + 10)]
         self.assertNotIn('bolna_{source}', route)
         self.assertEqual(route.count("user_id=caller_id"), 3)

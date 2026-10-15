@@ -58,7 +58,15 @@ class PageIndexStorage:
         # Parsed trees, keyed by doc_id with the file's mtime: a query used
         # to read and parse every tree file from disk, on the event loop.
         self._trees: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+        # Bumped on every change to the index (a tree saved, deleted or its
+        # status changed), so a query cache can tell its results are stale.
+        self._revision = 0
         self._load_index()
+
+    @property
+    def revision(self) -> int:
+        """A counter that changes whenever the set of indexed trees changes."""
+        return self._revision
 
     def _load_index(self) -> None:
         if self._config.index_file.exists():
@@ -76,6 +84,7 @@ class PageIndexStorage:
             self._index = {}
 
     def _save_index(self) -> None:
+        self._revision += 1
         with open(self._config.index_file, 'w') as f:
             json.dump(
                 {k: v.to_dict() for k, v in self._index.items()},
