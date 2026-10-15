@@ -431,40 +431,18 @@ class StructuredPayloadsPassTheGate(unittest.TestCase):
 
 class AdminGraphRAGTabShowsTheGuardedText(unittest.TestCase):
     def test_the_tab_never_displays_a_dose(self):
+        """Even if the route it calls handed back a dose, the tab shows none."""
         import simple_rag_server as srv
 
-        class _Response:
-            async def json(self):
-                return {"status": "success",
-                        "result": {"response": DOSE_ANSWER, "method": "local",
-                                   "entities": [{"title": "Morphine", "description": DOSE_LINE}],
-                                   "metadata": {"note": DOSE_LINE}}}
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *exc):
-                return False
-
-        class _Session:
-            def post(self, *args, **kwargs):
-                return _Response()
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *exc):
-                return False
+        async def unguarded_route(query, method):
+            return {"status": "success",
+                    "result": {"response": DOSE_ANSWER, "method": "local",
+                               "entities": [{"title": "Morphine", "description": DOSE_LINE}],
+                               "metadata": {"note": DOSE_LINE}}}
 
         ui = srv.SimpleAdminUI.__new__(srv.SimpleAdminUI)
-        with mock.patch("aiohttp.ClientSession", _Session):
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                response, entities, metadata = ui._handle_graphrag_query("How much morphine?", "local")
-            finally:
-                asyncio.set_event_loop(None)
-                loop.close()
+        ui.admin_api = {"graphrag_query": unguarded_route}
+        response, entities, metadata = run(ui._handle_graphrag_query("How much morphine?", "local"))
         shown = strings_in([response, entities, metadata])
         self.assertEqual([s for s in shown if contains_dose(s)], [])
         self.assertTrue(response.endswith(_redaction_note("en")))
