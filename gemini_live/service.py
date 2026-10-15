@@ -35,7 +35,6 @@ from .config import (
     VOICE_OPTIONS,
     DEFAULT_VOICE,
     INPUT_SAMPLE_RATE,
-    is_translation_model,
     model_supports_rag,
     model_uses_auto_language,
     live_language,
@@ -546,7 +545,7 @@ class GeminiLiveService:
             raise GeminiLiveError(
                 f"Configured Gemini Live model '{self.model}' is not supported. "
                 f"Supported: {', '.join(sorted(SUPPORTED_MODELS))}. "
-                f"Fix gemini_live.model in config.yaml."
+                f"Fix models.voice_primary.model in data/study/release.yaml."
             )
         self.rag_pipeline = rag_pipeline
 
@@ -723,9 +722,7 @@ CONVERSATION STYLE:
                       ("hi", "bn-IN"). Any other language is refused.
             voice: Voice name (Aoede, Puck, Kore, etc.)
             system_instruction: Custom system prompt to append
-            model: Live model ID (default from config). Translator models
-                   (e.g. gemini-3.5-live-translate-preview) translate speech
-                   into `language` instead of acting as an assistant.
+            model: Live model ID (default: the study release's).
 
         Returns:
             GeminiLiveSession object
@@ -758,12 +755,9 @@ CONVERSATION STYLE:
             )
             voice = DEFAULT_VOICE
 
-        if is_translation_model(model):
-            config = self._build_translation_config(language)
-        else:
-            config = self._build_assistant_config(
-                model, language, voice, system_instruction
-            )
+        config = self._build_assistant_config(
+            model, language, voice, system_instruction
+        )
 
         # Add transcription if enabled
         if self.config.transcription_enabled:
@@ -851,34 +845,6 @@ CONVERSATION STYLE:
             )
 
         return config
-
-    def _build_translation_config(
-        self,
-        language: str
-    ) -> types.LiveConnectConfig:
-        """
-        Build LiveConnectConfig for speech-to-speech translator models.
-
-        Translator models take no system instruction or voice config; the
-        source language is auto-detected and output is translated into the
-        session language.
-        """
-        if not hasattr(types, "TranslationConfig"):
-            raise GeminiLiveError(
-                "This google-genai SDK version does not support translation "
-                "models. Upgrade with: pip install -U google-genai"
-            )
-
-        # TranslationConfig expects a bare BCP-47 primary tag (e.g. 'hi')
-        target_language = language.split("-")[0]
-
-        return types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
-            translation_config=types.TranslationConfig(
-                target_language_code=target_language,
-                echo_target_language=True,
-            ),
-        )
 
     async def inject_guarded_answer(
         self,
@@ -1041,14 +1007,12 @@ class GeminiLiveSession:
         self.language = language
         self.voice = voice
         self.model = model or service.model
-        self.is_translation = is_translation_model(self.model)
 
         # RAG grounding via Live API function calling: the model calls the
         # search tool and waits for its result before generating the answer
         self._rag_tool_enabled = bool(
             service.rag_pipeline
             and service.config.rag_context_enabled
-            and not self.is_translation
         )
 
         # Session state
@@ -1219,16 +1183,8 @@ class GeminiLiveSession:
         Send text to Gemini using the API the model accepts.
 
         Gemini 3.x live models reject send_client_content after the first
-        model turn; text must then go via send_realtime_input. Translator
-        models do not accept text input at all.
+        model turn; text must then go via send_realtime_input.
         """
-        if self.is_translation:
-            logger.warning(
-                f"Session {self.session_id}: translator model does not "
-                f"accept text input, dropping message"
-            )
-            return
-
         if model_uses_realtime_text(self.model) and self._model_turn_seen:
             await self._session.send_realtime_input(text=text)
         else:
@@ -1304,13 +1260,7 @@ class GeminiLiveSession:
                                 self.transcription_buffer.append(text)
                                 self._pending_transcription.append(text)
                                 logger.debug(f"User transcription: {text}")
-                                # Translator models never send turn_complete,
-                                # so relay transcription fragments immediately
-                                if self.is_translation:
-                                    await self._audio_out_queue.put(
-                                        {"role": "user", "text": text, "partial": True}
-                                    )
-                                elif self._is_stop_command(text):
+                                if self._is_stop_command(text):
                                     logger.info(
                                         f"🛑 Stop phrase detected while model "
                                         f"speaking: {text!r}"
@@ -1324,10 +1274,6 @@ class GeminiLiveSession:
                             text = content.output_transcription.text
                             if text:
                                 self.response_buffer.append(text)
-                                if self.is_translation:
-                                    await self._audio_out_queue.put(
-                                        {"role": "assistant", "text": text, "partial": True}
-                                    )
 
                         # Turn complete - trigger RAG query with accumulated transcription
                         if content.turn_complete:
@@ -1462,9 +1408,7 @@ class GeminiLiveSession:
 
     async def _query_rag_and_inject(self) -> None:
         """Query RAG pipeline with user transcription and inject context."""
-        if self.is_translation or not model_supports_rag(self.model):
-            # Translator models only translate speech; they accept no text
-            # input, so RAG/safety/decline injection cannot apply
+        if not model_supports_rag(self.model):
             self._pending_transcription.clear()
             return
 
@@ -1787,7 +1731,6 @@ Please use this information to provide an accurate, grounded response. Mention t
             "language": self.language,
             "voice": self.voice,
             "model": self.model,
-            "is_translation": self.is_translation,
             "is_active": self.is_active,
             "is_connected": self.is_connected,
             "created_at": self.created_at.isoformat(),

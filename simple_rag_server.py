@@ -5572,58 +5572,58 @@ def create_app(args: Any = None) -> FastAPI:
 
     async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
         """
-        Stream audio responses from Gemini Live back to the WebSocket client.
+        Relay Gemini Live's turns to the WebSocket client, each one only after
+        what Live said has passed the Dose Boundary.
+
+        A turn's audio is held until the turn completes; then its transcript is
+        checked (gemini_live.turn_release) and either the audio is released, or
+        the guarded text (a Redacted Answer or the Deferral) is sent instead and
+        the audio never is. Per turn the client receives: the audio (when
+        released), the assistant transcription, the caller's transcription,
+        then turn_complete.
 
         Args:
             websocket: The WebSocket connection
             session: The active Gemini Live session
             user_id: User identifier for logging
         """
+        from gemini_live.turn_release import check_live_turn
+
+        held: List[bytes] = []
         try:
             logger.info(f"Starting response stream for user {user_id}")
 
             async for response in session.receive_audio():
-                # Check if it's a special marker
                 if isinstance(response, bytes):
-                    if response == b"__TURN_COMPLETE__":
-                        # Turn complete - send transcriptions
-                        await websocket.send_json({"type": "turn_complete"})
+                    if response == session.TURN_COMPLETE:
+                        spoken = session.get_response_transcription(clear=True)
+                        heard = session.get_transcription(clear=True)
+                        release = check_live_turn(held, spoken, heard, session.language)
+                        held = []
 
-                        # Send assistant response transcription
-                        response_text = session.get_response_transcription(clear=True)
-                        if response_text:
-                            await websocket.send_json({
-                                "type": "transcription",
-                                "role": "assistant",
-                                "text": response_text
-                            })
-
-                        # Send user input transcription
-                        user_text = session.get_transcription(clear=True)
-                        if user_text:
+                        for chunk in release.audio:
+                            await websocket.send_bytes(chunk)
+                        if release.text:
+                            frame = {"type": "transcription", "role": "assistant",
+                                     "text": release.text}
+                            if release.withheld:
+                                frame["withheld"] = True
+                            await websocket.send_json(frame)
+                        if heard:
                             await websocket.send_json({
                                 "type": "transcription",
                                 "role": "user",
-                                "text": user_text
+                                "text": heard
                             })
+                        await websocket.send_json({"type": "turn_complete"})
 
-                    elif response == b"__INTERRUPTED__":
-                        # User interrupted - notify client
+                    elif response == session.INTERRUPTED:
+                        # Barge-in: the unreleased audio is dropped, never played.
+                        held = []
                         await websocket.send_json({"type": "interrupted"})
 
                     else:
-                        # Regular audio chunk - send as binary
-                        await websocket.send_bytes(response)
-
-                elif isinstance(response, dict):
-                    # Handle dict responses (transcriptions, etc.)
-                    if "text" in response:
-                        await websocket.send_json({
-                            "type": "transcription",
-                            "role": response.get("role", "assistant"),
-                            "text": response["text"],
-                            "partial": response.get("partial", False)
-                        })
+                        held.append(response)
 
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected during response stream for {user_id}")
@@ -5650,10 +5650,24 @@ def create_app(args: Any = None) -> FastAPI:
         - Server sends binary audio responses (Int16 PCM, 24kHz, mono)
         - Server sends JSON transcription/status messages
         - Client can send {"type": "set_language", "language": "hi-IN"} to switch language
-        - Client can send {"type": "set_model", "model": "gemini-3.1-flash-live-preview"}
-          to switch the Live model (takes effect on next start_audio)
+        - Server sends a turn's audio only after its transcript has passed the
+          Dose Boundary; otherwise only the guarded text (stream_gemini_responses)
+
+        Who is calling comes from the socket's Authorization header (a
+        participant's access token), never from a frame: a `user_id` in the
+        config is ignored. Without a participant token the session is
+        ephemeral, keyed on this socket alone, so it loads no one's context and
+        leaves no longitudinal record (latency decision 07).
+
+        The Live model is the study release's (release.yaml
+        models.voice_primary.model). A client cannot choose it: a `model` in
+        the config and any `set_model` are refused with an error frame.
         """
         await websocket.accept()
+        from auth.policy import authenticate_connection
+        from participants import ephemeral
+
+        caller = authenticate_connection(websocket)
 
         # Check if Gemini Live is available
         if not gemini_live_enabled:
@@ -5666,8 +5680,16 @@ def create_app(args: Any = None) -> FastAPI:
 
         session = None
         language = "en-IN"
-        model = None
-        user_id = f"web_{datetime.now().timestamp()}_{id(websocket)}"
+        # The session manager keys sessions, and the answer path keys patient
+        # context and the longitudinal record, on this id. An administrator is
+        # not a participant here, so an admin token is ephemeral too.
+        anonymous = caller is None or caller.is_admin
+        if not anonymous:
+            user_id = caller.user_id
+        else:
+            user_id = ephemeral("web_voice", uuid.uuid4().hex)
+        model_refusal = ("The Live model is fixed by the study release and cannot be "
+                         "chosen by the client.")
         response_task = None
         # The Live connection opens when the config arrives, while the caller
         # is still getting ready to speak, not when their first audio does.
@@ -5679,6 +5701,8 @@ def create_app(args: Any = None) -> FastAPI:
         try:
             while True:
                 data = await websocket.receive()
+                if data.get("type") == "websocket.disconnect":
+                    break
 
                 # Handle text messages (JSON commands)
                 if "text" in data:
@@ -5689,17 +5713,19 @@ def create_app(args: Any = None) -> FastAPI:
                         if msg_type == "config":
                             # Initial configuration
                             language = message.get("language", "en-IN")
-                            model = message.get("model") or model
-                            user_id = message.get("user_id", user_id)
-                            logger.info(f"Config received: user={user_id}, language={language}, model={model or 'default'}")
+                            requested = message.get("model")
+                            if requested and requested != gemini_session_manager.service.model:
+                                logger.warning(f"Refused client-chosen Live model {requested!r} for {user_id}")
+                                await websocket.send_json({"type": "error", "error": model_refusal})
+                            logger.info(f"Config received: user={user_id}, language={language}")
 
                             await websocket.send_json({
                                 "type": "config_ack",
-                                "user_id": user_id,
                                 "language": language,
-                                "model": model
+                                "model": gemini_session_manager.service.model,
+                                "anonymous": anonymous,
                             })
-                            await preconnect.open(user_id, language, model)
+                            await preconnect.open(user_id, language, None)
 
                         elif msg_type == "start_audio":
                             # Create or get session for this user
@@ -5713,7 +5739,7 @@ def create_app(args: Any = None) -> FastAPI:
                                     user_id=user_id,
                                     language=language,
                                     voice="Aoede",  # Warm, empathetic voice for healthcare
-                                    model=model
+                                    model=None,  # the study release's
                                 )
 
                                 await websocket.send_json({
@@ -5748,7 +5774,7 @@ def create_app(args: Any = None) -> FastAPI:
                                 await preconnect.settle()
                                 await gemini_session_manager.close_session(user_id)
                                 session = None
-                                await preconnect.open(user_id, language, model)
+                                await preconnect.open(user_id, language, None)
 
                                 await websocket.send_json({
                                     "type": "language_changed",
@@ -5756,22 +5782,9 @@ def create_app(args: Any = None) -> FastAPI:
                                 })
 
                         elif msg_type == "set_model":
-                            # Switch Live model - requires new session
-                            new_model = message.get("model") or None
-                            if new_model != model:
-                                logger.info(f"Switching model from {model or 'default'} to {new_model or 'default'} for {user_id}")
-                                model = new_model
-
-                                # Close existing session; reconnect on the new model
-                                await preconnect.settle()
-                                await gemini_session_manager.close_session(user_id)
-                                session = None
-                                await preconnect.open(user_id, language, model)
-
-                            await websocket.send_json({
-                                "type": "model_changed",
-                                "model": model
-                            })
+                            # The study release fixes the Live model.
+                            logger.warning(f"Refused set_model {message.get('model')!r} for {user_id}")
+                            await websocket.send_json({"type": "error", "error": model_refusal})
 
                         elif msg_type == "text":
                             # Text message (for hybrid mode)
@@ -5838,25 +5851,27 @@ def create_app(args: Any = None) -> FastAPI:
 
     @app.get("/api/voice/models")
     async def voice_models():
-        """List Gemini Live models selectable from the voice web app."""
+        """The Live model web voice runs: the study release's, and only it.
+        Clients cannot choose a model, so there is nothing else to list."""
         if not GEMINI_LIVE_AVAILABLE:
             return {"enabled": False, "default": None, "models": []}
 
         from gemini_live import SUPPORTED_MODELS
-        gemini_config = get_gemini_config()
+        from gemini_live.config import release_live_model
 
+        model_id = release_live_model()
+        info = SUPPORTED_MODELS.get(model_id, {})
         return {
             "enabled": gemini_live_enabled,
-            "default": gemini_config.model,
+            "default": model_id,
             "models": [
                 {
                     "id": model_id,
-                    "label": info["label"],
-                    "description": info["description"],
-                    "kind": info["kind"],
+                    "label": info.get("label", model_id),
+                    "description": info.get("description", ""),
+                    "kind": info.get("kind", "assistant"),
                 }
-                for model_id, info in SUPPORTED_MODELS.items()
-            ],
+            ] if model_id else [],
         }
 
     @app.get("/api/voice/languages")
