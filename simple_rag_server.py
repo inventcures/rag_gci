@@ -5130,15 +5130,23 @@ def create_app(args: Any = None) -> FastAPI:
     # Create Gradio interface
     gradio_app = admin_ui.create_gradio_interface()
     
-    # Create FastAPI app
-    app = FastAPI(title="Simple RAG Server with WhatsApp Bot")
+    # Create FastAPI app. Every route passes the one authentication policy
+    # (auth/policy.py): public, participant or admin, declared in ROUTE_POLICIES.
+    from auth.policy import cors_allowed_origins, enforce_route_policy
+    app = FastAPI(
+        title="Simple RAG Server with WhatsApp Bot",
+        dependencies=[Depends(enforce_route_policy)],
+    )
     # One error shape, no traceback in any body (api_errors.py).
     from api_errors import install_error_handlers
     install_error_handlers(app)
 
+    # Only the study's own origins may call the API from a browser; none by default.
+    _cors_origins = cors_allowed_origins()
+    logger.info("CORS allowed origins: %s", _cors_origins or "none")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -8199,6 +8207,15 @@ def create_app(args: Any = None) -> FastAPI:
     if web_client_path.exists():
         app.mount("/voice", StaticFiles(directory="web_client", html=True), name="voice")
         logger.info("🎤 Voice interface available at /voice")
+
+    # Mounted apps (the Gradio admin panel) are outside the app-wide dependency:
+    # gate them by their declared policy. An undeclared route is served as
+    # admin-only, and named here so it gets a row in ROUTE_POLICIES.
+    from auth.policy import guard_mounts, undeclared_routes
+    guard_mounts(app)
+    _undeclared = undeclared_routes(app)
+    if _undeclared:
+        logger.error("Routes with no declared policy (served admin-only): %s", _undeclared)
 
     # What main() reports at startup.
     app.state.whatsapp_bot = whatsapp_bot

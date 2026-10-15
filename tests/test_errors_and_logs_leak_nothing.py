@@ -89,6 +89,17 @@ class ErrorResponsesHaveOneShape(unittest.TestCase):
             raise RuntimeError("secret internal detail /srv/app/data.db")
 
         cls.client = TestClient(cls.app, raise_server_exceptions=False)
+        # Every route is behind the route policy (auth/policy.py); sign in as an
+        # administrator so the error handlers, not the policy, answer.
+        from auth.policy import issue_admin_token
+
+        cls.env = mock.patch.dict(os.environ, {"ADMIN_JWT_SECRET": "errors-test-admin-secret-0123456789abcdef"})
+        cls.env.start()
+        cls.client.headers["Authorization"] = f"Bearer {issue_admin_token('errors-test')}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.env.stop()
 
     def assert_one_shape(self, response, status):
         self.assertEqual(response.status_code, status, response.text)

@@ -33,15 +33,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
 
 import study_outcomes
-from voice_provider import PROVIDER_LIVE, PROVIDER_SARVAM, get_voice_provider_control
+from auth.models import AuthenticatedUser
+from auth.policy import require_admin
+from voice_provider import PROVIDER_LIVE, PROVIDER_SARVAM, AuditWriteError, get_voice_provider_control
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Admin-only wherever it is mounted: participant interactions and the
+# deployment-wide voice override are behind the admin role.
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 PAGE_TEMPLATE = """<!doctype html>
 <html lang="en"><head>
@@ -489,27 +493,30 @@ async def get_voice_provider() -> Dict[str, Any]:
 @router.post("/api/voice/provider")
 async def set_voice_provider(
     provider: str = Body(..., embed=True),
-    actor: str = Body("", embed=True),
     reason: str = Body("", embed=True),
+    admin: AuthenticatedUser = Depends(require_admin),
 ) -> Dict[str, Any]:
     """
     Select the voice provider for the whole deployment.
 
     An audit record with actor, time, previous value and a required reason. Forcing
     the India-resident path is incident response rather than a preference, so it has
-    to be explainable later without relying on anyone's memory.
+    to be explainable later without relying on anyone's memory. The actor is the
+    admin token's subject; an "actor" field in the body is ignored, so the trail
+    can't be forged. If the audit record can't be written the change is rolled
+    back and the call answers 503.
     """
     if provider not in (PROVIDER_LIVE, PROVIDER_SARVAM):
         raise HTTPException(
             status_code=400,
             detail=f"provider must be {PROVIDER_LIVE} or {PROVIDER_SARVAM}",
         )
-    if not actor.strip():
-        raise HTTPException(status_code=400, detail="actor is required")
     try:
-        setting = get_voice_provider_control().set_provider(provider, actor, reason)
+        setting = get_voice_provider_control().set_provider(provider, admin.user_id, reason)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except AuditWriteError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return setting.to_dict()
 
 
