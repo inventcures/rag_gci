@@ -6325,8 +6325,13 @@ def create_app(args: Any = None) -> FastAPI:
     @app.post("/api/medication/voice-reminder")
     async def create_voice_reminder_endpoint(request: Request):
         """
-        Create a new medication voice reminder.
-        
+        Create a new medication voice reminder (admin only, auth/policy.py).
+
+        The call names the medicine and the time, never the dose: "dosage" is
+        stored with the reminder and never spoken (ADR 0004, decision D10).
+        A request without a phone number, medicine or valid time is refused
+        with 422 and nothing is scheduled.
+
         Request Body:
         {
             "user_id": "phone_number",
@@ -6338,30 +6343,41 @@ def create_app(args: Any = None) -> FastAPI:
         }
         """
         if not MEDICATION_VOICE_AVAILABLE:
-            return JSONResponse({"error": "Voice reminder system not available"}, status_code=503)
-        
+            return JSONResponse({"status": "error", "error": "Voice reminder system not available"},
+                                status_code=503)
+
         try:
             data = await request.json()
-            
-            reminder = voice_reminder_system.create_voice_reminder(
-                user_id=data.get("user_id"),
-                phone_number=data.get("phone_number"),
-                medication_name=data.get("medication_name"),
-                dosage=data.get("dosage"),
-                reminder_time=datetime.fromisoformat(data.get("reminder_time")),
-                language=data.get("language", "en"),
-                preferred_provider=data.get("provider", "bolna")
-            )
-            
-            return JSONResponse({
-                "status": "success",
-                "reminder_id": reminder.reminder_id,
-                "scheduled_time": reminder.scheduled_time.isoformat()
-            })
-            
-        except Exception as e:
-            logger.error(f"Error creating voice reminder: {e}")
-            return JSONResponse({"error": str(e)}, status_code=500)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="The body must be JSON")
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=422, detail="The body must be a JSON object")
+        phone_number = str(data.get("phone_number") or "").strip()
+        if not phone_number:
+            raise HTTPException(status_code=422, detail="A reminder call needs a phone number")
+        medication_name = str(data.get("medication_name") or "").strip()
+        if not medication_name:
+            raise HTTPException(status_code=422, detail="A reminder needs a medicine name")
+        try:
+            reminder_time = datetime.fromisoformat(str(data.get("reminder_time") or ""))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="reminder_time must be an ISO date and time")
+
+        reminder = voice_reminder_system.create_voice_reminder(
+            user_id=str(data.get("user_id") or phone_number),
+            phone_number=phone_number,
+            medication_name=medication_name,
+            dosage=str(data.get("dosage") or ""),
+            reminder_time=reminder_time,
+            language=data.get("language", "en"),
+            preferred_provider=data.get("provider", "bolna")
+        )
+
+        return JSONResponse({
+            "status": "success",
+            "reminder_id": reminder.reminder_id,
+            "scheduled_time": reminder.scheduled_time.isoformat()
+        })
     
     @app.get("/api/medication/voice-reminders/{user_id}")
     async def get_user_voice_reminders_endpoint(user_id: str):

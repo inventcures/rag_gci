@@ -533,16 +533,23 @@ async def create_reminder(
     medication_manager = get_medication_manager()
     if medication_manager is None:
         raise HTTPException(status_code=503, detail="Medication manager not available")
+    if not (request.phone_number or "").strip():
+        # A reminder call with no number to ring would be scheduled and never
+        # reach anyone. The app keeps its own reminders on the device.
+        raise HTTPException(status_code=422, detail="A reminder call needs a phone number")
     from datetime import datetime
     scheduled_dt = datetime.fromtimestamp(request.scheduled_time)
-    result = medication_manager.create_voice_reminder(
-        user_id=user.user_id,
-        phone_number="",
-        medication_name=request.medication_name,
-        dosage=request.dosage,
-        reminder_time=scheduled_dt,
-        language=request.language,
-    )
+    try:
+        result = medication_manager.create_voice_reminder(
+            user_id=user.user_id,
+            phone_number=request.phone_number,
+            medication_name=request.medication_name,
+            dosage=request.dosage or "",
+            reminder_time=scheduled_dt,
+            language=request.language,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     reminder_id = result.reminder_id if hasattr(result, "reminder_id") else str(uuid.uuid4())
     return ReminderResponse(reminder_id=reminder_id, status="created")
 
