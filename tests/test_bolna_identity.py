@@ -61,10 +61,11 @@ class Wiring(unittest.TestCase):
         source = open(os.path.join(ROOT, "simple_rag_server.py"), encoding="utf-8").read()
         start = source.index('@app.post("/api/bolna/llm/')
         route = source[start:source.index("@app.", start + 10)]
-        self.assertIn("bolna_caller_id(caller_fields(messages))", route)
+        self.assertIn("caller_id = bolna_caller_id(fields)", route)
         turn = inspect.getsource(simple_rag_server.answer_bolna_turn)
         self.assertNotIn('bolna_{source}', turn)
-        self.assertEqual(turn.count("user_id=caller_id"), 3)
+        # safety check, query, voice optimisation and the study row (ticket 13)
+        self.assertEqual(turn.count("user_id=caller_id"), 4)
 
     def test_the_agent_config_sends_the_system_variables(self):
         from bolna_integration.config import get_palli_sahayak_agent_config

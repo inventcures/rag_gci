@@ -172,7 +172,7 @@ class WebAnswersAreGuarded(unittest.TestCase):
         source = inspect.getsource(simple_rag_server.create_app)
         route = source[source.index('@app.post("/api/query")'):]
         route = route[: route.index("@app.", 10)]
-        self.assertIn("answer_web_query(rag_pipeline, query, language=language)", route)
+        self.assertIn("answer_web_query(rag_pipeline, query, language=language,", route)
         self.assertNotIn("rag_pipeline.query(", route)
 
     def test_bolna_answers_are_guarded_before_voice_optimisation(self):
