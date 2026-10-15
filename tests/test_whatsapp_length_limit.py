@@ -24,7 +24,7 @@ from tests.test_text_path_dose_guard import RealisticRag, make_bot  # noqa: E402
 NUMBER = "whatsapp:+910000000000"
 TWILIO_LIMIT = 1600
 SHORT_ANSWER = "Sit upright, use a fan near the face, and call your nurse if it worsens."
-LONG_ENGLISH = "Turn the patient every two hours to protect the skin. " * 60
+LONG_ENGLISH = "Change the patient's position often to protect the skin. " * 60
 LONG_HINDI = (
     "पैलियेटिव केयर एक विशेषज्ञ चिकित्सा देखभाल है जो गंभीर बीमारी से पीड़ित रोगियों के लिए "
     "दर्द और लक्षणों से राहत प्रदान करती है। "

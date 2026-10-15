@@ -22,7 +22,7 @@ import ast
 import re
 import unittest
 from pathlib import Path
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Set, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
@@ -142,15 +142,41 @@ class NothingImportsTheKotaemonPipeline(unittest.TestCase):
         self.assertFalse(names & {"ktem", "kotaemon"})
 
 
-def is_check(node: ast.AST) -> bool:
+def called_name(node: ast.AST) -> str:
+    """The name a call invokes: `f(...)` and `obj.f(...)` both give "f"."""
+    if not isinstance(node, ast.Call):
+        return ""
+    func = node.func
+    return func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+
+
+def is_check(node: ast.AST, checking_helpers: Set[str] = frozenset()) -> bool:
     """An assert statement, or a call that fails a test when it does not hold."""
     if isinstance(node, ast.Assert):
         return True
-    if isinstance(node, ast.Call):
-        func = node.func
-        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-        return name.startswith("assert") or name in {"raises", "fail", "warns"}
-    return False
+    name = called_name(node)
+    if not name:
+        return False
+    # Helpers count when their name says they assert (`assert_no_dose`), or when
+    # they are defined in the same file and themselves assert (`post_events`).
+    return ("assert" in name.lower() or name in {"raises", "fail", "warns"}
+            or name in checking_helpers)
+
+
+def checking_helpers(tree: ast.Module) -> Set[str]:
+    """Names of the file's functions and methods that assert, directly or via each other."""
+    functions = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    found: Set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for function in functions:
+            if function.name not in found and any(
+                is_check(node, found) for node in ast.walk(function)
+            ):
+                found.add(function.name)
+                changed = True
+    return found
 
 
 def collected_tests(tree: ast.Module) -> Iterator[ast.AST]:
@@ -182,8 +208,9 @@ class EveryTestIsCollectedAndAsserts(unittest.TestCase):
         silent = []
         for path in sorted(TESTS.glob("test_*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            helpers = checking_helpers(tree)
             for test in collected_tests(tree):
-                if not any(is_check(node) for node in ast.walk(test)):
+                if not any(is_check(node, helpers) for node in ast.walk(test)):
                     silent.append(f"{path.name}:{test.lineno} {test.name}")
         self.assertEqual(silent, [], "a test that asserts nothing cannot fail")
 

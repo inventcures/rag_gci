@@ -31,7 +31,7 @@ BLANK_PDF = (
     b"0000000000 65535 f\n0000000009 00000 n\n0000000074 00000 n\n0000000120 00000 n\n"
     b"trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n178\n%%EOF"
 )
-HINDI_TEXT = "दबाव के घावों से बचने के लिए रोगी को हर दो घंटे में करवट दिलाएं। " * 80
+HINDI_TEXT = "दबाव के घावों से बचने के लिए रोगी को बार-बार करवट दिलाएं। " * 80
 
 
 class UploadedDocuments(unittest.TestCase):

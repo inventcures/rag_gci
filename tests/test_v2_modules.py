@@ -34,8 +34,8 @@ from clinical_validation.feedback import FeedbackChannel, FeedbackType  # noqa: 
 from personalization import ContextMemory, InteractionHistory  # noqa: E402
 
 SAFE_QUERY = "How do I prevent bedsores?"
-SAFE_ANSWER = "Turn the patient every two hours and keep the skin clean and dry. Ask your nurse."
-SOURCES = [{"title": "Home care guide", "content": "Turn the patient every two hours."}]
+SAFE_ANSWER = "Change the patient's position often and keep the skin clean and dry. Ask your nurse."
+SOURCES = [{"title": "Home care guide", "content": "Change position often and keep skin dry."}]
 
 
 def run(coro):
