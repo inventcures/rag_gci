@@ -179,7 +179,7 @@ class WebAnswersAreGuarded(unittest.TestCase):
         import simple_rag_server
 
         source = inspect.getsource(simple_rag_server.create_app)
-        route = source[source.index('@app.post("/api/bolna/query")'):]
+        route = source[source.index('@app.post("/api/bolna/query"'):]
         route = route[: route.index("@app.", 10)]
         guard_at = route.index("guard_query_result(rag_result")
         self.assertLess(guard_at, route.index("optimize_for_voice"))

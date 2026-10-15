@@ -297,10 +297,21 @@ class PublicRoutesStayOpen(ServerHarness):
                              ("GET", "/api/mobile/v1/health")):
             with self.subTest(route=f"{method} {path}"):
                 self.assertEqual(self.call(method, path).status_code, 200)
-        for method, path in (("POST", "/api/bolna/webhook"), ("POST", "/api/retell/webhook"),
-                             ("POST", "/api/sarvam/webhook"), ("POST", "/webhook")):
-            with self.subTest(route=f"{method} {path}"):
-                self.assertNotIn(self.call(method, path).status_code, (401, 403))
+
+    def test_webhooks_are_public_and_verify_their_own_caller(self):
+        # Their signatures are checked by the webhook itself (webhook_auth.py), so
+        # a valid admin token does not open one either.
+        from auth.policy import Access, policy_for
+
+        for path in ("/api/bolna/webhook", "/api/bolna/query", "/api/retell/webhook",
+                     "/api/sarvam/webhook", "/webhook", "/ws/retell/llm/{call_id}"):
+            with self.subTest(path=path):
+                policy = policy_for(path)
+                self.assertIs(policy.access, Access.PUBLIC)
+                self.assertTrue(policy.note.startswith("own verification"), policy.note)
+        for path in ("/api/bolna/webhook", "/api/retell/webhook", "/api/sarvam/webhook", "/webhook"):
+            with self.subTest(path=path):
+                self.assertIn(self.call("POST", path, self.admin).status_code, (401, 403))
 
 
 class TheAdminPanelIsGated(ServerHarness):

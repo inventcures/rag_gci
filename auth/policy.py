@@ -43,6 +43,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from auth.jwt_handler import ACCESS
 from auth.middleware import get_jwt_handler
 from auth.models import AuthenticatedUser
 
@@ -120,7 +121,7 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     "/api/mobile/v1/release/status": RoutePolicy(Access.PUBLIC, "release gate, read before sign-in"),
     "/api/mobile/v1/auth/register": PUBLIC,
     "/api/mobile/v1/auth/login": RoutePolicy(Access.PUBLIC, "own verification: PIN"),
-    "/api/mobile/v1/auth/refresh": RoutePolicy(Access.PUBLIC, "own verification: the route checks its token (ticket 08)"),
+    "/api/mobile/v1/auth/refresh": RoutePolicy(Access.PUBLIC, "own verification: the refresh token (ticket 08)"),
     "/api/mobile/v1/ws/voice": RoutePolicy(
         Access.PUBLIC, "the Android client opens it without a token; no identity is read from it"
     ),
@@ -254,9 +255,9 @@ def _participant_from_token(token: str) -> Optional[AuthenticatedUser]:
     handler = get_jwt_handler()
     if handler is None:
         return None
-    payload = handler.verify_token(token)
     # Only an access token identifies a session; a refresh token is for /auth/refresh.
-    if not payload or payload.get("type") != "access" or not payload.get("user_id"):
+    payload = handler.verify_token(token, ACCESS)
+    if not payload or payload.get("type") != ACCESS or not payload.get("user_id"):
         return None
     return AuthenticatedUser(
         user_id=str(payload["user_id"]),
@@ -365,7 +366,8 @@ class PolicyGate:
         try:
             check_access(conn, self.policy)
         except HTTPException as exc:
-            response = JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+            response = JSONResponse({"status": "error", "error": exc.detail},
+                                    status_code=exc.status_code, headers=exc.headers)
             await response(scope, receive, send)
             return
         except WebSocketException as exc:

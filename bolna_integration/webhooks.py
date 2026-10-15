@@ -149,7 +149,8 @@ class BolnaWebhookHandler:
 
         self.active_calls[call_id] = record
 
-        logger.info(f"Call started: {call_id} from {record.phone_number}")
+        logger.info(f"Call started: {call_id}")
+        logger.debug(f"Call {call_id} caller: {record.phone_number}")
 
         return {
             "status": "recorded",
@@ -177,7 +178,7 @@ class BolnaWebhookHandler:
 
             # Log summary if available
             if record.summary:
-                logger.info(f"Call summary: {record.summary[:200]}...")
+                logger.debug(f"Call summary: {record.summary[:200]}...")
 
         return {
             "status": "recorded",
@@ -196,7 +197,8 @@ class BolnaWebhookHandler:
         elif call_id in self.active_calls:
             self.active_calls[call_id].extracted_data = extracted
 
-        logger.info(f"Extraction completed for {call_id}: {extracted}")
+        logger.info(f"Extraction completed for {call_id}: fields {sorted(extracted)}")
+        logger.debug(f"Extraction for {call_id}: {extracted}")
 
         # Check if follow-up is needed
         if extracted.get("follow_up_needed") in (True, "yes", "Yes"):
@@ -206,7 +208,8 @@ class BolnaWebhookHandler:
         # Check urgency level
         urgency = extracted.get("urgency_level", "low")
         if urgency in ("high", "emergency"):
-            logger.warning(f"High urgency call {call_id}: {extracted.get('user_concern', 'Unknown')}")
+            logger.warning(f"High urgency call {call_id} ({urgency})")
+            logger.debug(f"High urgency call {call_id} concern: {extracted.get('user_concern', 'Unknown')}")
 
         return {
             "status": "recorded",
@@ -241,7 +244,8 @@ class BolnaWebhookHandler:
         function_name = data.get("function_name", data.get("name", "unknown"))
         parameters = data.get("parameters", data.get("arguments", {}))
 
-        logger.info(f"Function call [{call_id}] {function_name}: {parameters}")
+        logger.info(f"Function call [{call_id}] {function_name}")
+        logger.debug(f"Function call [{call_id}] parameters: {parameters}")
 
         return {
             "status": "logged",
