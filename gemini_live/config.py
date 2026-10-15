@@ -2,7 +2,8 @@
 Gemini Live API Configuration
 
 Handles configuration loading from config.yaml and environment variables.
-Provides constants for audio formats, supported languages, and voice options.
+Provides constants for audio formats and voice options. The languages Live
+speaks come from the Supported Language table (supported_languages.py).
 """
 
 import os
@@ -14,6 +15,13 @@ from pathlib import Path
 import yaml
 import re
 from dotenv import load_dotenv
+
+from supported_languages import (
+    SUPPORTED_LANGUAGES as TABLE,
+    UNSUPPORTED_LANGUAGE_MESSAGE,
+    SupportedLanguage,
+    get_language,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,83 +53,21 @@ AUDIO_ENCODING = "pcm_s16le"   # Signed 16-bit little-endian PCM
 # 4096 bytes = 2048 samples = ~128ms at 16kHz
 DEFAULT_CHUNK_SIZE = 4096
 
-# Supported Languages with their configurations
-SUPPORTED_LANGUAGES: Dict[str, Dict[str, str]] = {
-    "en-IN": {
-        "name": "English (India)",
-        "native_name": "English",
-        "flag": "🇮🇳",
-        "tts_fallback": "en-IN-NeerjaNeural",
-    },
-    "hi-IN": {
-        "name": "Hindi",
-        "native_name": "हिन्दी",
-        "flag": "🇮🇳",
-        "tts_fallback": "hi-IN-SwaraNeural",
-    },
-    "mr-IN": {
-        "name": "Marathi",
-        "native_name": "मराठी",
-        "flag": "🇮🇳",
-        "tts_fallback": "mr-IN-AarohiNeural",
-    },
-    "ta-IN": {
-        "name": "Tamil",
-        "native_name": "தமிழ்",
-        "flag": "🇮🇳",
-        "tts_fallback": "ta-IN-PallaviNeural",
-    },
-    "bn-IN": {
-        "name": "Bengali",
-        "native_name": "বাংলা",
-        "flag": "🇮🇳",
-        "tts_fallback": "bn-IN-TanishaaNeural",
-    },
-    "te-IN": {
-        "name": "Telugu",
-        "native_name": "తెలుగు",
-        "flag": "🇮🇳",
-        "tts_fallback": "te-IN-ShrutiNeural",
-    },
-    "kn-IN": {
-        "name": "Kannada",
-        "native_name": "ಕನ್ನಡ",
-        "flag": "🇮🇳",
-        "tts_fallback": "kn-IN-SapnaNeural",
-    },
-    "ml-IN": {
-        "name": "Malayalam",
-        "native_name": "മലയാളം",
-        "flag": "🇮🇳",
-        "tts_fallback": "ml-IN-SobhanaNeural",
-    },
-    "gu-IN": {
-        "name": "Gujarati",
-        "native_name": "ગુજરાતી",
-        "flag": "🇮🇳",
-        "tts_fallback": "gu-IN-DhwaniNeural",
-    },
-    "as-IN": {
-        "name": "Assamese",
-        "native_name": "অসমীয়া",
-        "flag": "🇮🇳",
-        "tts_fallback": "hi-IN-SwaraNeural",  # Falls back to Hindi (no Assamese TTS yet)
-    },
-}
+def live_language(code: Optional[str]) -> Optional[SupportedLanguage]:
+    """The Supported Language ``code`` names, when Gemini Live can hold a
+    conversation in it (the table's ``gemini_live`` voice); None otherwise.
+    Languages come from the Supported Language table, never from here."""
+    lang = get_language(code)
+    return lang if lang is not None and lang.live_supported else None
 
-# Map short codes to full language codes
-LANGUAGE_CODE_MAP: Dict[str, str] = {
-    "en": "en-IN",
-    "hi": "hi-IN",
-    "mr": "mr-IN",
-    "ta": "ta-IN",
-    "bn": "bn-IN",
-    "te": "te-IN",
-    "kn": "kn-IN",
-    "ml": "ml-IN",
-    "gu": "gu-IN",
-    "as": "as-IN",
-}
+
+def live_unavailable_message(code: Optional[str]) -> str:
+    """What to tell a participant whose language Live cannot speak: the
+    table's "unavailable" message in that language, or the English
+    unsupported-language notice for a language outside the eleven."""
+    lang = get_language(code)
+    return lang.voice_unavailable if lang is not None else UNSUPPORTED_LANGUAGE_MESSAGE
+
 
 # Live API models selectable from the web app.
 # "assistant" models run the full palliative-care assistant (RAG, safety,
@@ -272,9 +218,9 @@ class GeminiLiveConfig:
     fallback_enabled: bool = True  # Fall back to STT+LLM+TTS on error
     transcription_enabled: bool = True  # Capture transcriptions
 
-    # Supported languages (loaded from config)
+    # The languages Live speaks: the Supported Language table's, not config.yaml's.
     supported_languages: List[str] = field(
-        default_factory=lambda: list(SUPPORTED_LANGUAGES.keys())
+        default_factory=lambda: [lang.tag for lang in TABLE if lang.live_supported]
     )
 
     @classmethod
@@ -330,15 +276,6 @@ class GeminiLiveConfig:
                         "fallback_enabled", True
                     )
 
-                    # Load supported languages if specified
-                    languages = gemini_config.get("supported_languages", [])
-                    if languages:
-                        config.supported_languages = [
-                            lang.get("code", lang) if isinstance(lang, dict)
-                            else lang
-                            for lang in languages
-                        ]
-
             except Exception as e:
                 logger.warning(f"Failed to load config from {config_path}: {e}")
 
@@ -372,11 +309,6 @@ class GeminiLiveConfig:
                 "GEMINI_API_KEY set. Will fail at runtime."
             )
 
-        # Validate language codes
-        for lang in self.supported_languages:
-            if lang not in SUPPORTED_LANGUAGES:
-                logger.warning(f"Unknown language code: {lang}")
-
         # Validate voice
         if self.default_voice not in VOICE_OPTIONS:
             logger.warning(
@@ -384,25 +316,6 @@ class GeminiLiveConfig:
                 f"Using default: {DEFAULT_VOICE}"
             )
             self.default_voice = DEFAULT_VOICE
-
-    def get_language_config(self, language_code: str) -> Dict[str, str]:
-        """
-        Get configuration for a specific language.
-
-        Args:
-            language_code: Language code (e.g., "hi-IN" or "hi")
-
-        Returns:
-            Language configuration dict
-        """
-        # Handle short codes
-        if language_code in LANGUAGE_CODE_MAP:
-            language_code = LANGUAGE_CODE_MAP[language_code]
-
-        return SUPPORTED_LANGUAGES.get(
-            language_code,
-            SUPPORTED_LANGUAGES["en-IN"]
-        )
 
     def get_voice_config(self, voice_name: str = None) -> Dict[str, str]:
         """
@@ -418,10 +331,8 @@ class GeminiLiveConfig:
         return VOICE_OPTIONS.get(voice, VOICE_OPTIONS[DEFAULT_VOICE])
 
     def is_language_supported(self, language_code: str) -> bool:
-        """Check if a language is supported."""
-        if language_code in LANGUAGE_CODE_MAP:
-            language_code = LANGUAGE_CODE_MAP[language_code]
-        return language_code in self.supported_languages
+        """Whether Live can speak ``language_code`` (a code, tag or alias)."""
+        return live_language(language_code) is not None
 
     def to_dict(self) -> Dict:
         """Convert config to dictionary for logging/debugging."""

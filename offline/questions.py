@@ -22,13 +22,14 @@ translation quality, because structure is testable and fluency is not. Native
 review before the study build is tracked as an open item in the spec.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-# The eleven Supported Languages (ADR 0002). Bundle keys match these exactly.
-SUPPORTED_LANGUAGES: List[str] = [
-    "en-IN", "hi-IN", "bn-IN", "kn-IN", "ml-IN",
-    "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN", "gu-IN",
-]
+from supported_languages import SUPPORTED_LANGUAGES as TABLE, get_language
+
+# The eleven Supported Languages (ADR 0002), by BCP-47 tag, from the Supported
+# Language table. Bundle keys are these tags (Odia is "or-IN"), whatever
+# spelling a client asks with.
+SUPPORTED_LANGUAGES: List[str] = [lang.tag for lang in TABLE]
 
 # Twenty anticipated questions, in the same order for every language.
 #
@@ -170,7 +171,7 @@ TRANSLATIONS: Dict[str, List[str]] = {
         "अंतिम अवस्था कशी ओळखावी",
         "घरात रुग्ण मेल्यानंतर काय करावे",
     ],
-    "od-IN": [
+    "or-IN": [
         "ଘରେ ଯନ୍ଦ୍ରା କିପରି ନିଗନ୍ତ୍ରଣ କରିବେ",
         "ଓଇଲି ଏବଂ ବମି ଆସିଲେ କ'ଣ କରିବେ",
         "ଶ୍ୱାସକଷ୍ଟ କିପରି ନିଗନ୍ତ୍ରଣ କରିବେ",
@@ -283,6 +284,13 @@ TRANSLATIONS: Dict[str, List[str]] = {
 }
 
 
+def bundle_language(language: Optional[str]) -> Optional[str]:
+    """The bundle key (a Supported Language's tag) for any spelling of it, e.g.
+    "od-IN" -> "or-IN"; None for a language outside the eleven."""
+    lang = get_language(language)
+    return lang.tag if lang is not None else None
+
+
 def questions_for(language: str) -> List[str]:
     """
     Return the twenty questions for `language`, falling back to English.
@@ -291,15 +299,13 @@ def questions_for(language: str) -> List[str]:
     the bundle was actually built in, so an English bundle for a Marathi user is
     visible in the log rather than looking like a translation failure.
     """
-    primary = (language or "en-IN").split("-")[0].lower()
-    if primary == "en":
+    tag = bundle_language(language)
+    if tag is None or tag == "en-IN":
         return list(ENGLISH)
-    return list(TRANSLATIONS.get(language) or ENGLISH)
+    return list(TRANSLATIONS.get(tag) or ENGLISH)
 
 
 def has_translation(language: str) -> bool:
     """True when a genuine translation exists, rather than the English fallback."""
-    primary = (language or "").split("-")[0].lower()
-    if primary == "en":
-        return True
-    return language in TRANSLATIONS
+    tag = bundle_language(language)
+    return tag == "en-IN" or tag in TRANSLATIONS

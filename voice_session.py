@@ -205,8 +205,10 @@ class VoiceTurnHandler:
     async def _transcribe(self, audio: bytes, language: str) -> str:
         try:
             from sarvam_integration import SarvamClient
+            from sarvam_integration.config import sarvam_stt_language
 
-            result = await SarvamClient().speech_to_text(audio, language)
+            # The table's Sarvam code, or "unknown" (Saaras detects it).
+            result = await SarvamClient().speech_to_text(audio, sarvam_stt_language(language))
             return (result.transcript or "").strip()
         except Exception:
             # No transcript means no question. Returning an empty string here would

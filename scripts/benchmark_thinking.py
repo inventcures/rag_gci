@@ -47,8 +47,10 @@ from typing import Any, Dict, List, Optional, Tuple
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from supported_languages import get_language  # noqa: E402
+
 LEVELS = ("minimal", "low", "medium", "high")
-QUERY_LANGS = ("hi", "bn", "ta", "gu")  # the languages translate_query_to_english supports
+QUERY_LANGS = ("hi", "bn", "ta", "gu")  # a sample of the Supported Languages
 WORD = re.compile(r"\w+", re.UNICODE)
 
 
@@ -335,11 +337,10 @@ async def main() -> None:
     source = ref or answers[levels[0]]
     english = [(r["id"], r["text"]) for r in source if r["text"]][:16]
     at = await sweep("answer_translation", await answer_translation_prompts(english))
-    names = {"hi": "Hindi", "bn": "Bengali", "ta": "Tamil", "gu": "Gujarati"}
     quality["answer_translation"] = {}
     for level, rows in at.items():
         verdicts = await asyncio.gather(*(runner.judge(FAITHFUL_JUDGE.format(
-            lang=names[r["id"].rsplit(":", 1)[1]], english=r["english"], translation=r["text"])) for r in rows))
+            lang=get_language(r["id"].rsplit(":", 1)[1]).name, english=r["english"], translation=r["text"])) for r in rows))
         quality["answer_translation"][level] = {
             "faithful": sum(1 for v in verdicts if v.get("faithful") is True), "n": len(rows),
             "over_1500": sum(1 for r in rows if len(r["text"]) > 1500),

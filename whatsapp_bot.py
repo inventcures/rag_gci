@@ -78,7 +78,6 @@ try:
         SessionManager,
         AudioHandler,
         get_config as get_gemini_config,
-        SUPPORTED_LANGUAGES as GEMINI_LANGUAGES,
     )
     GEMINI_LIVE_AVAILABLE = True
 except ImportError:
@@ -110,15 +109,10 @@ class EnhancedSTTService:
     @staticmethod
     def _to_bcp47(language: str) -> str:
         """Sarvam's code for a language: the table's Sarvam spelling for a
-        Supported Language, another code Saaras transcribes as is, and
-        "unknown" (Saaras detects it) for anything else. Never Hindi."""
-        from sarvam_integration.config import SARVAM_STT_LANGUAGES
-
+        Supported Language, and "unknown" (Saaras detects it) for anything
+        else. Never Hindi."""
         lang = get_language(language)
-        if lang is not None:
-            return lang.voice(PROVIDER_SARVAM).language
-        bcp47 = language if "-" in language else f"{language}-IN"
-        return bcp47 if bcp47 in SARVAM_STT_LANGUAGES else "unknown"
+        return lang.voice(PROVIDER_SARVAM).language if lang is not None else "unknown"
 
     async def transcribe_audio(self, audio_file_path: str, detected_language: Optional[str] = None) -> Dict[str, Any]:
         """Transcribe audio with language detection"""

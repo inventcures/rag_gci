@@ -35,6 +35,7 @@ from answer_stream import AnswerStream, streaming_to
 from llm.client import voice_deadline_s, within_voice_deadline
 from observability import record_span, trace_request
 from participants import ephemeral
+from supported_languages import ENGLISH_CODE, detect_language, get_language
 from voice_safety_wrapper import VOICE_SAFETY_NET_S, clean_for_voice
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,9 @@ class RetellSession:
     call_id: str
     websocket: WebSocket
     started_at: datetime = field(default_factory=datetime.now)
-    language: str = "hi"
+    # The Supported Language code, from the call's metadata, else placed from
+    # the first turn's script; "" until then. Never assumed to be Hindi.
+    language: str = ""
     last_transcript: str = ""
     conversation_history: list = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -265,12 +268,14 @@ class RetellCustomLLMHandler:
         session.to_number = call.get("to_number", "")
         session.metadata = call.get("metadata", {})
 
-        # Detect language from metadata or agent config
+        # The call's language, through the Supported Language table (one code
+        # per language: "od-IN" is Odia, "or"). Outside the eleven, English.
         language = session.metadata.get("language", "")
         if language:
-            # Map Retell language codes to our short codes
-            lang_map = {"hi-IN": "hi", "en-IN": "en", "mr-IN": "mr", "ta-IN": "ta"}
-            session.language = lang_map.get(language, language[:2] if len(language) >= 2 else "hi")
+            lang = get_language(language)
+            if lang is None:
+                logger.warning(f"Retell call language {language!r} is not supported; answering in English")
+            session.language = lang.code if lang is not None else ENGLISH_CODE
 
         logger.info(
             f"Retell call details - ID: {session.call_id}, "
@@ -333,6 +338,10 @@ class RetellCustomLLMHandler:
         user_query = self._extract_user_text(transcript)
         session.last_transcript = user_query
         session.conversation_history = transcript
+        if len((user_query or "").strip()) >= 3:
+            # A real question fixes the call's language; a too-short one
+            # only gets the clarification below.
+            session.language = self._turn_language(session, user_query)
 
         logger.info("=" * 60)
         logger.info("RETELL CUSTOM LLM - RAG QUERY")
@@ -549,6 +558,16 @@ class RetellCustomLLMHandler:
             if len(answer) > 500:
                 answer = answer[:500] + "..."
         return self._evidence_note(session, result, answer)
+
+    @staticmethod
+    def _turn_language(session: RetellSession, text: str) -> str:
+        """The language to answer this turn in: the call's, once known, else
+        the one the caller's words are written in (English when the script
+        places none). Never a Hindi default."""
+        if session.language:
+            return session.language
+        lang = detect_language(text)
+        return lang.code if lang is not None else ENGLISH_CODE
 
     def _extract_user_text(self, transcript: list) -> str:
         """

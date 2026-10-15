@@ -48,10 +48,10 @@ Usage:
 
 from .config import (
     GeminiLiveConfig,
-    SUPPORTED_LANGUAGES,
     SUPPORTED_MODELS,
     VOICE_OPTIONS,
-    LANGUAGE_CODE_MAP,
+    live_language,
+    live_unavailable_message,
     DEFAULT_VOICE,
     get_config,
     reload_config,
@@ -82,11 +82,11 @@ __all__ = [
     "GeminiLiveConfig",
     "get_config",
     "reload_config",
-    "SUPPORTED_LANGUAGES",
     "SUPPORTED_MODELS",
     "is_translation_model",
     "VOICE_OPTIONS",
-    "LANGUAGE_CODE_MAP",
+    "live_language",
+    "live_unavailable_message",
     "DEFAULT_VOICE",
     # Audio constants
     "INPUT_SAMPLE_RATE",

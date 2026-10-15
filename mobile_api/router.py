@@ -689,7 +689,12 @@ async def get_cache_bundle(
 
     Served with an ETag: a client that already holds this bundle gets 304."""
     builder = CacheBundleBuilder(rag_pipeline=get_rag_pipeline(), safety_manager=get_safety_manager())
-    bundle, key = await builder.get_bundle(language)
+    try:
+        bundle, key = await builder.get_bundle(language)
+    except ValueError:
+        # Outside the eleven Supported Languages: no bundle, rather than one in
+        # a language the participant did not choose.
+        raise HTTPException(status_code=422, detail="There is no offline bundle for this language.")
     etag = f'"{key}"'
     if etag in [tag.strip() for tag in request.headers.get("if-none-match", "").split(",")]:
         return Response(status_code=304, headers={"ETag": etag})
@@ -946,11 +951,19 @@ async def websocket_voice(
 
 
 async def _synthesise_voice(text: str, language: str):
-    """Turn an answer into audio, or None when synthesis is unavailable."""
+    """Turn an answer into audio in the Supported Language's Sarvam voice, or
+    None when synthesis is unavailable. A language outside the eleven has no
+    voice, so the answer stays text-only; it is never spoken in Hindi."""
+    from sarvam_integration.config import sarvam_voice
+
+    voice = sarvam_voice(language)
+    if voice is None:
+        logger.warning("No Sarvam voice for %s; the answer is text only", language)
+        return None
     try:
         from sarvam_integration import SarvamClient
 
-        result = await SarvamClient().text_to_speech(text, language)
+        result = await SarvamClient().text_to_speech(text, voice.language, voice=voice.name)
         return result.audio_base64
     except Exception:
         # A spoken answer missing is a degraded turn, not a failed one. The text

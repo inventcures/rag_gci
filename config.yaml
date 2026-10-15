@@ -94,22 +94,12 @@ processing:
 stt:
   provider: "groq"  # Using Groq's Whisper API
   model: "whisper-large-v3"
-  supported_languages:
-    - "hi"  # Hindi
-    - "bn"  # Bengali
-    - "ta"  # Tamil
-    - "gu"  # Gujarati
-    - "en"  # English
+  # Languages: the Supported Language table (supported_languages.py), not this file.
 
 # TTS Configuration (Text-to-Speech)
 tts:
   provider: "edge_tts"  # Free Edge TTS
-  supported_languages:
-    hi: "hi-IN-SwaraNeural"     # Hindi
-    bn: "bn-IN-TanishaaNeural"  # Bengali
-    ta: "ta-IN-PallaviNeural"   # Tamil
-    gu: "gu-IN-DhwaniNeural"    # Gujarati
-    en: "en-IN-NeerjaNeural"    # English (Indian accent)
+  # Languages: the Supported Language table (supported_languages.py), not this file.
 
 # Twilio WhatsApp Bot Configuration
 twilio_whatsapp:
@@ -164,17 +154,9 @@ gemini_live:
   # Voice settings
   default_voice: "Aoede"  # Warm, empathetic voice for healthcare
 
-  # Language support (Indian languages)
+  # Language support
   default_language: "en-IN"
-  supported_languages:
-    - code: "en-IN"
-      name: "English (India)"
-    - code: "hi-IN"
-      name: "Hindi"
-    - code: "mr-IN"
-      name: "Marathi"
-    - code: "ta-IN"
-      name: "Tamil"
+  # Languages: the Supported Language table (supported_languages.py), not this file.
 
   # Session settings
   session_timeout_minutes: 14  # Max 15 for Gemini
@@ -227,19 +209,7 @@ bolna:
 
   # Language support
   default_language: "hi"
-  supported_languages:
-    hi:
-      name: "Hindi"
-      welcome_message: "नमस्ते! मैं पल्ली सहायक हूं, आपका पैलिएटिव केयर सहायक। आज मैं आपकी कैसे मदद कर सकती हूं?"
-    en:
-      name: "English"
-      welcome_message: "Hello! I am Palli Sahayak, your palliative care assistant. How can I help you today?"
-    mr:
-      name: "Marathi"
-      welcome_message: "नमस्कार! मी पल्ली सहायक आहे, तुमचा पॅलिएटिव केअर सहाय्यक."
-    ta:
-      name: "Tamil"
-      welcome_message: "வணக்கம்! நான் பல்லி சகாயக், உங்கள் நோய்த்தடுப்பு பராமரிப்பு உதவியாளர்."
+  # Languages: the Supported Language table (supported_languages.py), not this file.
 
   # Webhook configuration
   webhook:
@@ -291,18 +261,7 @@ sarvam:
 
   # Language settings
   default_language: "hi-IN"
-  supported_languages:
-    - "hi-IN"
-    - "en-IN"
-    - "bn-IN"
-    - "kn-IN"
-    - "ml-IN"
-    - "mr-IN"
-    - "od-IN"
-    - "pa-IN"
-    - "ta-IN"
-    - "te-IN"
-    - "gu-IN"
+  # Languages: the Supported Language table (supported_languages.py), not this file.
 
 # Voice Router Configuration
 voice_router:

@@ -8,7 +8,7 @@ Features:
 - Real-time audio streaming (send/receive)
 - Session management with resumption support
 - RAG context injection for grounded responses
-- Multi-language support (en-IN, hi-IN, mr-IN, ta-IN)
+- Multi-language support: the Supported Languages Live speaks (supported_languages.py)
 - Smart query classification for RAG routing
 """
 
@@ -26,11 +26,11 @@ import numpy as np
 from google import genai
 from google.genai import types
 from observability import trace_request
+from supported_languages import ENGLISH_CODE, SUPPORTED_LANGUAGES, get_language
 
 from .config import (
     GeminiLiveConfig,
     get_config,
-    SUPPORTED_LANGUAGES,
     SUPPORTED_MODELS,
     VOICE_OPTIONS,
     DEFAULT_VOICE,
@@ -38,6 +38,8 @@ from .config import (
     is_translation_model,
     model_supports_rag,
     model_uses_auto_language,
+    live_language,
+    live_unavailable_message,
     model_uses_realtime_text,
 )
 
@@ -440,13 +442,8 @@ class QueryClassifier:
         """
         decline_msg = self.get_decline_message(language)
 
-        language_names = {
-            "en-IN": "English",
-            "hi-IN": "Hindi",
-            "mr-IN": "Marathi",
-            "ta-IN": "Tamil",
-        }
-        lang_name = language_names.get(language, "English")
+        lang = get_language(language)
+        lang_name = lang.name if lang is not None else "English"
 
         instruction = f"""[IMPORTANT - OUT OF SCOPE QUERY]
 The user asked: "{query}"
@@ -629,12 +626,12 @@ class GeminiLiveService:
         Returns:
             Complete system instruction string
         """
-        # Auto-detect mode: mirror whatever language the user speaks (English,
-        # Hindi, Marathi, Tamil, Bengali, Telugu, Kannada, Malayalam, Gujarati,
-        # Assamese, or code-mixed). Native-audio handles this natively.
+        # Auto-detect mode: mirror whichever Supported Language Live speaks the
+        # user uses, or a code-mixed blend. Native-audio handles this natively.
+        names = [lang.name for lang in SUPPORTED_LANGUAGES if lang.live_supported
+                 and lang.code != ENGLISH_CODE]
         lang_instruction = (
-            "Detect the language the user speaks (Indian English, Hindi, Marathi, "
-            "Tamil, Bengali, Telugu, Kannada, Malayalam, Gujarati, Assamese, or "
+            f"Detect the language the user speaks (Indian English, {', '.join(names)}, or "
             "code-mixed) and respond in the SAME language with a warm, empathetic, "
             "culturally-appropriate Indian tone. If the user switches language "
             "mid-conversation, follow them."
@@ -722,7 +719,8 @@ CONVERSATION STYLE:
 
         Args:
             session_id: Unique identifier for this session
-            language: Language code (en-IN, hi-IN, mr-IN, ta-IN)
+            language: A Supported Language Live speaks: code, tag or alias
+                      ("hi", "bn-IN"). Any other language is refused.
             voice: Voice name (Aoede, Puck, Kore, etc.)
             system_instruction: Custom system prompt to append
             model: Live model ID (default from config). Translator models
@@ -733,7 +731,10 @@ CONVERSATION STYLE:
             GeminiLiveSession object
 
         Raises:
-            GeminiLiveError: If session creation fails
+            GeminiLiveError: If session creation fails, or Live cannot speak
+                `language`; the message then says so in that language (in
+                English for a language outside the eleven). Live never falls
+                back to another language.
         """
         if not self.client:
             raise GeminiLiveError(
@@ -743,12 +744,12 @@ CONVERSATION STYLE:
 
         model = self.resolve_model(model)
 
-        # Validate language
-        if language not in SUPPORTED_LANGUAGES:
-            logger.warning(
-                f"Unsupported language {language}, falling back to en-IN"
-            )
-            language = "en-IN"
+        # The Supported Language table decides; nothing is substituted.
+        lang = live_language(language)
+        if lang is None:
+            logger.warning(f"Gemini Live cannot speak {language!r}; refusing the session")
+            raise GeminiLiveError(live_unavailable_message(language))
+        language = lang.tag
 
         # Validate voice
         if voice not in VOICE_OPTIONS:

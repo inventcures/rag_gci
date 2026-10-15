@@ -15,9 +15,8 @@ from .config import (
     get_palli_sahayak_retell_config,
     get_retell_config_from_env,
     RETELL_SYSTEM_PROMPT,
-    RETELL_LANGUAGE_CONFIGS,
-    CARTESIA_VOICE_IDS,
     RetellAgentConfig,
+    retell_language,
 )
 from .webhooks import RetellWebhookHandler, RetellCallRecord
 from .custom_llm_server import RetellCustomLLMHandler, RetellSession
@@ -31,9 +30,8 @@ __all__ = [
     "get_palli_sahayak_retell_config",
     "get_retell_config_from_env",
     "RETELL_SYSTEM_PROMPT",
-    "RETELL_LANGUAGE_CONFIGS",
-    "CARTESIA_VOICE_IDS",
     "RetellAgentConfig",
+    "retell_language",
     # Webhooks
     "RetellWebhookHandler",
     "RetellCallRecord",
