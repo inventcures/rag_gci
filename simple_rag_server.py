@@ -195,6 +195,7 @@ from chromadb.utils import embedding_functions
 from retrieval.settings import (
     ROUTED_METHODS,
     RAG_METHODS,
+    RetrievalSettings,
     get_active_settings,
     load_retrieval_settings,
     set_active_settings,
@@ -1137,10 +1138,19 @@ class SimpleRAGPipeline:
         return {}
     
     def _save_metadata(self):
-        """Save document metadata to file"""
+        """Save document metadata to file, then recheck release drift: the
+        manifest is the corpus snapshot the release fingerprint hashes, so an
+        upload or a removal shows as drift rather than changing answers
+        silently."""
         with open(self.metadata_file, 'w') as f:
             json.dump(self.document_metadata, f, indent=2)
-    
+        try:
+            from study_release import get_study_release
+
+            get_study_release().corpus_changed(logger, manifest=self.metadata_file)
+        except Exception:  # the save succeeded; a drift recheck must not undo it
+            logger.exception("Release drift recheck after a corpus change failed")
+
     # Turns kept in memory per conversation; the full history is on disk.
     CONVERSATION_MEMORY_TURNS = 50
 
@@ -4902,6 +4912,47 @@ def chroma_client_for(path: Path) -> Any:
     return chromadb.PersistentClient(path=str(path))
 
 
+def start_pageindex(settings: RetrievalSettings) -> str:
+    """
+    Start PageIndex when the configured method needs it, and settle the method
+    that actually answers.
+
+    `pageindex` and `hybrid` answer through the vector path when PageIndex
+    cannot start (query() checks `_pageindex_enabled`), so they are recorded as
+    `vector`: leaving `hybrid` in the settings made the release record name a
+    method that was not answering. `fused` keeps its name because the router
+    fuses whatever retrievers are up. Sets the module globals query() reads,
+    writes the result into `settings` (the active settings the release
+    fingerprint reads) and returns it.
+    """
+    global _pageindex_config, _pageindex_storage, _pageindex_builder
+    global _pageindex_engine, _pageindex_enabled, _rag_method
+    method = settings.rag_method
+    _pageindex_enabled = False
+    if method in ("pageindex", "hybrid", "fused"):
+        if not PAGEINDEX_AVAILABLE:
+            logger.warning("PageIndex requested but module not available")
+        else:
+            try:
+                _pageindex_config = PageIndexConfig()
+                _pageindex_storage = PageIndexStorage(_pageindex_config)
+                _pageindex_builder = PageIndexTreeBuilder(_pageindex_config, _pageindex_storage)
+                _pageindex_engine = PageIndexQueryEngine(_pageindex_config, _pageindex_storage)
+                _pageindex_enabled = True
+                stats = _pageindex_storage.get_stats()
+                logger.info(f"PageIndex initialized: {stats['total_trees']} trees, {stats['total_nodes']} nodes")
+            except Exception as e:  # PageIndex start-up touches disk, config and an LLM client
+                logger.error(f"Failed to initialize PageIndex: {e}")
+                _pageindex_enabled = False
+        if not _pageindex_enabled and method in ("pageindex", "hybrid"):
+            logger.warning("RAG method %s cannot run without PageIndex; recording and answering with vector", method)
+            method = "vector"
+    _rag_method = method
+    settings.rag_method = method
+    logger.info("RAG method: %s", method)
+    return method
+
+
 def _parse_args(argv: Optional[List[str]] = None) -> Any:
     """The server's command line (also read by create_app from PALLI_SERVER_ARGS)."""
     """Main application entry point"""
@@ -5013,29 +5064,9 @@ def create_app(args: Any = None) -> FastAPI:
         retrieval_settings.fusion_description(), retrieval_settings.source,
     )
 
-    if PAGEINDEX_AVAILABLE and _rag_method in ("pageindex", "hybrid", "fused"):
-        try:
-            _pageindex_config = PageIndexConfig()
-            _pageindex_storage = PageIndexStorage(_pageindex_config)
-            _pageindex_builder = PageIndexTreeBuilder(_pageindex_config, _pageindex_storage)
-            _pageindex_engine = PageIndexQueryEngine(_pageindex_config, _pageindex_storage)
-            _pageindex_enabled = True
-            stats = _pageindex_storage.get_stats()
-            logger.info(f"PageIndex initialized: {stats['total_trees']} trees, {stats['total_nodes']} nodes")
-            logger.info(f"RAG method: {_rag_method}")
-        except Exception as e:
-            logger.error(f"Failed to initialize PageIndex: {e}")
-            _pageindex_enabled = False
-            if _rag_method == "pageindex":
-                logger.warning("Falling back to vector search")
-                _rag_method = "vector"
-    elif _rag_method in ("pageindex", "hybrid") and not PAGEINDEX_AVAILABLE:
-        logger.warning("PageIndex requested but module not available, falling back to vector")
-        _rag_method = "vector"
-
-    # Keep the active settings in step with any fallback above, so the release
-    # log records the method that actually answers.
-    retrieval_settings.rag_method = _rag_method
+    # Keeps the active settings in step with any fallback, so the release log
+    # records the method that actually answers.
+    start_pageindex(retrieval_settings)
     rag_pipeline.configure_answer_path(
         retrieval_settings,
         pageindex_engine=_pageindex_engine if _pageindex_enabled else None,
@@ -5233,8 +5264,10 @@ def create_app(args: Any = None) -> FastAPI:
             gemini_config = get_gemini_config()
 
             # Check both config file AND environment variable (--provider flag sets this)
+            from gemini_live.config import live_enabled
+
             env_enabled = os.getenv("GEMINI_LIVE_ENABLED", "").lower() == "true"
-            if not gemini_config.enabled and not env_enabled:
+            if not live_enabled(gemini_config):
                 logger.info("Gemini Live disabled in config - voice WebSocket disabled")
                 return
 
