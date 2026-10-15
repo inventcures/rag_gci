@@ -42,7 +42,7 @@
     <string name="kind_answer">जवाब</string>
     <string name="kind_redacted">दवा की मात्रा की जानकारी हटा दी गई</string>
     <string name="kind_deferral">अपने डॉक्टर से पूछें</string>
-    <string name="answer_deferral_label">इसका जवाब नहीं दिया गया। अगली बार डॉक्टर से मिलने पर यह सवाल पूछें।</string>
+    <string name="answer_deferral_label">इसका जवाब नहीं दिया गया। अगली मुलाक़ात में यह सवाल डॉक्टर से पूछें।</string>
     <string name="answer_redacted_label">इस जवाब का कुछ हिस्सा रोक लिया गया है।</string>
 
     <string name="from_cache_badge">ऑफ़लाइन संग्रह से</string>
