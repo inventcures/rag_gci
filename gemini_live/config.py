@@ -439,6 +439,16 @@ class GeminiLiveConfig:
         }
 
 
+def live_enabled(config: GeminiLiveConfig) -> bool:
+    """Whether the server starts Gemini Live: config.yaml's `gemini_live.enabled`,
+    or GEMINI_LIVE_ENABLED=true (set by `--provider gemini`).
+
+    The server's start-up and the release fingerprint both read this, so the
+    release record's provider list cannot disagree with what runs.
+    """
+    return bool(config.enabled) or os.getenv("GEMINI_LIVE_ENABLED", "").lower() == "true"
+
+
 # Global config instance (lazy loaded)
 _config: Optional[GeminiLiveConfig] = None
 

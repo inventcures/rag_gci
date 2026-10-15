@@ -635,6 +635,71 @@ class QueryEndToEnd(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# The evidence badge is computed from real retrieval distances only
+# ---------------------------------------------------------------------------
+
+
+class TreeOnlyPageIndex:
+    """A PageIndex engine that finds one section; tree search has no distance."""
+
+    async def search(self, query, doc_ids=None):
+        node = {"filename": "opioids.pdf", "start_page": 4, "end_page": 5,
+                "text": "Opioid titration is done by the treating doctor."}
+        return type("R", (), {
+            "selected_nodes": [node],
+            "context": "Source: opioids.pdf (pg 4-5)\n" + node["text"],
+        })()
+
+
+class EvidenceBadgeUsesRealDistances(unittest.TestCase):
+    """PageIndex and hybrid answers never feed an invented 0.5 to the badge."""
+
+    def setUp(self):
+        import simple_rag_server
+
+        self.server = simple_rag_server
+        self.saved = (simple_rag_server._rag_method, simple_rag_server._pageindex_enabled,
+                      simple_rag_server._pageindex_engine)
+        self.audit_dir = tempfile.mkdtemp(prefix="retrieval-audit-")
+        self.env = patch.dict(os.environ, {"RETRIEVAL_AUDIT_DIR": self.audit_dir})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        set_active_settings(RetrievalSettings())
+        (self.server._rag_method, self.server._pageindex_enabled,
+         self.server._pageindex_engine) = self.saved
+
+    def badge_for(self, method):
+        if not self.server.SAFETY_ENHANCEMENTS_AVAILABLE:
+            self.skipTest("safety_enhancements not importable")
+        p = make_pipeline()
+        set_active_settings(RetrievalSettings())
+        self.server._rag_method = method
+        self.server._pageindex_enabled = True
+        self.server._pageindex_engine = TreeOnlyPageIndex()
+        result = run(p.query("Is morphine used for cancer pain?"))
+        self.assertEqual(result["status"], "success")
+        return result["safety_enhancements"]["evidence_badge"]
+
+    def test_pageindex_answer_badge_says_no_distance(self):
+        badge = self.badge_for("pageindex")
+        self.assertIsNone(badge["mean_distance"])
+        self.assertEqual(badge["distance_basis"], "no distance")
+
+    def test_hybrid_answer_badge_uses_only_the_vector_distances(self):
+        badge = self.badge_for("hybrid")
+        real = [d[3] for d in VECTOR_DOCS]
+        self.assertAlmostEqual(badge["mean_distance"], round(sum(real) / len(real), 3))
+        self.assertEqual(badge["distance_basis"], "retrieval")
+
+    def test_vector_answer_badge_uses_the_search_distances(self):
+        badge = self.badge_for("vector")
+        real = [d[3] for d in VECTOR_DOCS]
+        self.assertAlmostEqual(badge["mean_distance"], round(sum(real) / len(real), 3))
+
+
+# ---------------------------------------------------------------------------
 # Voice runs the same path
 # ---------------------------------------------------------------------------
 

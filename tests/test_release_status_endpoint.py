@@ -7,7 +7,8 @@ and opened a Chroma client on every call, unauthenticated.
 
 What these pin down:
 
-  * the endpoint reports the status, name and approvals of the loaded record
+  * the endpoint reports the status, name and approvals of the loaded record,
+    and the release id of the commit that is running
   * drift is computed once, not per request: no subprocess and no vector-store
     client on a status call after the first
   * refresh_drift() recomputes on demand
@@ -62,7 +63,10 @@ class ReleaseStatus(unittest.TestCase):
         self.assertEqual(body["status"], "activated")
         self.assertTrue(body["approved"])
         self.assertTrue(body["activated"])
-        self.assertEqual(body["release_id"], "evah-pilot-1@0123456")
+        # The running commit, not the record's: the record's commit is only
+        # compared against it (ticket 10, review round 3).
+        head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        self.assertEqual(body["release_id"], f"evah-pilot-1@{head[:7]}")
 
     def test_no_subprocess_or_vector_store_per_request(self):
         self.status()  # first use computes drift

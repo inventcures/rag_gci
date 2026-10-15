@@ -100,6 +100,15 @@ models:
       languages: 11
       speaker_default: "priya"   # v3 uses language-agnostic speakers
 
+# --- Outside providers ------------------------------------------------------
+# Every provider that receives participant audio or text outside India and is
+# enabled in this release (ADR 0007, decision D11). The fingerprint lists the
+# ones the running server has enabled (study_release.register_outside_provider);
+# a provider enabled but not listed here shows as RELEASE DRIFT.
+providers:
+  outside_india:
+    - gemini_live      # models.voice_primary: no Indian region offers the Live API
+
 # --- Knowledge source -------------------------------------------------------
 knowledge:
   collection: "documents"
@@ -109,7 +118,12 @@ knowledge:
   # (106 chunks), the Neurosurgery home-care guidebook (122) and the Pallium
   # India opioid compilation (35). The Pallium document is entirely table of
   # contents, so 35 of 263 chunks carry no clinical content.
-  snapshot_sha256: null        # populated once data/documents/ holds the sources
+  # sha256 of the indexed corpus, as study_release.corpus_snapshot() computes it
+  # from data/document_metadata.json (document id, filename, chunk count).
+  # `python study_release.py` prints the live value under live."corpus.snapshot".
+  # While null the release drifts as "unrecorded": an upload or a removal must
+  # never change answers without showing as RELEASE DRIFT.
+  snapshot_sha256: null
   embedding_dimension: 1024     # bge-m3; live index is still 384 until reindexed
   # OPEN: 263 chunks is thin for eleven languages and three user groups. Worth
   # confirming this is the intended knowledge base before optimising retrieval.
