@@ -292,7 +292,8 @@ class BolnaClient:
 
                     if response.status in (200, 201):
                         call_id = data.get("call_id") or data.get("id")
-                        logger.info(f"Initiated call {call_id} to {phone_number}")
+                        logger.info(f"Initiated call {call_id}")
+                        logger.debug(f"Call {call_id} placed to {phone_number}")
                         return BolnaCallResult(
                             success=True,
                             call_id=call_id,
