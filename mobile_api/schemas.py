@@ -46,6 +46,22 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class ReleaseStatusResponse(BaseModel):
+    """What the app may know about the running study release (``client_view()``).
+
+    Declared so the contract carries the release gate's fields and the Android
+    client is generated against them rather than a hand-kept copy.
+    """
+    release_id: str
+    release_name: Optional[str] = None
+    status: str
+    activated: bool
+    approved: bool
+    usable_with_participants: bool
+    drifting: bool
+    drift: List[dict] = Field(default_factory=list)
+
+
 class AuthResponse(BaseModel):
     user_id: str
     token: str

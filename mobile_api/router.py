@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, Response
 
 from auth.jwt_handler import REFRESH
 from fastapi.security import HTTPAuthorizationCredentials
-from auth.middleware import require_auth, get_jwt_handler, security
+from auth.middleware import require_auth, require_socket_auth, get_jwt_handler, security
 from auth.pin_auth import PinAuthenticator
 from auth.models import AuthenticatedUser
 from auth.policy import authenticate_token
@@ -24,6 +24,7 @@ from mobile_api.schemas import (
     MobileQueryRequest, MobileQueryResponse,
     VoiceQueryResponse,
     DeviceRegistrationRequest, LoginRequest, RefreshRequest, AuthResponse,
+    ReleaseStatusResponse,
     SyncPushRequest, SyncPushResponse,
     SyncPullResponse,
     CreateObservationRequest, ObservationResponse,
@@ -357,7 +358,7 @@ async def voice_query(
     )
 
 
-@mobile_router.get("/release/status")
+@mobile_router.get("/release/status", response_model=ReleaseStatusResponse)
 async def release_status():
     """
     Whether this build is allowed to be used with participants.
@@ -853,9 +854,14 @@ async def submit_feedback(
 async def websocket_voice(
     websocket: WebSocket,
     language: str = Query("en-IN"),
+    user: AuthenticatedUser = Depends(require_socket_auth),
 ):
     """
     Real-time voice conversation.
+
+    Opens only for a signed-in participant: the app sends its access token as
+    ``Authorization: Bearer <token>`` on the upgrade request, and each turn is
+    recorded under the person, role and site that token names.
 
     The connection carries one session. Each audio frame ends a turn, which is
     grounded through the same pipeline the text route uses and then passed
@@ -873,7 +879,12 @@ async def websocket_voice(
     """
     await websocket.accept()
 
-    session = VoiceSession(language=language)
+    session = VoiceSession(
+        language=language,
+        participant_id=user.user_id,
+        care_role=user.role,
+        site_id=user.site_id,
+    )
     handler = VoiceTurnHandler(
         rag_pipeline=get_rag_pipeline(),
         safety_manager=get_safety_manager(),

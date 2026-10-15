@@ -93,4 +93,37 @@
     <string name="emergency_call_108">This may be an emergency. Call 108 now.</string>
     <string name="offline_banner_a11y">Offline. %1$d questions available</string>
     <string name="active_role_a11y">Active role. %1$s</string>
+
+    <!--
+      Release gate (criterion 6). Shown instead of everything else when the server
+      does not confirm this release as approved and activated, or cannot be reached.
+      Each refusal says why, because a refusal nobody can act on is a support call.
+    -->
+    <string name="release_refused_drifting_title">This build has changed since it was approved</string>
+    <string name="release_refused_drifting_detail">It no longer matches the approved record. The study team needs to look at this before anyone uses it.</string>
+    <string name="release_refused_not_approved_title">This version is not approved yet</string>
+    <string name="release_refused_not_approved_detail">It has not been signed off by the study team, or the server could not be reached to check. Nothing is lost, and it will open once it is approved.</string>
+    <string name="release_refused_not_activated_title">This version is not open yet</string>
+    <string name="release_refused_not_activated_detail">It is approved but the study has not started using it yet.</string>
+    <string name="release_refused_unusable_title">This version cannot be used</string>
+    <string name="release_refused_unusable_detail">The study team has to resolve this before it is used.</string>
+    <string name="release_retry">Check again</string>
+
+    <!--
+      Registration and sign-in (ticket 22). The phone registers with a Care Role and
+      a PIN only: no name and no phone number are asked for or sent.
+    -->
+    <string name="register_title">Who will use this phone?</string>
+    <string name="register_explainer">Pick your role and choose a PIN of 4 to 6 digits. You will need the PIN to sign in again.</string>
+    <string name="pin_label">PIN (4 to 6 digits)</string>
+    <string name="pin_confirm_label">Type the PIN again</string>
+    <string name="register_button">Register</string>
+    <string name="pin_invalid">The PIN must be 4 to 6 digits.</string>
+    <string name="pin_mismatch">The two PINs are different. Type them again.</string>
+    <string name="register_refused">Registration was not accepted. Please try again.</string>
+    <string name="sign_in_title">Enter your PIN</string>
+    <string name="sign_in_explainer">For your safety the app asks for your PIN again after a few days.</string>
+    <string name="sign_in_button">Sign in</string>
+    <string name="sign_in_refused">That PIN was not accepted. After 5 wrong tries, wait 15 minutes before trying again.</string>
+    <string name="server_unreachable">Could not reach the service. Try again when there is signal.</string>
 </resources>

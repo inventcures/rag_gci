@@ -124,7 +124,7 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     "/api/mobile/v1/auth/login": RoutePolicy(Access.PUBLIC, "own verification: PIN"),
     "/api/mobile/v1/auth/refresh": RoutePolicy(Access.PUBLIC, "own verification: the refresh token (ticket 08)"),
     "/api/mobile/v1/ws/voice": RoutePolicy(
-        Access.PUBLIC, "the Android client opens it without a token; no identity is read from it"
+        Access.PARTICIPANT, "access token on the upgrade request; turns recorded under it (ticket 22)"
     ),
     # -- participant-facing answers outside the app ----------------------------
     "/api/query": PARTICIPANT,

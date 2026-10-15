@@ -32,6 +32,8 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import voice_router as vr  # noqa: E402
+from auth.jwt_handler import JWTHandler  # noqa: E402
+from auth.middleware import init_auth  # noqa: E402
 from mobile_api.dependencies import init_dependencies  # noqa: E402
 from mobile_api.router import mobile_router  # noqa: E402
 from safety_enhancements import SafetyEnhancementsManager  # noqa: E402
@@ -86,13 +88,27 @@ class FakeStt:
         return type("R", (), {"audio_base64": base64.b64encode(b"PCM").decode()})()
 
 
+_SECRET = "test-secret-for-voice-endpoint-integration"
+
+
 def build_app(rag):
     from fastapi import FastAPI
 
     app = FastAPI()
     app.include_router(mobile_router)
     init_dependencies(rag, SafetyEnhancementsManager(), None, None)
+    init_auth(jwt_secret=_SECRET)
     return app
+
+
+def signed_in() -> dict:
+    """The header the app sends on the socket: a participant's access token.
+
+    The socket refuses a connection without one (ticket 22)."""
+    pair = JWTHandler(secret=_SECRET).create_token_pair(
+        user_id="participant-1", role="asha", site_id="site-1",
+    )
+    return {"Authorization": f"Bearer {pair.access_token}"}
 
 
 class VoiceEndpointIntegration(unittest.IsolatedAsyncioTestCase):
@@ -148,7 +164,9 @@ class VoiceEndpointIntegration(unittest.IsolatedAsyncioTestCase):
             "language": "hi-IN",
         }
         base.update(payload or {})
-        with self.client.websocket_connect("/api/mobile/v1/ws/voice?language=hi-IN") as ws:
+        with self.client.websocket_connect(
+            "/api/mobile/v1/ws/voice?language=hi-IN", headers=signed_in()
+        ) as ws:
             ready = ws.receive_json()
             ws.send_text(_json.dumps(base))
             if expect_reply:
@@ -256,7 +274,7 @@ class MobileVoiceDoesNotTryLive(unittest.IsolatedAsyncioTestCase):
              mock.patch("gemini_live.service.GeminiLiveService.__init__", no_live):
             rag.answer = DOSE_ANSWER
             with TestClient(build_app(rag)).websocket_connect(
-                "/api/mobile/v1/ws/voice?language=hi-IN"
+                "/api/mobile/v1/ws/voice?language=hi-IN", headers=signed_in()
             ) as ws:
                 ready = ws.receive_json()
                 ws.send_text(json.dumps({"type": "audio", "language": "hi-IN",
