@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
-from auth.jwt_handler import JWTHandler
+from auth.jwt_handler import ACCESS, JWTHandler
 from auth.models import AuthenticatedUser
 
 security = HTTPBearer()
@@ -22,10 +22,15 @@ def get_jwt_handler() -> Optional[JWTHandler]:
 async def require_auth(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> AuthenticatedUser:
+    """The caller of an API route: a valid, unexpired access token, or 401.
+
+    A refresh token is refused here. It lives longer than the access token and
+    only belongs on /auth/refresh, so a leaked one must not open the API.
+    """
     if _jwt_handler is None:
         raise HTTPException(status_code=500, detail="Auth not initialized")
 
-    payload = _jwt_handler.verify_token(credentials.credentials)
+    payload = _jwt_handler.verify_token(credentials.credentials, expected_type=ACCESS)
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
