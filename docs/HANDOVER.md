@@ -73,7 +73,8 @@ missing, recreate from §6 below.
    with numbers. Disabled mic + icon + plain text, not a banner.
 6. **0006** Care Role is an **analysis label, not an access boundary**. One Household Record.
    Backend-admin-only override. Never imply privacy.
-7. **0007** Gemini 3.8 Live voice + automatic Sarvam fallback; Gemini 3.5 Flash @
+7. **0007** Gemini Live voice (`gemini-3.1-flash-live-preview`, the model the release
+   record names) + automatic Sarvam fallback; Gemini 3.5 Flash @
    `asia-south1` for RAG.
 
 **Two more decided in T3, recorded in code and commit messages rather than ADRs** (consider
@@ -140,8 +141,9 @@ Voice works end to end, and voice obeys the same safety rules as text.
   otherwise), and records each turn under the participant the token names.
 - **`voice_session.py`** — transcript and answer in one exchange. The client cannot
   know what the user said, so a separate transcript round trip buys nothing.
-- **`voice_router.py`** — Live by default with Sarvam fallback. Arbitration is pure
-  and tested apart from any provider.
+- **`voice_router.py`** — answers the app's voice routes on Sarvam and records why
+  (operator-forced or Live not offered). Live itself runs in `/ws/voice` and the
+  WhatsApp voice-note path.
 - **`voice_provider.py`** — the admin override. Requires an actor and a reason, and is
   audited with the previous value.
 - **Dashboard** — a voice panel showing the selected provider, whether Live is
@@ -149,7 +151,9 @@ Voice works end to end, and voice obeys the same safety rules as text.
 
 **Still not connected:** `gemini_live/service.py` has no `stream_audio` method, so
 `LiveVoiceProvider` has nothing to call. That adapter is the last mile of real-time
-voice. Everything either side of it is built and tested.
+voice. Everything either side of it is built and tested. *(Review 3, decision D12:
+`LiveVoiceProvider` was removed. Live is served by `/ws/voice` and WhatsApp voice
+notes; `voice_router` answers the app's routes on Sarvam.)*
 
 ### T5, T6, T7, T8 — all complete
 

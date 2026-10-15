@@ -1,6 +1,6 @@
 # Gemini Live for voice with a Sarvam fallback, and an India-resident RAG LLM
 
-Real-time voice conversation is the primary interaction. It runs on the Gemini Live API, with the Sarvam streaming path as an automatic fallback whenever the Live session fails or stalls. The RAG language model is Gemini 3.5 Flash pinned to `asia-south1`, and embeddings are self-hosted bge-m3.
+Real-time voice conversation is the primary interaction. It runs on the Gemini Live API (the release record, `data/study/release.yaml` `voice.live.model`, names the model: `gemini-3.1-flash-live-preview`), with the Sarvam streaming path as an automatic fallback whenever the Live session fails or stalls. The RAG language model is Gemini 3.5 Flash pinned to `asia-south1`, and embeddings are self-hosted bge-m3.
 
 ## Why the LLM is 3.5 Flash and not 3.8
 
@@ -16,7 +16,7 @@ Available in Asia-Pacific, checked on the current docs:
 | **Gemini 3.5 Flash** | **Mumbai, Singapore, Tokyo, Sydney** |
 | Gemini 2.5 Flash | Mumbai, Singapore, Tokyo, Sydney, Seoul |
 | Gemini Embedding (`gemini-embedding-001`) | all seven, including Mumbai |
-| Gemini 3.8 Live (Live API) | none |
+| Gemini Live models (Live API) | none |
 | Chirp / TTS models | none |
 
 Gemini 3.5 Flash is the newest model available in India, so it is the RAG LLM. Note that the model previously in use, `gemini-3.1-flash-lite`, is **not** available in Asia-Pacific either, so inference was not India-resident before this decision and is now.

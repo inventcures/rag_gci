@@ -30,7 +30,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -74,11 +74,13 @@ def _fake_mount_gradio_app(app, blocks, path):
     return app
 
 
-def build_server_app(extra_env: Optional[Dict[str, str]] = None):
+def build_server_app(extra_env: Optional[Dict[str, str]] = None,
+                     modules: Optional[Dict[str, Any]] = None):
     """The real create_app(), with the pipeline, Gradio and WhatsApp bot stubbed.
 
     Twilio and the mobile API are configured so their conditional routes exist and
-    are covered by the route table too."""
+    are covered by the route table too. `modules` replaces entries of
+    sys.modules while the app is built."""
     import simple_rag_server as srv
 
     env = {
@@ -95,7 +97,7 @@ def build_server_app(extra_env: Optional[Dict[str, str]] = None):
     whatsapp.EnhancedTTSService = mock.MagicMock(name="EnhancedTTSService")
     # Built-but-unused subsystems that write under data/ at construction.
     modules = {"whatsapp_bot": whatsapp, "memory_agents": None, "meta_agent": None,
-               "context1_integration": None}
+               "context1_integration": None, **(modules or {})}
     saved = {name: sys.modules.get(name, _ABSENT) for name in modules}
     sys.modules.update(modules)
     try:

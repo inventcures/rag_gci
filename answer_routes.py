@@ -121,7 +121,6 @@ NO_ANSWER_TEXT: Dict[str, str] = {
     "POST /api/careteam/{patient_id}/add": _RECORD,
     "GET /api/careteam/{patient_id}/primary": _RECORD,
     "POST /api/careteam/{patient_id}/attribute": _RECORD,
-    "POST /api/careteam/{patient_id}/notify": "sends a care-team notification",
     "POST /api/fhir/export/{patient_id}": _RECORD,
     "POST /api/fhir/import": _RECORD,
     "POST /api/fhir/validate": "validation result",

@@ -175,7 +175,7 @@ try:
         MedicationEffectivenessReport,
         CorrelationAnalysis,
     )
-    from personalization.alert_manager import AlertManager, AlertNotificationCoordinator
+    from personalization.alert_manager import AlertManager
     from personalization.fhir_adapter import FHIRAdapter, FHIRBundle, export_to_file, import_from_file
     LONGITUDINAL_MEMORY_AVAILABLE = True
 except ImportError as e:
@@ -1352,13 +1352,6 @@ class SimpleRAGPipeline:
                 storage_path=str(alerts_storage)
             )
             logger.info("✅ AlertManager initialized")
-
-            # Initialize AlertNotificationCoordinator
-            self.alert_coordinator = AlertNotificationCoordinator(
-                alert_manager=self.alert_manager,
-                longitudinal_manager=self.longitudinal_manager
-            )
-            logger.info("✅ AlertNotificationCoordinator initialized")
 
             logger.info("🧠 V25 Longitudinal Patient Context Memory System ready")
 
@@ -3737,38 +3730,6 @@ class SimpleAdminUI:
                                 outputs=[add_result]
                             )
 
-                        # Notify Care Team Sub-tab
-                        with gr.TabItem("📢 Notify"):
-                            gr.Markdown("### Send Notification to Care Team")
-
-                            with gr.Row():
-                                notify_patient_id = gr.Textbox(label="Patient ID", placeholder="Patient ID")
-                                notify_priority = gr.Dropdown(
-                                    choices=["LOW", "MEDIUM", "HIGH", "URGENT"],
-                                    label="Priority",
-                                    value="MEDIUM"
-                                )
-
-                            notify_message = gr.Textbox(
-                                label="Message",
-                                placeholder="Patient needs follow-up...",
-                                lines=3
-                            )
-
-                            notify_roles = gr.CheckboxGroup(
-                                choices=["doctor", "nurse", "asha_worker", "caregiver", "volunteer", "social_worker"],
-                                label="Target Roles (leave empty for all)"
-                            )
-
-                            notify_btn = gr.Button("📤 Send Notification", variant="primary")
-                            notify_result = gr.JSON(label="Notification Result")
-
-                            notify_btn.click(
-                                fn=self._handle_notify_care_team,
-                                inputs=[notify_patient_id, notify_message, notify_priority, notify_roles],
-                                outputs=[notify_result]
-                            )
-
                 # V25: FHIR Interoperability Tab (Phase 7)
                 with gr.TabItem("🏥 FHIR"):
                     gr.Markdown("## FHIR Interoperability")
@@ -4794,63 +4755,6 @@ class SimpleAdminUI:
             logger.error(f"Error adding care team member: {e}")
             return f"Error: {str(e)}"
 
-    def _handle_notify_care_team(
-        self,
-        patient_id: str,
-        message: str,
-        priority: str,
-        target_roles: list
-    ):
-        """Send notification to care team."""
-        try:
-            if not patient_id or not patient_id.strip():
-                return {"error": "Please enter a patient ID"}
-
-            if not message or not message.strip():
-                return {"error": "Please enter a message"}
-
-            if not LONGITUDINAL_MEMORY_AVAILABLE or not self.rag_pipeline.longitudinal_manager:
-                return {"error": "System not available"}
-
-            import asyncio
-
-            async def notify():
-                record = await self.rag_pipeline.longitudinal_manager.get_or_create_record(patient_id.strip())
-
-                recipients = []
-                for member in record.care_team:
-                    if not target_roles or member.role in target_roles:
-                        recipients.append({
-                            "provider_id": member.provider_id,
-                            "name": member.name,
-                            "role": member.role,
-                            "phone": member.phone_number,
-                            "status": "notified"
-                        })
-
-                return recipients
-
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            recipients = loop.run_until_complete(notify())
-
-            return {
-                "status": "success",
-                "patient_id": patient_id,
-                "priority": priority,
-                "message": message[:50] + "..." if len(message) > 50 else message,
-                "recipients_count": len(recipients),
-                "recipients": recipients
-            }
-
-        except Exception as e:
-            logger.error(f"Error notifying care team: {e}")
-            return {"error": str(e)}
-
     # V25: FHIR Interoperability Handlers (Phase 7)
 
     def _handle_fhir_export(
@@ -5604,47 +5508,11 @@ def create_app(args: Any = None) -> FastAPI:
                 except Exception:
                     logger.exception("Study dashboard unavailable")
 
-                # Context-1, Memory Agents, and Meta Agent initialization
-                try:
-                    from context1_integration import Context1Config, Context1RetrievalAgent, QueryComplexityClassifier
-                    _c1_config = Context1Config.from_dict(_full_config.get("context1", {}))
-                    _complexity_classifier = QueryComplexityClassifier()
-                    _context1_agent = Context1RetrievalAgent(config=_c1_config)
-                    if rag_pipeline and hasattr(rag_pipeline, 'vector_db') and rag_pipeline.vector_db:
-                        _context1_agent.set_collection(rag_pipeline.vector_db)
-                    logger.info("Context-1 integration initialized")
-                except Exception as _c1_err:
-                    logger.warning(f"Context-1 integration not available: {_c1_err}")
-
-                try:
-                    from memory_agents import MemoryStore, PatientIngestAgent, PatientQueryAgent, ConsolidationScheduler
-                    from mobile_api.dependencies import init_memory_agents
-                    _ma_config = _full_config.get("memory_agents", {})
-                    _ma_db = _ma_config.get("db_path", "data/memory_agents/patient_memory.db")
-                    _ma_store = MemoryStore(db_path=_ma_db)
-                    _ma_ingest = PatientIngestAgent(_ma_store)
-                    _ma_query = PatientQueryAgent(_ma_store)
-                    _ma_scheduler = ConsolidationScheduler(
-                        memory_store=_ma_store,
-                        interval_minutes=_ma_config.get("consolidation_interval_minutes", 30),
-                    )
-                    init_memory_agents(_ma_store, _ma_query)
-                    logger.info("Memory agents initialized")
-                except Exception as _ma_err:
-                    logger.warning(f"Memory agents not available: {_ma_err}")
-
-                try:
-                    from meta_agent import ClinicalMetaAgent, ResponseEvaluator
-                    from mobile_api.dependencies import init_meta_evaluator
-                    _meta_evaluator = ResponseEvaluator()
-                    _meta_agent = ClinicalMetaAgent(
-                        evaluator=_meta_evaluator,
-                        improvement_threshold=_full_config.get("meta_agent", {}).get("improvement_threshold", 0.05),
-                    )
-                    init_meta_evaluator(_meta_evaluator)
-                    logger.info("Meta agent initialized")
-                except Exception as _meta_err:
-                    logger.warning(f"Meta agent not available: {_meta_err}")
+                # Context-1, the memory agents and the meta agent are not built in
+                # the study release (review 3, decision D12): no answer path uses
+                # them, the meta agent rewrites its own strategy weights, and
+                # wiring any of them in would change answers mid-study. The
+                # memory routes answer empty (insights) or 503 (query-memory).
 
             else:
                 logger.warning("Mobile API disabled: MOBILE_JWT_SECRET not set")
@@ -8088,90 +7956,6 @@ def create_app(args: Any = None) -> FastAPI:
 
         except Exception as e:
             logger.error(f"Error attributing observation: {e}")
-            return JSONResponse({
-                "status": "error",
-                "error": str(e)
-            }, status_code=500)
-
-    @app.post("/api/careteam/{patient_id}/notify")
-    async def notify_care_team(patient_id: str, request: Request):
-        """
-        Send notification to care team members.
-
-        Request body:
-        {
-            "message": "Patient needs follow-up",
-            "priority": "HIGH",
-            "target_roles": ["doctor", "nurse"],  // optional, all if not specified
-            "channels": ["whatsapp", "dashboard"]  // optional
-        }
-        """
-        if not LONGITUDINAL_MEMORY_AVAILABLE:
-            return JSONResponse({
-                "status": "error",
-                "error": "Longitudinal memory not available"
-            }, status_code=503)
-
-        try:
-            body = await request.json()
-            message = body.get("message")
-            priority = body.get("priority", "MEDIUM")
-            target_roles = body.get("target_roles", [])
-            channels = body.get("channels", ["dashboard"])
-
-            if not message:
-                return JSONResponse({
-                    "status": "error",
-                    "error": "message is required"
-                }, status_code=400)
-
-            # Get care team
-            record = await rag_pipeline.longitudinal_manager.get_or_create_record(patient_id)
-
-            # Filter by roles if specified
-            recipients = []
-            for member in record.care_team:
-                if not target_roles or member.role in target_roles:
-                    recipients.append(member)
-
-            # If alert coordinator is available, use it
-            notifications_sent = []
-            if rag_pipeline.alert_coordinator:
-                for member in recipients:
-                    try:
-                        # Create a notification via alert coordinator
-                        result = {
-                            "provider_id": member.provider_id,
-                            "name": member.name,
-                            "role": member.role,
-                            "channels": channels,
-                            "status": "queued"
-                        }
-                        notifications_sent.append(result)
-                    except Exception as e:
-                        notifications_sent.append({
-                            "provider_id": member.provider_id,
-                            "status": "failed",
-                            "error": str(e)
-                        })
-            else:
-                # Basic notification tracking
-                for member in recipients:
-                    notifications_sent.append({
-                        "provider_id": member.provider_id,
-                        "name": member.name,
-                        "role": member.role,
-                        "status": "logged"
-                    })
-
-            return JSONResponse({
-                "status": "success",
-                "message": f"Notification sent to {len(notifications_sent)} care team members",
-                "notifications": notifications_sent
-            })
-
-        except Exception as e:
-            logger.error(f"Error notifying care team: {e}")
             return JSONResponse({
                 "status": "error",
                 "error": str(e)

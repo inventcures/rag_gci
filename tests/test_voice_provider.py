@@ -152,8 +152,7 @@ class RoutingRespectsTheSelection(TempControl):
                 )
 
         self.control.set_provider(PROVIDER_SARVAM, "ashish", "incident 412")
-        router = VoiceRouter(Handler(), live_service_factory=lambda s: None,
-                             control=self.control)
+        router = VoiceRouter(Handler(), control=self.control)
 
         outcome = asyncio.run(router.route(object(), b"\x00"))
         self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
@@ -180,14 +179,15 @@ class RoutingRespectsTheSelection(TempControl):
                     source_count=0, voice_path="",
                 )
 
-        router = VoiceRouter(Handler(), live_service_factory=lambda s: None,
-                             control=self.control)
+        router = VoiceRouter(Handler(), control=self.control)
         asyncio.run(router.route(session, b"\x00"))
 
         report = router.report()
         self.assertEqual(report["selected_provider"], PROVIDER_LIVE)
         self.assertEqual(report["operator_forced"], 0)
-        self.assertEqual(report["fallback"], 1)
+        # This router's channel offers no Live: not a Live failure either.
+        self.assertEqual(report["live_not_offered"], 1)
+        self.assertEqual(report["fallback"], 0)
 
 
 if __name__ == "__main__":
