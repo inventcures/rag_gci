@@ -140,6 +140,8 @@ def main() -> int:
 
     print(f"\nVerified: index now matches {identity.model} "
           f"at {identity.dimension}d.")
+    print("Restart the server: it checks the index at start-up and refuses "
+          "every query until the check passes.")
     return 0
 
 

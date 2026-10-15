@@ -101,8 +101,9 @@ class IndexDrift:
             return "No action required."
         return (
             "Reindex the corpus with the configured embedding model "
-            f"({self.expected.model}, {self.expected.dimension}d) before querying. "
-            "Do not query this index in the meantime: a mismatch returns confident "
+            f"({self.expected.model}, {self.expected.dimension}d) using "
+            "scripts/reindex_with_configured_model.py, then restart the server. "
+            "Until then every query is refused: a mismatch returns confident "
             "but ungrounded results rather than an error."
         )
 
@@ -247,3 +248,95 @@ def write_index_metadata(
         "embedding_model": identity.model,
         "embedding_dimension": identity.dimension,
     })
+
+
+def stamp_if_empty(collection: Any, identity: EmbeddingIdentity) -> bool:
+    """
+    Record `identity` on an empty collection that records none.
+
+    An empty collection has no vectors to observe, so it would read as
+    unobservable and be refused forever, even after its first upload. Whatever
+    is added next is embedded by the pipeline's own function, which is the
+    configured model, so recording it now is evidence rather than a guess.
+    Returns True if it stamped.
+    """
+    try:
+        metadata = getattr(collection, "metadata", None) or {}
+        if metadata.get("embedding_model") or collection.count() != 0:
+            return False
+        write_index_metadata(collection, identity)
+    except Exception:
+        logger.warning("Could not record the identity on an empty index", exc_info=True)
+        return False
+    logger.info("Empty index: recorded %s (%dd) as its embedding model", identity.model, identity.dimension)
+    return True
+
+
+# What a participant reads or hears while the index is refused. It names no
+# cause they could act on, and keeps the emergency route, because the refusal
+# can land on a question asked in distress. The translations await clinical
+# review, like the Deferral's.
+INDEX_UNAVAILABLE_MESSAGE: Dict[str, str] = {
+    "en": (
+        "This service is temporarily unavailable and cannot answer questions right now. "
+        "Please try again later. If the person is in severe distress right now — "
+        "struggling to breathe, unresponsive, or in pain that cannot be settled — "
+        "call 108 for an ambulance."
+    ),
+    "hi": (
+        "यह सेवा अभी अस्थायी रूप से उपलब्ध नहीं है और अभी सवालों के जवाब नहीं दे सकती। "
+        "कृपया थोड़ी देर बाद फिर से कोशिश करें। अगर मरीज़ को अभी बहुत तेज़ तकलीफ़ है — "
+        "साँस लेने में दिक्कत, बेहोशी, या न ठीक होने वाला दर्द — तो 108 पर एम्बुलेंस बुलाएँ।"
+    ),
+    "bn": (
+        "এই পরিষেবাটি এখন সাময়িকভাবে বন্ধ আছে এবং এই মুহূর্তে প্রশ্নের উত্তর দিতে পারছে না। "
+        "অনুগ্রহ করে কিছুক্ষণ পরে আবার চেষ্টা করুন। রোগী এখন খুব কষ্টে থাকলে — শ্বাসকষ্ট, "
+        "অচেতন, বা সামলানো যায় না এমন ব্যথা — 108 নম্বরে অ্যাম্বুলেন্স ডাকুন।"
+    ),
+    "ta": (
+        "இந்தச் சேவை தற்காலிகமாகக் கிடைக்கவில்லை, இப்போது கேள்விகளுக்குப் பதில் அளிக்க முடியாது. "
+        "சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும். நோயாளர் இப்போது மிகவும் வேதனையில் இருந்தால் — "
+        "மூச்சுத் திணறல், நினைவிழப்பு, அல்லது சமாளிக்க முடியாத வலி — 108-ல் ஆம்புலன்ஸை அழைக்கவும்."
+    ),
+    "te": (
+        "ఈ సేవ ప్రస్తుతం తాత్కాలికంగా అందుబాటులో లేదు, ఇప్పుడు ప్రశ్నలకు సమాధానం ఇవ్వలేదు. "
+        "దయచేసి కొద్దిసేపటి తర్వాత మళ్ళీ ప్రయత్నించండి. రోగి ఇప్పుడు తీవ్రమైన బాధలో ఉంటే — "
+        "ఊపిరి ఆడకపోవడం, స్పృహ లేకపోవడం, లేదా తగ్గని నొప్పి — 108కి కాల్ చేసి అంబులెన్స్ పిలవండి."
+    ),
+    "mr": (
+        "ही सेवा सध्या तात्पुरती उपलब्ध नाही आणि आत्ता प्रश्नांची उत्तरे देऊ शकत नाही. "
+        "कृपया थोड्या वेळाने पुन्हा प्रयत्न करा. रुग्णाला आत्ता खूप त्रास होत असेल — "
+        "श्वास घेण्यास त्रास, बेशुद्धी, किंवा कमी न होणारी वेदना — तर 108 वर रुग्णवाहिका बोलवा."
+    ),
+    "gu": (
+        "આ સેવા હાલમાં અસ્થાયી રૂપે ઉપલબ્ધ નથી અને અત્યારે પ્રશ્નોના જવાબ આપી શકતી નથી. "
+        "કૃપા કરીને થોડી વાર પછી ફરી પ્રયાસ કરો. જો દર્દીને અત્યારે ખૂબ તકલીફ હોય — "
+        "શ્વાસ લેવામાં તકલીફ, બેભાન, અથવા ન મટતો દુખાવો — તો 108 પર એમ્બ્યુલન્સ બોલાવો."
+    ),
+    "kn": (
+        "ಈ ಸೇವೆ ಸದ್ಯಕ್ಕೆ ತಾತ್ಕಾಲಿಕವಾಗಿ ಲಭ್ಯವಿಲ್ಲ ಮತ್ತು ಈಗ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. "
+        "ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. ರೋಗಿಗೆ ಈಗ ತೀವ್ರ ತೊಂದರೆ ಇದ್ದರೆ — "
+        "ಉಸಿರಾಟದ ತೊಂದರೆ, ಪ್ರಜ್ಞೆ ಇಲ್ಲದಿರುವುದು, ಅಥವಾ ಕಡಿಮೆಯಾಗದ ನೋವು — 108ಕ್ಕೆ ಕರೆ ಮಾಡಿ ಆಂಬುಲೆನ್ಸ್ ಕರೆಸಿ."
+    ),
+    "ml": (
+        "ഈ സേവനം ഇപ്പോൾ താൽക്കാലികമായി ലഭ്യമല്ല, ഇപ്പോൾ ചോദ്യങ്ങൾക്ക് മറുപടി നൽകാൻ കഴിയില്ല. "
+        "ദയവായി കുറച്ചു സമയത്തിനു ശേഷം വീണ്ടും ശ്രമിക്കുക. രോഗിക്ക് ഇപ്പോൾ കടുത്ത ബുദ്ധിമുട്ടുണ്ടെങ്കിൽ — "
+        "ശ്വാസതടസ്സം, ബോധമില്ലായ്മ, അല്ലെങ്കിൽ ശമിക്കാത്ത വേദന — 108-ൽ വിളിച്ച് ആംബുലൻസ് വരുത്തുക."
+    ),
+    "pa": (
+        "ਇਹ ਸੇਵਾ ਇਸ ਵੇਲੇ ਆਰਜ਼ੀ ਤੌਰ 'ਤੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ ਅਤੇ ਹੁਣ ਸਵਾਲਾਂ ਦੇ ਜਵਾਬ ਨਹੀਂ ਦੇ ਸਕਦੀ। "
+        "ਕਿਰਪਾ ਕਰਕੇ ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ। ਜੇ ਮਰੀਜ਼ ਨੂੰ ਹੁਣ ਬਹੁਤ ਤਕਲੀਫ਼ ਹੈ — "
+        "ਸਾਹ ਲੈਣ ਵਿੱਚ ਮੁਸ਼ਕਲ, ਬੇਹੋਸ਼ੀ, ਜਾਂ ਨਾ ਹਟਣ ਵਾਲਾ ਦਰਦ — ਤਾਂ 108 'ਤੇ ਐਂਬੂਲੈਂਸ ਬੁਲਾਓ।"
+    ),
+    "or": (
+        "ଏହି ସେବା ବର୍ତ୍ତମାନ ଅସ୍ଥାୟୀ ଭାବରେ ଉପଲବ୍ଧ ନାହିଁ ଏବଂ ଏବେ ପ୍ରଶ୍ନର ଉତ୍ତର ଦେଇପାରିବ ନାହିଁ। "
+        "ଦୟାକରି କିଛି ସମୟ ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ। ଯଦି ରୋଗୀଙ୍କୁ ଏବେ ବହୁତ କଷ୍ଟ ହେଉଛି — "
+        "ନିଶ୍ୱାସ ନେବାରେ ଅସୁବିଧା, ଚେତାଶୂନ୍ୟ, କିମ୍ବା ନ କମୁଥିବା ଯନ୍ତ୍ରଣା — ତେବେ 108ରେ ଆମ୍ବୁଲାନ୍ସ ଡାକନ୍ତୁ।"
+    ),
+}
+
+
+def index_unavailable_message(language: Optional[str]) -> str:
+    """The refusal for `language` ("hi", "hi-IN", ...), in English when there is none."""
+    primary = (language or "en").split("-")[0].split("_")[0].lower()
+    return INDEX_UNAVAILABLE_MESSAGE.get(primary, INDEX_UNAVAILABLE_MESSAGE["en"])
