@@ -3,7 +3,7 @@ Clinical Validator - Automated validation for medical responses.
 
 Performs multi-layer validation:
 1. Medical entity verification
-2. Dosage range validation
+2. Dose detection (any dose is an issue, ADR 0004)
 3. Contraindication detection
 4. Hallucination detection (response grounded in sources)
 5. Safety check (emergency indicators, harmful advice)
@@ -15,6 +15,8 @@ from typing import Optional, List, Dict, Any, Set, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+
+from dose_detector import detect_doses
 
 logger = logging.getLogger(__name__)
 
@@ -94,81 +96,18 @@ class ClinicalValidator:
 
     Validates:
     - Medical terminology accuracy
-    - Medication dosages within safe ranges
+    - No specific medication dose (ADR 0004)
     - Contraindication warnings present
     - Response grounded in provided sources
     - No harmful or dangerous advice
     """
 
-    # Common palliative care medications with safe dosage ranges
-    MEDICATION_DOSAGES: Dict[str, Dict[str, Any]] = {
-        "morphine": {
-            "oral_mg_per_dose": (2.5, 200),  # min, max
-            "iv_mg_per_dose": (1, 50),
-            "unit": "mg",
-            "requires_prescription": True,
-            "controlled": True
-        },
-        "oxycodone": {
-            "oral_mg_per_dose": (2.5, 80),
-            "unit": "mg",
-            "requires_prescription": True,
-            "controlled": True
-        },
-        "fentanyl": {
-            "patch_mcg_per_hour": (12, 100),
-            "unit": "mcg",
-            "requires_prescription": True,
-            "controlled": True
-        },
-        "paracetamol": {
-            "oral_mg_per_dose": (325, 1000),
-            "max_daily_mg": 4000,
-            "unit": "mg",
-            "requires_prescription": False
-        },
-        "acetaminophen": {
-            "oral_mg_per_dose": (325, 1000),
-            "max_daily_mg": 4000,
-            "unit": "mg",
-            "requires_prescription": False
-        },
-        "ibuprofen": {
-            "oral_mg_per_dose": (200, 800),
-            "max_daily_mg": 3200,
-            "unit": "mg",
-            "requires_prescription": False
-        },
-        "ondansetron": {
-            "oral_mg_per_dose": (4, 8),
-            "iv_mg_per_dose": (4, 8),
-            "unit": "mg"
-        },
-        "metoclopramide": {
-            "oral_mg_per_dose": (5, 20),
-            "unit": "mg"
-        },
-        "haloperidol": {
-            "oral_mg_per_dose": (0.5, 5),
-            "unit": "mg"
-        },
-        "lorazepam": {
-            "oral_mg_per_dose": (0.5, 4),
-            "unit": "mg",
-            "controlled": True
-        },
-        "dexamethasone": {
-            "oral_mg_per_dose": (0.5, 16),
-            "unit": "mg"
-        },
-        "bisacodyl": {
-            "oral_mg_per_dose": (5, 15),
-            "unit": "mg"
-        },
-        "lactulose": {
-            "oral_ml_per_dose": (15, 45),
-            "unit": "ml"
-        }
+    # Medicines commonly named in palliative care answers. Names only: ADR 0004
+    # forbids any dose, so there is no "safe range" for an answer to fall within.
+    PALLIATIVE_MEDICATIONS: Set[str] = {
+        "morphine", "oxycodone", "fentanyl", "paracetamol", "acetaminophen",
+        "ibuprofen", "ondansetron", "metoclopramide", "haloperidol", "lorazepam",
+        "dexamethasone", "bisacodyl", "lactulose",
     }
 
     # Medical conditions relevant to palliative care
@@ -362,51 +301,26 @@ class ClinicalValidator:
         sources: Optional[List[Dict]],
         context: Optional[str]
     ) -> List[ValidationIssue]:
-        """Validate medication dosages are within safe ranges."""
-        issues = []
-        response_lower = response.lower()
+        """
+        Flag any specific dose in the response.
 
-        # Extract dosage mentions
-        dosage_pattern = r'(\d+(?:\.\d+)?)\s*(mg|mcg|ml|g)\s+(?:of\s+)?(\w+)'
-        matches = re.findall(dosage_pattern, response_lower)
-
-        for dose_str, unit, med_name in matches:
-            dose = float(dose_str)
-
-            # Check against known medications
-            for med_key, med_info in self.MEDICATION_DOSAGES.items():
-                if med_key in med_name or med_name in med_key:
-                    # Check oral dosage
-                    oral_key = f"oral_{unit}_per_dose"
-                    if oral_key in med_info:
-                        min_dose, max_dose = med_info[oral_key]
-                        if dose < min_dose:
-                            issues.append(ValidationIssue(
-                                category=ValidationCategory.DOSAGE,
-                                level=ValidationLevel.WARNING,
-                                message=f"Low dose of {med_key}: {dose}{unit} (typical: {min_dose}-{max_dose}{unit})",
-                                details={"medication": med_key, "dose": dose, "unit": unit}
-                            ))
-                        elif dose > max_dose:
-                            issues.append(ValidationIssue(
-                                category=ValidationCategory.DOSAGE,
-                                level=ValidationLevel.ERROR,
-                                message=f"High dose of {med_key}: {dose}{unit} exceeds typical max of {max_dose}{unit}",
-                                details={"medication": med_key, "dose": dose, "unit": unit},
-                                suggestion=f"Verify dosage - typical range is {min_dose}-{max_dose}{unit}"
-                            ))
-
-                    # Check if controlled substance mentioned without prescription warning
-                    if med_info.get("controlled") and "prescription" not in response_lower:
-                        issues.append(ValidationIssue(
-                            category=ValidationCategory.SAFETY,
-                            level=ValidationLevel.WARNING,
-                            message=f"Controlled substance {med_key} mentioned without prescription requirement note",
-                            suggestion="Add note that this medication requires a prescription"
-                        ))
-                    break
-
-        return issues
+        ADR 0004: the system never states a medication dose, so any dose is a
+        critical issue, whatever its size. Detection is the Dose Boundary's own
+        detector, so the validator and the gate cannot disagree.
+        """
+        findings = detect_doses(response)
+        if not findings:
+            return []
+        return [ValidationIssue(
+            category=ValidationCategory.DOSAGE,
+            level=ValidationLevel.CRITICAL,
+            message=(
+                f"Response states a specific dose ({findings[0].reason}); "
+                "the Dose Boundary forbids any dose"
+            ),
+            details={"findings": [f.to_dict() for f in findings]},
+            suggestion="Remove the dose and refer the dose decision to the prescriber",
+        )]
 
     def _check_hallucination(
         self,
@@ -445,7 +359,7 @@ class ClinicalValidator:
                 medical_terms.add(term)
 
         # Check medication mentions
-        med_pattern = r'\b(' + '|'.join(self.MEDICATION_DOSAGES.keys()) + r')\b'
+        med_pattern = r'\b(' + '|'.join(self.PALLIATIVE_MEDICATIONS) + r')\b'
         meds_in_response = set(re.findall(med_pattern, response_lower))
         meds_in_sources = set(re.findall(med_pattern, source_text))
 
@@ -540,7 +454,7 @@ class ClinicalValidator:
                 "should" in response_lower,
                 "recommend" in response_lower,
                 "take" in response_lower and any(
-                    med in response_lower for med in self.MEDICATION_DOSAGES
+                    med in response_lower for med in self.PALLIATIVE_MEDICATIONS
                 ),
                 "treatment" in response_lower,
                 "therapy" in response_lower

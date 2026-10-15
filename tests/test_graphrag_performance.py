@@ -272,9 +272,10 @@ class TestAsyncThrottler:
     @pytest.mark.asyncio
     async def test_throttler_context_manager(self, async_throttler):
         """Test throttler as context manager."""
+        entered = False
         async with async_throttler:
-            # Should not raise
-            pass
+            entered = True
+        assert entered
 
     @pytest.mark.asyncio
     async def test_throttler_concurrency_limit(self):

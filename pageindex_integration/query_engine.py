@@ -97,6 +97,8 @@ class PageIndexQueryEngine:
         self._storage = storage
         self._llm = LLMAdapter(config.llm)
         self._cache: Optional[Any] = None
+        # The storage revision the cached results were computed against.
+        self._cache_revision: Optional[int] = None
         # Per tree: the navigation JSON (text stripped) and the node map,
         # built once per tree instead of on every query.
         self._prepared: Dict[str, tuple] = {}
@@ -128,8 +130,10 @@ class PageIndexQueryEngine:
         """
         start_time = time.time()
 
-        if self._cache:
-            cached = self._cache.get(query, "pageindex")
+        cache_key = self._cache_key(doc_ids)
+        if self._cache is not None:
+            self._drop_cache_if_index_changed()
+            cached = self._cache.get(query, cache_key)
             if cached is not None:
                 logger.debug(f"Cache hit for: {query[:50]}...")
                 return cached
@@ -217,10 +221,30 @@ class PageIndexQueryEngine:
             duration_ms=duration_ms,
         )
 
-        if self._cache:
-            self._cache.set(query, "pageindex", result)
+        if self._cache is not None:
+            self._cache.set(query, cache_key, result)
 
         return result
+
+    @staticmethod
+    def _cache_key(doc_ids: Optional[List[str]]) -> str:
+        """The cache's method slot for a search: the document filter is part
+        of the question, so the same query over different documents is a
+        different entry."""
+        if not doc_ids:
+            return "pageindex:*"
+        return "pageindex:" + ",".join(sorted(set(doc_ids)))
+
+    def _drop_cache_if_index_changed(self) -> None:
+        """Clear the cache when the tree index changed since it was filled,
+        so an upload (its tree saved) or a deletion shows up in the next
+        search instead of after the TTL."""
+        revision = getattr(self._storage, "revision", None)
+        if revision != self._cache_revision:
+            if self._cache_revision is not None:
+                logger.debug("PageIndex tree index changed; clearing query cache")
+            self._cache.clear()
+            self._cache_revision = revision
 
     def _prepare(self, doc_id: str) -> Optional[tuple]:
         """(navigation JSON, node map) for a tree, from the cache while the
@@ -290,7 +314,7 @@ class PageIndexQueryEngine:
 
     def get_stats(self) -> Dict[str, Any]:
         stats: Dict[str, Any] = {"cache": None}
-        if self._cache:
+        if self._cache is not None:
             stats["cache"] = self._cache.get_stats()
         return stats
 

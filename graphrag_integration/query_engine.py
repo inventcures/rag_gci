@@ -25,6 +25,7 @@ Usage:
 
 import asyncio
 import logging
+import re
 import time
 from typing import Dict, Any, Optional, List
 from enum import Enum
@@ -35,6 +36,14 @@ from graphrag_integration.data_loader import GraphRAGDataLoader
 from graphrag_integration.utils import QueryCache
 
 logger = logging.getLogger(__name__)
+
+
+def _count_phrases(phrases: List[str], text: str) -> int:
+    """How many of `phrases` occur in `text` as whole words or phrases."""
+    return sum(
+        1 for phrase in phrases
+        if re.search(r"\b" + re.escape(phrase) + r"\b", text)
+    )
 
 
 class SearchMethod(Enum):
@@ -128,6 +137,10 @@ class GraphRAGQueryEngine:
         # Auto-select method
         result = await engine.auto_search("What is morphine?")
     """
+
+    # A question this short or shorter, with a definition-style phrase, is
+    # simple enough for basic (vector similarity) search.
+    SIMPLE_QUESTION_MAX_WORDS = 10
 
     def __init__(
         self,
@@ -581,6 +594,7 @@ class GraphRAGQueryEngine:
             Recommended search method
         """
         query_lower = query.lower()
+        word_count = len(query.split())
 
         # Global indicators: broad, thematic questions
         global_keywords = [
@@ -591,9 +605,9 @@ class GraphRAGQueryEngine:
 
         # Local indicators: entity-specific questions
         local_keywords = [
-            "specific", "what is", "tell me about", "side effects",
+            "specific", "tell me about", "side effects",
             "dosage", "how does", "compare", "difference between",
-            "define", "describe", "explain", "details about"
+            "describe", "explain", "details about"
         ]
 
         # DRIFT indicators: complex, multi-hop questions
@@ -604,20 +618,34 @@ class GraphRAGQueryEngine:
             "complex", "multiple", "together with"
         ]
 
-        # Count keyword matches
-        global_score = sum(1 for kw in global_keywords if kw in query_lower)
-        local_score = sum(1 for kw in local_keywords if kw in query_lower)
-        drift_score = sum(1 for kw in drift_keywords if kw in query_lower)
+        # Basic indicators: simple factual or definition questions, which a
+        # plain similarity search over the text units answers directly.
+        basic_keywords = [
+            "what is", "what does", "who is", "define", "definition of",
+            "meaning of", "stand for", "where", "when"
+        ]
+
+        # Count whole-word (and whole-phrase) matches, so "all" does not
+        # match inside "palliative" nor "list" inside "specialist".
+        global_score = _count_phrases(global_keywords, query_lower)
+        local_score = _count_phrases(local_keywords, query_lower)
+        drift_score = _count_phrases(drift_keywords, query_lower)
+        # Only a short question counts as simple.
+        basic_score = (
+            _count_phrases(basic_keywords, query_lower)
+            if word_count <= self.SIMPLE_QUESTION_MAX_WORDS else 0
+        )
 
         # Boost scores based on question structure
-        if "?" in query and len(query.split()) > 15:
+        if "?" in query and word_count > 15:
             drift_score += 1  # Longer questions often need DRIFT
 
-        if "what are the" in query_lower or "list" in query_lower:
+        if _count_phrases(["what are the", "list"], query_lower):
             local_score += 1
 
-        # Select method based on scores
-        max_score = max(global_score, local_score, drift_score)
+        # Select method based on scores. On a tie the richer method wins,
+        # in the order global, DRIFT, local, basic.
+        max_score = max(global_score, local_score, drift_score, basic_score)
 
         if max_score == 0:
             # Default to local for most queries
@@ -627,8 +655,10 @@ class GraphRAGQueryEngine:
             return SearchMethod.GLOBAL
         elif drift_score == max_score:
             return SearchMethod.DRIFT
-        else:
+        elif local_score == max_score:
             return SearchMethod.LOCAL
+        else:
+            return SearchMethod.BASIC
 
     async def _fallback_search(
         self,

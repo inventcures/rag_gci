@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# RAG Server Startup Script for macOS
-# Handles environment setup and server startup
+# Study server startup script (macOS-oriented)
+# Handles environment setup, then starts simple_rag_server.py: the study server,
+# the one that applies the Dose Boundary and stamps the study release.
 
 set -e
 
@@ -12,7 +13,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Starting RAG Server with WhatsApp Bot${NC}"
+echo -e "${BLUE}🚀 Starting the study server (simple_rag_server.py)${NC}"
 echo "=================================================="
 
 # Check if we're on macOS
@@ -71,8 +72,8 @@ pip install -r requirements.txt
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then
-    echo -e "${YELLOW}⚠️ .env file not found. Creating template...${NC}"
-    python setup.py
+    echo -e "${YELLOW}⚠️ .env file not found. Copying .env.example...${NC}"
+    cp .env.example .env
 fi
 
 # Check for API keys
@@ -100,15 +101,6 @@ fi
 # Create necessary directories
 echo -e "${BLUE}📁 Creating directories...${NC}"
 mkdir -p data uploads logs cache
-
-# Check if Kotaemon is available
-if [ ! -d "kotaemon-main" ]; then
-    echo -e "${RED}❌ kotaemon-main directory not found${NC}"
-    echo "Please ensure the Kotaemon codebase is available"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ Kotaemon found${NC}"
 
 # Parse command line arguments
 HOST="0.0.0.0"
@@ -147,14 +139,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Start the server
-echo -e "${GREEN}🚀 Starting RAG Server...${NC}"
+echo -e "${GREEN}🚀 Starting the study server...${NC}"
 echo "Host: $HOST"
 echo "Port: $PORT"
 echo "ngrok: $([ "$NO_NGROK" = true ] && echo "disabled" || echo "enabled")"
 echo ""
 
 # Construct Python command
-PYTHON_CMD="python main.py --host $HOST --port $PORT"
+PYTHON_CMD="python simple_rag_server.py --host $HOST --port $PORT"
 
 if [ "$NO_NGROK" = true ]; then
     PYTHON_CMD="$PYTHON_CMD --no-ngrok"

@@ -15,7 +15,6 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
-import traceback
 import pickle
 import hashlib
 import uuid
@@ -85,7 +84,8 @@ except ImportError:
     SarvamClient = None
     SarvamWebhookHandler = None
 
-import hmac
+from fastapi import Depends
+from webhook_auth import require_bolna, require_retell, require_sarvam, require_twilio
 
 # Knowledge Graph integration imports
 try:
@@ -195,6 +195,7 @@ from chromadb.utils import embedding_functions
 from retrieval.settings import (
     ROUTED_METHODS,
     RAG_METHODS,
+    RetrievalSettings,
     get_active_settings,
     load_retrieval_settings,
     set_active_settings,
@@ -220,10 +221,11 @@ from retrieval.embedding_runtime import configured_runtime, load_embedding_model
 from study_logging import append_line
 from observability import record_span, span, trace_request
 from retrieval_index import (
-    IndexMismatchError,
+    IndexDrift,
     check_live_index,
+    index_unavailable_message,
     load_identity_from_config,
-    write_index_metadata,
+    stamp_if_empty,
 )
 import requests
 import aiohttp
@@ -827,6 +829,10 @@ def bolna_caller_id(data: Dict[str, Any]) -> str:
     return ephemeral("bolna", f"anon_{uuid.uuid4().hex[:12]}")
 
 
+class MetadataLoadError(RuntimeError):
+    """The document metadata file exists but can't be read as a JSON object."""
+
+
 async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
                            language: str = "en") -> Dict[str, Any]:
     """
@@ -870,8 +876,9 @@ class SimpleRAGPipeline:
         self.document_processor = SimpleDocumentProcessor()
         self.embedding_model = None
         self.vector_db = None
-        self.index_drift = None
-        self.retrieval_available = False
+        # Set by _initialize_components; retrieval_available and the refusal
+        # in _query_impl read it.
+        self.index_drift: Optional[IndexDrift] = None
         # How often the translation fallback fired. The rate is the evidence that
         # cross-language retrieval is working; a high rate would mean it is not.
         self.translation_fallback_count = 0
@@ -966,21 +973,22 @@ class SimpleRAGPipeline:
             # changing the configured model does not reindex and querying
             # proceeds against stale vectors. That is exactly how an English-only
             # 384d index ended up serving Indic queries at a measured 0.00
-            # hit@5 without ever raising an error.
+            # hit@5 without ever raising an error. _query_impl reads the result
+            # and refuses every query while it shows drift.
+            stamp_if_empty(self.vector_db, self.embedding_identity)
             self.index_drift = check_live_index(self.vector_db, self.embedding_identity)
             if self.index_drift.has_drift:
                 logger.error(
-                    "Embedding index mismatch: configured %s at %dd, index holds %s. "
+                    "Embedding index mismatch: configured %s at %dd, index holds %s (%s). "
                     "Retrieval would return ungrounded results rather than fail, so "
-                    "the pipeline will refuse to answer until the corpus is reindexed. "
-                    "Run scripts/reindex_with_configured_model.py.",
+                    "the pipeline refuses every query. %s",
                     self.embedding_identity.model,
                     self.embedding_identity.dimension,
                     self.index_drift.observed,
+                    ", ".join(self.index_drift.reasons),
+                    self.index_drift.remediation,
                 )
-                self.retrieval_available = False
             else:
-                self.retrieval_available = True
                 logger.info("Embedding index matches the configured model.")
             
             # Initialize corruption detection and auto-rebuild managers
@@ -996,6 +1004,49 @@ class SimpleRAGPipeline:
         except Exception as e:
             logger.error(f"Failed to initialize RAG pipeline: {e}")
             raise
+
+    @property
+    def retrieval_available(self) -> bool:
+        """False while the live index was built by a model other than the release's."""
+        drift = getattr(self, "index_drift", None)
+        return not (drift is not None and drift.has_drift)
+
+    def index_health(self) -> Dict[str, Any]:
+        """The index-identity part of /health: what was expected, what is there, what to do."""
+        drift = getattr(self, "index_drift", None)
+        report: Dict[str, Any] = drift.to_dict() if drift is not None else {"has_drift": False}
+        report["retrieval_available"] = self.retrieval_available
+        return report
+
+    def _index_mismatch_refusal(self, source_language: str, conversation_id: Optional[str],
+                                trace: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        The answer for every query while the index is mismatched, or None.
+
+        Status is "success" on purpose: every channel speaks a successful answer
+        as-is, while several replace a failed one with their own fallback (and
+        Gemini Live would answer from its own knowledge). `refusal_reason` marks
+        it for the record.
+        """
+        if self.retrieval_available:
+            return None
+        trace["retrieval"] = {
+            "rag_method": _rag_method,
+            "retrievers_active": [],
+            "refusal_reason": "index_mismatch",
+            "index_drift": list(self.index_drift.reasons),
+        }
+        logger.warning("Query refused: embedding index mismatch (%s)", ", ".join(self.index_drift.reasons))
+        return {
+            "status": "success",
+            "answer": index_unavailable_message(source_language),
+            "refusal_reason": "index_mismatch",
+            "model_used": "system",
+            "sources": [],
+            "context_used": 0,
+            "conversation_id": conversation_id,
+            "timestamp": datetime.now().isoformat(),
+        }
 
     def _initialize_longitudinal_memory(self):
         """
@@ -1127,20 +1178,51 @@ class SimpleRAGPipeline:
             return False
     
     def _load_metadata(self) -> Dict:
-        """Load document metadata from file"""
-        if self.metadata_file.exists():
+        """Load document metadata from file; no file means an empty index.
+
+        A file that can't be read or parsed raises MetadataLoadError. Returning
+        {} instead would let the next save overwrite every document's metadata."""
+        if not self.metadata_file.exists():
+            return {}
+        try:
+            with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+        except (OSError, ValueError) as e:
+            raise MetadataLoadError(
+                f"Document metadata at {self.metadata_file} is unreadable ({e}). "
+                "It was left untouched; restore it from backup or remove it to start empty."
+            ) from e
+        if not isinstance(metadata, dict):
+            raise MetadataLoadError(
+                f"Document metadata at {self.metadata_file} is not a JSON object; it was left untouched."
+            )
+        return metadata
+
+    def _save_metadata(self) -> None:
+        """Save document metadata atomically: write a temporary file, then rename.
+
+        A crash mid-write leaves the previous file whole, never a torn one."""
+        directory = self.metadata_file.parent
+        fd, tmp_name = tempfile.mkstemp(prefix=f".{self.metadata_file.name}.", suffix=".tmp", dir=directory)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(self.document_metadata, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_name, self.metadata_file)
+        except BaseException:
             try:
-                with open(self.metadata_file, 'r') as f:
-                    return json.load(f)
-            except:
+                os.unlink(tmp_name)
+            except FileNotFoundError:
                 pass
-        return {}
-    
-    def _save_metadata(self):
-        """Save document metadata to file"""
-        with open(self.metadata_file, 'w') as f:
-            json.dump(self.document_metadata, f, indent=2)
-    
+            raise
+        try:
+            from study_release import get_study_release
+
+            get_study_release().corpus_changed(logger, manifest=self.metadata_file)
+        except Exception:  # the save succeeded; a drift recheck must not undo it
+            logger.exception("Release drift recheck after a corpus change failed")
+
     # Turns kept in memory per conversation; the full history is on disk.
     CONVERSATION_MEMORY_TURNS = 50
 
@@ -1258,12 +1340,8 @@ class SimpleRAGPipeline:
             }
             
         except Exception as e:
-            logger.error(f"Error removing document: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            logger.error(f"Error removing document: {e}", exc_info=True)
+            return {"status": "error", "error": str(e)}
     
     # Chunks embedded and added per worker-thread call while indexing.
     INDEX_BATCH = 32
@@ -1398,12 +1476,8 @@ class SimpleRAGPipeline:
             }
             
         except Exception as e:
-            logger.error(f"Error adding documents: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            logger.error(f"Error adding documents: {e}", exc_info=True)
+            return {"status": "error", "error": str(e)}
     
     # -----------------------------------------------------------------
     # Answer-path wiring for the knowledge graph, GraphRAG and K26 check
@@ -1595,7 +1669,14 @@ class SimpleRAGPipeline:
                         "conversation_id": conversation_id,
                         "timestamp": datetime.now().isoformat(),
                     }
-            
+
+            # An index built by another model answers confidently and wrongly,
+            # so nothing is retrieved from it. Emergency escalation above needs
+            # no retrieval and still runs.
+            refusal = self._index_mismatch_refusal(source_language, conversation_id, trace)
+            if refusal is not None:
+                return refusal
+
             # Patient context depends only on who asks and what, so it is
             # fetched while retrieval runs instead of after it.
             if user_id and self.context_injector:
@@ -1695,7 +1776,7 @@ class SimpleRAGPipeline:
 
             elif _rag_method == "pageindex" and _pageindex_enabled and _pageindex_engine:
                 # PageIndex tree-based retrieval
-                logger.info(f"Using PageIndex tree-based retrieval for: {query_for_search[:80]}")
+                logger.info("Using PageIndex tree-based retrieval")
                 with span("pageindex.search"):
                     pi_result = await _pageindex_engine.search(query_for_search)
                 context_text = pi_result.context
@@ -1718,12 +1799,14 @@ class SimpleRAGPipeline:
                     })
                 relevant_metadatas = filtered_metadatas
                 should_fuse = len(pi_result.selected_nodes) > 1
-                distances = [0.5] * len(filtered_metadatas)
+                # Tree search has no similarity distance; the badge says so
+                # rather than being handed an invented one.
+                distances = []
                 logger.info(f"PageIndex returned {len(pi_result.selected_nodes)} nodes, {len(context_text)} chars context")
 
             elif _rag_method == "hybrid" and _pageindex_enabled and _pageindex_engine:
                 # Hybrid: parallel vector + tree search
-                logger.info(f"Using hybrid (vector + PageIndex) retrieval for: {query_for_search[:80]}")
+                logger.info("Using hybrid (vector + PageIndex) retrieval")
 
                 async def _do_vector_search():
                     with span("search", n_results=top_k):
@@ -1740,13 +1823,17 @@ class SimpleRAGPipeline:
                 # Vector context
                 vector_context_parts = []
                 vector_metas = []
+                vector_distances = []
                 if vector_results.get('documents') and vector_results['documents'][0]:
                     v_distances = vector_results.get('distances', [[]])[0]
                     for idx, (doc, meta) in enumerate(zip(vector_results['documents'][0], vector_results['metadatas'][0])):
-                        dist = v_distances[idx] if idx < len(v_distances) else 1.0
+                        has_distance = idx < len(v_distances)
+                        dist = v_distances[idx] if has_distance else 1.0
                         if dist <= 1.5:
                             vector_context_parts.append(f"Source: {meta['filename']} (chunk {meta['chunk_index']+1})\n{doc}")
                             vector_metas.append(meta)
+                            if has_distance:
+                                vector_distances.append(dist)
 
                 # Tree context
                 tree_context = pi_result.context if pi_result.context else ""
@@ -1778,7 +1865,8 @@ class SimpleRAGPipeline:
                 filtered_metadatas = vector_metas + tree_metas
                 relevant_metadatas = filtered_metadatas
                 should_fuse = True
-                distances = [0.5] * len(filtered_metadatas)
+                # Only the vector chunks have real distances; tree nodes have none.
+                distances = vector_distances
                 logger.info(f"Hybrid: {len(vector_context_parts)} vector chunks + {len(pi_result.selected_nodes)} tree nodes")
 
             else:
@@ -2004,12 +2092,8 @@ class SimpleRAGPipeline:
             }
             
         except Exception as e:
-            logger.error(f"Error querying RAG pipeline: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            logger.error(f"Error querying RAG pipeline: {e}", exc_info=True)
+            return {"status": "error", "error": str(e)}
         finally:
             # An early return (no documents) leaves the fetch unused.
             if patient_context_task is not None and not patient_context_task.done():
@@ -2444,23 +2528,18 @@ ANSWER (2-3 paragraphs followed by Sources line):"""
     async def translate_query_to_english(self, query: str, source_language: str) -> Dict[str, Any]:
         """Translate query from local language to English for better embedding matching"""
         try:
-            # Language mapping for better translation prompts
-            language_names = {
-                "hi": "Hindi",
-                "bn": "Bengali", 
-                "ta": "Tamil",
-                "gu": "Gujarati",
-                "en": "English"
-            }
-            
-            if source_language not in language_names:
+            from supported_languages import get_language
+
+            # Any of the eleven Supported Languages (the one table)
+            lang = get_language(source_language)
+            if lang is None:
                 return {"status": "error", "error": f"Unsupported language: {source_language}"}
             
-            if source_language == "en":
+            if lang.code == "en":
                 # Already in English, no translation needed
                 return {"status": "success", "translated_query": query, "original_query": query}
             
-            source_lang_name = language_names[source_language]
+            source_lang_name = lang.name
             
             prompt = f"""You are an expert medical translator. Translate the following {source_lang_name} medical query to English.
 
@@ -2480,7 +2559,9 @@ Respond with ONLY the English translation, no explanations or additional text.""
             if model == "error":
                 return {"status": "error", "error": translated_query}
             translated_query = translated_query.strip()
-            logger.info(f"Query translation: {source_lang_name} '{query}' -> English '{translated_query}'")
+            logger.info(f"Query translation: {source_lang_name} -> English "
+                        f"({len(query)} -> {len(translated_query)} chars)")
+            logger.debug(f"Query translation: '{query}' -> '{translated_query}'")
             return {
                 "status": "success",
                 "translated_query": translated_query,
@@ -2495,23 +2576,18 @@ Respond with ONLY the English translation, no explanations or additional text.""
     async def translate_text(self, text: str, target_language: str) -> Dict[str, Any]:
         """Translate text to target language with the shared LLM client"""
         try:
-            # Language mapping for better translation prompts
-            language_names = {
-                "hi": "Hindi",
-                "bn": "Bengali",
-                "ta": "Tamil",
-                "gu": "Gujarati", 
-                "en": "English"
-            }
-            
-            if target_language not in language_names:
+            from supported_languages import get_language
+
+            # Any of the eleven Supported Languages (the one table)
+            lang = get_language(target_language)
+            if lang is None:
                 return {"status": "error", "error": f"Unsupported language: {target_language}"}
             
-            if target_language == "en":
+            if lang.code == "en":
                 # No translation needed
                 return {"status": "success", "translated_text": text, "target_language": target_language}
             
-            target_lang_name = language_names[target_language]
+            target_lang_name = lang.name
             
             prompt = f"""You are an expert medical translator. Translate the following English medical text to {target_lang_name}. 
 
@@ -3557,8 +3633,8 @@ class SimpleAdminUI:
                         return f"Unsupported file type: {type(file)} - {file}", files, metadata_str
                         
                 except Exception as file_error:
-                    logger.error(f"Error processing file {file}: {str(file_error)}")
-                    return f"Error processing file {file}: {str(file_error)}\n{traceback.format_exc()}", files, metadata_str
+                    logger.error(f"Error processing file {file}: {str(file_error)}", exc_info=True)
+                    return f"Error processing file {file}: {str(file_error)}", files, metadata_str
             
             # Index files
             result = asyncio.run(self.rag_pipeline.add_documents(file_paths, metadata))
@@ -3581,7 +3657,8 @@ class SimpleAdminUI:
                 return f"❌ Upload failed: {result['error']}", files, metadata_str
             
         except Exception as e:
-            return f"Error: {str(e)}\n{traceback.format_exc()}", files, metadata_str
+            logger.error(f"Upload failed: {e}", exc_info=True)
+            return f"Error: {str(e)}", files, metadata_str
     
     def _handle_query(self, query):
         """Handle query testing"""
@@ -4902,6 +4979,47 @@ def chroma_client_for(path: Path) -> Any:
     return chromadb.PersistentClient(path=str(path))
 
 
+def start_pageindex(settings: RetrievalSettings) -> str:
+    """
+    Start PageIndex when the configured method needs it, and settle the method
+    that actually answers.
+
+    `pageindex` and `hybrid` answer through the vector path when PageIndex
+    cannot start (query() checks `_pageindex_enabled`), so they are recorded as
+    `vector`: leaving `hybrid` in the settings made the release record name a
+    method that was not answering. `fused` keeps its name because the router
+    fuses whatever retrievers are up. Sets the module globals query() reads,
+    writes the result into `settings` (the active settings the release
+    fingerprint reads) and returns it.
+    """
+    global _pageindex_config, _pageindex_storage, _pageindex_builder
+    global _pageindex_engine, _pageindex_enabled, _rag_method
+    method = settings.rag_method
+    _pageindex_enabled = False
+    if method in ("pageindex", "hybrid", "fused"):
+        if not PAGEINDEX_AVAILABLE:
+            logger.warning("PageIndex requested but module not available")
+        else:
+            try:
+                _pageindex_config = PageIndexConfig()
+                _pageindex_storage = PageIndexStorage(_pageindex_config)
+                _pageindex_builder = PageIndexTreeBuilder(_pageindex_config, _pageindex_storage)
+                _pageindex_engine = PageIndexQueryEngine(_pageindex_config, _pageindex_storage)
+                _pageindex_enabled = True
+                stats = _pageindex_storage.get_stats()
+                logger.info(f"PageIndex initialized: {stats['total_trees']} trees, {stats['total_nodes']} nodes")
+            except Exception as e:  # PageIndex start-up touches disk, config and an LLM client
+                logger.error(f"Failed to initialize PageIndex: {e}")
+                _pageindex_enabled = False
+        if not _pageindex_enabled and method in ("pageindex", "hybrid"):
+            logger.warning("RAG method %s cannot run without PageIndex; recording and answering with vector", method)
+            method = "vector"
+    _rag_method = method
+    settings.rag_method = method
+    logger.info("RAG method: %s", method)
+    return method
+
+
 def _parse_args(argv: Optional[List[str]] = None) -> Any:
     """The server's command line (also read by create_app from PALLI_SERVER_ARGS)."""
     """Main application entry point"""
@@ -5013,29 +5131,9 @@ def create_app(args: Any = None) -> FastAPI:
         retrieval_settings.fusion_description(), retrieval_settings.source,
     )
 
-    if PAGEINDEX_AVAILABLE and _rag_method in ("pageindex", "hybrid", "fused"):
-        try:
-            _pageindex_config = PageIndexConfig()
-            _pageindex_storage = PageIndexStorage(_pageindex_config)
-            _pageindex_builder = PageIndexTreeBuilder(_pageindex_config, _pageindex_storage)
-            _pageindex_engine = PageIndexQueryEngine(_pageindex_config, _pageindex_storage)
-            _pageindex_enabled = True
-            stats = _pageindex_storage.get_stats()
-            logger.info(f"PageIndex initialized: {stats['total_trees']} trees, {stats['total_nodes']} nodes")
-            logger.info(f"RAG method: {_rag_method}")
-        except Exception as e:
-            logger.error(f"Failed to initialize PageIndex: {e}")
-            _pageindex_enabled = False
-            if _rag_method == "pageindex":
-                logger.warning("Falling back to vector search")
-                _rag_method = "vector"
-    elif _rag_method in ("pageindex", "hybrid") and not PAGEINDEX_AVAILABLE:
-        logger.warning("PageIndex requested but module not available, falling back to vector")
-        _rag_method = "vector"
-
-    # Keep the active settings in step with any fallback above, so the release
-    # log records the method that actually answers.
-    retrieval_settings.rag_method = _rag_method
+    # Keeps the active settings in step with any fallback, so the release log
+    # records the method that actually answers.
+    start_pageindex(retrieval_settings)
     rag_pipeline.configure_answer_path(
         retrieval_settings,
         pageindex_engine=_pageindex_engine if _pageindex_enabled else None,
@@ -5050,7 +5148,7 @@ def create_app(args: Any = None) -> FastAPI:
     
     # Debug: Print what we found
     logger.info(f"🔍 Checking Twilio configuration:")
-    logger.info(f"   TWILIO_ACCOUNT_SID: {'✅ Set' if twilio_sid else '❌ Not set'} ({twilio_sid[:10]}... if set)")
+    logger.info(f"   TWILIO_ACCOUNT_SID: {'✅ Set' if twilio_sid else '❌ Not set'}")
     logger.info(f"   TWILIO_AUTH_TOKEN: {'✅ Set' if twilio_token else '❌ Not set'} ({'*' * 10 if twilio_token else 'None'})")
     
     twilio_configured = (
@@ -5075,12 +5173,23 @@ def create_app(args: Any = None) -> FastAPI:
     # Create Gradio interface
     gradio_app = admin_ui.create_gradio_interface()
     
-    # Create FastAPI app
-    app = FastAPI(title="Simple RAG Server with WhatsApp Bot")
-    
+    # Create FastAPI app. Every route passes the one authentication policy
+    # (auth/policy.py): public, participant or admin, declared in ROUTE_POLICIES.
+    from auth.policy import cors_allowed_origins, enforce_route_policy
+    app = FastAPI(
+        title="Simple RAG Server with WhatsApp Bot",
+        dependencies=[Depends(enforce_route_policy)],
+    )
+    # One error shape, no traceback in any body (api_errors.py).
+    from api_errors import install_error_handlers
+    install_error_handlers(app)
+
+    # Only the study's own origins may call the API from a browser; none by default.
+    _cors_origins = cors_allowed_origins()
+    logger.info("CORS allowed origins: %s", _cors_origins or "none")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -5233,8 +5342,10 @@ def create_app(args: Any = None) -> FastAPI:
             gemini_config = get_gemini_config()
 
             # Check both config file AND environment variable (--provider flag sets this)
+            from gemini_live.config import live_enabled
+
             env_enabled = os.getenv("GEMINI_LIVE_ENABLED", "").lower() == "true"
-            if not gemini_config.enabled and not env_enabled:
+            if not live_enabled(gemini_config):
                 logger.info("Gemini Live disabled in config - voice WebSocket disabled")
                 return
 
@@ -5743,7 +5854,10 @@ def create_app(args: Any = None) -> FastAPI:
             gemini_status = "available but not enabled"
 
         return {
-            "status": "healthy",
+            # Degraded, not unhealthy: the server is up and must stay reachable
+            # so the operator can see why every query is refused.
+            "status": "healthy" if rag_pipeline.retrieval_available else "degraded",
+            "embedding_index": rag_pipeline.index_health(),
             "database": "file-based (no SQL database)",
             "whatsapp_bot": "configured" if whatsapp_bot else "not configured",
             "gemini_live": gemini_status,
@@ -5928,27 +6042,8 @@ def create_app(args: Any = None) -> FastAPI:
     # Initialize Bolna webhook handler
     bolna_webhook_handler = BolnaWebhookHandler() if BOLNA_AVAILABLE else None
 
-    # Bolna webhook secret for signature verification
-    BOLNA_WEBHOOK_SECRET = os.getenv("BOLNA_WEBHOOK_SECRET", "")
-
-    def verify_bolna_signature(payload: bytes, signature: str) -> bool:
-        """Verify Bolna webhook signature using HMAC-SHA256."""
-        if not BOLNA_WEBHOOK_SECRET:
-            return True  # Skip verification if no secret configured
-
-        expected = hmac.new(
-            BOLNA_WEBHOOK_SECRET.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
-
-        return hmac.compare_digest(expected, signature)
-
-    @app.post("/api/bolna/query")
-    async def bolna_query_endpoint(
-        request: Request,
-        x_bolna_signature: Optional[str] = Header(None)
-    ):
+    @app.post("/api/bolna/query", dependencies=[Depends(require_bolna)])
+    async def bolna_query_endpoint(request: Request):
         """
         RAG query endpoint for Bolna custom function calls.
 
@@ -5977,13 +6072,8 @@ def create_app(args: Any = None) -> FastAPI:
         }
         """
         try:
-            # Get raw body for signature verification
+            # Verified by require_bolna (signature and Bearer key).
             body = await request.body()
-
-            # Verify signature if provided
-            if x_bolna_signature and not verify_bolna_signature(body, x_bolna_signature):
-                logger.warning("Invalid Bolna signature received")
-                raise HTTPException(status_code=401, detail="Invalid signature")
 
             # Parse request
             data = json.loads(body)
@@ -6159,7 +6249,7 @@ def create_app(args: Any = None) -> FastAPI:
                 "confidence": 0.0
             }, status_code=500)
 
-    @app.post("/api/bolna/webhook")
+    @app.post("/api/bolna/webhook", dependencies=[Depends(require_bolna)])
     async def bolna_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Bolna call events.
@@ -6188,15 +6278,17 @@ def create_app(args: Any = None) -> FastAPI:
                 duration = data.get("duration_seconds", data.get("duration", 0))
                 logger.info(f"Call {call_id} ended - Duration: {duration}s")
                 if summary:
-                    logger.info(f"Call summary: {summary[:200]}...")
+                    logger.debug(f"Call summary: {summary[:200]}...")
 
             elif event_type == "extraction_completed":
                 extracted = data.get("extracted_data", data.get("data", {}))
-                logger.info(f"Call {call_id} extraction: {extracted}")
+                logger.info(f"Call {call_id} extraction: fields {sorted(extracted)}")
+                logger.debug(f"Call {call_id} extraction: {extracted}")
 
                 # Check for high urgency
                 if extracted.get("urgency_level") in ("high", "emergency"):
-                    logger.warning(f"HIGH URGENCY call {call_id}: {extracted.get('user_concern', 'Unknown')}")
+                    logger.warning(f"HIGH URGENCY call {call_id} ({extracted.get('urgency_level')})")
+                    logger.debug(f"HIGH URGENCY call {call_id} concern: {extracted.get('user_concern', 'Unknown')}")
 
             return JSONResponse({"status": "received", "event": event_type})
 
@@ -6386,7 +6478,7 @@ def create_app(args: Any = None) -> FastAPI:
             if retell_llm_handler:
                 retell_llm_handler.end_session(call_id)
 
-    @app.post("/api/retell/webhook")
+    @app.post("/api/retell/webhook", dependencies=[Depends(require_retell)])
     async def retell_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Retell call events.
@@ -6707,7 +6799,7 @@ def create_app(args: Any = None) -> FastAPI:
             logger.error(f"Sarvam translate endpoint error: {e}")
             return JSONResponse({"error": str(e)}, status_code=500)
 
-    @app.post("/api/sarvam/webhook")
+    @app.post("/api/sarvam/webhook", dependencies=[Depends(require_sarvam)])
     async def sarvam_webhook_endpoint(request: Request):
         """Handle Sarvam webhook events."""
         if not sarvam_webhook_handler:
@@ -8105,7 +8197,7 @@ def create_app(args: Any = None) -> FastAPI:
     if whatsapp_bot:
         from fastapi.responses import Response
         
-        @app.post("/webhook")
+        @app.post("/webhook", dependencies=[Depends(require_twilio)])
         async def whatsapp_webhook(
             From: str = Form(...),
             To: str = Form(...),
@@ -8161,6 +8253,15 @@ def create_app(args: Any = None) -> FastAPI:
     if web_client_path.exists():
         app.mount("/voice", StaticFiles(directory="web_client", html=True), name="voice")
         logger.info("🎤 Voice interface available at /voice")
+
+    # Mounted apps (the Gradio admin panel) are outside the app-wide dependency:
+    # gate them by their declared policy. An undeclared route is served as
+    # admin-only, and named here so it gets a row in ROUTE_POLICIES.
+    from auth.policy import guard_mounts, undeclared_routes
+    guard_mounts(app)
+    _undeclared = undeclared_routes(app)
+    if _undeclared:
+        logger.error("Routes with no declared policy (served admin-only): %s", _undeclared)
 
     # What main() reports at startup.
     app.state.whatsapp_bot = whatsapp_bot

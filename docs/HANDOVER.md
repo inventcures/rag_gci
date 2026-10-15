@@ -539,11 +539,11 @@ chose, with only a warning that nobody reads.
 
 ### The environment
 
-`requirements.txt` has **never** been installable. Three entries cannot resolve:
-`ktem` and `kotaemon` are 404 on PyPI because they ship with the vendored
-`kotaemon-main` tree, and `whisper-openai>=20231107` names a version that was never
-published. CI filters those three out of the real file rather than keeping a second
-list, so a dependency added for a feature reaches CI without being added twice.
+`requirements.txt` was not installable until round-3 ticket 20: `ktem` and
+`kotaemon` are 404 on PyPI (they shipped with the vendored `kotaemon-main` tree),
+and `whisper-openai>=20231107` named a version that was never published. The
+whisper entry was dropped earlier; the Kotaemon entries left with the Kotaemon
+server and its vendored tree, so CI now installs the real file unfiltered.
 
 ```
 uv venv .venv --python 3.12 --system-site-packages
@@ -556,10 +556,9 @@ repository root on the path; editable installs were tried and rejected.
 
 ### CI notes for whoever touches it next
 
-- `requirements.txt` cannot be installed. `ktem` and `kotaemon` are 404 on PyPI
-  because they ship with the vendored `kotaemon-main` tree, and `whisper-openai>=20231107`
-  names a version that was never published. CI filters those three out of the real
-  file rather than keeping a second list, which drifts.
+- CI installs `requirements.txt` as it stands. It once had to filter `ktem`,
+  `kotaemon` and `whisper-openai` out; those entries are gone, and a second list
+  would drift.
 - The Gradle wrapper pointed at `file:///tmp/gradle.zip`. It resolved on exactly one
   machine and nowhere else, so Android CI could never have run. Now points at 8.11.1.
 - The Android SDK is installed explicitly. `android-actions/setup-android` checks the

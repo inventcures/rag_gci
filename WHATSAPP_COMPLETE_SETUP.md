@@ -23,7 +23,7 @@ This is **Twilio's WhatsApp Sandbox number**, not your personal number.
 brew install ngrok
 
 # Test it works
-python test_ngrok.py
+ngrok version
 ```
 
 ### **Step 2: Get Twilio Credentials**
@@ -208,8 +208,8 @@ WhatsApp service number managed by Twilio.
 # 1. Is ngrok installed?
 ngrok version
 
-# 2. Test ngrok manually
-python test_ngrok.py
+# 2. Test ngrok manually (then open http://127.0.0.1:4040)
+ngrok http 8000
 
 # 3. Start server and check for errors
 ./run_simple.sh
@@ -302,7 +302,7 @@ Once all items are checked, your WhatsApp RAG system is fully operational! 🎉
 
 If you're still having issues:
 
-1. **Run diagnostics**: `python test_ngrok.py`
+1. **Run diagnostics**: `ngrok version`, then `curl http://127.0.0.1:4040/api/tunnels` while the server runs
 2. **Check server health**: Visit `http://localhost:8000/health`
 3. **Verify webhook**: Test the webhook URL directly
 4. **Check logs**: Look at the terminal output for error messages

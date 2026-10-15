@@ -583,7 +583,8 @@ class TestServerIntegration:
             pytest.skip("simple_rag_server.py not found")
 
         content = server_path.read_text()
-        compile(content, str(server_path), 'exec')
+        code = compile(content, str(server_path), 'exec')
+        assert code is not None
 
 
 # =============================================================================

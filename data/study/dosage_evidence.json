@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-15T05:44:04+00:00",
-  "commit": "6cb47ff",
-  "branch": "claude/project-thread-b1di54",
+  "generated_at": "2026-10-15T07:17:38+00:00",
+  "commit": "8173983",
+  "branch": "claude/review-3-tickets-nb6jkm",
   "dirty": true,
   "invariants": {
     "SI-1": {
@@ -50,6 +50,16 @@
     }
   },
   "server_dosage_tests": [
+    "test_dose_boundary_shapes.py::test_word_containing_a_frequency_word_passes_untouched",
+    "test_dose_boundary_shapes.py::test_frequency_word_on_its_own_is_still_withheld",
+    "test_dose_boundary_shapes.py::test_inflected_schedule_word_is_still_withheld",
+    "test_dose_boundary_shapes.py::test_every_review_b3_miss_is_withheld",
+    "test_dose_boundary_shapes.py::test_unit_word_of_every_supported_language_is_withheld",
+    "test_dose_boundary_shapes.py::test_age_exception_spares_only_the_age_not_the_dose_beside_it",
+    "test_dose_boundary_shapes.py::test_no_replacement_character_in_the_dose_vocabulary",
+    "test_dose_boundary_shapes.py::test_every_vocabulary_word_is_in_a_single_script",
+    "test_dose_boundary_shapes.py::test_no_module_but_the_dose_detector_defines_a_dose_pattern",
+    "test_dose_boundary_shapes.py::test_the_probes_recognise_the_detectors_own_patterns",
     "test_text_path_dose_guard.py::test_fake_has_the_real_signature",
     "test_text_path_dose_guard.py::test_replaces_the_draft_and_records_the_outcome",
     "test_text_path_dose_guard.py::test_error_results_pass_untouched",

@@ -41,6 +41,11 @@ class LoginRequest(BaseModel):
     pin: str
 
 
+class RefreshRequest(BaseModel):
+    """Body of /auth/refresh: the refresh token from the last sign-in or renewal."""
+    refresh_token: str
+
+
 class AuthResponse(BaseModel):
     user_id: str
     token: str

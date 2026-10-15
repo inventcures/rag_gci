@@ -942,7 +942,7 @@ Previously implemented query classifier with additional capabilities:
 
 ### 9.5 V2 Module Testing & Verification
 
-All V2 modules have been tested and verified with a comprehensive test suite (`test_v2_modules.py`).
+All V2 modules have been tested and verified with a comprehensive test suite (`tests/test_v2_modules.py`).
 
 #### 9.5.1 Test Coverage
 
@@ -985,7 +985,7 @@ All V2 modules have been tested and verified with a comprehensive test suite (`t
 
 ```bash
 # Using project virtual environment
-./venv/bin/python3 test_v2_modules.py
+./venv/bin/python3 -m pytest tests/test_v2_modules.py
 
 # Expected output:
 # ✅ Clinical Validation Pipeline: ALL TESTS PASSED
