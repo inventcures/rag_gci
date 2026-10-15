@@ -459,49 +459,9 @@
             <div class="model-hint" id="modelHint"></div>
         </div>
 
-        <!-- Language Selector -->
-        <nav class="language-selector" aria-label="Language selection">
-            <button class="lang-btn active" data-lang="en-IN" aria-pressed="true" aria-label="English">
-                <span class="lang-native">English</span>
-                <span class="lang-english">English</span>
-            </button>
-            <button class="lang-btn" data-lang="hi-IN" aria-pressed="false" aria-label="Hindi">
-                <span class="lang-native">हिंदी</span>
-                <span class="lang-english">Hindi</span>
-            </button>
-            <button class="lang-btn" data-lang="mr-IN" aria-pressed="false" aria-label="Marathi">
-                <span class="lang-native">मराठी</span>
-                <span class="lang-english">Marathi</span>
-            </button>
-            <button class="lang-btn" data-lang="ta-IN" aria-pressed="false" aria-label="Tamil">
-                <span class="lang-native">தமிழ்</span>
-                <span class="lang-english">Tamil</span>
-            </button>
-            <button class="lang-btn" data-lang="bn-IN" aria-pressed="false" aria-label="Bengali">
-                <span class="lang-native">বাংলা</span>
-                <span class="lang-english">Bengali</span>
-            </button>
-            <button class="lang-btn" data-lang="te-IN" aria-pressed="false" aria-label="Telugu">
-                <span class="lang-native">తెలుగు</span>
-                <span class="lang-english">Telugu</span>
-            </button>
-            <button class="lang-btn" data-lang="kn-IN" aria-pressed="false" aria-label="Kannada">
-                <span class="lang-native">ಕನ್ನಡ</span>
-                <span class="lang-english">Kannada</span>
-            </button>
-            <button class="lang-btn" data-lang="ml-IN" aria-pressed="false" aria-label="Malayalam">
-                <span class="lang-native">മലയാളം</span>
-                <span class="lang-english">Malayalam</span>
-            </button>
-            <button class="lang-btn" data-lang="gu-IN" aria-pressed="false" aria-label="Gujarati">
-                <span class="lang-native">ગુજરાતી</span>
-                <span class="lang-english">Gujarati</span>
-            </button>
-            <button class="lang-btn" data-lang="as-IN" aria-pressed="false" aria-label="Assamese">
-                <span class="lang-native">অসমীয়া</span>
-                <span class="lang-english">Assamese</span>
-            </button>
-        </nav>
+        <!-- Language Selector: filled from /api/voice/languages, the
+             Supported Languages Live speaks (supported_languages.py) -->
+        <nav class="language-selector" id="languageSelector" aria-label="Language selection"></nav>
 
         <!-- Conversation -->
         <section class="conversation" id="conversation" aria-live="polite" aria-label="Conversation history">
@@ -549,7 +509,7 @@
         const recordBtn = document.getElementById('recordBtn');
         const status = document.getElementById('status');
         const waveform = document.getElementById('waveform');
-        const langBtns = document.querySelectorAll('.lang-btn');
+        const languageSelector = document.getElementById('languageSelector');
         const connectionStatus = document.getElementById('connectionStatus');
         const connectionText = document.getElementById('connectionText');
         const modelSelect = document.getElementById('modelSelect');
@@ -562,19 +522,8 @@
         let currentModel = '';
         let modelCatalog = {};
 
-        // Language-specific welcome messages
-        const welcomeMessages = {
-            'en-IN': "Hello! I'm your palliative care voice assistant. How can I help you today?",
-            'hi-IN': "नमस्ते! मैं आपकी पैलिएटिव केयर वॉइस असिस्टेंट हूं। मैं आज आपकी कैसे मदद कर सकती हूं?",
-            'mr-IN': "नमस्कार! मी तुमची पॅलिएटिव्ह केअर व्हॉइस असिस्टंट आहे. मी आज तुम्हाला कशी मदत करू शकते?",
-            'ta-IN': "வணக்கம்! நான் உங்கள் நோய் தீர்க்கும் பராமரிப்பு குரல் உதவியாளர். இன்று நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?",
-            'bn-IN': "নমস্কার! আমি আপনার প্যালিয়েটিভ কেয়ার ভয়েস অ্যাসিস্ট্যান্ট। আমি আজ আপনাকে কিভাবে সাহায্য করতে পারি?",
-            'te-IN': "నమస్కారం! నేను మీ పాలియేటివ్ కేర్ వాయిస్ అసిస్టెంట్‌ని. నేను ఈరోజు మీకు ఎలా సహాయం చేయగలను?",
-            'kn-IN': "ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಪ್ಯಾಲಿಯೇಟಿವ್ ಕೇರ್ ವಾಯ್ಸ್ ಅಸಿಸ್ಟೆಂಟ್. ಇಂದು ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?",
-            'ml-IN': "നമസ്കാരം! ഞാൻ നിങ്ങളുടെ പാലിയേറ്റീവ് കെയർ വോയ്സ് അസിസ്റ്റന്റാണ്. ഇന്ന് ഞാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കാം?",
-            'gu-IN': "નમસ્તે! હું તમારી પેલિએટિવ કેર વોઇસ આસિસ્ટન્ટ છું. હું આજે તમને કેવી રીતે મદદ કરી શકું?",
-            'as-IN': "নমস্কাৰ! মই আপোনাৰ পেলিয়েটিভ কেয়াৰ ভইচ এছিষ্টেণ্ট। আজি মই আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?"
-        };
+        // The greeting shown when the participant picks each language, by tag
+        let greetings = {};
 
         // Load available models from the server and populate the selector
         async function loadModels() {
@@ -667,28 +616,64 @@
             }
         }
 
-        // Language selection
-        langBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Update UI
-                langBtns.forEach(b => {
-                    b.classList.remove('active');
-                    b.setAttribute('aria-pressed', 'false');
-                });
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-
-                // Update language
-                currentLanguage = btn.dataset.lang;
-
-                if (geminiClient) {
-                    geminiClient.setLanguage(currentLanguage);
-                }
-
-                // Add language change message
-                addMessage(welcomeMessages[currentLanguage] || welcomeMessages['en-IN'], 'assistant');
+        // Language selection: one button per language the server lists
+        function selectLanguage(btn) {
+            languageSelector.querySelectorAll('.lang-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-pressed', 'false');
             });
-        });
+            btn.classList.add('active');
+            btn.setAttribute('aria-pressed', 'true');
+
+            currentLanguage = btn.dataset.lang;
+
+            if (geminiClient) {
+                geminiClient.setLanguage(currentLanguage);
+            }
+
+            if (greetings[currentLanguage]) {
+                addMessage(greetings[currentLanguage], 'assistant');
+            }
+        }
+
+        function languageButton(language) {
+            const btn = document.createElement('button');
+            btn.className = 'lang-btn';
+            btn.dataset.lang = language.tag;
+            btn.setAttribute('aria-label', language.name);
+            const active = language.tag === currentLanguage;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+            const native = document.createElement('span');
+            native.className = 'lang-native';
+            native.textContent = language.native_name;
+            const english = document.createElement('span');
+            english.className = 'lang-english';
+            english.textContent = language.name;
+            btn.append(native, english);
+
+            btn.addEventListener('click', () => selectLanguage(btn));
+            return btn;
+        }
+
+        // Load the languages from the server. Without them the page stays in
+        // the default language and offers no other.
+        async function loadLanguages() {
+            try {
+                const response = await fetch('/api/voice/languages');
+                if (!response.ok) return;
+                const data = await response.json();
+                languageSelector.innerHTML = '';
+                greetings = {};
+                (data.languages || []).forEach(language => {
+                    greetings[language.tag] = language.greeting;
+                    languageSelector.appendChild(languageButton(language));
+                });
+            } catch (error) {
+                console.warn('Could not load the language list:', error);
+            }
+        }
 
         function isTranslatorModel(modelId) {
             const model = modelCatalog[modelId];
@@ -867,6 +852,7 @@
         // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
             loadModels().catch(console.error);
+            loadLanguages().catch(console.error);
             init().catch(console.error);
         });
 

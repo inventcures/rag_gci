@@ -13,6 +13,21 @@ Documentation: https://www.bolna.ai/docs/platform-concepts
 import os
 from typing import Dict, Any
 
+from supported_languages import (
+    CARTESIA_VOICES,
+    PROVIDER_BOLNA,
+    SUPPORTED_LANGUAGES,
+    SupportedLanguage,
+    Voice,
+    get_language,
+)
+
+# The codes the caller's language can be reported in: all eleven Supported
+# Languages, so the server knows the language even when this agent cannot
+# speak it.
+_LANGUAGE_CODES = [lang.code for lang in SUPPORTED_LANGUAGES]
+_LANGUAGE_LEGEND = ", ".join(f"{lang.code}={lang.name}" for lang in SUPPORTED_LANGUAGES)
+
 # System prompt for Palli Sahayak voice assistant
 PALLI_SAHAYAK_SYSTEM_PROMPT = """You are Palli Sahayak (पल्ली सहायक), a compassionate palliative care voice assistant for the Palli Sahayak Voice AI Agent Helpline.
 
@@ -72,8 +87,8 @@ RAG_QUERY_FUNCTION = {
             },
             "user_language": {
                 "type": "string",
-                "enum": ["en", "hi", "mr", "ta", "pa", "ml"],
-                "description": "The language code the user is speaking in (en=English, hi=Hindi, mr=Marathi, ta=Tamil, pa=Punjabi, ml=Malayalam)"
+                "enum": _LANGUAGE_CODES,
+                "description": f"The language code the user is speaking in ({_LANGUAGE_LEGEND})"
             },
             "conversation_context": {
                 "type": "string",
@@ -84,132 +99,40 @@ RAG_QUERY_FUNCTION = {
     }
 }
 
-# Language-specific configurations
-# TTS Provider: Cartesia Sonic-3 for all languages
-# STT Provider: Deepgram (supports all 7 languages including Punjabi & Malayalam)
-# Note: Punjabi & Malayalam STT works, but TTS responds in Hindi (fallback)
-# Voice IDs from: https://developer.signalwire.com/voice/tts/cartesia/
+# Languages, voices and greetings come from the Supported Language table
+# (supported_languages.py): a row's "bolna" voice is the Deepgram code the agent
+# listens in and the Cartesia Sonic-3 voice it speaks with. A language with no
+# Bolna voice gets no agent: the old table answered Punjabi and Malayalam in a
+# Hindi voice, and any unlisted language with a Hindi agent.
 # NOTE: Do NOT use [laughter] tags - inappropriate for palliative care
 # DO use empathetic emotion for warmth: gentle, calm, compassionate, reassuring
-LANGUAGE_CONFIGS = {
-    "hi": {
-        "transcriber_language": "hi",
-        "welcome_message": "नमस्ते! मैं पल्ली सहायक हूं, आपका पैलिएटिव केयर सहायक। आज मैं आपकी कैसे मदद कर सकती हूं?",
-        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman
-        "voice_name": "Hindi Narrator Woman",
-        "language_code": "hi",
-        "name": "Hindi",
-        "tts_provider": "cartesia"
-    },
-    "en": {
-        "transcriber_language": "en",
-        "welcome_message": "Hello! I am Palli Sahayak, your palliative care assistant. How can I help you today?",
-        "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",  # Indian Lady
-        "voice_name": "Indian Lady",
-        "language_code": "en",
-        "name": "English",
-        "tts_provider": "cartesia"
-    },
-    "mr": {
-        "transcriber_language": "mr",
-        "welcome_message": "नमस्कार! मी पल्ली सहायक आहे, तुमचा पॅलिएटिव केअर सहाय्यक. आज मी तुम्हाला कशी मदत करू शकते?",
-        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman (closest)
-        "voice_name": "Hindi Narrator Woman",
-        "language_code": "mr",
-        "name": "Marathi",
-        "tts_provider": "cartesia"
-    },
-    "ta": {
-        "transcriber_language": "ta",
-        "welcome_message": "வணக்கம்! நான் பல்லி சகாயக், உங்கள் நோய்த்தடுப்பு பராமரிப்பு உதவியாளர். இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?",
-        "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",  # Indian Lady (closest)
-        "voice_name": "Indian Lady",
-        "language_code": "ta",
-        "name": "Tamil",
-        "tts_provider": "cartesia"
-    },
-    "hinglish": {
-        "transcriber_language": "hi",
-        "welcome_message": "Namaste! Main Palli Sahayak hoon, aapka palliative care assistant. Aaj main aapki kaise help kar sakti hoon?",
-        "voice_id": "95d51f79-c397-46f9-b49a-23763d3eaa2d",  # Hinglish Speaking Lady
-        "voice_name": "Hinglish Speaking Lady",
-        "language_code": "hi",
-        "name": "Hinglish",
-        "tts_provider": "cartesia"
-    },
-    # Punjabi & Malayalam - STT works, TTS uses Hindi voice as fallback
-    # (Most Punjabi/Malayalam speakers understand Hindi)
-    "pa": {
-        "transcriber_language": "pa",  # Deepgram supports Punjabi STT
-        "welcome_message": "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਪੱਲੀ ਸਹਾਇਕ ਹਾਂ। ਮੈਂ ਹਿੰਦੀ ਵਿੱਚ ਜਵਾਬ ਦੇਵਾਂਗੀ।",  # "I'll respond in Hindi"
-        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman
-        "voice_name": "Hindi Narrator Woman",
-        "language_code": "pa",
-        "name": "Punjabi",
-        "tts_provider": "cartesia"
-    },
-    "ml": {
-        "transcriber_language": "ml",  # Deepgram supports Malayalam STT
-        "welcome_message": "നമസ്കാരം! ഞാൻ പല്ലി സഹായക് ആണ്. ഞാൻ ഹിന്ദിയിൽ മറുപടി നൽകും.",  # "I'll respond in Hindi"
-        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",  # Hindi Narrator Woman
-        "voice_name": "Hindi Narrator Woman",
-        "language_code": "ml",
-        "name": "Malayalam",
-        "tts_provider": "cartesia"
+
+
+def bolna_language(language: str) -> SupportedLanguage:
+    """The Supported Language a Bolna agent is built for, or ValueError when
+    the language is outside the eleven or Bolna has no voice for it."""
+    lang = get_language(language)
+    if lang is None:
+        raise ValueError(f"{language!r} is not a Supported Language; no Bolna agent is built for it")
+    if lang.voice(PROVIDER_BOLNA) is None:
+        speaks = ", ".join(l.name for l in SUPPORTED_LANGUAGES if l.voice(PROVIDER_BOLNA))
+        raise ValueError(f"Bolna has no voice for {lang.name}; it speaks {speaks}")
+    return lang
+
+
+def _get_synthesizer_config(voice: Voice) -> Dict[str, Any]:
+    """The Cartesia Sonic-3 synthesizer for a row's Bolna voice."""
+    return {
+        "provider": "cartesia",
+        "audio_format": "wav",
+        "stream": True,
+        "buffer_size": 100.0,
+        "provider_config": {
+            "voice": voice.name,
+            "voice_id": CARTESIA_VOICES[voice.name],
+            "model": "sonic-3"
+        }
     }
-}
-
-
-def _get_synthesizer_config(lang_config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Get TTS synthesizer config based on language.
-
-    Uses Azure TTS for Punjabi/Malayalam (native support, free tier),
-    Cartesia for other Indian languages.
-    """
-    tts_provider = lang_config.get("tts_provider", "cartesia")
-
-    if tts_provider == "azure":
-        # Azure TTS - supports Punjabi & Malayalam natively
-        # Free tier: 500,000 chars/month
-        return {
-            "provider": "azure",
-            "audio_format": "wav",
-            "stream": True,
-            "buffer_size": 100.0,
-            "provider_config": {
-                "voice": lang_config.get("azure_voice", lang_config["voice_id"]),
-                "language": lang_config.get("language_code", "en-IN"),
-                "rate": "+0%",  # Normal speed
-                "pitch": "+0Hz"  # Normal pitch
-            }
-        }
-    elif tts_provider == "elevenlabs":
-        return {
-            "provider": "elevenlabs",
-            "audio_format": "wav",
-            "stream": True,
-            "buffer_size": 100.0,
-            "provider_config": {
-                "voice_id": lang_config["voice_id"],
-                "model": lang_config.get("elevenlabs_model", "eleven_multilingual_v2"),
-                "stability": 0.5,
-                "similarity_boost": 0.75
-            }
-        }
-    else:
-        # Default to Cartesia
-        return {
-            "provider": "cartesia",
-            "audio_format": "wav",
-            "stream": True,
-            "buffer_size": 100.0,
-            "provider_config": {
-                "voice": lang_config.get("voice_name", "Hindi Narrator Woman"),
-                "voice_id": lang_config["voice_id"],
-                "model": "sonic-3"
-            }
-        }
 
 
 def get_palli_sahayak_agent_config(
@@ -224,11 +147,16 @@ def get_palli_sahayak_agent_config(
     Args:
         server_url: Base URL of the RAG server (e.g., https://your-domain.com)
         api_key: API key for RAG server authentication (optional)
-        language: Primary language (hi, en, mr, ta)
+        language: Primary language: a Supported Language Bolna has a voice
+                  for (supported_languages.py)
         agent_name: Name of the agent
 
     Returns:
         Complete agent configuration dictionary for Bolna API
+
+    Raises:
+        ValueError: when Bolna cannot speak ``language``; no agent in another
+            language is built in its place
 
     Example:
         config = get_palli_sahayak_agent_config(
@@ -237,7 +165,8 @@ def get_palli_sahayak_agent_config(
         )
         result = await bolna_client.create_agent(config)
     """
-    lang_config = LANGUAGE_CONFIGS.get(language, LANGUAGE_CONFIGS["hi"])
+    lang = bolna_language(language)
+    voice = lang.voice(PROVIDER_BOLNA)
 
     # Build custom function with server URL
     custom_function = RAG_QUERY_FUNCTION.copy()
@@ -265,7 +194,7 @@ def get_palli_sahayak_agent_config(
     return {
         "agent_name": agent_name,
         "agent_type": "free_flowing",
-        "agent_welcome_message": lang_config["welcome_message"],
+        "agent_welcome_message": lang.greeting,
 
         "tasks": [
             {
@@ -295,12 +224,12 @@ def get_palli_sahayak_agent_config(
                         },
                         "functions": [custom_function]
                     },
-                    "synthesizer": _get_synthesizer_config(lang_config),
+                    "synthesizer": _get_synthesizer_config(voice),
                     "transcriber": {
                         "provider": "deepgram",
                         "stream": True,
                         "encoding": "linear16",
-                        "language": lang_config["transcriber_language"],
+                        "language": voice.language,
                         "model": "nova-3",
                         "endpointing": 2000  # 2 sec silence tolerance for natural speech
                     }
@@ -380,8 +309,8 @@ EXTRACTION_SCHEMA = {
     },
     "language_used": {
         "type": "string",
-        "enum": ["hi", "en", "mr", "ta", "pa", "ml"],
-        "description": "Primary language spoken by the user (hi=Hindi, en=English, mr=Marathi, ta=Tamil, pa=Punjabi, ml=Malayalam)"
+        "enum": _LANGUAGE_CODES,
+        "description": f"Primary language spoken by the user ({_LANGUAGE_LEGEND})"
     },
     "emotional_state": {
         "type": "string",

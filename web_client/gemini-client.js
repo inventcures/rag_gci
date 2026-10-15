@@ -492,7 +492,7 @@ class GeminiLiveClient {
 
     /**
      * Set the conversation language
-     * @param {string} language - Language code (e.g., 'en-IN', 'hi-IN')
+     * @param {string} language - A language tag from /api/voice/languages
      */
     setLanguage(language) {
         this.language = language;

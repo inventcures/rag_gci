@@ -68,7 +68,7 @@ class TestRetellSession:
 
         assert session.call_id == "call_123"
         assert session.websocket is mock_ws
-        assert session.language == "hi"  # Default
+        assert session.language == ""  # Unknown until the call or first turn says; never Hindi
 
     def test_session_with_language(self):
         """Test session with custom language."""

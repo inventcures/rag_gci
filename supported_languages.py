@@ -18,12 +18,14 @@ Rules the table exists to enforce:
   * Every message is written only in its language's script (pinned by
     tests/test_supported_languages.py).
 
-This is the expand step of the expand-migrate-contract in the round-3 spec:
-WhatsApp reads this table; the other channels' tables are migrated and deleted
-by ticket 15.
+This is the only language table (the round-3 spec's expand-migrate-contract,
+done): WhatsApp, Gemini Live, the web client's picker, the Sarvam path, Bolna,
+Retell and the offline bundle all read it, and tests/test_voice_channel_languages.py
+fails if another module defines a language map of its own.
 
 The voice_unavailable and language_set messages are machine-drafted and await
-clinical-language review before a study release.
+clinical-language review before a study release. The greetings are the Sarvam
+path's earlier ones, with the Kannada wording and the Odia full stop corrected.
 """
 
 from __future__ import annotations
@@ -36,11 +38,22 @@ from typing import Dict, Mapping, Optional, Set, Tuple
 PROVIDER_SARVAM = "sarvam"            # Sarvam Bulbul: India-hosted
 PROVIDER_EDGE = "edge"                # Microsoft Edge neural voices: not India-hosted
 PROVIDER_GEMINI_LIVE = "gemini_live"  # Gemini Live native audio
+PROVIDER_BOLNA = "bolna"              # Bolna phone agent: Deepgram STT, Cartesia TTS
+PROVIDER_RETELL = "retell"            # Retell phone agent: Cartesia TTS
 
 # Bulbul v3 speakers are language-agnostic (sarvam_integration/config.py).
 _SARVAM_SPEAKER = "priya"
 # The Live voice the WhatsApp channel opens sessions with.
 _LIVE_VOICE = "Aoede"
+
+# Cartesia Sonic-3 voices the phone agents (Bolna, Retell) speak with, by the
+# name a row's Bolna or Retell voice gives. The row's language, not the voice's
+# name, is the language the agent listens and is spoken to in.
+# Reference: https://developer.signalwire.com/voice/tts/cartesia/
+CARTESIA_VOICES: Dict[str, str] = {
+    "Hindi Narrator Woman": "c1abd502-9231-4558-a054-10ac950c356d",
+    "Indian Lady": "3b554273-4299-48b9-9aaf-eefd438e3941",
+}
 
 
 @dataclass(frozen=True)
@@ -63,6 +76,7 @@ class SupportedLanguage:
     script: str          # ISO 15924 code, e.g. "Deva"
     voice_unavailable: str  # "spoken reply unavailable, read the text", in this language
     language_set: str       # "I will now answer you in <this language>", in this language
+    greeting: str           # "Hello! I am Palli Sahayak. How can I help you today?", in this language
     voices: Mapping[str, Voice] = field(default_factory=dict)
     aliases: Tuple[str, ...] = ()  # other spellings providers use, e.g. Sarvam's "od-IN"
 
@@ -76,52 +90,75 @@ class SupportedLanguage:
         return PROVIDER_GEMINI_LIVE in self.voices
 
 
-def _voices(tag: str, *, sarvam: str, edge: Optional[str], live: bool) -> Dict[str, Voice]:
+def _voices(tag: str, *, sarvam: str, edge: Optional[str], live: bool,
+            phone: Optional[str] = None) -> Dict[str, Voice]:
+    """A row's voices, one per provider that can speak the language.
+
+    ``phone`` is the Cartesia voice (a CARTESIA_VOICES name) both phone agents
+    use for the language, or None when they have none: Bolna's voice carries
+    Deepgram's short code, Retell's the BCP-47 tag.
+    """
     voices = {PROVIDER_SARVAM: Voice(PROVIDER_SARVAM, sarvam, _SARVAM_SPEAKER)}
     if edge:
         voices[PROVIDER_EDGE] = Voice(PROVIDER_EDGE, tag, edge)
     if live:
         voices[PROVIDER_GEMINI_LIVE] = Voice(PROVIDER_GEMINI_LIVE, tag, _LIVE_VOICE)
+    if phone:
+        if phone not in CARTESIA_VOICES:
+            raise ValueError(f"No Cartesia voice named {phone!r}")
+        voices[PROVIDER_BOLNA] = Voice(PROVIDER_BOLNA, tag.split("-")[0], phone)
+        voices[PROVIDER_RETELL] = Voice(PROVIDER_RETELL, tag, phone)
     return voices
 
 
-# Live support follows gemini_live/config.py, which defines no Odia or Punjabi.
-# Edge has no Odia or Punjabi voice in this app.
+# Live speaks the nine languages gemini_live/config.py listed before this table:
+# not Odia or Punjabi. Edge has no Odia or Punjabi voice in this app. The phone agents'
+# (Bolna, Retell) voices are the ones their old tables had for Hindi, English,
+# Marathi and Tamil; Punjabi and Malayalam had only a Hindi voice on Bolna, so
+# they have none.
 SUPPORTED_LANGUAGES: Tuple[SupportedLanguage, ...] = (
     SupportedLanguage(
         "hi", "hi-IN", "Hindi", "हिन्दी", "Deva",
         voice_unavailable="क्षमा करें, अभी हिंदी में आवाज़ वाला जवाब उपलब्ध नहीं है। कृपया लिखा हुआ जवाब पढ़ें।",
         language_set="अब मैं आपको हिंदी में जवाब दूंगा।",
-        voices=_voices("hi-IN", sarvam="hi-IN", edge="hi-IN-SwaraNeural", live=True),
+        greeting="नमस्ते! मैं पल्ली सहायक हूं। आज मैं आपकी कैसे मदद कर सकती हूं?",
+        voices=_voices("hi-IN", sarvam="hi-IN", edge="hi-IN-SwaraNeural", live=True,
+                       phone="Hindi Narrator Woman"),
     ),
     SupportedLanguage(
         "bn", "bn-IN", "Bengali", "বাংলা", "Beng",
         voice_unavailable="দুঃখিত, এখন বাংলায় ভয়েস উত্তর পাওয়া যাচ্ছে না। অনুগ্রহ করে লেখা উত্তরটি পড়ুন।",
         language_set="এখন আমি আপনাকে বাংলায় উত্তর দেব।",
+        greeting="নমস্কার! আমি পল্লী সহায়ক। আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?",
         voices=_voices("bn-IN", sarvam="bn-IN", edge="bn-IN-TanishaaNeural", live=True),
     ),
     SupportedLanguage(
         "kn", "kn-IN", "Kannada", "ಕನ್ನಡ", "Knda",
         voice_unavailable="ಕ್ಷಮಿಸಿ, ಈಗ ಕನ್ನಡದಲ್ಲಿ ಧ್ವನಿ ಉತ್ತರ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಬರೆದ ಉತ್ತರವನ್ನು ಓದಿ.",
         language_set="ಈಗ ನಾನು ನಿಮಗೆ ಕನ್ನಡದಲ್ಲಿ ಉತ್ತರಿಸುತ್ತೇನೆ.",
+        greeting="ನಮಸ್ಕಾರ! ನಾನು ಪಲ್ಲಿ ಸಹಾಯಕ್. ಇಂದು ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?",
         voices=_voices("kn-IN", sarvam="kn-IN", edge="kn-IN-SapnaNeural", live=True),
     ),
     SupportedLanguage(
         "ml", "ml-IN", "Malayalam", "മലയാളം", "Mlym",
         voice_unavailable="ക്ഷമിക്കണം, ഇപ്പോൾ മലയാളത്തിൽ ശബ്ദ മറുപടി ലഭ്യമല്ല. ദയവായി എഴുതിയ മറുപടി വായിക്കുക.",
         language_set="ഇനി ഞാൻ നിങ്ങൾക്ക് മലയാളത്തിൽ മറുപടി നൽകും.",
+        greeting="നമസ്കാരം! ഞാന്‍ പല്ലി സഹായക് ആണ്. ഇന്ന് ഞാന്‍ നിങ്ങളെ എങ്ങനെ സഹായിക്കാം?",
         voices=_voices("ml-IN", sarvam="ml-IN", edge="ml-IN-SobhanaNeural", live=True),
     ),
     SupportedLanguage(
         "mr", "mr-IN", "Marathi", "मराठी", "Deva",
         voice_unavailable="क्षमस्व, सध्या मराठीत आवाजातील उत्तर उपलब्ध नाही. कृपया लिहिलेले उत्तर वाचा.",
         language_set="आता मी तुम्हाला मराठीत उत्तर देईन.",
-        voices=_voices("mr-IN", sarvam="mr-IN", edge="mr-IN-AarohiNeural", live=True),
+        greeting="नमस्कार! मी पल्ली सहायक आहे. आज मी तुम्हाला कशी मदत करू शकते?",
+        voices=_voices("mr-IN", sarvam="mr-IN", edge="mr-IN-AarohiNeural", live=True,
+                       phone="Hindi Narrator Woman"),
     ),
     SupportedLanguage(
         "or", "or-IN", "Odia", "ଓଡ଼ିଆ", "Orya",
         voice_unavailable="କ୍ଷମା କରନ୍ତୁ, ବର୍ତ୍ତମାନ ଓଡ଼ିଆରେ ସ୍ୱର ଉତ୍ତର ଉପଲବ୍ଧ ନାହିଁ। ଦୟାକରି ଲିଖିତ ଉତ୍ତର ପଢ଼ନ୍ତୁ।",
         language_set="ବର୍ତ୍ତମାନ ମୁଁ ଆପଣଙ୍କୁ ଓଡ଼ିଆରେ ଉତ୍ତର ଦେବି।",
+        greeting="ନମସ୍କାର! ମୁଁ ପଲ୍ଲୀ ସହାୟକ। ଆଜି ମୁଁ ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?",
         voices=_voices("or-IN", sarvam="od-IN", edge=None, live=False),
         aliases=("od", "od-IN"),
     ),
@@ -129,31 +166,38 @@ SUPPORTED_LANGUAGES: Tuple[SupportedLanguage, ...] = (
         "pa", "pa-IN", "Punjabi", "ਪੰਜਾਬੀ", "Guru",
         voice_unavailable="ਮਾਫ਼ ਕਰਨਾ, ਇਸ ਵੇਲੇ ਪੰਜਾਬੀ ਵਿੱਚ ਆਵਾਜ਼ ਵਾਲਾ ਜਵਾਬ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਲਿਖਿਆ ਜਵਾਬ ਪੜ੍ਹੋ।",
         language_set="ਹੁਣ ਮੈਂ ਤੁਹਾਨੂੰ ਪੰਜਾਬੀ ਵਿੱਚ ਜਵਾਬ ਦੇਵਾਂਗਾ।",
+        greeting="ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਪੱਲੀ ਸਹਾਇਕ ਹਾਂ। ਅੱਜ ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦੀ ਹਾਂ?",
         voices=_voices("pa-IN", sarvam="pa-IN", edge=None, live=False),
     ),
     SupportedLanguage(
         "ta", "ta-IN", "Tamil", "தமிழ்", "Taml",
         voice_unavailable="மன்னிக்கவும், இப்போது தமிழில் குரல் பதில் கிடைக்கவில்லை. தயவுசெய்து எழுத்துப் பதிலைப் படிக்கவும்.",
         language_set="இப்போது நான் உங்களுக்கு தமிழில் பதிலளிப்பேன்.",
-        voices=_voices("ta-IN", sarvam="ta-IN", edge="ta-IN-PallaviNeural", live=True),
+        greeting="வணக்கம்! நான் பல்லி சகாயக். இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?",
+        voices=_voices("ta-IN", sarvam="ta-IN", edge="ta-IN-PallaviNeural", live=True,
+                       phone="Indian Lady"),
     ),
     SupportedLanguage(
         "te", "te-IN", "Telugu", "తెలుగు", "Telu",
         voice_unavailable="క్షమించండి, ప్రస్తుతం తెలుగులో వాయిస్ సమాధానం అందుబాటులో లేదు. దయచేసి రాసిన సమాధానాన్ని చదవండి.",
         language_set="ఇప్పుడు నేను మీకు తెలుగులో సమాధానం ఇస్తాను.",
+        greeting="నమస్కారం! నేను పల్లి సహాయక్. ఈ రోజు నేను మీకు ఎలా సహాయం చేయగలను?",
         voices=_voices("te-IN", sarvam="te-IN", edge="te-IN-ShrutiNeural", live=True),
     ),
     SupportedLanguage(
         "gu", "gu-IN", "Gujarati", "ગુજરાતી", "Gujr",
         voice_unavailable="માફ કરશો, અત્યારે ગુજરાતીમાં અવાજવાળો જવાબ ઉપલબ્ધ નથી. કૃપા કરીને લખેલો જવાબ વાંચો.",
         language_set="હવે હું તમને ગુજરાતીમાં જવાબ આપીશ.",
+        greeting="નમસ્કાર! હું પલ્લી સહાયક છું. આજે હું તમને કેવી રીતે મદદ કરી શકું?",
         voices=_voices("gu-IN", sarvam="gu-IN", edge="gu-IN-DhwaniNeural", live=True),
     ),
     SupportedLanguage(
         "en", "en-IN", "English", "English", "Latn",
         voice_unavailable="Sorry, a spoken reply in English is not available right now. Please read the text reply.",
         language_set="I will now respond to you in English.",
-        voices=_voices("en-IN", sarvam="en-IN", edge="en-IN-NeerjaNeural", live=True),
+        greeting="Hello! I am Palli Sahayak, your palliative care assistant. How can I help you today?",
+        voices=_voices("en-IN", sarvam="en-IN", edge="en-IN-NeerjaNeural", live=True,
+                       phone="Indian Lady"),
     ),
 )
 

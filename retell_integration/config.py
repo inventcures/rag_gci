@@ -11,6 +11,14 @@ import os
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
+from supported_languages import (
+    CARTESIA_VOICES,
+    PROVIDER_RETELL,
+    SUPPORTED_LANGUAGES,
+    SupportedLanguage,
+    get_language,
+)
+
 # Retell API Base URL
 RETELL_API_BASE = "https://api.retellai.com"
 
@@ -53,85 +61,23 @@ For emotional support:
 "I hear how challenging this is for you. It's completely natural to feel overwhelmed. Would you like me to share some coping strategies, or would you prefer information about support groups in your area?"
 """
 
-# Cartesia Sonic-3 Voice IDs for Indian languages
-# Reference: https://developer.signalwire.com/voice/tts/cartesia/
-# Reference: https://cartesia.ai/india
-CARTESIA_VOICE_IDS = {
-    "hi": {
-        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",
-        "voice_name": "Hindi Narrator Woman",
-        "model": "sonic-3",
-        "description": "Warm, empathetic Hindi female voice",
-        "retell_voice_id": "cartesia-hindi-narrator-woman"
-    },
-    "en": {
-        "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",
-        "voice_name": "Indian Lady",
-        "model": "sonic-3",
-        "description": "Natural Indian English female voice",
-        "retell_voice_id": "cartesia-indian-lady"
-    },
-    "mr": {
-        "voice_id": "c1abd502-9231-4558-a054-10ac950c356d",
-        "voice_name": "Hindi Narrator Woman",
-        "model": "sonic-3",
-        "description": "Hindi voice for Marathi (closest match)",
-        "retell_voice_id": "cartesia-hindi-narrator-woman"
-    },
-    "ta": {
-        "voice_id": "3b554273-4299-48b9-9aaf-eefd438e3941",
-        "voice_name": "Indian Lady",
-        "model": "sonic-3",
-        "description": "Indian English voice for Tamil (closest match)",
-        "retell_voice_id": "cartesia-indian-lady"
-    },
-    "hinglish": {
-        "voice_id": "95d51f79-c397-46f9-b49a-23763d3eaa2d",
-        "voice_name": "Hinglish Speaking Lady",
-        "model": "sonic-3",
-        "description": "Native Hinglish blend voice",
-        "retell_voice_id": "cartesia-hinglish-speaking-lady"
-    }
-}
+# Languages, voices and greetings come from the Supported Language table
+# (supported_languages.py): a row's "retell" voice is the BCP-47 tag Retell
+# listens in and the Cartesia Sonic-3 voice (CARTESIA_VOICES) it speaks with.
+# A language with no Retell voice gets no agent; the old table fell back to a
+# Hindi agent for any language it did not list.
 
-# Language-specific configurations
-RETELL_LANGUAGE_CONFIGS = {
-    "hi": {
-        "language_code": "hi",
-        "retell_language": "hi-IN",
-        "welcome_message": "नमस्ते! मैं पल्ली सहायक हूं, आपका पैलिएटिव केयर सहायक। आज मैं आपकी कैसे मदद कर सकती हूं?",
-        "voice": CARTESIA_VOICE_IDS["hi"],
-        "name": "Hindi"
-    },
-    "en": {
-        "language_code": "en",
-        "retell_language": "en-IN",
-        "welcome_message": "Hello! I am Palli Sahayak, your palliative care assistant. How can I help you today?",
-        "voice": CARTESIA_VOICE_IDS["en"],
-        "name": "English"
-    },
-    "mr": {
-        "language_code": "mr",
-        "retell_language": "mr-IN",
-        "welcome_message": "नमस्कार! मी पल्ली सहायक आहे, तुमचा पॅलिएटिव केअर सहाय्यक. आज मी तुम्हाला कशी मदत करू शकते?",
-        "voice": CARTESIA_VOICE_IDS["mr"],
-        "name": "Marathi"
-    },
-    "ta": {
-        "language_code": "ta",
-        "retell_language": "ta-IN",
-        "welcome_message": "வணக்கம்! நான் பல்லி சகாயக், உங்கள் நோய்த்தடுப்பு பராமரிப்பு உதவியாளர். இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?",
-        "voice": CARTESIA_VOICE_IDS["ta"],
-        "name": "Tamil"
-    },
-    "hinglish": {
-        "language_code": "hi",
-        "retell_language": "hi-IN",
-        "welcome_message": "Namaste! Main Palli Sahayak hoon, aapka palliative care assistant. Aaj main aapki kaise help kar sakti hoon?",
-        "voice": CARTESIA_VOICE_IDS["hinglish"],
-        "name": "Hinglish"
-    }
-}
+
+def retell_language(language: str) -> SupportedLanguage:
+    """The Supported Language a Retell agent is built for, or ValueError when
+    the language is outside the eleven or Retell has no voice for it."""
+    lang = get_language(language)
+    if lang is None:
+        raise ValueError(f"{language!r} is not a Supported Language; no Retell agent is built for it")
+    if lang.voice(PROVIDER_RETELL) is None:
+        speaks = ", ".join(l.name for l in SUPPORTED_LANGUAGES if l.voice(PROVIDER_RETELL))
+        raise ValueError(f"Retell has no voice for {lang.name}; it speaks {speaks}")
+    return lang
 
 
 @dataclass
@@ -222,11 +168,16 @@ def get_palli_sahayak_retell_config(
         llm_websocket_url: WebSocket URL for custom LLM
                           (e.g., wss://your-domain.com/ws/retell/llm)
         webhook_url: URL for call webhooks
-        language: Primary language (hi, en, mr, ta, hinglish)
+        language: Primary language: a Supported Language Retell has a voice
+                  for (supported_languages.py)
         agent_name: Name of the agent
 
     Returns:
         RetellAgentConfig for creating the agent
+
+    Raises:
+        ValueError: when Retell cannot speak ``language``; no agent in another
+            language is built in its place
 
     Example:
         config = get_palli_sahayak_retell_config(
@@ -235,16 +186,16 @@ def get_palli_sahayak_retell_config(
         )
         result = await retell_client.create_agent(config)
     """
-    lang_config = RETELL_LANGUAGE_CONFIGS.get(language, RETELL_LANGUAGE_CONFIGS["hi"])
-    voice_config = lang_config["voice"]
+    lang = retell_language(language)
+    voice = lang.voice(PROVIDER_RETELL)
 
     return RetellAgentConfig(
         agent_name=agent_name,
         llm_websocket_url=llm_websocket_url,
-        voice_id=voice_config["voice_id"],
-        voice_model=voice_config["model"],
-        language=lang_config["retell_language"],
-        welcome_message=lang_config["welcome_message"],
+        voice_id=CARTESIA_VOICES[voice.name],
+        voice_model="sonic-3",
+        language=voice.language,
+        welcome_message=lang.greeting,
         webhook_url=webhook_url,
         vocab_specialization="medical"
     )

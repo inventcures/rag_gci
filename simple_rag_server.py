@@ -74,9 +74,6 @@ try:
         SarvamSTTResult,
         SarvamTTSResult,
         SarvamTranslateResult,
-        SARVAM_LANGUAGE_CONFIGS,
-        SARVAM_STT_LANGUAGES,
-        SARVAM_TTS_LANGUAGES,
     )
     SARVAM_AVAILABLE = True
 except ImportError:
@@ -5842,6 +5839,24 @@ def create_app(args: Any = None) -> FastAPI:
             ],
         }
 
+    @app.get("/api/voice/languages")
+    async def voice_languages():
+        """The languages the web voice client's picker offers: the Supported
+        Languages Gemini Live speaks, from the Supported Language table."""
+        from supported_languages import SUPPORTED_LANGUAGES
+
+        return {
+            "languages": [
+                {
+                    "tag": lang.tag,
+                    "name": lang.name,
+                    "native_name": lang.native_name,
+                    "greeting": lang.greeting,
+                }
+                for lang in SUPPORTED_LANGUAGES if lang.live_supported
+            ],
+        }
+
     @app.get("/")
     async def root():
         return {"message": "Simple RAG Server - No Database Required!"}
@@ -6088,7 +6103,11 @@ def create_app(args: Any = None) -> FastAPI:
             # Parse request
             data = json.loads(body)
             query = data.get("query", "")
-            language = data.get("language", "en")
+            # One code per Supported Language (Odia is "or", whatever Bolna's
+            # LLM reports); outside the eleven, English, never Hindi.
+            from supported_languages import ENGLISH_CODE, get_language
+            reported = get_language(data.get("language"))
+            language = reported.code if reported is not None else ENGLISH_CODE
             context = data.get("context", "")
             source = data.get("source", "unknown")
             caller_id = bolna_caller_id(data)
@@ -6643,23 +6662,26 @@ def create_app(args: Any = None) -> FastAPI:
                 "provider": "sarvam_ai",
                 "stt_model": get_stt_model(),
                 "tts_model": get_tts_model(),
-                "stt_languages": len(SARVAM_STT_LANGUAGES),
-                "tts_languages": len(SARVAM_TTS_LANGUAGES),
+                "languages": len(_sarvam_languages()),
             })
         except Exception as e:
             return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
 
+    def _sarvam_languages() -> List[Dict[str, str]]:
+        """The Supported Languages Sarvam listens and speaks in, from the table:
+        each one's Sarvam code (Odia is "od-IN"), tag and name."""
+        from supported_languages import PROVIDER_SARVAM, SUPPORTED_LANGUAGES
+
+        return [
+            {"sarvam_code": lang.voice(PROVIDER_SARVAM).language, "tag": lang.tag, "name": lang.name}
+            for lang in SUPPORTED_LANGUAGES if lang.voice(PROVIDER_SARVAM)
+        ]
+
     @app.get("/api/sarvam/languages")
     async def sarvam_languages_endpoint():
-        """List supported Sarvam languages."""
-        return JSONResponse({
-            "stt_languages": SARVAM_STT_LANGUAGES if SARVAM_AVAILABLE else [],
-            "tts_languages": SARVAM_TTS_LANGUAGES if SARVAM_AVAILABLE else [],
-            "language_configs": {
-                code: {"name": cfg["name"], "stt": cfg["stt_supported"], "tts": cfg["tts_supported"]}
-                for code, cfg in (SARVAM_LANGUAGE_CONFIGS or {}).items()
-            } if SARVAM_AVAILABLE else {},
-        })
+        """The languages the Sarvam path listens and speaks in: the Supported
+        Languages (supported_languages.py), the same eleven for STT and TTS."""
+        return JSONResponse({"languages": _sarvam_languages() if SARVAM_AVAILABLE else []})
 
     @app.post("/api/sarvam/stt")
     async def sarvam_stt_endpoint(request: Request):
