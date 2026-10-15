@@ -843,8 +843,14 @@ async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
     and voice routes apply, so the HTTP body carries only the guarded answer.
     """
     from safety_enhancements import guard_query_result
+    from supported_languages import ENGLISH_CODE, get_language
 
-    result = await pipeline.query(query, source_language=language)
+    # The pipeline works in the table's short codes; a language outside the
+    # eleven is answered in English. The guard sees what was asked for, so an
+    # English Deferral served in its place is recorded as a fallback.
+    supported = get_language(language)
+    source_language = supported.code if supported else ENGLISH_CODE
+    result = await pipeline.query(query, source_language=source_language)
     guard_query_result(result, query=query, language=language)
     return result
 
@@ -5867,15 +5873,19 @@ def create_app(args: Any = None) -> FastAPI:
         }
     
     @app.post("/api/query")
-    async def api_query(query: str = Form(...)):
+    async def api_query(query: str = Form(...), language: str = Form("en")):
         """Direct API endpoint for queries.
+
+        `language` is the Supported Language the question was asked in (a code
+        or tag such as "hi" or "hi-IN"; English when omitted). It reaches the
+        pipeline and the guard, so a Hindi question gets the Hindi Deferral.
 
         The answer passes the same boundary as the mobile and voice routes
         (emergency, dosage guard, evidence grade) before it is returned. If the
         guard cannot run, the except below returns an error, never the draft.
         """
         try:
-            return await answer_web_query(rag_pipeline, query)
+            return await answer_web_query(rag_pipeline, query, language=language)
         except Exception as e:
             return {"status": "error", "error": str(e)}
     

@@ -1521,6 +1521,8 @@ class SafetyResult:
     dosage_blocked: bool = False
     dosage_reason: Optional[str] = None
     emergency_overrode_dosage: bool = False
+    # The language asked for when the Deferral was served in English instead.
+    dosage_language_fallback: Optional[str] = None
     sources: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -1700,6 +1702,7 @@ class SafetyEnhancementsManager:
             dosage_blocked=guard_result.blocked,
             dosage_reason=guard_result.reason,
             emergency_overrode_dosage=guard_result.emergency_overrode,
+            dosage_language_fallback=guard_result.language_fallback,
             sources=sources,
         )
 
@@ -1763,6 +1766,7 @@ def guard_query_result(
         "dosage_blocked": safety.dosage_blocked,
         "dosage_reason": safety.dosage_reason,
         "emergency_overrode_dosage": safety.emergency_overrode_dosage,
+        "dosage_language_fallback": safety.dosage_language_fallback,
     }
     if safety.dosage_blocked:
         logger.info(
