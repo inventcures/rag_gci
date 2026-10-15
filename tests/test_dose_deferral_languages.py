@@ -153,6 +153,43 @@ class EnglishFallbackIsRecorded(unittest.TestCase):
         self.assertEqual(rows[-1]["dosage_language_fallback"], "as")
 
 
+class StreamedAnswerRecordsTheFallback(unittest.TestCase):
+    """The streaming path (answer_stream) records the fallback as apply() does."""
+
+    def stream(self, text, language):
+        from answer_stream import AnswerStream
+
+        async def send(sentence):
+            return None
+
+        async def deltas():
+            yield text
+
+        stream = AnswerStream(send, query="noisy breathing", language=language)
+        asyncio.run(stream.consume(deltas()))
+        return stream
+
+    def test_streamed_deferral_outside_the_eleven_records_the_fallback(self):
+        stream = self.stream(DOSE_ONLY_ANSWER, "as")
+        record = stream.safety_record()
+        self.assertTrue(record["dosage_blocked"])
+        self.assertEqual(record["dosage_language_fallback"], "as")
+
+    def test_streamed_redacted_answer_in_a_supported_language_records_no_fallback(self):
+        from dosage_guard import _redaction_note
+
+        stream = self.stream(PARTLY_DOSE_ANSWER, "pa")
+        self.assertEqual(stream.sent[-1], _redaction_note("pa").strip())
+        record = stream.safety_record()
+        self.assertTrue(record["dosage_blocked"])
+        self.assertIsNone(record["dosage_language_fallback"])
+
+    def test_streamed_clean_answer_records_nothing(self):
+        record = self.stream("Keep her lips moist. Turn her every so often.", "as").safety_record()
+        self.assertFalse(record["dosage_blocked"])
+        self.assertIsNone(record["dosage_language_fallback"])
+
+
 class WebQueryCarriesTheLanguage(unittest.TestCase):
     """POST /api/query, through the server's app and its route policy."""
 

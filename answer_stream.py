@@ -22,7 +22,7 @@ import contextvars
 import re
 import time
 from contextlib import contextmanager
-from typing import AsyncIterator, Awaitable, Callable, Iterator, List, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Optional
 
 import dosage_guard
 
@@ -90,6 +90,9 @@ class AnswerStream:
         self.max_words = max_words
         self.sent: List[str] = []
         self.redacted = 0
+        # The language asked for, when the closing note or Deferral went out
+        # in English because it has no copy (as DosageGuardResult records it).
+        self.language_fallback: Optional[str] = None
         self.truncated = False
         self.used = False
         self.started = time.perf_counter()
@@ -133,12 +136,21 @@ class AnswerStream:
         """The redaction note, or the Deferral, after a dropped sentence."""
         if not self.redacted:
             return
+        _, self.language_fallback = dosage_guard._copy_language(self.language)
         if len(self.text) >= dosage_guard._MIN_REMAINING_CHARS:
             closing = dosage_guard._redaction_note(self.language).strip()
         else:
             closing = dosage_guard._refusal_for(self.language)
         self.sent.append(closing)
         await self._send(closing)
+
+    def safety_record(self) -> Dict[str, Any]:
+        """The Dose Boundary fields of the safety record for what was streamed,
+        named as `guard_query_result` names them for a whole answer."""
+        return {
+            "dosage_blocked": bool(self.redacted),
+            "dosage_language_fallback": self.language_fallback,
+        }
 
     async def consume(self, deltas: AsyncIterator[str],
                       clean: Callable[[str], str] = lambda s: s) -> str:
