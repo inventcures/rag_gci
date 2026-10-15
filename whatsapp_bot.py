@@ -987,14 +987,24 @@ class EnhancedWhatsAppBot:
                 )
                 return
 
-            # Try Gemini Live if enabled, with fallback to traditional pipeline
-            if self.gemini_live_enabled:
+            # Try Gemini Live if enabled and not forced off by the
+            # administrator (ADR 0007's deployment-wide override), with
+            # fallback to the traditional (Sarvam) pipeline
+            from voice_provider import get_voice_provider_control
+            from voice_router import record_voice_path
+
+            if self.gemini_live_enabled and not get_voice_provider_control().current().live_enabled:
+                logger.info("  📞 Sarvam forced by the administrator; Live is not used")
+                record_voice_path("whatsapp_voice", "operator_forced_fallback")
+            elif self.gemini_live_enabled:
                 logger.info("  🚀 Using Gemini Live for voice processing")
                 try:
                     await self._handle_twilio_media_message_gemini(from_number, media_url, content_type)
                     return
                 except Exception as gemini_error:
                     logger.error(f"  ⚠️ Gemini Live failed, falling back to traditional pipeline: {gemini_error}")
+                    record_voice_path("whatsapp_voice", getattr(
+                        gemini_error, "voice_outcome", f"live_error: {type(gemini_error).__name__}"))
                     # Continue to fallback below
 
             logger.info("  📞 Using traditional STT+LLM+TTS pipeline")
@@ -1121,7 +1131,9 @@ class EnhancedWhatsAppBot:
             # participant's own language (or says plainly it cannot).
             live_voice = self._live_voice(detected_lang)
             if live_voice is None:
-                raise GeminiLiveError(f"Live cannot speak {detected_lang!r}; using the Sarvam path")
+                not_offered = GeminiLiveError(f"Live cannot speak {detected_lang!r}; using the Sarvam path")
+                not_offered.voice_outcome = "live_not_offered"  # not a Live failure
+                raise not_offered
             detected_lang = get_language(detected_lang).code
             gemini_lang = live_voice.language
             logger.info(f"  🌐 Language: {detected_lang} -> Gemini: {gemini_lang}")
@@ -1154,6 +1166,7 @@ class EnhancedWhatsAppBot:
             for chunk in self.audio_handler.chunk_audio(pcm_data):
                 await session.send_audio(chunk)
             await session.end_audio()
+            stalled = False
             with span("live.reply") as reply_span:
                 try:
                     reply_audio = await asyncio.wait_for(
@@ -1162,13 +1175,16 @@ class EnhancedWhatsAppBot:
                     # Past the deadline the guarded answer is sent instead.
                     reply_audio = b""
                     reply_span.set(deadline_missed=True)
+                    stalled = True
             spoken = session.get_response_transcription(clear=True).strip()
 
             # Step 7: the Dose Boundary on what Live said. Live's audio is sent
             # only when its transcript passes; otherwise the guarded answer is
             # sent and spoken instead, never the Live audio.
             from safety_enhancements import guard_query_result
+            from voice_router import record_voice_path
 
+            record_voice_path("whatsapp_voice", "turn_stalled" if stalled else "live")
             check = {"status": "success", "answer": spoken, "sources": grounding.get("sources", [])}
             safety = guard_query_result(check, query=query_text, language=detected_lang) if spoken else None
             if not reply_audio or safety is None or safety.dosage_blocked:

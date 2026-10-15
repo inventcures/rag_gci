@@ -5388,24 +5388,30 @@ def create_app(args: Any = None) -> FastAPI:
             else:
                 logger.warning("Mobile API disabled: MOBILE_JWT_SECRET not set")
 
-    async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
+    async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str,
+                                      clock: Optional["LiveTurnClock"] = None):
         """
         Relay Gemini Live's turns to the WebSocket client, each one only after
         what Live said has passed the Dose Boundary.
 
         A turn's audio is held until the turn completes; then its transcript is
         checked (gemini_live.turn_release) and either the audio is released, or
-        the guarded text (a Redacted Answer or the Deferral) is sent instead and
-        the audio never is. Per turn the client receives: the audio (when
-        released), the assistant transcription, the caller's transcription,
-        then turn_complete.
+        the guarded text (a Redacted Answer or the Deferral) is sent and spoken
+        on the Sarvam voice instead, and Live's audio never is. Per turn the
+        client receives: the audio (Live's, or the guarded text spoken), the
+        assistant transcription, the caller's transcription, then turn_complete.
 
         Args:
             websocket: The WebSocket connection
             session: The active Gemini Live session
             user_id: User identifier for logging
+            clock: Told of Live's output and turn completions, so the socket
+                can fall back to Sarvam when Live stalls (web_voice_fallback)
         """
         from gemini_live.turn_release import check_live_turn
+        from voice_router import record_voice_path
+        from voice_safety_wrapper import fit_for_voice
+        from web_voice_fallback import CHANNEL as WEB_VOICE, speak_for_web
 
         held: List[bytes] = []
         try:
@@ -5414,13 +5420,23 @@ def create_app(args: Any = None) -> FastAPI:
             async for response in session.receive_audio():
                 if isinstance(response, bytes):
                     if response == session.TURN_COMPLETE:
+                        if clock is not None:
+                            clock.turn_completed()
                         spoken = session.get_response_transcription(clear=True)
                         heard = session.get_transcription(clear=True)
                         release = check_live_turn(held, spoken, heard, session.language)
+                        if held or spoken:
+                            record_voice_path(WEB_VOICE, "live")
                         held = []
 
                         for chunk in release.audio:
                             await websocket.send_bytes(chunk)
+                        if release.withheld and release.text:
+                            # The caller is listening: the guarded text is
+                            # heard, in the session's language, not silence.
+                            said = await speak_for_web(fit_for_voice(release.text), session.language)
+                            if said:
+                                await websocket.send_bytes(said)
                         if release.text:
                             frame = {"type": "transcription", "role": "assistant",
                                      "text": release.text}
@@ -5438,10 +5454,14 @@ def create_app(args: Any = None) -> FastAPI:
                     elif response == session.INTERRUPTED:
                         # Barge-in: the unreleased audio is dropped, never played.
                         held = []
+                        if clock is not None:
+                            clock.interrupted()
                         await websocket.send_json({"type": "interrupted"})
 
                     else:
                         held.append(response)
+                        if clock is not None:
+                            clock.live_output()
 
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected during response stream for {user_id}")
@@ -5480,15 +5500,30 @@ def create_app(args: Any = None) -> FastAPI:
         The Live model is the study release's (release.yaml
         models.voice_primary.model). A client cannot choose it: a `model` in
         the config and any `set_model` are refused with an error frame.
+
+        The Sarvam path (web_voice_fallback) answers a recording, on
+        stop_audio, when the administrator has forced Sarvam (no Live session
+        is opened; read at config and at every start_audio), or when Live
+        misses the release's first-token or per-turn deadline (the stalled
+        Live session is closed). Its frames carry voice_path and
+        fallback_reason.
         """
         await websocket.accept()
         from auth.policy import authenticate_connection
         from participants import ephemeral
+        from voice_provider import get_voice_provider_control
+        from web_voice_fallback import (
+            MAX_TURN_PCM_BYTES, OPERATOR_FORCED, LiveTurnClock, WebSarvamTurns,
+        )
 
         caller = authenticate_connection(websocket)
 
-        # Check if Gemini Live is available
-        if not gemini_live_enabled:
+        def sarvam_forced() -> bool:
+            """The administrator's deployment-wide override (ADR 0007)."""
+            return not get_voice_provider_control().current().live_enabled
+
+        # Check if Gemini Live is available (a forced session needs only Sarvam)
+        if not gemini_live_enabled and not sarvam_forced():
             await websocket.send_json({
                 "type": "error",
                 "error": "Voice conversations not available. Gemini Live is disabled."
@@ -5513,6 +5548,29 @@ def create_app(args: Any = None) -> FastAPI:
         # is still getting ready to speak, not when their first audio does.
         # An unused one is closed below, or by the manager's idle cleanup.
         preconnect = PreConnect(gemini_session_manager)
+        # The Sarvam path, its caller audio for the current recording, and the
+        # watch on Live's reply to it.
+        forced = sarvam_forced()
+        sarvam = WebSarvamTurns(rag_pipeline, get_safety_manager(),
+                                participant_id="" if anonymous else user_id)
+        turn_pcm = bytearray()
+        clock = LiveTurnClock()
+        stall_task = None
+
+        async def answer_if_live_stalls(pcm: bytes) -> None:
+            """Wait for Live's reply to this recording; on a stall, close the
+            Live session (nothing more of it is relayed) and answer on Sarvam."""
+            nonlocal session, response_task
+            reason = await clock.wait_for_reply()
+            if reason is None:
+                return
+            logger.warning(f"Live stalled for {user_id} ({reason}); answering on Sarvam")
+            if response_task and not response_task.done():
+                response_task.cancel()
+            response_task = None
+            session = None
+            await gemini_session_manager.close_session(user_id)
+            await sarvam.answer(websocket, pcm, language, reason)
 
         logger.info(f"Voice WebSocket connected: {user_id}")
 
@@ -5531,8 +5589,10 @@ def create_app(args: Any = None) -> FastAPI:
                         if msg_type == "config":
                             # Initial configuration
                             language = message.get("language", "en-IN")
+                            forced = sarvam_forced()
+                            live_model = gemini_session_manager.service.model if gemini_session_manager else None
                             requested = message.get("model")
-                            if requested and requested != gemini_session_manager.service.model:
+                            if requested and requested != live_model:
                                 logger.warning(f"Refused client-chosen Live model {requested!r} for {user_id}")
                                 await websocket.send_json({"type": "error", "error": model_refusal})
                             logger.info(f"Config received: user={user_id}, language={language}")
@@ -5540,12 +5600,30 @@ def create_app(args: Any = None) -> FastAPI:
                             await websocket.send_json({
                                 "type": "config_ack",
                                 "language": language,
-                                "model": gemini_session_manager.service.model,
+                                "model": live_model,
                                 "anonymous": anonymous,
+                                "voice_path": "fallback" if forced else "live",
                             })
-                            await preconnect.open(user_id, language, None)
+                            if not forced:
+                                await preconnect.open(user_id, language, None)
+
+                        elif msg_type == "start_audio" and (forced := sarvam_forced()):
+                            # Sarvam is forced: no Live session, and an open
+                            # one (the override changed mid-call) is closed.
+                            turn_pcm.clear()
+                            if session is not None or response_task is not None:
+                                if response_task and not response_task.done():
+                                    response_task.cancel()
+                                response_task = None
+                                session = None
+                                await preconnect.settle()
+                                await gemini_session_manager.close_session(user_id)
+                            await websocket.send_json({"type": "session_created", "session_id": user_id,
+                                                       "voice_path": "fallback"})
 
                         elif msg_type == "start_audio":
+                            turn_pcm.clear()
+                            clock.caller_started()
                             # Create or get session for this user
                             logger.info(f"Starting audio session for {user_id}")
 
@@ -5579,6 +5657,13 @@ def create_app(args: Any = None) -> FastAPI:
                             # Audio stream ended
                             logger.info(f"Audio stream stopped for {user_id}")
                             await websocket.send_json({"type": "audio_stopped"})
+                            recording, turn_pcm = bytes(turn_pcm), bytearray()
+                            if forced:
+                                await sarvam.answer(websocket, recording, language, OPERATOR_FORCED)
+                            elif session is not None:
+                                if stall_task and not stall_task.done():
+                                    stall_task.cancel()
+                                stall_task = asyncio.create_task(answer_if_live_stalls(recording))
 
                         elif msg_type == "set_language":
                             # Switch language - requires new session
@@ -5590,9 +5675,11 @@ def create_app(args: Any = None) -> FastAPI:
                                 # Close existing session, and reconnect in
                                 # the new language ahead of the next turn
                                 await preconnect.settle()
-                                await gemini_session_manager.close_session(user_id)
+                                if gemini_session_manager:
+                                    await gemini_session_manager.close_session(user_id)
                                 session = None
-                                await preconnect.open(user_id, language, None)
+                                if not forced:
+                                    await preconnect.open(user_id, language, None)
 
                                 await websocket.send_json({
                                     "type": "language_changed",
@@ -5623,14 +5710,17 @@ def create_app(args: Any = None) -> FastAPI:
 
                 # Handle binary messages (audio data)
                 elif "bytes" in data:
-                    if session:
+                    # Kept for the Sarvam path: it answers the whole recording.
+                    if len(turn_pcm) + len(data["bytes"]) <= MAX_TURN_PCM_BYTES:
+                        turn_pcm.extend(data["bytes"])
+                    if session and not forced:
                         try:
                             await session.send_audio(data["bytes"])
 
                             # Start response stream after first audio is sent
                             if response_task is None or response_task.done():
                                 response_task = asyncio.create_task(
-                                    stream_gemini_responses(websocket, session, user_id)
+                                    stream_gemini_responses(websocket, session, user_id, clock)
                                 )
                         except Exception as e:
                             logger.error(f"Error sending audio for {user_id}: {e}")
@@ -5650,6 +5740,8 @@ def create_app(args: Any = None) -> FastAPI:
 
         finally:
             # Cleanup
+            if stall_task and not stall_task.done():
+                stall_task.cancel()
             if response_task and not response_task.done():
                 response_task.cancel()
                 try:
