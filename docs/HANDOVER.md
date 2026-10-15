@@ -135,7 +135,9 @@ Voice works end to end, and voice obeys the same safety rules as text.
 - **Push-to-talk** — 16-bit PCM at 16 kHz mono, press-and-hold mic, spoken and
   readable answer, replay, and a stop control that shows while audio plays.
 - **`/api/mobile/v1/ws/voice`** — session, grounding through the same pipeline, and
-  the same `SafetyEnhancementsManager` as the text route.
+  the same `SafetyEnhancementsManager` as the text route. Opens only with an access
+  token on the upgrade request's `Authorization: Bearer` header (close code 1008
+  otherwise), and records each turn under the participant the token names.
 - **`voice_session.py`** — transcript and answer in one exchange. The client cannot
   know what the user said, so a separate transcript round trip buys nothing.
 - **`voice_router.py`** — Live by default with Sarvam fallback. Arbitration is pure

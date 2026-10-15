@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, WebSocket, WebSocketException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
@@ -48,3 +48,28 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> AuthenticatedUser:
     return await require_auth(credentials)
+
+
+async def require_socket_auth(websocket: WebSocket) -> AuthenticatedUser:
+    """The caller of a socket route: an access token on the Authorization header.
+
+    The same rule as require_auth, for a WebSocket: only a valid, unexpired
+    access token opens it, sent as ``Authorization: Bearer <token>``. Anything
+    else closes the socket with 1008 (policy violation) before it is accepted.
+    """
+    scheme, _, credential = websocket.headers.get("authorization", "").partition(" ")
+    token = credential.strip() if scheme.lower() == "bearer" else ""
+    payload = (
+        _jwt_handler.verify_token(token, expected_type=ACCESS)
+        if token and _jwt_handler is not None else None
+    )
+    if not payload or not payload.get("user_id"):
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Authentication required",
+        )
+    return AuthenticatedUser(
+        user_id=payload["user_id"],
+        role=payload.get("role", ""),
+        site_id=payload.get("site_id", ""),
+    )

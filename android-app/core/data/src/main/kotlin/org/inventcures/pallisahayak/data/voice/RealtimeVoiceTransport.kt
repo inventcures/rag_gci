@@ -27,6 +27,14 @@ import kotlin.coroutines.resume
 class RealtimeVoiceTransport(
     private val client: OkHttpClient,
     private val baseWsUrl: String,
+    /**
+     * The participant's access token, read when the socket opens.
+     *
+     * The server refuses the socket without one (close code 1008), and records
+     * each turn under the person the token names. Sent on the upgrade request's
+     * Authorization header, never in the URL, so it is not written to access logs.
+     */
+    private val accessToken: () -> String?,
     private val releaseId: String = "",
 ) {
 
@@ -61,7 +69,9 @@ class RealtimeVoiceTransport(
         socket?.let { return sessionId }
 
         val url = baseWsUrl.trimEnd('/') + "/ws/voice?language=" + language
-        val request = Request.Builder().url(url).build()
+        val request = Request.Builder().url(url)
+            .apply { accessToken()?.let { header("Authorization", "Bearer $it") } }
+            .build()
 
         return suspendCancellableCoroutine { continuation ->
             val listener = object : WebSocketListener() {

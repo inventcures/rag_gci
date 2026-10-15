@@ -39,7 +39,10 @@ CLIENT_OPERATIONS = [
     ("POST", "/api/mobile/v1/query", "query"),
     ("POST", "/api/mobile/v1/query/voice", "voiceQuery"),
     ("GET", "/api/mobile/v1/cache/bundle", "cacheBundle"),
+    ("POST", "/api/mobile/v1/auth/register", "register"),
     ("POST", "/api/mobile/v1/auth/login", "login"),
+    ("POST", "/api/mobile/v1/auth/refresh", "refresh"),
+    ("GET", "/api/mobile/v1/release/status", "releaseStatus"),
 ]
 
 KOTLIN_KEYWORDS = {
@@ -244,12 +247,9 @@ def emit_api(root: Dict[str, Any]) -> str:
         methods.append(f"    @{verb.upper()}(")
         methods.append(f'        "{route}"')
         methods.append("    )")
-        if args:
-            methods.append(f"    suspend fun {fn_name}({args}): {return_type}")
-        else:
-            methods.append(
-                f"    suspend fun {fn_name}(language: String): {return_type}"
-            )
+        # An operation with no parameters takes none. This once emitted a
+        # `language` argument for every such route, which no server reads.
+        methods.append(f"    suspend fun {fn_name}({args}): {return_type}")
 
     methods.append("}")
     return "\n".join(methods)

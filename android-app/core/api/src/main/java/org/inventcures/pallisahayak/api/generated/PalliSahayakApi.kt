@@ -36,7 +36,22 @@ interface PalliSahayakApi {
     suspend fun cacheBundle(@Query("language") language: String): Response<CacheBundleResponse>
 
     @POST(
+        "/api/mobile/v1/auth/register"
+    )
+    suspend fun register(@Body body: DeviceRegistrationRequest): Response<AuthResponse>
+
+    @POST(
         "/api/mobile/v1/auth/login"
     )
     suspend fun login(@Body body: LoginRequest): Response<AuthResponse>
+
+    @POST(
+        "/api/mobile/v1/auth/refresh"
+    )
+    suspend fun refresh(@Body body: RefreshRequest): Response<AuthResponse>
+
+    @GET(
+        "/api/mobile/v1/release/status"
+    )
+    suspend fun releaseStatus(): Response<ReleaseStatusResponse>
 }
