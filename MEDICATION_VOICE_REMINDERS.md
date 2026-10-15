@@ -187,12 +187,15 @@ GET /api/medication/adherence/{user_id}?days=7
 GET /api/medication/pending-calls
 ```
 
-### Webhook Callback
+### Record a Call Outcome (admin)
 ```bash
 POST /api/medication/voice-reminder/callback
 ```
 
-Called by voice providers when call completes.
+Records how a reminder call ended. It needs an admin token, like every
+`/api/medication/*` route: no voice provider is configured to call it (Bolna and
+Retell report through their own signed webhooks), and an open route let anyone
+with a call id mark a reminder confirmed.
 
 ---
 
@@ -368,6 +371,7 @@ asyncio.run(test())
 
 ```bash
 curl -X POST http://localhost:8000/api/medication/voice-reminder/callback \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "call_id": "call_123",

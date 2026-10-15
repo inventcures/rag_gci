@@ -111,9 +111,8 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     # -- webhooks and provider sockets: their own verification (ticket 07) ---
     "/api/bolna/webhook": own_verification("Bolna signature and key"),
     "/api/bolna/llm/{language}/v1/chat/completions": own_verification("Bolna custom-LLM key"),
-    "/api/medication/voice-reminder/callback": own_verification("phone provider callback"),
     "/api/retell/webhook": own_verification("Retell signature"),
-    "/ws/retell/llm/{call_id}": own_verification("Retell custom-LLM socket"),
+    "/ws/retell/llm/{call_id}": own_verification("the call record Retell returns for call_id"),
     "/api/sarvam/webhook": own_verification("Sarvam signature"),
     "/webhook": own_verification("X-Twilio-Signature"),
     "/media/{filename}": RoutePolicy(Access.PUBLIC, "fetched by Twilio; unguessable file name"),
@@ -141,6 +140,9 @@ ROUTE_POLICIES: Dict[str, RoutePolicy] = {
     "/api/pageindex/*": ADMIN,
     "/api/bolna/stats": ADMIN,
     "/api/bolna/calls": ADMIN,
+    # Includes /voice-reminder/callback: no provider is configured to call it
+    # (Bolna and Retell report through their signed webhooks), so recording a
+    # call outcome by hand is an admin action (final review, finding 4).
     "/api/medication/*": ADMIN,
     "/api/retell/stats": ADMIN,
     "/api/retell/calls": ADMIN,

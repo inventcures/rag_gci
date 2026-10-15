@@ -74,6 +74,9 @@ class RetellSession:
     agent_id: str = ""
     from_number: str = ""
     to_number: str = ""
+    # True once the caller, agent and metadata came from Retell's own call
+    # record; a call_details frame then changes nothing.
+    verified: bool = False
     # The turn being answered. A newer response_required cancels it, so a
     # barge-in never gets the stale answer.
     current_task: Optional["asyncio.Task"] = None
@@ -150,6 +153,7 @@ class RetellCustomLLMHandler:
         websocket: WebSocket,
         call_id: str,
         accepted: bool = False,
+        call: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Main WebSocket handler for Retell Custom LLM protocol.
@@ -163,12 +167,18 @@ class RetellCustomLLMHandler:
             websocket: FastAPI WebSocket connection
             call_id: Unique call identifier from URL path
             accepted: True when the caller already accepted the socket
+            call: The call record Retell returned for call_id
+                (RetellClient.live_call). The caller's number and the call's
+                metadata come only from it; without it the call keeps no
+                per-person record.
         """
         if not accepted:
             await websocket.accept()
 
         # Create session
         session = RetellSession(call_id=call_id, websocket=websocket)
+        if call:
+            self._apply_call(session, call)
         self.active_sessions[call_id] = session
 
         logger.info(f"Retell LLM WebSocket connected: {call_id}")
@@ -260,17 +270,31 @@ class RetellCustomLLMHandler:
         session: RetellSession,
         message: Dict[str, Any]
     ) -> None:
-        """Handle call_details event with metadata."""
-        call = message.get("call", {})
+        """Handle call_details: only the call's language, when no verified record gave one.
 
-        session.agent_id = call.get("agent_id", "")
-        session.from_number = call.get("from_number", "")
-        session.to_number = call.get("to_number", "")
-        session.metadata = call.get("metadata", {})
+        The frame comes from whoever holds the socket, so its numbers and agent
+        are never taken: the caller's identity is the verified call record's
+        (handle_websocket's `call`, final review finding 5).
+        """
+        call = message.get("call", {}) or {}
+        if session.verified:
+            return
+        self._apply_language(session, call.get("metadata", {}) or {})
 
+    def _apply_call(self, session: RetellSession, call: Dict[str, Any]) -> None:
+        """Take the caller, agent and metadata from Retell's verified call record."""
+        session.verified = True
+        session.agent_id = call.get("agent_id", "") or ""
+        session.from_number = call.get("from_number", "") or ""
+        session.to_number = call.get("to_number", "") or ""
+        session.metadata = call.get("metadata", {}) or {}
+        self._apply_language(session, session.metadata)
+
+    def _apply_language(self, session: RetellSession, metadata: Dict[str, Any]) -> None:
+        """Set the call's language from its metadata, through the Supported Language table."""
         # The call's language, through the Supported Language table (one code
         # per language: "od-IN" is Odia, "or"). Outside the eleven, English.
-        language = session.metadata.get("language", "")
+        language = metadata.get("language", "")
         if language:
             lang = get_language(language)
             if lang is None:

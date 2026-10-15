@@ -289,6 +289,39 @@ class MobileReminderRoute(unittest.TestCase):
         response = self.post(phone_number=PHONE, dosage=None)
         self.assertEqual(response.status_code, 200, response.text)
 
+    def test_a_dose_written_into_the_name_or_notes_does_not_reach_the_app(self):
+        # Final review finding 7 (decisions D33, D34): the list and the sync pull
+        # hid `dosage` but returned the medicine name and notes as written.
+        reminder = self.system.create_voice_reminder(
+            user_id="asha-1", phone_number=PHONE, medication_name="Paracetamol 500mg twice daily",
+            dosage=STORED_DOSE, reminder_time=AT_EIGHT, language="en",
+        )
+        reminder.notes = "Give 2 tablets after food"
+        listed = self.client.get(f"{self.BASE}/medication/reminders", headers=self.headers)
+        pulled = self.client.post(f"{self.BASE}/sync/pull", headers=self.headers,
+                                 params={"last_sync_at": 0})
+
+        for where, response, key in (("reminder list", listed, "reminders"),
+                                     ("sync pull", pulled, "medication_reminders")):
+            with self.subTest(where=where):
+                self.assertEqual(response.status_code, 200, response.text)
+                [reminder] = response.json()[key]
+                assert_dose_free(self, reminder["medication_name"], f"{where} medicine name")
+                self.assertIn("Paracetamol", reminder["medication_name"])
+                self.assertEqual(detect_doses(reminder["notes"]), [], f"{where} notes")
+                self.assertIn("after food", reminder["notes"])
+                self.assertNotIn("dosage", reminder)
+
+    def test_a_name_that_is_only_a_dose_reaches_the_app_as_your_medicine(self):
+        self.system.create_voice_reminder(
+            user_id="asha-1", phone_number=PHONE, medication_name="2 tablets",
+            dosage=STORED_DOSE, reminder_time=AT_EIGHT, language="en",
+        )
+        listed = self.client.get(f"{self.BASE}/medication/reminders", headers=self.headers)
+
+        [reminder] = listed.json()["reminders"]
+        self.assertEqual(reminder["medication_name"], "your medicine")
+
 
 class ServerVoiceReminderEndpoint(unittest.TestCase):
     PATH = "/api/medication/voice-reminder"
