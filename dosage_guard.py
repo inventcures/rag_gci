@@ -31,7 +31,10 @@ Refused and deferred (tier 2):
 Severity ordering:
     An emergency always wins.  A refusal must never swallow a myocardial
     infarction.  When a query is both a dosage question and an emergency trigger,
-    the emergency path runs and the deferral never fires.
+    the emergency path runs and the deferral never fires.  Only a CRITICAL
+    alert on the question, passed in by the caller, invokes this Emergency
+    Override; the answer's own words never do.  When it applies, the 108
+    guidance in the participant's Supported Language is put first.
 """
 
 import logging
@@ -41,6 +44,7 @@ from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 import dose_detector
 from supported_languages import get_language
+import supported_languages
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +258,54 @@ def _is_critical_alert(alert: Optional[Any]) -> bool:
     return bool(getattr(alert, "contact_emergency_services", False))
 
 
+def _alert_level(alert: Optional[Any]) -> str:
+    """The alert's level as the safety record stores it, "none" without one."""
+    if alert is None:
+        return "none"
+    level = getattr(alert, "level", None)
+    level_value = getattr(level, "value", level)
+    return str(level_value).lower() if level_value else "none"
+
+
+# ---------------------------------------------------------------------------
+# Emergency guidance
+# ---------------------------------------------------------------------------
+
+# Put first in the answer when the Emergency Override applies, so a caller in a
+# life-threatening emergency hears where to get help before anything else. One
+# sentence, with 108 in it, in every Supported Language. The en, hi, bn, ta and
+# gu lines are the call-to-action of the emergency detector's own CRITICAL
+# message (safety_enhancements.EmergencyDetectionSystem._create_alert), which
+# reads them from here. The mr, te, kn, ml, pa and or lines are new and are
+# listed for clinical review.
+EMERGENCY_GUIDANCE: Dict[str, str] = {
+    "en": "Call emergency services (108/102) immediately!",
+    "hi": "तुरंत आपातकालीन सेवाओं (108/102) को कॉल करें!",
+    "bn": "অবিলম্বে জরুরী সেবায় (108/102) কল করুন!",
+    "ta": "உடனடியாக அவசர சேவைகளை (108/102) அழைக்கவும்!",
+    "gu": "તાત્કાલિક આપત્તિ સેવાઓ (108/102) ને કૉલ કરો!",
+    "mr": "ताबडतोब आपत्कालीन सेवांना (108/102) कॉल करा!",
+    "te": "వెంటనే అత్యవసర సేవలకు (108/102) కాల్ చేయండి!",
+    "kn": "ತಕ್ಷಣ ತುರ್ತು ಸೇವೆಗಳಿಗೆ (108/102) ಕರೆ ಮಾಡಿ!",
+    "ml": "ഉടൻ തന്നെ അടിയന്തര സേവനങ്ങളെ (108/102) വിളിക്കുക!",
+    "pa": "ਤੁਰੰਤ ਐਮਰਜੈਂਸੀ ਸੇਵਾਵਾਂ (108/102) ਨੂੰ ਕਾਲ ਕਰੋ!",
+    "or": "ତୁରନ୍ତ ଜରୁରୀକାଳୀନ ସେବା (108/102) କୁ କଲ୍ କରନ୍ତୁ!",
+}
+
+
+def emergency_guidance_for(language: Optional[str]) -> str:
+    """The 108 guidance in `language` (a code, tag or alias), English outside the eleven."""
+    supported = supported_languages.get_language(language)
+    code = supported.code if supported else supported_languages.ENGLISH_CODE
+    return EMERGENCY_GUIDANCE.get(code, EMERGENCY_GUIDANCE["en"])
+
+
+def _with_emergency_guidance(response: str, language: str) -> str:
+    """`response` with the emergency guidance as its first sentence, added once."""
+    guidance = emergency_guidance_for(language)
+    if (response or "").lstrip().startswith(guidance):
+        return response
+    return f"{guidance}\n\n{response}" if response else guidance
 
 
 # ---------------------------------------------------------------------------
@@ -275,18 +327,6 @@ class EmergencyDetector(Protocol):
         self, query: str, user_id: Optional[str] = ..., language: str = ...
     ) -> Optional[Any]: ...
 
-# Explicit instructions to summon urgent help. Used only as a fallback when no
-# emergency detector is injected, and matched tightly on purpose: requiring the
-# imperative plus the vehicle/number prevents ordinary prose such as "in an
-# emergency seek help" from switching the guard off.
-_EMERGENCY_INSTRUCTION_RE = re.compile(
-    r"(?:call|dial|phone|ring)\s*(?:\s*an?)?\s*"
-    r"(?:108|102|ambulance|emergency\s+(?:service|services|number))"
-    r"|\bambulance\s+(?:now|immediately)\b"
-    r"|\bemergency\s+(?:services|help)\s+(?:now|immediately)\b",
-    re.I,
-)
-
 
 @dataclass
 class DosageGuardResult:
@@ -301,6 +341,9 @@ class DosageGuardResult:
     # The language asked for, when the Deferral or Redacted Answer note had to
     # be served in English because no copy exists for it. None otherwise.
     language_fallback: Optional[str] = None
+    # The level of the alert the caller passed in ("none" without one), so the
+    # safety record shows what the override decision was based on.
+    emergency_level: str = "none"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -308,6 +351,7 @@ class DosageGuardResult:
             "reason": self.reason,
             "findings": [f.to_dict() for f in self.findings],
             "emergency_overrode": self.emergency_overrode,
+            "emergency_level": self.emergency_level,
             "redacted": self.redacted,
             "removed_units": self.removed_units,
             "language_fallback": self.language_fallback,
@@ -454,24 +498,34 @@ class DosageGuard:
         response: str,
         language: str = "en",
         query: str = "",
+        alert: Optional[Any] = None,
     ) -> DosageGuardResult:
         """
         Filter `response`, returning either the original text or the deferral.
 
-        If the query is an emergency trigger the response is passed through
-        untouched and `emergency_overrode` is set, because suppressing an urgent
-        instruction in order to enforce a style restriction is the worse failure.
+        `alert` is the emergency detector's alert on the question, computed once
+        on the answer path and passed in (None when there was none). Only a
+        CRITICAL alert invokes the Emergency Override: the response then keeps
+        its text, the emergency guidance in `language` is put first, and
+        `emergency_overrode` is set, because suppressing an urgent instruction
+        in order to enforce the restriction is the worse failure. Nothing in the
+        response text itself, such as "call 108", can invoke the override.
+
+        `query` is the question the response answers; the override decision is
+        made from `alert`, not from it.
         """
-        if self._is_emergency(query, response):
+        level = _alert_level(alert)
+        if _is_critical_alert(alert):
             return DosageGuardResult(
                 blocked=False,
-                response=response,
+                response=_with_emergency_guidance(response, language),
                 emergency_overrode=True,
+                emergency_level=level,
             )
 
         findings = detect_doses(response)
         if not findings:
-            return DosageGuardResult(blocked=False, response=response)
+            return DosageGuardResult(blocked=False, response=response, emergency_level=level)
 
         logger.warning(
             "Dosage restriction applied (reason=%s, findings=%d, lang=%s)",
@@ -502,6 +556,7 @@ class DosageGuard:
                     redacted=True,
                     removed_units=removed,
                     language_fallback=language_fallback,
+                    emergency_level=level,
                 )
             logger.warning(
                 "Redaction left %d dose match(es); escalating to full refusal",
@@ -515,34 +570,25 @@ class DosageGuard:
             reason=findings[0].reason,
             removed_units=removed,
             language_fallback=language_fallback,
+            emergency_level=level,
         )
 
-    def _is_emergency(self, query: str, response: str) -> bool:
+    def detect_alert(self, query: str, language: str = "en") -> Optional[Any]:
         """
-        Decide whether the emergency path takes precedence over the deferral.
+        The emergency detector's alert on `query`, for a caller that has none yet.
 
-        The detector is authoritative. The response-text fallback is deliberately
-        narrow: it matches an explicit instruction to summon help, never the bare
-        word "emergency". A loose match here would silently disable the entire
-        dosage restriction on any answer that merely mentions emergencies, which
-        is a failure mode that must not exist in a safety control.
+        The streaming path calls this once per question and decides the override
+        from the alert exactly as `apply` does. A detector failure returns None, which
+        keeps the Dose Boundary in force: the safe direction for a failure.
         """
-        if self.emergency_system is not None:
-            try:
-                alert = self.emergency_system.detect_emergency(
-                    query, "dosage-guard", "en"
-                )
-            except Exception:  # pragma: no cover - must never break a response
-                logger.warning(
-                    "Emergency detector failed inside DosageGuard; "
-                    "falling back to response-text check",
-                    exc_info=True,
-                )
-            else:
-                if _is_critical_alert(alert):
-                    return True
-
-        return bool(_EMERGENCY_INSTRUCTION_RE.search(response or ""))
+        if self.emergency_system is None or not query:
+            return None
+        try:
+            return self.emergency_system.detect_emergency(query, None, language)
+        except Exception:  # must never break a response
+            logger.warning("Emergency detector failed; the Dose Boundary stays on",
+                           exc_info=True)
+            return None
 
 
 _dosage_guard: Optional[DosageGuard] = None
