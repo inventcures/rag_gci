@@ -108,3 +108,26 @@ Decisions taken while implementing the 26 tickets with Matt Pocock's `implement`
 **For the PI and technical lead:** confirm the Live model id in `study/release.yaml` (D39), accept or reject the web voice latency trade (D40), and reconcile ADR 0007 and HANDOVER line 76, which still say "3.8 Live". Commit the Room schema `4.json` from the first real Android build.
 
 **For the clinical lead's review:** the 76 machine-drafted Hindi app strings in `android-app/app/src/main/res/values-hi/strings.xml`, and the reworded temporal recommendations (including whether "continue the current regimen" still reads as a start/stop judgement).
+
+### Wave 4 (tickets 13, 16, 17, 18)
+
+| # | Decision | Why |
+|---|---|---|
+| D44 | (13) Every channel (web, web voice, WhatsApp, Bolna, Retell, mobile text and voice) writes one study row per answer through `study_logging.record_answer`, with `voice_path` (text, live, fallback, cache, phone) and the Dose Boundary outcome. Callers with no participant identity are recorded as `"anonymous"`, not as a pseudonym. Retell's row is written when its streamed turn ends; every other channel writes before sending. | A refusal that no row records can't be counted, and a per-session pseudonym would look like a participant in the adoption counts. |
+| D45 | (16) Live gets 4 s to start and 8 s to finish a turn (ADR 0007's constants). On a miss, the Live session is closed and Sarvam answers. The operator's forced-Sarvam override now governs web voice, WhatsApp voice notes and the mobile routes. The fallback rate counts only Live failing on its own. | A stalled session used to be waited on for ever. Closing it, not reusing it, means its late audio can never reach the caller. The deadlines stay out of release.yaml so the fingerprint is unchanged. |
+| D46 | (16) A web voice turn that the Dose Boundary withholds is now spoken, on the Sarvam voice, in the session's language. A language with no Sarvam voice stays text only. | Before, the caller heard silence and only the web page showed the Deferral. |
+| D47 | (17) Bolna and Retell serve only when the release record lists every outside service they use and the provider is switched on. The default release lists none, so both refuse with a 503 that names the missing services. Turning one on without listing it shows as drift. | This is D11's recorded default. The platforms and their analysis services count as outside India because their hosting is unknown. |
+| D48 | (17) Bolna's LLM is now this server, through Bolna's custom-LLM option, and the unguarded `/api/bolna/query` route is deleted. Retell post-call analysis is off by default. | Bolna's hosted OpenAI LLM rewrote answers after the Dose Boundary and had no hook to check them. |
+| D49 | (18) In the kg, graphrag and fused modes, a non-English question is translated to English for the graph retrievers only; vector search keeps the question as written (ADR 0003). It ships on, with no setting. | Graph entities are English, so Indic questions got no graph facts at all. A wrong-language search is a correctness defect (D17), and the graph modes are already off by default. |
+| D50 | (18) GraphRAG's own model calls are off unless every model is pinned to Vertex asia-south1. With the shipped settings, searches answer from the local index and indexing is refused. `graphrag==3.3.0` and the chromadb and sentence-transformers versions are pinned. | The shipped settings use the global Gemini API endpoint, which is not region-pinned. The study needs a fixed release. |
+
+**What participants and operators will notice (wave 4, all need a study release):**
+- Researchers get a study row from every channel, with the voice path, and mobile voice refusals are now counted.
+- Web voice: if Live goes quiet, the caller hears a Sarvam answer after 4 to 8 seconds instead of silence. A withheld turn is now spoken. A forced Sarvam override now really applies to web and WhatsApp voice.
+- Bolna and Retell phone lines, and their reminder calls, refuse in the default release.
+- In the graph modes only, Indic questions now get graph facts in the answer context.
+- Admin GraphRAG searches answer from the local index, and indexing is refused.
+
+**Before a release that turns on a phone provider:** list its outside services in `study/release.yaml`, and register the custom LLM in Bolna (model `palli-sahayak-guarded`, one URL per language, `RAG_API_KEY` as the key). That registration was built from Bolna's documentation and has not been tried against a live Bolna account.
+
+**For the clinical lead's review:** nothing new to translate. The Bolna and Retell decision (D11) still waits on them.
