@@ -28,8 +28,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
 
-from voice_provider import PROVIDER_LIVE, VoiceProviderControl
+from voice_provider import PROVIDER_LIVE, VoiceProviderControl, get_voice_provider_control
 from voice_session import (
+    FIRST_TOKEN_TIMEOUT_S,
+    PER_TURN_STALL_TIMEOUT_S,
     VOICE_PATH_FALLBACK,
     VOICE_PATH_LIVE,
     VoiceSession,
@@ -100,10 +102,38 @@ class LiveVoiceProvider:
         self.session = session
 
     async def serve(self, audio: bytes) -> ProviderOutcome:
+        """
+        Stream one Live turn, cut short when Live goes quiet.
+
+        The first event must arrive within FIRST_TOKEN_TIMEOUT_S and the final
+        turn within PER_TURN_STALL_TIMEOUT_S of the start (ADR 0007's
+        "first-token timeout or per-turn stall", the release's
+        voice_fallback trigger). Past either, the outcome carries the reason
+        and no turn, so the router answers on Sarvam instead of leaving the
+        caller in silence.
+        """
         started = time.time()
         first_token_at: Optional[float] = None
+        stream: Any = None
         try:
-            async for event in self.service.stream_audio(audio, self.session.language):
+            stream = self.service.stream_audio(audio, self.session.language)
+            while True:
+                if first_token_at is None:
+                    budget, reason = FIRST_TOKEN_TIMEOUT_S, "first_token_timeout"
+                else:
+                    budget, reason = PER_TURN_STALL_TIMEOUT_S - (time.time() - started), "turn_stalled"
+                try:
+                    event = await asyncio.wait_for(stream.__anext__(), timeout=max(budget, 0.0))
+                except asyncio.TimeoutError:
+                    logger.warning("Live went quiet (%s); falling back to Sarvam", reason)
+                    return ProviderOutcome(
+                        turn=None,
+                        first_token_latency_s=(first_token_at - started) if first_token_at else None,
+                        turn_latency_s=time.time() - started,
+                        error=reason,
+                    )
+                except StopAsyncIteration:
+                    break
                 if first_token_at is None:
                     first_token_at = time.time()
                 if event.get("final"):
@@ -114,7 +144,7 @@ class LiveVoiceProvider:
                     )
             return ProviderOutcome(
                 turn=None,
-                first_token_latency_s=first_token_at - (first_token_at and started) if first_token_at else None,
+                first_token_latency_s=(first_token_at - started) if first_token_at else None,
                 turn_latency_s=time.time() - started,
                 error="live_produced_no_final_turn",
             )
@@ -125,6 +155,13 @@ class LiveVoiceProvider:
                 turn_latency_s=time.time() - started,
                 error=f"live_error: {type(exc).__name__}",
             )
+        finally:
+            aclose = getattr(stream, "aclose", None)
+            if aclose is not None:
+                try:
+                    await aclose()
+                except Exception:  # noqa: BLE001
+                    logger.debug("Live stream did not close cleanly", exc_info=True)
 
 
 class SarvamVoiceProvider:
@@ -183,14 +220,22 @@ class VoiceRouter:
         handler: SupportsAudioTurns,
         live_service_factory: Optional[Any] = None,
         control: Optional[VoiceProviderControl] = None,
+        channel: str = "mobile_voice",
     ):
         self.handler = handler
         self.live_service_factory = live_service_factory
-        self.control = control or VoiceProviderControl()
+        # The deployment's control, so an administrator's override reaches
+        # every router (ADR 0007: "deployment-wide").
+        self.control = control or get_voice_provider_control()
+        self.channel = channel
         self.stats: Dict[str, int] = {}
 
     def _count(self, key: str) -> None:
         self.stats[key] = self.stats.get(key, 0) + 1
+        if key in _TURN_OUTCOMES:
+            record_voice_path(self.channel, key)
+        elif key.startswith("live_to_fallback:"):
+            record_voice_path(self.channel, key.split(":", 1)[1])
 
     async def route(
         self,
@@ -223,12 +268,15 @@ class VoiceRouter:
 
         if not use_live:
             self._count("live_unavailable")
+            self._count(f"live_to_fallback:{availability.reason or 'live_unavailable'}")
             return await self._fallback(session, audio, availability.reason or "live_unavailable")
 
         live = LiveVoiceProvider(self.live_service_factory(session), session)
         outcome = await live.serve(audio)
 
-        reason = classify_fallback(outcome.first_token_latency_s, outcome.turn_latency_s)
+        # A stall the provider cut short names itself; otherwise the timings decide.
+        reason = outcome.error or classify_fallback(
+            outcome.first_token_latency_s, outcome.turn_latency_s)
         if outcome.ok and reason is None:
             self._count("live")
             outcome.turn.voice_path = VOICE_PATH_LIVE
@@ -236,8 +284,8 @@ class VoiceRouter:
 
         # Unhealthy rather than broken: connected, then went quiet, or produced
         # nothing. Fall back so the user gets an answer instead of silence.
-        self._count(f"live_to_fallback:{reason or outcome.error or 'unknown'}")
-        return await self._fallback(session, audio, reason or outcome.error or "live_unhealthy")
+        self._count(f"live_to_fallback:{reason or 'live_unhealthy'}")
+        return await self._fallback(session, audio, reason or "live_unhealthy")
 
     async def _fallback(
         self, session: VoiceSession, audio: bytes, reason: str
@@ -251,31 +299,97 @@ class VoiceRouter:
 
     def report(self) -> Dict[str, Any]:
         """
-        Fallback rate, per ADR 0007.
+        Fallback rate, per ADR 0007, for the turns this router answered.
 
         This number is the evidence that the primary path works. A high fallback
         rate says it does not, and is worth more than any single successful call.
         """
-        live = self.stats.get("live", 0)
-        # Turns on a channel that never offers Live say nothing about whether
-        # Live works, so they stay out of the rate (reported separately).
-        fallback = self.stats.get("fallback", 0) - self.stats.get("live_not_offered", 0)
-        total = live + fallback
-        return {
-            "live": live,
-            "fallback": fallback,
-            "fallback_rate": round(fallback / total, 4) if total else None,
-            "by_reason": {
-                k.split(":", 1)[1]: v
-                for k, v in self.stats.items()
-                if k.startswith("live_to_fallback:")
-            },
-            "operator_forced": self.stats.get("operator_forced_fallback", 0),
-            "live_not_offered": self.stats.get("live_not_offered", 0),
-            "selected_provider": self.control.current().provider,
-            "live_selected": self.control.current().live_enabled,
-            "live_available": LiveAvailability.probe().available,
+        reasons = {
+            k.split(":", 1)[1]: v
+            for k, v in self.stats.items()
+            if k.startswith("live_to_fallback:")
         }
+        return _report(
+            live=self.stats.get("live", 0),
+            reasons=reasons,
+            forced=self.stats.get("operator_forced_fallback", 0),
+            not_offered=self.stats.get("live_not_offered", 0),
+            control=self.control,
+        )
+
+
+# Turn outcomes that are not Live failing: Live answered, the administrator
+# forced Sarvam, or the channel never offers Live. Any other outcome recorded
+# is the reason Live fell back on its own.
+_TURN_OUTCOMES = (VOICE_PATH_LIVE, "operator_forced_fallback", "live_not_offered")
+
+# Every voice channel's turns, process-wide: {channel: {outcome: count}}.
+_DEPLOYMENT_STATS: Dict[str, Dict[str, int]] = {}
+
+
+def record_voice_path(channel: str, outcome: str) -> None:
+    """
+    Count one voice turn for the deployment's report.
+
+    `outcome` is "live", "operator_forced_fallback", "live_not_offered", or
+    the reason Live fell back on its own ("first_token_timeout",
+    "turn_stalled", "live_error: ..."). Web voice, WhatsApp voice notes and
+    the mobile routes all record here, so the dashboard's rate covers the
+    whole deployment and not one connection.
+    """
+    by_channel = _DEPLOYMENT_STATS.setdefault(channel, {})
+    by_channel[outcome] = by_channel.get(outcome, 0) + 1
+
+
+def voice_path_report(control: Optional[VoiceProviderControl] = None) -> Dict[str, Any]:
+    """The deployment-wide report, across every voice channel (see VoiceRouter.report)."""
+    live = forced = not_offered = 0
+    reasons: Dict[str, int] = {}
+    for counts in _DEPLOYMENT_STATS.values():
+        for outcome, n in counts.items():
+            if outcome == VOICE_PATH_LIVE:
+                live += n
+            elif outcome == "operator_forced_fallback":
+                forced += n
+            elif outcome == "live_not_offered":
+                not_offered += n
+            else:
+                reasons[outcome] = reasons.get(outcome, 0) + n
+    report = _report(live=live, reasons=reasons, forced=forced, not_offered=not_offered,
+                     control=control or get_voice_provider_control())
+    report["by_channel"] = {channel: dict(counts) for channel, counts in _DEPLOYMENT_STATS.items()}
+    return report
+
+
+def _report(
+    live: int,
+    reasons: Dict[str, int],
+    forced: int,
+    not_offered: int,
+    control: VoiceProviderControl,
+) -> Dict[str, Any]:
+    """
+    The fallback rate counts only Live failing on its own.
+
+    Turns an administrator forced onto Sarvam, and turns on a channel that
+    never offers Live, say nothing about whether Live works, so both stay out
+    of the rate and are reported separately.
+    """
+    fallback = sum(reasons.values())
+    total = live + fallback
+    setting = control.current()
+    return {
+        "live": live,
+        "fallback": fallback,
+        "fallback_rate": round(fallback / total, 4) if total else None,
+        "by_reason": dict(reasons),
+        "operator_forced": forced,
+        "live_not_offered": not_offered,
+        "sarvam_turns": fallback + forced + not_offered,
+        "selected_provider": setting.provider,
+        "live_selected": setting.live_enabled,
+        "live_available": LiveAvailability.probe().available,
+    }
 
 
 _router_instance: Optional[VoiceRouter] = None
