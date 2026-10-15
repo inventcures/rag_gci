@@ -77,6 +77,8 @@ cannot perform.
   safety metrics the grant promises.
 - Refusals are a safety-protocol event and must be logged per interaction, with the
   reason and the language, or the study cannot report how often the restriction fired.
-- Refusal copy is translated for Hindi, Bengali and Tamil. The remaining supported
-  languages fall back to English rather than refusing to answer, which should be closed
-  before the study build.
+- Refusal copy (the Deferral and the Redacted Answer note) exists for all eleven
+  Supported Languages (round 3, ticket 04; the seven added then await clinical
+  language review). A language with no copy gets the English text rather than no
+  answer, and the safety record names the language asked for
+  (`dosage_language_fallback`).
