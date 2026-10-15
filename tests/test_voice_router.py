@@ -19,7 +19,7 @@ import unittest.mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import voice_router as vr  # noqa: E402
-from voice_session import VOICE_PATH_FALLBACK, VOICE_PATH_LIVE  # noqa: E402
+from voice_session import VOICE_PATH_FALLBACK  # noqa: E402
 from voice_session import VoiceSession  # noqa: E402
 
 
@@ -77,33 +77,15 @@ class FakeHandler:
         return self.turn
 
 
-class FakeLive:
-    """Emulates the streaming shape of Gemini Live."""
+class RoutingOnTheMobileRoutes(unittest.TestCase):
+    """The mobile routes never offer Live; every turn is answered on Sarvam."""
 
-    def __init__(self, first_token_delay=0.0, final=True, raise_error=None):
-        self.first_token_delay = first_token_delay
-        self.final = final
-        self.raise_error = raise_error
-
-    async def stream_audio(self, audio, language):
-        import asyncio as _asyncio
-
-        if self.raise_error:
-            raise self.raise_error
-        if self.first_token_delay:
-            await _asyncio.sleep(self.first_token_delay)
-        yield {"final": False}
-        if self.final:
-            yield {"final": True, "turn": make_turn()}
-
-
-class RoutingWhenLiveIsUnavailable(unittest.TestCase):
     def setUp(self):
         self.handler = FakeHandler()
         self.session = VoiceSession()
-        self.router = vr.VoiceRouter(self.handler, live_service_factory=None)
+        self.router = vr.VoiceRouter(self.handler)
 
-    def test_without_live_sdk_the_sarvam_path_answers(self):
+    def test_the_sarvam_path_answers_with_a_reason(self):
         outcome = asyncio.run(self.router.route(self.session, b"\x00" * 100))
         self.assertTrue(outcome.ok)
         self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_FALLBACK)
@@ -111,57 +93,14 @@ class RoutingWhenLiveIsUnavailable(unittest.TestCase):
         self.assertIsNotNone(require_turn(outcome).fallback_reason)
 
     def test_operator_can_force_the_fallback_for_the_whole_deployment(self):
-        router = vr.VoiceRouter(
-            self.handler, live_service_factory=lambda s: FakeLive()
-        )
+        router = vr.VoiceRouter(self.handler)
         outcome = asyncio.run(router.route(self.session, b"\x00", live_enabled=False))
         self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_FALLBACK)
         self.assertEqual(require_turn(outcome).fallback_reason, "operator_forced_fallback")
         self.assertEqual(router.report()["operator_forced"], 1)
 
 
-class RoutingWhenLiveIsHealthy(unittest.TestCase):
-    def setUp(self):
-        self.handler = FakeHandler()
-        self.session = VoiceSession()
-
-    def test_a_healthy_live_turn_does_not_fall_back(self):
-        """
-        Availability is forced rather than inherited.
-
-        An earlier version of this test asserted the fallback and passed only
-        because google-genai happened to be absent on the machine. It therefore
-        tested the environment, not the decision, and it passed while proving the
-        opposite of what its name claimed. The probe is patched so the test holds
-        whether or not the SDK is installed.
-        """
-        live = vr.LiveAvailability(available=True)
-        with unittest.mock.patch.object(vr.LiveAvailability, "probe", return_value=live):
-            router = vr.VoiceRouter(self.handler, live_service_factory=lambda s: FakeLive())
-            outcome = asyncio.run(router.route(self.session, b"\x00"))
-        self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_LIVE)
-        # Sarvam must not have been touched at all when Live answered.
-        self.assertEqual(self.handler.calls, 0)
-
-    def test_a_live_session_that_connects_then_goes_quiet_falls_back(self):
-        """
-        The case a connection check would miss.
-
-        A socket that opens is not evidence of a healthy turn, so a Live provider
-        that yields a first token and then stalls must fall back rather than leave
-        the user mid-sentence.
-        """
-        stalling = FakeLive(first_token_delay=9.0, final=False)
-        live = vr.LiveAvailability(available=True)
-        with unittest.mock.patch.object(vr.LiveAvailability, "probe", return_value=live):
-            router = vr.VoiceRouter(
-                self.handler, live_service_factory=lambda s: stalling
-            )
-            outcome = asyncio.run(router.route(self.session, b"\x00"))
-        self.assertEqual(require_turn(outcome).voice_path, VOICE_PATH_FALLBACK)
-        self.assertEqual(self.handler.calls, 1)
-        self.assertIsNotNone(require_turn(outcome).fallback_reason)
-
+class FallbackClassification(unittest.TestCase):
     def test_classification_is_pinned_independently(self):
         from voice_session import classify_fallback
 
@@ -172,23 +111,9 @@ class RoutingWhenLiveIsHealthy(unittest.TestCase):
 class Reporting(unittest.TestCase):
     """The fallback rate is the evidence the primary path works."""
 
-    def test_rate_is_reported_so_the_claim_is_measurable(self):
-        handler = FakeHandler()
-        router = vr.VoiceRouter(handler, live_service_factory=lambda s: FakeLive())
-        session = VoiceSession()
-        down = vr.LiveAvailability(available=False, reason="live_sdk_unavailable: test")
-        with unittest.mock.patch.object(vr.LiveAvailability, "probe", return_value=down):
-            for _ in range(3):
-                asyncio.run(router.route(session, b"\x00"))
-
-        report = router.report()
-        self.assertEqual(report["fallback"], 3)
-        self.assertEqual(report["fallback_rate"], 1.0)
-        self.assertEqual(report["live"], 0)
-
     def test_a_channel_without_live_is_not_counted_as_live_failing(self):
         handler = FakeHandler()
-        router = vr.VoiceRouter(handler, live_service_factory=None)
+        router = vr.VoiceRouter(handler)
         outcome = asyncio.run(router.route(VoiceSession(), b"\x00"))
         self.assertEqual(require_turn(outcome).fallback_reason, "live_not_offered")
         self.assertEqual(handler.voice_paths, [VOICE_PATH_FALLBACK])
@@ -204,7 +129,7 @@ class Reporting(unittest.TestCase):
 
     def test_reasons_are_broken_out(self):
         handler = FakeHandler()
-        router = vr.VoiceRouter(handler, live_service_factory=None)
+        router = vr.VoiceRouter(handler)
         router.stats["live_to_fallback:first_token_timeout"] = 2
         router.stats["live_to_fallback:live_unavailable"] = 1
         report = router.report()

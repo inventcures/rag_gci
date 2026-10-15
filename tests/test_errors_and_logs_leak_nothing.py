@@ -427,7 +427,6 @@ class WhatsAppVoiceAnswerLogsNothingIdentifiable(unittest.TestCase):
         bot.stt_service = FakeStt()
         bot.tts_service = tts
         bot.twilio_api = twilio
-        bot.whatsapp_api = twilio
         bot.user_preferences = {}
         bot.media_files = {}
         bot.whatsapp_char_limit = 1550
