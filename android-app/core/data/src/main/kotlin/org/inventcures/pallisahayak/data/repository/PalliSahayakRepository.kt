@@ -10,6 +10,7 @@ import org.inventcures.pallisahayak.api.generated.PalliSahayakApi
 import org.inventcures.pallisahayak.data.local.CachedAnswerEntity
 import org.inventcures.pallisahayak.data.local.InteractionDao
 import org.inventcures.pallisahayak.data.local.InteractionEntity
+import org.inventcures.pallisahayak.data.model.CareRole
 import org.inventcures.pallisahayak.data.model.Language
 import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
 import org.inventcures.pallisahayak.data.offline.OfflineResolution
@@ -72,7 +73,14 @@ data class SessionContext(
     val releaseApproved: Boolean,
     val isOffline: Boolean = false,
     val voicePath: String? = null,
-)
+) {
+    /**
+     * The Active Role as the server's `active_role` field, so its study row
+     * records who is speaking. A value that is no Care Role is sent as absent
+     * (the server then uses the registered role) rather than refused there.
+     */
+    fun activeRoleOnTheWire(): String? = CareRole.ALL.firstOrNull { it.wireName == careRole }?.wireName
+}
 
 /**
  * The single path an answer takes through the app.
@@ -116,6 +124,8 @@ class PalliSahayakRepository(
         val answered = try {
             val response = api.voiceQuery(
                 language = session.language,
+                // The Active Role: the server's study row records who is speaking.
+                active_role = session.activeRoleOnTheWire(),
                 audio = audio.toRequestBody(AUDIO_MEDIA_TYPE),
             )
             if (response.isSuccessful && response.body() != null) {
@@ -186,6 +196,7 @@ class PalliSahayakRepository(
                     language = session.language,
                     include_context = true,
                     patient_id = null,
+                    active_role = session.activeRoleOnTheWire(),
                 ),
             )
             val body = response.body()

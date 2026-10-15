@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 import uuid
 import logging
 from fastapi import (
@@ -20,6 +21,7 @@ from auth.middleware import require_auth, require_socket_auth, get_jwt_handler, 
 from auth.pin_auth import PinAuthenticator
 from auth.models import AuthenticatedUser
 from auth.policy import authenticate_token
+from care_role import CareRole, care_role_value, speaker_role
 from mobile_api.schemas import (
     MobileQueryRequest, MobileQueryResponse,
     VoiceQueryResponse,
@@ -129,7 +131,7 @@ async def register_device(request: DeviceRegistrationRequest):
         pin=request.pin,
         name=request.name,
         phone_hash=request.phone_hash,
-        role=request.role,
+        role=request.role.value,
         language=request.language,
         site_id=request.site_id,
         abha_id=request.abha_id,
@@ -141,7 +143,7 @@ async def register_device(request: DeviceRegistrationRequest):
         raise HTTPException(status_code=500, detail="Auth not initialized")
 
     token_pair = jwt_handler.create_token_pair(
-        user_id=user_id, role=request.role, site_id=request.site_id,
+        user_id=user_id, role=request.role.value, site_id=request.site_id,
     )
 
     return AuthResponse(
@@ -226,14 +228,17 @@ async def mobile_query(
     safety_manager=Depends(get_safety_manager),
 ):
     t0 = time.perf_counter()
+    # Who is speaking: the Active Role the app sent, else the registered role.
+    care_role = speaker_role(request.active_role, user.role)
     # SimpleRAGPipeline.query takes (question, conversation_id, user_id, top_k,
-    # source_language) and returns a dict. This route once called it with
+    # source_language, care_role) and returns a dict. This route once called it with
     # query_text=/language= and read attributes off the result, so every mobile
     # text query raised before reaching the dose boundary.
     result = await rag_pipeline.query(
         question=request.query,
         user_id=user.user_id,
         source_language=request.language,
+        care_role=care_role,
     )
     rag_ms = (time.perf_counter() - t0) * 1000
 
@@ -251,7 +256,7 @@ async def mobile_query(
     await _study_logger.record(
         user_id=user.user_id,
         site_id=user.site_id,
-        care_role=user.role,
+        care_role=care_role,
         query=request.query,
         response=safety_result.response,
         language=request.language,
@@ -281,6 +286,8 @@ async def mobile_query(
 async def voice_query(
     audio: UploadFile = File(...),
     language: str = Query(...),
+    active_role: Optional[CareRole] = Query(
+        None, description="The Active Role the app is switched to; absent, the registered Care Role."),
     user: AuthenticatedUser = Depends(require_auth),
     rag_pipeline=Depends(get_rag_pipeline),
     safety_manager=Depends(get_safety_manager),
@@ -292,8 +299,8 @@ async def voice_query(
     stage_ms: dict = {}
     t0 = time.perf_counter()
 
-    session = VoiceSession(language=language)
-    session.participant_id = user.user_id
+    care_role = speaker_role(active_role, user.role)
+    session = VoiceSession(language=language, participant_id=user.user_id, care_role=care_role)
 
     # This route previously transcribed with Sarvam and hardcoded the answer, which
     # meant the Android app's real voice path never consulted the router, never saw
@@ -314,7 +321,7 @@ async def voice_query(
         logger.error(f"Voice turn failed: {e}")
         stage_ms["turn"] = (time.perf_counter() - t0) * 1000
         await _study_logger.record(
-            user_id=user.user_id, site_id=user.site_id, care_role=user.role,
+            user_id=user.user_id, site_id=user.site_id, care_role=care_role,
             query="", response="", language=language, channel="voice",
             stage_latency_ms=stage_ms, total_latency_ms=(time.perf_counter() - t0) * 1000,
             error=f"voice_turn_failed: {e}",
@@ -332,7 +339,7 @@ async def voice_query(
     await _study_logger.record(
         user_id=user.user_id,
         site_id=user.site_id,
-        care_role=user.role,
+        care_role=care_role,
         query=turn.transcript,
         response=turn.answer,
         language=language,
@@ -400,7 +407,8 @@ async def sync_push(
         medication_manager=medication_manager,
         evaluation_logger=_interaction_logger,
     )
-    result = await batch_processor.process_push(request.model_dump(), user_id=user.user_id, role=user.role)
+    result = await batch_processor.process_push(
+        request.model_dump(), user_id=user.user_id, role=care_role_value(user.role))
 
     return SyncPushResponse(
         accepted=result["accepted"],
@@ -505,8 +513,8 @@ async def create_observation(
             "value_text": request.value_text or "",
             "severity": request.severity,
             "timestamp": request.timestamp or time.time(),
-            "reported_by": user.role,
-        }, source="app", user_id=user.user_id, role=user.role)
+            "reported_by": care_role_value(user.role) or "app",
+        }, source="app", user_id=user.user_id, role=care_role_value(user.role))
     except PermissionError:
         raise HTTPException(status_code=404, detail="Patient not found")
     return ObservationResponse(observation_id=obs_id, status="created")
@@ -871,6 +879,7 @@ async def submit_feedback(
 async def websocket_voice(
     websocket: WebSocket,
     language: str = Query("en-IN"),
+    active_role: Optional[CareRole] = Query(None),
     user: AuthenticatedUser = Depends(require_socket_auth),
 ):
     """
@@ -878,7 +887,8 @@ async def websocket_voice(
 
     Opens only for a signed-in participant: the app sends its access token as
     ``Authorization: Bearer <token>`` on the upgrade request, and each turn is
-    recorded under the person, role and site that token names.
+    recorded under the person and site that token names, as the ``active_role``
+    the app is switched to (else the Care Role the token names).
 
     The connection carries one session. Each audio frame ends a turn, which is
     grounded through the same pipeline the text route uses and then passed
@@ -899,7 +909,7 @@ async def websocket_voice(
     session = VoiceSession(
         language=language,
         participant_id=user.user_id,
-        care_role=user.role,
+        care_role=speaker_role(active_role, user.role),
         site_id=user.site_id,
     )
     handler = VoiceTurnHandler(

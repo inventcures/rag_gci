@@ -34,7 +34,7 @@ from personalization.user_profile import (
     UserProfileManager,
     UserProfile,
     UserPreferences,
-    UserRole,
+    CareRole,
     CommunicationStyle,
 )
 from personalization.context_memory import (
@@ -90,7 +90,7 @@ def mock_user_profile_manager():
     # Default profile
     profile = UserProfile(
         user_id="patient_001",
-        role=UserRole.PATIENT,
+        role=CareRole.PATIENT,
         preferences=UserPreferences(
             language="en-IN",
             communication_style=CommunicationStyle.EMPATHETIC
@@ -296,7 +296,7 @@ class TestContextInjector:
         mock_profile_manager = AsyncMock(spec=UserProfileManager)
         profile = UserProfile(
             user_id="patient_001",
-            role=UserRole.PATIENT,
+            role=CareRole.PATIENT,
             preferences=UserPreferences(
                 language="hi-IN",
                 communication_style=CommunicationStyle.EMPATHETIC

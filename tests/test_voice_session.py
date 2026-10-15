@@ -74,6 +74,7 @@ class FakeRag:
         user_id=None,
         top_k: int = 5,
         source_language: str = "en",
+        care_role: str = "",
     ):
         self.calls.append({"question": question, "source_language": source_language})
         return {"answer": self.answer, "sources": self.sources}

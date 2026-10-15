@@ -41,7 +41,7 @@ class SlowRag(RealisticRag):
         self.delay = delay
 
     async def query(self, question: str, conversation_id=None, user_id=None,
-                    top_k: int = 5, source_language: str = "en"):
+                    top_k: int = 5, source_language: str = "en", care_role: str = ""):
         await asyncio.sleep(self.delay)
         return await super().query(question, conversation_id, user_id, top_k, source_language)
 

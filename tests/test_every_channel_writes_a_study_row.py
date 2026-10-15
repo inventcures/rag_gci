@@ -111,7 +111,7 @@ class HttpChannels(StudyLogHarness):
         self.addCleanup(self.app.dependency_overrides.pop, require_bolna, None)
         self.client = TestClient(self.app, raise_server_exceptions=False)
         init_auth(jwt_secret=harness.MOBILE_SECRET)
-        token = get_jwt_handler().create_token_pair("asha-1", "asha", "site-1").access_token
+        token = get_jwt_handler().create_token_pair("asha-1", "asha_worker", "site-1").access_token
         self.participant = {"Authorization": f"Bearer {token}"}
 
     def test_a_web_question_writes_one_row_with_its_refusal(self):
@@ -120,7 +120,7 @@ class HttpChannels(StudyLogHarness):
         self.assertEqual(response.status_code, 200, response.text)
         row = self.assert_one_refusal_row("web", "text")
         self.assertEqual(row["participant_id"], pseudonymise("asha-1"))
-        self.assertEqual(row["care_role"], "asha")
+        self.assertEqual(row["care_role"], "asha_worker")
         self.assertEqual(row["language"], "hi")
         self.assertEqual(row["source_count"], 1)
 

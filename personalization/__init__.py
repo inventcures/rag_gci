@@ -16,7 +16,8 @@ NEW: Longitudinal Patient Memory (1-5 year tracking):
 """
 
 # Existing modules
-from .user_profile import UserProfile, UserProfileManager, UserRole
+from care_role import CareRole
+from .user_profile import UserProfile, UserProfileManager
 from .context_memory import PatientContext, ContextMemory
 from .interaction_history import InteractionHistory, ConversationTurn
 
@@ -75,7 +76,7 @@ __all__ = [
     # Existing exports
     "UserProfile",
     "UserProfileManager",
-    "UserRole",
+    "CareRole",
     "PatientContext",
     "ContextMemory",
     "InteractionHistory",

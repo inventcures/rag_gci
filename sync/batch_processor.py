@@ -2,6 +2,8 @@ import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 import logging
 
+from care_role import care_role_value
+
 logger = logging.getLogger(__name__)
 
 MAX_BATCH_SIZE = 50
@@ -46,8 +48,13 @@ class BatchProcessor:
         self.medication_manager = medication_manager
         self.evaluation_logger = evaluation_logger
 
-    async def process_push(self, push_data: dict, user_id: str, role: str = "asha_worker") -> dict:
-        """Apply one push for `user_id`; returns counts and per-item acknowledgements."""
+    async def process_push(self, push_data: dict, user_id: str, role: str) -> dict:
+        """Apply one push for `user_id`; returns counts and per-item acknowledgements.
+
+        `role` is the caller's registered Care Role, recorded on a patient this
+        push claims. A value outside the vocabulary is recorded as "" rather than
+        defaulting to the ASHA Worker."""
+        role = care_role_value(role)
         savers: Dict[str, Optional[Callable[[dict], Awaitable[Optional[str]]]]] = {
             "observation": self._save_observation(user_id, role) if self.memory_manager else None,
             "medication_reminder": self._save_reminder(user_id) if self.medication_manager else None,

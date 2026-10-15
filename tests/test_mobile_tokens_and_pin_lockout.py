@@ -79,7 +79,7 @@ class MobileTokens(unittest.TestCase):
 
     def register(self) -> dict:
         response = self.client.post(f"{BASE}/auth/register", json={
-            "name": "Asha A", "phone_hash": "hash-a", "role": "asha",
+            "name": "Asha A", "phone_hash": "hash-a", "role": "asha_worker",
             "language": "hi", "site_id": "site-1", "pin": PIN,
         })
         self.assertEqual(response.status_code, 200, response.text)
@@ -129,7 +129,7 @@ class MobileTokens(unittest.TestCase):
         status = self.client.get(f"{BASE}/sync/status", headers=self.bearer(renewed["token"]))
         self.assertEqual(status.status_code, 200, status.text)
         claims = jwt.decode(renewed["token"], options={"verify_signature": False})
-        self.assertEqual((claims["role"], claims["site_id"]), ("asha", "site-1"))
+        self.assertEqual((claims["role"], claims["site_id"]), ("asha_worker", "site-1"))
 
     def test_renewed_session_does_not_outlive_the_pin_sign_in(self) -> None:
         first = self.session["refresh_token"]
@@ -163,7 +163,7 @@ class PinLockout(unittest.TestCase):
         app.include_router(mobile_router)
         self.client = TestClient(app)
         response = self.client.post(f"{BASE}/auth/register", json={
-            "name": "Caregiver B", "phone_hash": "hash-b", "role": "caregiver",
+            "name": "Caregiver B", "phone_hash": "hash-b", "role": "family_caregiver",
             "language": "mr", "site_id": "site-1", "pin": PIN,
         })
         self.assertEqual(response.status_code, 200, response.text)

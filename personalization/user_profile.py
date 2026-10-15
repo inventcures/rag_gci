@@ -2,7 +2,7 @@
 User Profile Management
 
 Manages user profiles with:
-- Role identification (patient, caregiver, healthcare worker)
+- The person's Care Role (care_role.py), as registered; never guessed
 - Language preferences
 - Communication style preferences
 - Session continuity
@@ -19,15 +19,9 @@ from enum import Enum
 import asyncio
 import aiofiles
 
+from care_role import CareRole, parse_care_role
+
 logger = logging.getLogger(__name__)
-
-
-class UserRole(Enum):
-    """User role types."""
-    PATIENT = "patient"
-    CAREGIVER = "caregiver"
-    HEALTHCARE_WORKER = "healthcare_worker"
-    UNKNOWN = "unknown"
 
 
 class CommunicationStyle(Enum):
@@ -74,7 +68,8 @@ class UserProfile:
     """Complete user profile."""
     user_id: str
     phone_number: Optional[str] = None
-    role: UserRole = UserRole.UNKNOWN
+    # The Care Role the person registered with or confirmed; None until then.
+    role: Optional[CareRole] = None
     preferences: UserPreferences = field(default_factory=UserPreferences)
     first_interaction: datetime = field(default_factory=datetime.now)
     last_interaction: datetime = field(default_factory=datetime.now)
@@ -86,7 +81,7 @@ class UserProfile:
         return {
             "user_id": self.user_id,
             "phone_number": self.phone_number,
-            "role": self.role.value,
+            "role": self.role.value if self.role else "unknown",
             "preferences": self.preferences.to_dict(),
             "first_interaction": self.first_interaction.isoformat(),
             "last_interaction": self.last_interaction.isoformat(),
@@ -100,7 +95,9 @@ class UserProfile:
         return cls(
             user_id=data["user_id"],
             phone_number=data.get("phone_number"),
-            role=UserRole(data.get("role", "unknown")),
+            # A stored value outside the vocabulary (the old "caregiver",
+            # "healthcare_worker", "unknown") is no Care Role, not a guess.
+            role=parse_care_role(data.get("role")),
             preferences=UserPreferences.from_dict(data.get("preferences", {})),
             first_interaction=datetime.fromisoformat(data["first_interaction"]),
             last_interaction=datetime.fromisoformat(data["last_interaction"]),
@@ -126,35 +123,9 @@ class UserProfileManager:
 
     Features:
     - Profile creation and retrieval
-    - Role detection from conversation
     - Preference management
     - Session tracking
     """
-
-    # Keywords for role detection
-    ROLE_KEYWORDS = {
-        UserRole.PATIENT: {
-            "en": ["i have", "my pain", "i feel", "i am suffering", "my symptoms"],
-            "hi": ["मुझे", "मेरा दर्द", "मैं महसूस", "मुझे हो रहा"],
-            "mr": ["मला", "माझा वेदना", "मला होत आहे"],
-            "ta": ["எனக்கு", "என் வலி", "நான் உணர்கிறேன்"]
-        },
-        UserRole.CAREGIVER: {
-            "en": ["my mother", "my father", "my wife", "my husband", "patient",
-                   "caring for", "looking after", "my relative", "my parent"],
-            "hi": ["मेरी माँ", "मेरे पिता", "मेरी पत्नी", "मेरे पति", "मरीज",
-                   "देखभाल", "मेरे रिश्तेदार"],
-            "mr": ["माझी आई", "माझे वडील", "माझी पत्नी", "माझे पती", "रुग्ण"],
-            "ta": ["என் அம்மா", "என் அப்பா", "என் மனைவி", "நோயாளி"]
-        },
-        UserRole.HEALTHCARE_WORKER: {
-            "en": ["doctor", "nurse", "asha worker", "anm", "medical officer",
-                   "my patient", "clinical", "dosage for patient", "prescribe"],
-            "hi": ["डॉक्टर", "नर्स", "आशा वर्कर", "मेडिकल ऑफिसर", "मेरे मरीज"],
-            "mr": ["डॉक्टर", "नर्स", "आशा वर्कर", "वैद्यकीय अधिकारी"],
-            "ta": ["மருத்துவர்", "செவிலியர்", "ஆஷா"]
-        }
-    }
 
     def __init__(
         self,
@@ -276,50 +247,17 @@ class UserProfileManager:
             for user_id, _ in sorted_profiles[:len(self._cache) - self.cache_size]:
                 del self._cache[user_id]
 
-    def detect_role(
-        self,
-        text: str,
-        language: str = "en-IN"
-    ) -> Optional[UserRole]:
-        """
-        Detect user role from conversation text.
-
-        Args:
-            text: User's message
-            language: Language code
-
-        Returns:
-            Detected UserRole or None
-        """
-        text_lower = text.lower()
-        lang_prefix = language.split("-")[0]  # "en-IN" -> "en"
-
-        # Check each role's keywords
-        role_scores: Dict[UserRole, int] = {}
-
-        for role, lang_keywords in self.ROLE_KEYWORDS.items():
-            keywords = lang_keywords.get(lang_prefix, lang_keywords.get("en", []))
-            matches = sum(1 for kw in keywords if kw.lower() in text_lower)
-            if matches > 0:
-                role_scores[role] = matches
-
-        if role_scores:
-            # Return role with most matches
-            return max(role_scores, key=role_scores.get)
-
-        return None
-
     async def update_role(
         self,
         user_id: str,
-        role: UserRole
+        role: CareRole
     ) -> Optional[UserProfile]:
         """
-        Update user's role.
+        Update user's Care Role.
 
         Args:
             user_id: User identifier
-            role: Detected or confirmed role
+            role: The Care Role the person registered with or confirmed
 
         Returns:
             Updated profile
@@ -399,20 +337,20 @@ class UserProfileManager:
         context_parts = []
 
         # Role-specific context
-        if profile.role == UserRole.PATIENT:
+        if profile.role == CareRole.PATIENT:
             context_parts.append(
                 "The user is a patient. Use empathetic, simple language. "
                 "Focus on comfort and practical self-care guidance."
             )
-        elif profile.role == UserRole.CAREGIVER:
+        elif profile.role == CareRole.FAMILY_CAREGIVER:
             context_parts.append(
-                "The user is a caregiver for a patient. Provide practical care guidance, "
+                "The user is a family caregiver for a patient. Provide practical care guidance, "
                 "acknowledge their emotional burden, and include self-care reminders for them."
             )
-        elif profile.role == UserRole.HEALTHCARE_WORKER:
+        elif profile.role == CareRole.ASHA_WORKER:
             context_parts.append(
-                "The user is a healthcare worker. You may use clinical terminology "
-                "and provide more detailed medical information."
+                "The user is an ASHA Worker visiting the household. Give practical, "
+                "step-by-step guidance they can act on in the home."
             )
 
         # Communication style
@@ -459,8 +397,9 @@ class UserProfileManager:
             }
 
         by_role = {}
-        for role in UserRole:
+        for role in CareRole:
             by_role[role.value] = sum(1 for p in profiles if p.role == role)
+        by_role["unknown"] = sum(1 for p in profiles if p.role is None)
 
         by_language = {}
         for p in profiles:

@@ -46,7 +46,7 @@ class _Rag:
     """Same signature as SimpleRAGPipeline.query; answers without a dose."""
 
     async def query(self, question, conversation_id=None, user_id=None,
-                    top_k: int = 5, source_language: str = "en"):
+                    top_k: int = 5, source_language: str = "en", care_role: str = ""):
         return {"answer": "Keep the patient comfortable and call the nurse.",
                 "sources": [{"filename": "handbook.pdf"}]}
 
@@ -84,7 +84,7 @@ class VoiceSocketNeedsASignedInParticipant(unittest.TestCase):
         app.include_router(mobile_router)
         self.client = TestClient(app)
         response = self.client.post(f"{BASE}/auth/register", json={
-            "name": "Asha A", "phone_hash": "hash-a", "role": "asha",
+            "name": "Asha A", "phone_hash": "hash-a", "role": "asha_worker",
             "language": "hi", "site_id": "site-1", "pin": PIN,
         })
         self.assertEqual(response.status_code, 200, response.text)

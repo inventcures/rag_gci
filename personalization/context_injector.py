@@ -659,7 +659,7 @@ class ContextInjector:
             return {
                 "user_id": user_id,
                 "profile": {
-                    "role": profile.role.value if profile else "unknown",
+                    "role": profile.role.value if profile and profile.role else "unknown",
                     "language": profile.preferences.language if profile else "en-IN",
                     "total_sessions": profile.total_sessions if profile else 0,
                     "last_interaction": profile.last_interaction.isoformat() if profile else None

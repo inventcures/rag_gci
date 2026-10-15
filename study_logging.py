@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from care_role import care_role_value
 from participants import is_person
 from study_release import get_study_release
 
@@ -155,7 +156,7 @@ class InteractionLog:
     # -- identity (pseudonymised) --
     participant_id: str          # HMAC of user_id, never the raw value
     site_id: str
-    care_role: str               # ASHA Worker / Family Caregiver / Patient
+    care_role: str               # care_role.CareRole value: asha_worker / family_caregiver / patient, or "" (unknown)
     session_id: str = ""
 
     # -- release provenance (protocol 7.8) --
@@ -428,7 +429,10 @@ class StudyInteractionLogger:
             # it into a longitudinal record. The session id still groups it.
             participant_id=pseudonymise(user_id) if is_person(user_id) else "anonymous",
             site_id=site_id,
-            care_role=care_role,
+            # The speaker's Care Role (their Active Role), in the one vocabulary
+            # (care_role.py); anything else is recorded as unknown, never kept
+            # as a free string.
+            care_role=care_role_value(care_role),
             session_id=session_id or uuid.uuid4().hex[:12],
             release_id=stamp["release_id"],
             release_name=stamp["release_name"],
