@@ -24,6 +24,8 @@ from pathlib import Path
 import asyncio
 import aiofiles
 
+from dose_detector import NUMERIC_DOSE, FRACTION_DOSE, detect_doses
+
 from .longitudinal_memory import (
     TimestampedObservation,
     DataSourceType,
@@ -38,6 +40,12 @@ from .longitudinal_memory import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Dose reasons that state an amount, as opposed to a schedule or a change.
+_AMOUNT_REASONS = (NUMERIC_DOSE, FRACTION_DOSE)
+
+# The capitalised medicine name ending right where an amount begins.
+_NAME_BEFORE_AMOUNT = re.compile(r"\b([A-Z][a-z]+)\s+$")
 
 
 # ============================================================================
@@ -448,14 +456,16 @@ class VoiceDataExtractor:
         return None
 
     def _extract_dosage(self, text: str, medication: str) -> str:
-        """Extract medication dosage from text."""
-        # Look for dosage patterns near medication name
-        dosage_pattern = r'(\d+(?:\.\d+)?)\s*(?:mg|ml|tablet|capsule|times?\s*a?\s*day)'
+        """
+        Return the first amount stated in `text` ("10mg", "two tablets"), or "".
 
-        matches = re.finditer(dosage_pattern, text.lower())
-        for match in matches:
-            return match.group(1)
-
+        This records what the person reported; it is never sent back to them.
+        Detection is the Dose Boundary's detector, so what counts as an amount is
+        defined in one place.
+        """
+        for finding in detect_doses(text):
+            if finding.reason in _AMOUNT_REASONS:
+                return finding.pattern
         return ""
 
 
@@ -670,12 +680,23 @@ class DocumentDataExtractor:
         """Extract structured medication data from prescription."""
         observations = []
 
-        # Look for medication + dosage patterns
-        med_pattern = r'([A-Z][a-z]+)\s+(\d+(?:\.\d+)?)\s*(?:mg|ml|tablet|capsule)'
-
-        for match in re.finditer(med_pattern, text):
-            med_name = match.group(1)
-            dosage = match.group(2)
+        # A prescription line names the medicine and then its amount
+        # ("Morphine 10mg"), so each amount found is attributed to the
+        # capitalised word just before it. Lines are read one at a time because
+        # detect_doses reports a repeated amount once, and two medicines on
+        # separate lines can share one ("10mg").
+        amounts = (
+            (line, finding)
+            for line in text.splitlines()
+            for finding in detect_doses(line)
+            if finding.reason in _AMOUNT_REASONS
+        )
+        for line, finding in amounts:
+            name_match = _NAME_BEFORE_AMOUNT.search(line, 0, finding.start)
+            if not name_match:
+                continue
+            med_name = name_match.group(1)
+            dosage = finding.pattern
 
             obs = MedicationEvent(
                 observation_id="",
@@ -686,9 +707,9 @@ class DocumentDataExtractor:
                 category="medication",
                 entity_name=med_name,
                 value=MedicationAction.STARTED,
-                value_text=f"{med_name} {dosage} mg prescribed",
+                value_text=f"{med_name} {dosage} prescribed",
                 medication_name=med_name,
-                dosage=f"{dosage} mg",
+                dosage=dosage,
                 action=MedicationAction.STARTED,
                 prescribed_by=metadata.get("doctor_name", "prescribing_doctor")
             )

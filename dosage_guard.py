@@ -39,6 +39,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
+import dose_detector
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,193 +48,12 @@ logger = logging.getLogger(__name__)
 # Dose detection
 # ---------------------------------------------------------------------------
 
-# Numeric dose with a unit. Covers SI units, common abbreviations and the
-# Indian pharmaceutical conventions (lakh, crore are not doses but appear in
-# narrative text and are handled separately).
-_UNIT_ALTERNATION = (
-    r"(?:mg|mcg|µg|ug|gm|g|ml|mL|IU|cc|%|units?)"
-)
-
-# Quantities expressed as fractions, which are doses even without a unit.
-_FRACTION_DOSE = (
-    r"(?:half|quarter|third|one|a|an|\d+(?:\.\d+)?)\s+"
-    r"(?:tablet|tab|tablets|capsule|cap|capsules|pill|pills|"
-    r"dose|drop|drops|spoonful|teaspoon|tsp|tablespoon|tbsp|syrup|sachet|satchet)"
-)
-
-# Frequency and timing instructions.
-_FREQUENCY = (
-    r"(?:once|twice|thrice|four\s+times|three\s+times|four\s+times)\s+"
-    r"(?:a\s+|per\s+|every\s+)?(?:day|daily|daily\b|night|morning|evening|"
-    r"bedtime|meals?|mealtime|week|hourly|hours)"
-    r"|\bevery\s+\d+\s*(?:hours?|hrs?|minutes?|mins?|days?)\b"
-    r"|\b\d+\s*times\s+(?:a|per)\s+(?:day|daily|week)\b"
-    r"|\bprn\b|\bas\s+needed\b|\bstat\b|\bod\b|\bpo\b|\bIV\b|\bIM\b|\bSC\b"
-)
-
-# Titration and escalation language.
-_TITRATION = (
-    r"\btitrate\b|\btitrating\b|\bstep\s*up\b|\bstep\s*down\b"
-    r"|\bescalate\b|\bincrease\s+the\s+(?:dose|dosage)\b"
-    r"|\bdecrease\s+the\s+(?:dose|dosage)\b|\bstart\s+at\b.*\b(?:mg|ml)\b"
-    r"|\bmaximum\s+dose\b|\bmax\s+dose\b"
-)
-
-# Start / stop / switch decisions.
-_START_STOP = (
-    r"\bstart\s+(?:the\s+)?\w+\s+(?:at\s+)?\d"
-    r"|\bstop\s+(?:the\s+)?\w+\b|\bdiscontinue\b"
-    r"|\bswitch\s+to\b|\bsubstitute\s+with\b"
-)
-
-# Dose-shaped patterns, evaluated in order.  UNIT is the most reliable signal and
-# is checked first so that the reported reason is the strongest one available.
-_DOSE_PATTERNS: List[Tuple[str, str]] = [
-    ("numeric_dose", rf"\b\d+(?:\.\d+)?\s*{_UNIT_ALTERNATION}\b"),
-    ("fraction_dose", rf"\b{_FRACTION_DOSE}\b"),
-    ("frequency", _FREQUENCY),
-    ("titration", _TITRATION),
-    ("start_stop", _START_STOP),
-    # Devanagari and other Indic numerals are not matched by \d, so normalise them
-    # before the numeric pattern is applied.  See _normalise_indic_digits.
-]
-
-_INDIC_DIGIT_MAP = str.maketrans(
-    {
-        "०": "0", "१": "1", "२": "2", "३": "3", "४": "4",
-        "५": "5", "६": "6", "७": "7", "८": "8", "९": "9",
-        "౦": "0", "౧": "1", "౨": "2", "౩": "3", "౪": "4",
-        "౫": "5", "౬": "6", "౭": "7", "౮": "8", "౯": "9",
-        "೦": "0", "೧": "1", "೨": "2", "೩": "3", "೪": "4",
-        "೫": "5", "೬": "6", "೭": "7", "೮": "8", "೯": "9",
-        "൦": "0", "൧": "1", "൨": "2", "൩": "3", "൪": "4",
-        "൫": "5", "൬": "6", "൭": "7", "൮": "8", "൯": "9",
-        "੦": "0", "੧": "1", "੨": "2", "੩": "3", "੪": "4",
-        "੫": "5", "੬": "6", "੭": "7", "੮": "8", "੯": "9",
-        "૦": "0", "૧": "1", "૨": "2", "૩": "3", "૪": "4",
-        "૫": "5", "૬": "6", "૭": "7", "૮": "8", "૯": "9",
-        "௦": "0", "௧": "1", "௨": "2", "௩": "3", "௪": "4",
-        "௫": "5", "௬": "6", "௭": "7", "௮": "8", "௯": "9",
-        "੦": "0", "੧": "1", "੨": "2", "੩": "3", "੪": "4",
-        "੫": "5", "੬": "6", "੭": "7", "੮": "8", "੯": "9",
-        "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4",
-        "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9",
-        "౦": "0",
-    }
-)
-
-# Indic and English unit words, so that a dose written entirely in a regional
-# language is still caught.
-_INDIC_UNITS = (
-    r"(?:\u092e\u093f\.?\s?\u0917\u094d\u0930\u093e\.?|\u092e\u093f\u0932\u0940\u0917\u094d\u0930\u093e|\u0917\u094d\u0930\u093e\u092e|\u092e\u093f\u0932\u0940)"
-    r"|(?:\u0cae\u0cbf\.?\s?\u0c97\u0ccd\u0cb0\u0cbe\.?|\u0c97\u0ccd\u0cb0\u0cbe\u0c82|\u0cae\u0cbf\u0cb2\u0c80)"
-    r"|(?:\u0bae\u0bbf\.?\s?\u0b95\u0bbf\.?|\u0bae\u0bbf\u0bb2\u0bbf\.?\s?\u0b95\u0bbf\u0bb0\u0bbe\u0bae|\u0bae\u0bbf\u0bb2\u0bbf\u0bb2\u0bbf\u0b9f\u0bb0)"
-    r"|(?:\u0c2e\u0c3f\.?\s?\u0c17\u0c4d\u0c30\u0c3e\.?|\u0c17\u0c4d\u0c30\u0c3e\u0c2e\u0c4d|\u0c2e\u0c3f\u0c32\u0c40)"
-    r"|(?:\u092e\u093f\u0917\u094d\u0930\u093e|\u0a17\u0a4d\u0a30\u0cbe\u0a2e|\u0a2e\u0a3f\u0a32\u0a40)"
-    r"|(?:\u0aae\u0abf\u0a97\u0acd\u0ab0\u0abe|\u0a17\u0acd\u0ab0\u0abe\u0a2e|\u0a2e\u0abf\u0a32\u0a40)"
-    r"|(?:\u0aae\u0abf\u0ab2\u0acd\u0aaf\u0acd\u0ab0\u0abe\u0a2e|\u0aae\u0abf\u0a32\u0ab0\u0a3f\u0a1f\u0ab0)"
-    r"|(?:\u09ae\u09bf\u09b2\u09bf\u0997\u09cd\u09b0\u09be\u09ae|\u0997\u09cd\u0a30\u09be\u09ae|\u09ae\u09bf\u09b2\u09bf)"
-    r"|(?:\u0e21\u0e34\u0e25\u0e25\u0e34\u0e01\u0e23\u0e31\u0e21|\u0e21\u0e34\u0e25\u0e25\u0e34\u0e25\u0e34\u0e15\u0e23)"
-)
-
-_INDIC_FREQUENCY = (
-    r"(?:दिन|रोज़|रोज|दिनों|सुबह|शाम|रात|बार)"
-    r"|(?:ದಿನ|ದೀನ|ಬಾರ)"
-    r"|(?:தினம்|தின|நாள்|வாரம்|முறை)"
-    r"|(?:రోజు|రోజ|తరువాత|సార్లు)"
-    r"|(?:ਰੋਜ਼|ਰੋਜ|ਵਾਰ)"
-    r"|(?:રોજ|દિવસ|વાર)"
-    r"|(?:ଦିନ|�ରୋଜ)"
-)
-
-_COMPILED: List[Tuple[str, re.Pattern]] = [
-    ("numeric_dose", re.compile(
-        rf"\d+(?:\.\d+)?\s*(?:{_UNIT_ALTERNATION}|{_INDIC_UNITS})", re.I
-    )),
-    ("fraction_dose", re.compile(rf"\b{_FRACTION_DOSE}\b", re.I)),
-    ("frequency", re.compile(rf"(?:{_FREQUENCY})|(?:{_INDIC_FREQUENCY})", re.I)),
-    ("titration", re.compile(_TITRATION, re.I)),
-    ("start_stop", re.compile(_START_STOP, re.I)),
-]
-
-# Phrases that contain a numeric token but are not doses.  Without these, prose
-# such as "Chapter 5" or "2 hours of care" would trip the guard.
-_FALSE_POSITIVE_PATTERNS = [
-    re.compile(r"\b\d+\s*(?:chapter|section|page|step|grade|level|site|site visit)s?\b", re.I),
-    re.compile(r"\b(?:age|aged)\s*\d+\b", re.I),
-    re.compile(r"\b\d+\s*(?:mm|cm)\s*(?:diameter|width|length|depth)\b", re.I),
-]
-
-
-def _normalise_indic_digits(text: str) -> str:
-    """Map Indic and Eastern-Arabic numerals to ASCII so \\b\\d+ can match them."""
-    return text.translate(_INDIC_DIGIT_MAP)
-
-
-def _is_false_positive(sentence: str) -> bool:
-    return any(p.search(sentence) for p in _FALSE_POSITIVE_PATTERNS)
-
-
-@dataclass
-class DoseFinding:
-    """A single dose-shaped span found in a response."""
-    reason: str
-    snippet: str
-    pattern: str
-
-    def to_dict(self) -> Dict[str, str]:
-        return {"reason": self.reason, "snippet": self.snippet, "pattern": self.pattern}
-
-
-def detect_doses(text: Optional[str] = None) -> List[DoseFinding]:
-    """
-    Find dose-shaped spans in `text`.
-
-    Accepts None and the empty string, returning no findings, because callers reach
-    it from response handlers where a missing body is a normal state rather than a
-    programming error.
-
-    Returns findings ordered by pattern reliability. An empty list means the text
-    is clear of specific dosage instructions.
-    """
-    if not text:
-        return []
-
-    normalised = _normalise_indic_digits(text)
-    findings: List[DoseFinding] = []
-
-    for reason, pattern in _COMPILED:
-        for match in pattern.finditer(normalised):
-            start, end = match.span()
-            snippet = normalised[max(0, start - 40):min(len(normalised), end + 40)].strip()
-            sentence = _sentence_around(normalised, start, end)
-            if _is_false_positive(sentence):
-                continue
-            findings.append(
-                DoseFinding(reason=reason, snippet=snippet, pattern=match.group(0))
-            )
-
-    return _dedupe(findings)
-
-
-def _sentence_around(text: str, start: int, end: int) -> str:
-    left = max(text.rfind(".", 0, start), text.rfind("\n", 0, start))
-    right_candidates = [i for i in (text.find(".", end), text.find("\n", end)) if i != -1]
-    right = min(right_candidates) if right_candidates else len(text)
-    return text[left + 1:right].strip()
-
-
-def _dedupe(findings: List[DoseFinding]) -> List[DoseFinding]:
-    """Drop findings whose span is already covered by an earlier, stronger pattern."""
-    seen: set = set()
-    out: List[DoseFinding] = []
-    for f in findings:
-        key = f.pattern.lower().strip()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(f)
-    return out
+# Every dose pattern lives in dose_detector. DoseFinding and detect_doses are
+# re-exported here because callers and the safety record already import them
+# from this module.
+DoseFinding = dose_detector.DoseFinding
+detect_doses = dose_detector.detect_doses
+_dedupe = dose_detector.dedupe_findings
 
 
 # ---------------------------------------------------------------------------
