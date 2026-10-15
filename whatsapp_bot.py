@@ -194,14 +194,13 @@ class EnhancedTTSService:
     PROVIDER_ORDER = (PROVIDER_SARVAM, PROVIDER_EDGE)
 
     def __init__(self):
+        # Short code -> the voice each Supported Language is spoken in first
+        # (informational; synthesis reads the table).
+        first = self.PROVIDER_ORDER[0]
+        self.supported_voices: Dict[str, str] = {
+            lang.code: lang.voice(first).name for lang in SUPPORTED_LANGUAGES if lang.voice(first)}
         self.output_dir = Path("cache/tts")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-
-    @property
-    def supported_voices(self) -> Dict[str, str]:
-        """Short code -> the voice each Supported Language is spoken in first."""
-        first = self.PROVIDER_ORDER[0]
-        return {lang.code: lang.voice(first).name for lang in SUPPORTED_LANGUAGES if lang.voice(first)}
 
     async def synthesize_speech(self, text: str, language: str = ENGLISH_CODE) -> Dict[str, Any]:
         """Speak ``text`` in ``language``, or say why it cannot be spoken."""
