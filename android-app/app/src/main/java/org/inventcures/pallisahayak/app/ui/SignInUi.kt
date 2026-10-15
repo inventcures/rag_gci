@@ -108,13 +108,14 @@ fun RegistrationScreen(onRegister: suspend (CareRole, String) -> AuthResult) {
         )
         Text(text = stringResource(R.string.register_explainer), style = MaterialTheme.typography.bodyMedium)
         CareRole.ALL.forEach { option ->
+            val label = stringResource(option.labelRes)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 56.dp)
                     .clickable { role = option }
-                    .semantics { contentDescription = option.label },
+                    .semantics { contentDescription = label },
             ) {
                 RadioButton(selected = option == role, onClick = { role = option })
                 Icon(
@@ -124,7 +125,7 @@ fun RegistrationScreen(onRegister: suspend (CareRole, String) -> AuthResult) {
                     modifier = Modifier.size(40.dp),
                 )
                 Text(
-                    text = option.label,
+                    text = label,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(start = 12.dp),
                 )
