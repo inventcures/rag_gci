@@ -713,6 +713,20 @@
         "title": "PatientMemoryQueryResponse",
         "type": "object"
       },
+      "RefreshRequest": {
+        "description": "Body of /auth/refresh: the refresh token from the last sign-in or renewal.",
+        "properties": {
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest",
+        "type": "object"
+      },
       "ReminderResponse": {
         "properties": {
           "reminder_id": {
@@ -1194,7 +1208,18 @@
     },
     "/api/mobile/v1/auth/refresh": {
       "post": {
+        "description": "Renew a session with a refresh token; an access token is refused.\n\nThe new pair keeps the session's end where the PIN sign-in put it, so\nrenewing never removes the need for the PIN. Role and site are read from\nthe device record, not the token, and a device no longer registered\ncannot renew.",
         "operationId": "refresh_token_api_mobile_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1205,13 +1230,18 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "Refresh Token",
         "tags": [
           "mobile"
@@ -1261,6 +1291,7 @@
     },
     "/api/mobile/v1/cache/bundle": {
       "get": {
+        "description": "The offline bundle, built once per language, release and corpus.\n\nServed with an ETag: a client that already holds this bundle gets 304.",
         "operationId": "get_cache_bundle_api_mobile_v1_cache_bundle_get",
         "parameters": [
           {
