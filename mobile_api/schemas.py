@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Literal, Optional, List
 from enum import Enum
 
 
@@ -61,9 +61,23 @@ class SyncPushRequest(BaseModel):
     device_timestamp: float
 
 
+class SyncAcknowledgement(BaseModel):
+    """The server's answer for one pushed item.
+
+    The app removes an item from its queue only when its acknowledgement says
+    accepted. `index` is the item's position in its list of the push; `id` is
+    the id the server stored it under."""
+    kind: Literal["observation", "medication_reminder", "interaction_log", "vignette_response"]
+    index: int
+    id: Optional[str] = None
+    status: Literal["accepted", "rejected"]
+    reason: Optional[Literal["invalid", "not_owned", "save_failed", "unavailable", "over_limit"]] = None
+
+
 class SyncPushResponse(BaseModel):
     accepted: int
     rejected: int
+    acknowledgements: List[SyncAcknowledgement]
     conflicts: List[dict]
 
 
