@@ -22,13 +22,14 @@ import base64
 from urllib.parse import unquote
 
 import requests
-from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi import Depends, FastAPI, Request, HTTPException, Form
 from fastapi.responses import JSONResponse, Response
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 
 from observability import span, trace_request
 from post_work import after_reply
+from webhook_auth import require_twilio
 import edge_tts
 
 # Import the smart clarification system
@@ -718,7 +719,7 @@ class EnhancedWhatsAppBot:
         
         app = FastAPI(title="Enhanced WhatsApp RAG Bot with Twilio")
         
-        @app.post("/webhook")
+        @app.post("/webhook", dependencies=[Depends(require_twilio)])
         async def handle_twilio_webhook(
             From: str = Form(...),
             To: str = Form(...),
@@ -760,9 +761,9 @@ class EnhancedWhatsAppBot:
                 logger.error(f"Media serve error: {e}")
                 raise HTTPException(status_code=500, detail="Media error")
         
-        @app.post("/api/set_language")
+        @app.post("/api/set_language", dependencies=[Depends(require_twilio)])
         async def set_user_language(phone_number: str, language: str):
-            """Set user's preferred language"""
+            """Set a user's preferred language; Twilio-signed requests only."""
             if language in self.stt_service.supported_languages:
                 self.user_preferences[phone_number] = {"language": language}
                 return {"status": "success", "language": language}

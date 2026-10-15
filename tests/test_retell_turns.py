@@ -196,7 +196,7 @@ class RetellEndpoint(unittest.TestCase):
         source = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                    "simple_rag_server.py"), encoding="utf-8").read()
         start = source.index('async def retell_llm_websocket')
-        body = source[start:source.index("@app.post(\"/api/retell/webhook\")", start)]
+        body = source[start:source.index("@app.post(\"/api/retell/webhook\"", start)]
         enabled_path = body[body.index("logger.info(f\"Retell LLM WebSocket connected"):]
         self.assertNotIn("websocket.accept()", enabled_path)
         self.assertIn("end_session", body)
