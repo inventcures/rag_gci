@@ -115,6 +115,16 @@ models:
 # enabled in this release (ADR 0007, decision D11). The fingerprint lists the
 # ones the running server has enabled (study_release.register_outside_provider);
 # a provider enabled but not listed here shows as RELEASE DRIFT.
+#
+# The phone providers are off in this release (decision D11): their routes
+# refuse until every one of their services is listed here AND the operator
+# turns them on (phone_residency.py). Their services, as the fingerprint names
+# them:
+#   Bolna:  bolna, bolna.cartesia, bolna.deepgram, bolna.post_call_analysis,
+#           bolna.twilio (summary and extraction run on Bolna's hosted LLM;
+#           the agent's LLM is this server, so no other LLM is listed)
+#   Retell: retell, retell.cartesia, and retell.post_call_analysis
+#           (gpt-4o-mini) when RETELL_POST_CALL_ANALYSIS=true
 providers:
   outside_india:
     - gemini_live      # models.voice_primary: no Indian region offers the Live API

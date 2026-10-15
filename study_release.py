@@ -158,6 +158,17 @@ def _gemini_live_enabled() -> bool:
 register_outside_provider("gemini_live", _gemini_live_enabled)
 
 
+def _register_phone_providers() -> None:
+    """Bolna's and Retell's outside services (phone_residency, decision D11)."""
+    from phone_residency import registry
+
+    for name, is_enabled in registry().items():
+        register_outside_provider(name, is_enabled)
+
+
+_register_phone_providers()
+
+
 def provider_list(value: Any) -> Optional[str]:
     """A recorded or live provider list as one comparable value."""
     if value is None:
@@ -327,6 +338,15 @@ class StudyRelease:
         recorded side of the `voice.live.model` drift component. "" when the
         record names none, which leaves Live unable to start."""
         return str(self._dig("models", "voice_primary", "model", default="") or "")
+
+    def approved_outside_providers(self) -> List[str]:
+        """The outside providers the record lists under providers.outside_india."""
+        listed = self._dig("providers", "outside_india")
+        if listed is None:
+            return []
+        if isinstance(listed, str):
+            listed = [listed]
+        return [str(name) for name in listed]
 
     def _dig(self, *keys: str, default: Any = None) -> Any:
         node: Any = self.record

@@ -10,8 +10,8 @@ What these pin down:
 
   * without BOLNA_API_KEY the client reports itself unavailable, so the server
     does not offer a phone path it cannot serve
-  * the agent config sends Bolna's RAG function to this server's /api/bolna/query,
-    in Hindi with a Hindi welcome
+  * the agent config makes this server the agent's LLM (/api/bolna/llm/hi/v1),
+    in Hindi with a Hindi welcome (ticket 17: no hosted LLM rewords the answer)
   * a call moves from active to completed, and the stats report its duration
 """
 
@@ -45,14 +45,14 @@ class TheAgentConfigPointsAtThisServer(unittest.TestCase):
     def setUp(self):
         self.config = get_palli_sahayak_agent_config(server_url=SERVER, language="hi")
 
-    def functions(self):
+    def llm(self):
         tasks = self.config.get("tasks") or []
         self.assertTrue(tasks, "the agent config has no tasks")
-        return tasks[0]["tools_config"]["llm_agent"]["functions"]
+        return tasks[0]["tools_config"]["llm_agent"]["llm_config"]
 
-    def test_the_rag_function_calls_this_servers_bolna_query_route(self):
-        urls = [f.get("value", {}).get("url", "") for f in self.functions()]
-        self.assertIn(f"{SERVER}/api/bolna/query", urls)
+    def test_the_agents_llm_is_this_servers_bolna_llm_route(self):
+        self.assertEqual(self.llm()["provider"], "custom")
+        self.assertEqual(self.llm()["base_url"], f"{SERVER}/api/bolna/llm/hi/v1")
 
     def test_a_hindi_agent_greets_in_hindi(self):
         self.assertIn("नमस्ते", self.config.get("agent_welcome_message", ""))

@@ -25,7 +25,7 @@ from auth.policy import iter_route_paths
 # Routes that return model- or graph-derived text, and where the gate runs.
 ANSWER_ROUTES: Dict[str, str] = {
     "POST /api/query": "answer_web_query -> guard_query_result",
-    "POST /api/bolna/query": "guard_query_result",
+    "POST /api/bolna/llm/{language}/v1/chat/completions": "guard_query_result (answer_bolna_turn)",
     "POST /webhook": "WhatsApp: guard_query_result before any send",
     "WS /ws/retell/llm/{call_id}": "guard_query_result / AnswerStream",
     "WS /ws/voice": "gemini_live turn_release: each turn checked before its audio is released",

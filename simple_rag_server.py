@@ -31,7 +31,7 @@ load_dotenv()
 import gradio as gr
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -82,7 +82,9 @@ except ImportError:
     SarvamWebhookHandler = None
 
 from fastapi import Depends
-from webhook_auth import require_bolna, require_retell, require_sarvam, require_twilio
+from webhook_auth import require_bolna, require_bolna_key, require_retell, require_sarvam, require_twilio
+from phone_residency import BOLNA as PHONE_BOLNA, RETELL as PHONE_RETELL
+from phone_residency import refusal as phone_refusal, require_released
 
 # Knowledge Graph integration imports
 try:
@@ -812,18 +814,153 @@ def bolna_caller_id(data: Dict[str, Any]) -> str:
     """The participant id for one Bolna request.
 
     Bolna fills system variables (from_number, execution_id, call_sid) into the
-    custom function's params. The caller's number keeps one participant across
+    agent's prompt, which reaches this server's custom LLM route
+    (bolna_integration.custom_llm.caller_fields). The caller's number keeps one participant across
     calls; a call id keeps at least one call together. With none of them the
     request gets a one-off id, never a shared one: before this every Bolna
     caller was "bolna_bolna_call" and they all shared one history.
     """
     for key in _BOLNA_IDENTITY_KEYS:
         value = str(data.get(key) or "").strip()
-        # An unfilled template ("%(from_number)s") is not an identity.
-        if value and "%(" not in value:
+        # An unfilled template ("%(from_number)s", "{from_number}") is not an identity.
+        if value and "%(" not in value and "{" not in value:
             # A number is a person; a call id is one call (no per-person record).
             return f"bolna_{value}" if key == "from_number" else ephemeral("bolna", value)
     return ephemeral("bolna", f"anon_{uuid.uuid4().hex[:12]}")
+
+
+BOLNA_NO_QUESTION = "I didn't catch your question. Could you please repeat?"
+BOLNA_UNAVAILABLE = (
+    "I'm having trouble accessing my knowledge base right now. Based on general palliative "
+    "care principles, I'd recommend consulting with your healthcare provider for specific guidance."
+)
+BOLNA_ERROR = (
+    "I apologize, but I'm experiencing technical difficulties. Please try again or contact "
+    "the helpline directly."
+)
+
+
+async def answer_bolna_turn(pipeline: Any, query: str, language: str, caller_id: str) -> Dict[str, Any]:
+    """
+    One Bolna turn: the text Bolna speaks, and where it came from.
+
+    The voice safety check runs first (an escalation is answered with its
+    safety message). The answer is drafted within the voice deadline, passes
+    the Dose Boundary (guard_query_result) before it is shortened for the ear,
+    and is returned as {"status", "answer", "sources", "confidence",
+    "language"}. Bolna's LLM is this server, so "answer" is spoken as written.
+    A guard failure raises: callers answer with BOLNA_ERROR, never the draft.
+    """
+    import time as _time
+    _query_start = _time.time()
+    logger.info("=" * 60)
+    logger.info("📞 BOLNA VOICE CALL - RAG QUERY")
+    logger.info("=" * 60)
+    logger.debug(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
+    logger.info(f"🌐 Language: {language}")
+    logger.info("-" * 60)
+
+    if not query:
+        return {"status": "error", "answer": BOLNA_NO_QUESTION, "sources": [], "confidence": 0.0}
+
+    # =================================================================
+    # VOICE SAFETY CHECK - For Bolna Voice Calls
+    # =================================================================
+    try:
+        from voice_safety_wrapper import get_voice_safety_wrapper
+        safety_wrapper = get_voice_safety_wrapper()
+
+        safety_result = await safety_wrapper.check_voice_query(
+            user_id=caller_id,
+            transcript=query,
+            language=language,
+            call_id=caller_id
+        )
+
+        if safety_result.should_escalate:
+            logger.warning(f"🚨 Bolna voice safety escalation: {safety_result.event_type}")
+            await safety_wrapper.handle_voice_escalation(safety_result, provider="bolna")
+            return {
+                "status": "safety_escalation",
+                "answer": safety_result.safety_message,
+                "sources": [],
+                "confidence": 1.0,
+                "event_type": safety_result.event_type.value if safety_result.event_type else None
+            }
+
+        # Use modified query if available
+        if safety_result.modified_transcript:
+            query = safety_result.modified_transcript
+
+    except Exception as e:
+        logger.error(f"Bolna voice safety check error (proceeding): {e}")
+
+    # Query RAG pipeline, within the voice deadline: Bolna is waiting on this
+    # HTTP response with a caller on the line.
+    try:
+        rag_result = await within_voice_deadline(lambda: pipeline.query(
+            question=query,
+            user_id=caller_id,
+            source_language=language,
+            top_k=3
+        ))
+    except asyncio.TimeoutError:
+        logger.warning("Bolna answer missed the voice deadline; sending the fallback")
+        rag_result = {"status": "timeout"}
+
+    if rag_result.get("status") != "success":
+        _query_duration = _time.time() - _query_start
+        logger.warning(f"⚠️  RAG PARTIAL ({_query_duration:.2f}s) - Status: {rag_result.get('status')}")
+        logger.info("=" * 60)
+        return {"status": "partial", "answer": BOLNA_UNAVAILABLE, "sources": [], "confidence": 0.3}
+
+    # Dosage boundary before the text is shortened or spoken. A failure here
+    # propagates (an error reply), never the unguarded draft.
+    from safety_enhancements import guard_query_result
+    guard_query_result(rag_result, query=query, language=language)
+    answer = rag_result.get("answer", "")
+
+    # =================================================================
+    # VOICE OPTIMIZATION for Bolna Response
+    # =================================================================
+    try:
+        from voice_safety_wrapper import VOICE_SAFETY_NET_S, get_voice_safety_wrapper
+        safety_wrapper = get_voice_safety_wrapper()
+
+        answer = safety_wrapper.optimize_for_voice(
+            answer,
+            user_id=caller_id,
+            language=language,
+            max_duration_seconds=VOICE_SAFETY_NET_S
+        )
+
+        # Add evidence warning if needed
+        evidence_badge = rag_result.get("safety_enhancements", {}).get("evidence_badge")
+        if evidence_badge:
+            answer = safety_wrapper.add_evidence_to_voice(answer, evidence_badge, language)
+
+    except Exception as e:
+        logger.warning(f"Bolna voice optimization error (proceeding): {e}")
+
+    # Extract source citations
+    if "sources" in rag_result:
+        sources = [s.get("title", s.get("filename", "Unknown")) for s in rag_result["sources"][:3]]
+    elif "citations" in rag_result:
+        sources = [c.get("source", "Knowledge Base") for c in rag_result["citations"][:3]]
+    else:
+        sources = ["Palliative Care Knowledge Base"]
+
+    confidence = min(0.95, rag_result.get("relevance_score", 0.8))
+
+    _query_duration = _time.time() - _query_start
+    logger.info(f"✅ RAG SUCCESS ({_query_duration:.2f}s)")
+    logger.info(f"📚 Sources: {', '.join(sources[:3])}")
+    logger.debug(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
+    logger.info(f"🎯 Confidence: {confidence:.0%}")
+    logger.info("=" * 60)
+
+    return {"status": "success", "answer": answer, "sources": sources,
+            "confidence": confidence, "language": language}
 
 
 class MetadataLoadError(RuntimeError):
@@ -4873,8 +5010,12 @@ def _parse_args(argv: Optional[List[str]] = None) -> Any:
     parser.add_argument(
         "--provider", "-p",
         choices=["g", "b", "r", "gemini", "bolna", "retell"],
-        default="b",
-        help="Voice AI provider: g/gemini=Gemini Live, b/bolna=Bolna.ai, r/retell=Retell.AI (default: b)"
+        default=None,
+        help=(
+            "Voice AI provider: g/gemini=Gemini Live, b/bolna=Bolna.ai, r/retell=Retell.AI. "
+            "b and r turn the phone provider on; it still serves only when the study "
+            "release lists its outside services (phone_residency.py). Default: none."
+        )
     )
     parser.add_argument(
         "--rag-method",
@@ -4924,7 +5065,7 @@ def create_app(args: Any = None) -> FastAPI:
 
 
     # Set voice provider based on argument
-    voice_provider = args.provider.lower()
+    voice_provider = (args.provider or "").lower()
     if voice_provider in ["g", "gemini"]:
         os.environ["VOICE_PROVIDER"] = "gemini"
         os.environ["GEMINI_LIVE_ENABLED"] = "true"
@@ -4941,6 +5082,11 @@ def create_app(args: Any = None) -> FastAPI:
     else:
         os.environ["VOICE_PROVIDER"] = "bolna"
         os.environ["GEMINI_LIVE_ENABLED"] = "false"
+        if voice_provider in ["b", "bolna"]:
+            # Asked for by name: turn it on. Left to the default, Bolna stays
+            # as config.yaml / BOLNA_ENABLED say (off), because it sends call
+            # audio and text outside India (decision D11).
+            os.environ["BOLNA_ENABLED"] = "true"
         logger.info("=" * 60)
         logger.info("📞 VOICE PROVIDER: Bolna.ai")
         logger.info("=" * 60)
@@ -5925,218 +6071,55 @@ def create_app(args: Any = None) -> FastAPI:
     # Initialize Bolna webhook handler
     bolna_webhook_handler = BolnaWebhookHandler() if BOLNA_AVAILABLE else None
 
-    @app.post("/api/bolna/query", dependencies=[Depends(require_bolna)])
-    async def bolna_query_endpoint(request: Request):
+    @app.post("/api/bolna/llm/{language}/v1/chat/completions",
+              dependencies=[Depends(require_bolna_key), Depends(require_released(PHONE_BOLNA))])
+    async def bolna_llm_endpoint(language: str, request: Request):
         """
-        RAG query endpoint for Bolna custom function calls.
+        The Bolna agent's LLM: one call turn in, the guarded answer out.
 
-        This endpoint receives queries from Bolna's LLM during voice calls,
-        queries the palliative care knowledge base, and returns grounded responses.
+        Bolna sends each turn here with the OpenAI SDK (custom LLM,
+        bolna_integration.config) and speaks the reply as written, so the
+        caller hears the Dose Boundary's text and no hosted LLM rewords it.
+        `language` is the agent's (one agent per language); the caller is read
+        from the system variables Bolna fills into the prompt
+        (custom_llm.caller_fields, then bolna_caller_id). The reply is a chat
+        completion, streamed when the request asks for it.
 
-        Request Body:
-        {
-            "query": "How to manage pain for cancer patients?",
-            "language": "hi",
-            "context": "User asking about pain management",
-            "source": "bolna_call",
-            "from_number": "+91...",       # Bolna system variable
-            "execution_id": "..."          # Bolna system variable
-        }
-
-        The caller is identified by from_number (else the call id), see
-        bolna_caller_id().
-
-        Response:
-        {
-            "status": "success",
-            "answer": "For cancer pain management...",
-            "sources": ["WHO Pain Guidelines", "AIIMS Palliative Care Manual"],
-            "confidence": 0.92
-        }
+        Off unless the release record lists Bolna's outside services and Bolna
+        is enabled (phone_residency, decision D11).
         """
+        from bolna_integration.config import CUSTOM_LLM_MODEL
+        from bolna_integration.custom_llm import (
+            caller_fields, completion_body, completion_events, last_user_text,
+        )
+        from supported_languages import ENGLISH_CODE, get_language
+
         try:
-            # Verified by require_bolna (signature and Bearer key).
-            body = await request.body()
+            data = await request.json()
+        except ValueError:
+            raise HTTPException(status_code=422, detail="The body must be JSON")
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=422, detail="The body must be a JSON object")
+        messages = data.get("messages") if isinstance(data.get("messages"), list) else []
+        # One code per Supported Language (Odia is "or"); outside the eleven, English.
+        reported = get_language(language)
+        code = reported.code if reported is not None else ENGLISH_CODE
+        caller_id = bolna_caller_id(caller_fields(messages))
+        model = str(data.get("model") or CUSTOM_LLM_MODEL)
 
-            # Parse request
-            data = json.loads(body)
-            query = data.get("query", "")
-            # One code per Supported Language (Odia is "or", whatever Bolna's
-            # LLM reports); outside the eleven, English, never Hindi.
-            from supported_languages import ENGLISH_CODE, get_language
-            reported = get_language(data.get("language"))
-            language = reported.code if reported is not None else ENGLISH_CODE
-            context = data.get("context", "")
-            source = data.get("source", "unknown")
-            caller_id = bolna_caller_id(data)
-
-            # Enhanced logging for Bolna RAG queries
-            import time as _time
-            _query_start = _time.time()
-            logger.info("=" * 60)
-            logger.info("📞 BOLNA VOICE CALL - RAG QUERY")
-            logger.info("=" * 60)
-            logger.debug(f"🗣️  Query: {query[:150]}{'...' if len(query) > 150 else ''}")
-            logger.info(f"🌐 Language: {language} | Source: {source}")
-            logger.info("-" * 60)
-
-            if not query:
-                return JSONResponse({
-                    "status": "error",
-                    "answer": "I didn't catch your question. Could you please repeat?",
-                    "sources": [],
-                    "confidence": 0.0
-                })
-            
-            # =================================================================
-            # VOICE SAFETY CHECK - For Bolna Voice Calls
-            # =================================================================
-            try:
-                from voice_safety_wrapper import get_voice_safety_wrapper
-                safety_wrapper = get_voice_safety_wrapper()
-                
-                safety_result = await safety_wrapper.check_voice_query(
-                    user_id=caller_id,
-                    transcript=query,
-                    language=language,
-                    call_id=caller_id
-                )
-                
-                if safety_result.should_escalate:
-                    logger.warning(f"🚨 Bolna voice safety escalation: {safety_result.event_type}")
-                    
-                    # Handle escalation
-                    await safety_wrapper.handle_voice_escalation(
-                        safety_result, provider="bolna"
-                    )
-                    
-                    # Return safety message as response
-                    return JSONResponse({
-                        "status": "safety_escalation",
-                        "answer": safety_result.safety_message,
-                        "sources": [],
-                        "confidence": 1.0,
-                        "event_type": safety_result.event_type.value if safety_result.event_type else None
-                    })
-                
-                # Use modified query if available
-                if safety_result.modified_transcript:
-                    query = safety_result.modified_transcript
-                    
-            except Exception as e:
-                logger.error(f"Bolna voice safety check error (proceeding): {e}")
-
-            # Query RAG pipeline, within the voice deadline: Bolna is waiting
-            # on this HTTP response with a caller on the line.
-            try:
-                rag_result = await within_voice_deadline(lambda: rag_pipeline.query(
-                    question=query,
-                    user_id=caller_id,
-                    source_language=language,
-                    top_k=3
-                ))
-            except asyncio.TimeoutError:
-                logger.warning("Bolna answer missed the voice deadline; sending the fallback")
-                rag_result = {"status": "timeout"}
-
-            if rag_result.get("status") == "success":
-                # Dosage boundary before the text is shortened or spoken. A
-                # failure here falls to the except below (an error reply),
-                # never to the unguarded draft.
-                from safety_enhancements import guard_query_result
-                guard_query_result(rag_result, query=query, language=language)
-                answer = rag_result.get("answer", "")
-                
-                # =================================================================
-                # VOICE OPTIMIZATION for Bolna Response
-                # =================================================================
-                try:
-                    from voice_safety_wrapper import VOICE_SAFETY_NET_S, get_voice_safety_wrapper
-                    safety_wrapper = get_voice_safety_wrapper()
-                    
-                    # Optimize for voice output
-                    answer = safety_wrapper.optimize_for_voice(
-                        answer,
-                        user_id=caller_id,
-                        language=language,
-                        max_duration_seconds=VOICE_SAFETY_NET_S
-                    )
-                    
-                    # Add evidence warning if needed
-                    evidence_badge = rag_result.get("safety_enhancements", {}).get("evidence_badge")
-                    if evidence_badge:
-                        answer = safety_wrapper.add_evidence_to_voice(
-                            answer, evidence_badge, language
-                        )
-                        
-                except Exception as e:
-                    logger.warning(f"Bolna voice optimization error (proceeding): {e}")
-
-                # Extract source citations
-                sources = []
-                if "sources" in rag_result:
-                    sources = [s.get("title", s.get("filename", "Unknown")) for s in rag_result["sources"][:3]]
-                elif "citations" in rag_result:
-                    sources = [c.get("source", "Knowledge Base") for c in rag_result["citations"][:3]]
-                else:
-                    sources = ["Palliative Care Knowledge Base"]
-
-                # Calculate confidence based on retrieval
-                confidence = min(0.95, rag_result.get("relevance_score", 0.8))
-
-                # Enhanced success logging
-                _query_duration = _time.time() - _query_start
-                logger.info(f"✅ RAG SUCCESS ({_query_duration:.2f}s)")
-                logger.info(f"📚 Sources: {', '.join(sources[:3])}")
-                logger.debug(f"💬 Answer preview: {answer[:100]}{'...' if len(answer) > 100 else ''}")
-                logger.info(f"🎯 Confidence: {confidence:.0%}")
-                logger.info("=" * 60)
-
-                return JSONResponse({
-                    "status": "success",
-                    "answer": answer,
-                    "sources": sources,
-                    "confidence": confidence,
-                    "language": language
-                })
-
-            else:
-                # RAG query failed - return graceful fallback
-                _query_duration = _time.time() - _query_start
-                logger.warning(f"⚠️  RAG PARTIAL ({_query_duration:.2f}s) - Status: {rag_result.get('status')}")
-                logger.warning("📝 Using fallback response")
-                logger.info("=" * 60)
-                return JSONResponse({
-                    "status": "partial",
-                    "answer": "I'm having trouble accessing my knowledge base right now. Based on general palliative care principles, I'd recommend consulting with your healthcare provider for specific guidance.",
-                    "sources": [],
-                    "confidence": 0.3
-                })
-
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ BOLNA ERROR: Invalid JSON - {e}")
-            logger.info("=" * 60)
-            return JSONResponse({
-                "status": "error",
-                "answer": "I received an invalid request. Please try again.",
-                "sources": [],
-                "confidence": 0.0
-            }, status_code=400)
-
-        except HTTPException:
-            raise
-
+        try:
+            turn = await answer_bolna_turn(rag_pipeline, last_user_text(messages), code, caller_id)
+            answer = turn["answer"]
         except Exception as e:
-            logger.error(f"❌ BOLNA ERROR: {e}")
-            logger.info("=" * 60)
-            return JSONResponse({
-                "status": "error",
-                "answer": "I apologize, but I'm experiencing technical difficulties. Please try again or contact the helpline directly.",
-                "sources": [],
-                "confidence": 0.0
-            }, status_code=500)
+            logger.error(f"❌ BOLNA ERROR: {type(e).__name__}")
+            answer = BOLNA_ERROR
 
-    @app.post("/api/bolna/webhook", dependencies=[Depends(require_bolna)])
+        if data.get("stream"):
+            return StreamingResponse(completion_events(answer, model), media_type="text/event-stream")
+        return JSONResponse(completion_body(answer, model))
+
+    @app.post("/api/bolna/webhook",
+              dependencies=[Depends(require_bolna), Depends(require_released(PHONE_BOLNA))])
     async def bolna_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Bolna call events.
@@ -6356,7 +6339,17 @@ def create_app(args: Any = None) -> FastAPI:
         - Sends: response with content (connected to RAG pipeline)
 
         Documentation: https://docs.retellai.com/api-references/llm-websocket
+
+        Off unless the release record lists Retell's outside services
+        (phone_residency, decision D11): the caller is told so and the socket closes.
         """
+        residency = phone_refusal(PHONE_RETELL)
+        if residency:
+            logger.warning("Phone route refused: %s", residency)
+            await websocket.accept()
+            await websocket.send_json({"response_type": "error", "content": residency})
+            await websocket.close(code=1008, reason="Not in the study release")
+            return
         if not retell_enabled or not retell_llm_handler:
             await websocket.accept()
             await websocket.send_json({
@@ -6381,7 +6374,8 @@ def create_app(args: Any = None) -> FastAPI:
             if retell_llm_handler:
                 retell_llm_handler.end_session(call_id)
 
-    @app.post("/api/retell/webhook", dependencies=[Depends(require_retell)])
+    @app.post("/api/retell/webhook",
+              dependencies=[Depends(require_retell), Depends(require_released(PHONE_RETELL))])
     async def retell_webhook_endpoint(request: Request):
         """
         Webhook endpoint for Retell call events.
