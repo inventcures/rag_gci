@@ -13,7 +13,7 @@ import uuid
 from collections import OrderedDict
 import tempfile
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 import aiofiles
 import aiohttp
@@ -29,6 +29,17 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 from observability import span, trace_request
 from post_work import after_reply
+from supported_languages import (
+    ENGLISH_CODE,
+    PROVIDER_EDGE,
+    PROVIDER_GEMINI_LIVE,
+    PROVIDER_SARVAM,
+    SUPPORTED_LANGUAGES,
+    UNSUPPORTED_LANGUAGE_MESSAGE,
+    Voice,
+    detect_language,
+    get_language,
+)
 from webhook_auth import require_twilio
 import edge_tts
 
@@ -82,10 +93,10 @@ logger = logging.getLogger(__name__)
 class EnhancedSTTService:
     """Speech-to-Text for WhatsApp voice notes, via Sarvam Saaras (India-hosted).
 
-    Sarvam needs a BCP-47 language code per request and the client exposes no
-    auto-detect, so when the caller does not know the language the note is
-    transcribed as Hindi first, the language is guessed from that text, and the
-    note is transcribed again in the guessed language if it differs.
+    Saaras detects the spoken language when asked for "unknown". If that call
+    fails, the note is transcribed as Hindi (Sarvam needs a language code) and
+    the language is judged from the transcript's script. The language names
+    and codes come from the Supported Language table.
     """
 
     DEFAULT_LANGUAGE = "hi"
@@ -94,40 +105,21 @@ class EnhancedSTTService:
         from sarvam_integration.client import SarvamClient
 
         self.sarvam = SarvamClient()
-        self.supported_languages = {
-            "hi": "Hindi",
-            "bn": "Bengali", 
-            "ta": "Tamil",
-            "gu": "Gujarati",
-            "mr": "Marathi",
-            "te": "Telugu",
-            "kn": "Kannada",
-            "ml": "Malayalam",
-            "pa": "Punjabi",
-            "or": "Odia",
-            "en": "English"
-        }
-        
-        # Language detection patterns
-        self.language_patterns = {
-            "hi": ["हैलो", "नमस्ते", "कैसे", "क्या", "मैं"],
-            "bn": ["হ্যালো", "নমস্কার", "কেমন", "কি", "আমি"],
-            "ta": ["வணக்கம்", "எப்படி", "என்ன", "நான்"],
-            "gu": ["નમસ્તે", "કેમ", "શું", "હું"],
-            "en": ["hello", "how", "what", "the", "is"]
-        }
+        self.supported_languages = {lang.code: lang.name for lang in SUPPORTED_LANGUAGES}
 
     @staticmethod
     def _to_bcp47(language: str) -> str:
-        """Map the bot's short codes (hi, en, mr, ta, bn, ...) to Sarvam's BCP-47 codes."""
+        """Sarvam's code for a language: the table's Sarvam spelling for a
+        Supported Language, another code Saaras transcribes as is, and
+        "unknown" (Saaras detects it) for anything else. Never Hindi."""
         from sarvam_integration.config import SARVAM_STT_LANGUAGES
 
-        if "-" in language:
-            return language
-        code = "od" if language == "or" else language
-        bcp47 = f"{code}-IN"
-        return bcp47 if bcp47 in SARVAM_STT_LANGUAGES else "hi-IN"
-    
+        lang = get_language(language)
+        if lang is not None:
+            return lang.voice(PROVIDER_SARVAM).language
+        bcp47 = language if "-" in language else f"{language}-IN"
+        return bcp47 if bcp47 in SARVAM_STT_LANGUAGES else "unknown"
+
     async def transcribe_audio(self, audio_file_path: str, detected_language: Optional[str] = None) -> Dict[str, Any]:
         """Transcribe audio with language detection"""
         try:
@@ -153,7 +145,8 @@ class EnhancedSTTService:
 
             if result["status"] == "success":
                 result["detected_language"] = detected_language
-                result["language_name"] = self.supported_languages.get(detected_language, "Unknown")
+                lang = get_language(detected_language)
+                result["language_name"] = lang.name if lang else "Unknown"
             
             return result
             
@@ -169,134 +162,122 @@ class EnhancedSTTService:
             if stt.success:
                 heard = language
                 if language == "unknown":
-                    # "ta-IN" -> "ta"; Sarvam's Odia is "od", the bot's is "or".
-                    short = (stt.language_code or "hi-IN").split("-")[0]
-                    heard = "or" if short == "od" else short
+                    # "ta-IN" -> "ta", "od-IN" -> "or"; a language outside
+                    # the eleven keeps its own code, so it is never taken for
+                    # Hindi.
+                    lang = get_language(stt.language_code)
+                    heard = lang.code if lang else (stt.language_code or "").split("-")[0]
                 return {"status": "success", "text": stt.transcript or "", "language": heard}
             return {"status": "error", "error": f"Sarvam STT error: {stt.error}"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
     def _detect_language(self, text: str) -> str:
-        """Detect language from text using simple pattern matching"""
-        text_lower = text.lower()
-        
-        # Count matches for each language
-        language_scores = {}
-        for lang, patterns in self.language_patterns.items():
-            score = sum(1 for pattern in patterns if pattern in text_lower)
-            if score > 0:
-                language_scores[lang] = score
-        
-        # Return language with highest score, default to Hindi
-        if language_scores:
-            return max(language_scores, key=language_scores.get)
-        
-        return "hi"  # Default to Hindi
+        """The Supported Language a transcript is written in, by its script;
+        English when it has no letters to judge by."""
+        lang = detect_language(text)
+        return lang.code if lang else ENGLISH_CODE
 
 
 class EnhancedTTSService:
-    """Enhanced Text-to-Speech service with Indian language support"""
-    
+    """Text-to-Speech for WhatsApp replies, in the voice the Supported Language
+    table names for each language.
+
+    The India-hosted voice (Sarvam Bulbul) is tried first; Edge is the fallback
+    for a language the table gives an Edge voice. A language with no voice that
+    works is never spoken in another language: the result has status
+    "unavailable" and carries the message to send instead, in that language
+    (or in English, for a language outside the eleven).
+    """
+
+    # The order WhatsApp tries the table's voices in: India-hosted first.
+    PROVIDER_ORDER = (PROVIDER_SARVAM, PROVIDER_EDGE)
+
     def __init__(self):
-        self.supported_voices = {
-            "hi": "hi-IN-SwaraNeural",      # Hindi (Female)
-            "bn": "bn-IN-TanishaaNeural",   # Bengali (Female) 
-            "ta": "ta-IN-PallaviNeural",    # Tamil (Female)
-            "gu": "gu-IN-DhwaniNeural",     # Gujarati (Female)
-            "en": "en-IN-NeerjaNeural"      # English Indian (Female)
-        }
-        
+        # Short code -> the voice each Supported Language is spoken in first
+        # (informational; synthesis reads the table).
+        first = self.PROVIDER_ORDER[0]
+        self.supported_voices: Dict[str, str] = {
+            lang.code: lang.voice(first).name for lang in SUPPORTED_LANGUAGES if lang.voice(first)}
         self.output_dir = Path("cache/tts")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-    
-    async def synthesize_speech(self, text: str, language: str = "hi") -> Dict[str, Any]:
-        """Convert text to speech using Edge TTS"""
-        logger.info(f"🎤 TTS SYNTHESIS CALLED:")
-        logger.debug(f"  📝 Text: {text[:100]}...")
-        logger.info(f"  🌐 Language: {language}")
-        
-        try:
-            if language not in self.supported_voices:
-                logger.warning(f"  ⚠️ Language {language} not supported, defaulting to Hindi")
-                language = "hi"  # Default to Hindi
-            
-            voice = self.supported_voices[language]
-            logger.info(f"  🗣️ Using voice: {voice}")
-            
-            # Ensure output directory exists
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"  📁 Output directory: {self.output_dir}")
-            
-            # Generate unique filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            audio_file = self.output_dir / f"tts_{language}_{timestamp}.mp3"
-            logger.info(f"  📄 Target file: {audio_file}")
-            
-            # Generate speech (Edge TTS primary, Sarvam fallback)
-            logger.info("  🎵 Generating speech with Edge TTS...")
-            try:
-                communicate = edge_tts.Communicate(text, voice)
-                await communicate.save(str(audio_file))
-                logger.info("  ✅ Edge TTS synthesis completed")
-            except Exception as edge_err:
-                logger.warning(f"  ⚠️ Edge TTS failed ({edge_err}); trying Sarvam fallback...")
-                if not await self._sarvam_fallback(text, language, audio_file):
-                    raise edge_err
-            
-            # Verify file was created
-            if audio_file.exists():
-                file_size = audio_file.stat().st_size
-                logger.info(f"  ✅ Audio file created successfully: {file_size} bytes")
+
+    async def synthesize_speech(self, text: str, language: str = ENGLISH_CODE) -> Dict[str, Any]:
+        """Speak ``text`` in ``language``, or say why it cannot be spoken."""
+        lang = get_language(language)
+        logger.info("🎤 TTS synthesis: %d chars, language %s", len(text or ""), language)
+        if lang is None:
+            logger.warning("  ⚠️ %s is not a Supported Language; nothing is spoken", language)
+            return self._unavailable(text, language, UNSUPPORTED_LANGUAGE_MESSAGE)
+
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        stem = self.output_dir / f"tts_{lang.code}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        for provider in self.PROVIDER_ORDER:
+            voice = lang.voice(provider)
+            if voice is None:
+                continue
+            audio_file = await self._synthesize_with(voice, text, stem)
+            if audio_file is not None:
                 return {
                     "status": "success",
                     "text": text,
-                    "language": language,
-                    "voice": voice,
+                    "language": lang.code,
+                    "provider": voice.provider,
+                    "voice": voice.name,
                     "audio_file": str(audio_file),
                     "audio_available": True,
-                    "file_size": file_size
+                    "file_size": audio_file.stat().st_size,
                 }
-            else:
-                logger.error("  ❌ Audio file was not created")
-                return {
-                    "status": "error",
-                    "error": "Failed to generate audio file",
-                    "audio_available": False
-                }
-                
-        except Exception as e:
-            logger.error(f"  ❌ TTS synthesis error: {e}", exc_info=True)
-            return {
-                "status": "error",  # Changed from "success" to "error"
-                "text": text,
-                "language": language,
-                "audio_available": False,
-                "error": f"TTS failed: {str(e)}"
-            }
+        logger.warning("  ⚠️ No voice could speak %s; sending the unavailable message", lang.name)
+        return self._unavailable(text, lang.code, lang.voice_unavailable)
 
-    async def _sarvam_fallback(self, text: str, language: str, audio_file: Path) -> bool:
-        """Fallback to Sarvam AI TTS when Edge TTS fails. Returns True on success."""
+    @staticmethod
+    def _unavailable(text: str, language: str, message: str) -> Dict[str, Any]:
+        """The result for speech that cannot be produced, with what to send instead."""
+        return {
+            "status": "unavailable",
+            "text": text,
+            "language": language,
+            "audio_available": False,
+            "unavailable_message": message,
+        }
+
+    async def _synthesize_with(self, voice: Voice, text: str, stem: Path) -> Optional[Path]:
+        """The audio file ``voice`` produced for ``text``, or None if it failed."""
         try:
-            from sarvam_integration import SarvamClient
-            sarvam = SarvamClient()
-            # Map short code to BCP-47 (Sarvam expects e.g., hi-IN, ta-IN)
-            bcp47 = {
-                "hi": "hi-IN", "bn": "bn-IN", "ta": "ta-IN",
-                "gu": "gu-IN", "en": "en-IN",
-            }.get(language, "hi-IN")
-            result = await sarvam.text_to_speech(text, bcp47)
-            if result and result.audio_base64:
-                import base64
-                audio_bytes = base64.b64decode(result.audio_base64)
-                audio_file.write_bytes(audio_bytes)
-                logger.info(f"  ✅ Sarvam fallback synthesis completed ({len(audio_bytes)} bytes)")
-                return True
-            logger.warning("  ⚠️ Sarvam returned no audio")
-            return False
-        except Exception as sarvam_err:
-            logger.warning(f"  ⚠️ Sarvam fallback also failed: {sarvam_err}")
-            return False
+            if voice.provider == PROVIDER_SARVAM:
+                return await self._sarvam(voice, text, stem)
+            if voice.provider == PROVIDER_EDGE:
+                audio_file = stem.with_suffix(".mp3")
+                await edge_tts.Communicate(text, voice.name).save(str(audio_file))
+                return audio_file if audio_file.exists() else None
+        except Exception as e:  # one provider failing must not stop the next
+            logger.warning("  ⚠️ %s TTS failed for %s: %s", voice.provider, voice.language, e)
+        return None
+
+    @staticmethod
+    async def _sarvam(voice: Voice, text: str, stem: Path) -> Optional[Path]:
+        """Sarvam Bulbul (India-hosted). Its WAV is converted to MP3 for WhatsApp
+        where pydub and ffmpeg allow, and kept as WAV otherwise."""
+        from sarvam_integration import SarvamClient
+
+        result = await SarvamClient().text_to_speech(text, voice.language, voice=voice.name)
+        if not (result and result.success and result.audio_base64):
+            logger.warning("  ⚠️ Sarvam returned no audio: %s", getattr(result, "error", None))
+            return None
+        wav = base64.b64decode(result.audio_base64)
+        try:
+            import io
+            from pydub import AudioSegment
+
+            mp3 = stem.with_suffix(".mp3")
+            AudioSegment.from_file(io.BytesIO(wav), format="wav").export(str(mp3), format="mp3")
+            return mp3
+        except Exception as e:  # pydub or ffmpeg missing, or undecodable audio
+            logger.warning("  ⚠️ WAV to MP3 conversion failed (%s); keeping WAV", e)
+            path = stem.with_suffix(".wav")
+            path.write_bytes(wav)
+            return path
 
 
 class TwilioWhatsAppAPI:
@@ -543,16 +524,6 @@ class TwilioWhatsAppAPI:
 class EnhancedWhatsAppBot:
     """Enhanced WhatsApp bot with full Indian language support and Gemini Live voice"""
 
-    # Language code mapping: existing codes -> Gemini Live codes
-    GEMINI_LANGUAGE_MAP = {
-        "hi": "hi-IN",  # Hindi
-        "en": "en-IN",  # English (India)
-        "mr": "mr-IN",  # Marathi
-        "ta": "ta-IN",  # Tamil
-        "bn": "en-IN",  # Bengali -> fallback to English (not in Gemini Live)
-        "gu": "en-IN",  # Gujarati -> fallback to English (not in Gemini Live)
-    }
-
     def __init__(self, rag_pipeline, stt_service: EnhancedSTTService, tts_service: EnhancedTTSService):
         self.rag_pipeline = rag_pipeline
         self.stt_service = stt_service
@@ -670,9 +641,42 @@ class EnhancedWhatsAppBot:
             await self.gemini_session_manager.stop()
             logger.info("Gemini session manager stopped")
 
-    def _get_gemini_language(self, lang_code: str) -> str:
-        """Convert existing language code to Gemini Live language code."""
-        return self.GEMINI_LANGUAGE_MAP.get(lang_code, "en-IN")
+    @staticmethod
+    def _live_voice(lang_code: Optional[str]) -> Optional[Voice]:
+        """The table's Live voice for a language, or None where Live cannot
+        speak it (Odia, Punjabi, anything outside the eleven)."""
+        lang = get_language(lang_code)
+        return lang.voice(PROVIDER_GEMINI_LIVE) if lang else None
+
+    @staticmethod
+    def _answer_language(lang_code: Optional[str]) -> Tuple[str, Optional[str]]:
+        """The Supported Language to answer in, and the notice to send first.
+
+        A Supported Language is answered in itself. Anything else is answered
+        in English, with the plain notice that the language is unavailable;
+        it is never guessed to be Hindi.
+        """
+        lang = get_language(lang_code)
+        if lang is not None:
+            return lang.code, None
+        logger.warning("Language %r is not a Supported Language; answering in English", lang_code)
+        return ENGLISH_CODE, UNSUPPORTED_LANGUAGE_MESSAGE
+
+    def _text_language(self, from_number: str, text: str) -> str:
+        """The language to answer a typed message in.
+
+        The script the message is written in decides, unless it matches the
+        participant's chosen language (Hindi and Marathi share a script). A
+        message in Latin script keeps the chosen language, or English when the
+        participant has chosen none. Never a Hindi default.
+        """
+        preferred = get_language(self.user_preferences.get(from_number, {}).get("language"))
+        written = detect_language(text)
+        if written is not None and written.code != ENGLISH_CODE:
+            if preferred is not None and preferred.script == written.script:
+                return preferred.code
+            return written.code
+        return preferred.code if preferred is not None else ENGLISH_CODE
 
     def _update_conversation_history(self, user_id: str, message: str):
         """Update conversation history for a user"""
@@ -764,9 +768,10 @@ class EnhancedWhatsAppBot:
         @app.post("/api/set_language", dependencies=[Depends(require_twilio)])
         async def set_user_language(phone_number: str, language: str):
             """Set a user's preferred language; Twilio-signed requests only."""
-            if language in self.stt_service.supported_languages:
-                self.user_preferences[phone_number] = {"language": language}
-                return {"status": "success", "language": language}
+            lang = get_language(language)
+            if lang is not None:
+                self.user_preferences[phone_number] = {"language": lang.code}
+                return {"status": "success", "language": lang.code}
             return {"status": "error", "error": "Unsupported language"}
         
         return app
@@ -870,8 +875,8 @@ class EnhancedWhatsAppBot:
             # Update conversation history
             self._update_conversation_history(from_number, f"User: {text}")
 
-            # Get user's preferred language (default to Hindi for text)
-            user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
+            # The language the message is written in (or the chosen one)
+            user_lang = self._text_language(from_number, text)
 
             # SMART CLARIFICATION SYSTEM
             if self.clarification_system:
@@ -1030,7 +1035,7 @@ class EnhancedWhatsAppBot:
 
             # Extract transcribed text and detected language
             text = stt_result["text"]
-            detected_language = stt_result.get("detected_language", "hi")
+            detected_language, notice = self._answer_language(stt_result.get("detected_language"))
 
             # Update user's language preference
             self.user_preferences[from_number] = {"language": detected_language}
@@ -1044,6 +1049,8 @@ class EnhancedWhatsAppBot:
             try:
                 with span("send.text"):
                     await self.twilio_api.send_text_message(from_number, confirmation_msg)
+                    if notice:
+                        await self.twilio_api.send_text_message(from_number, notice)
             except BaseException:
                 answer_task.cancel()
                 raise
@@ -1100,21 +1107,25 @@ class EnhancedWhatsAppBot:
             )
             logger.info(f"  ✅ Audio converted to PCM: {len(pcm_data)} bytes")
 
-            # Step 3: Get user's language preference
-            user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
-            gemini_lang = self._get_gemini_language(user_lang)
-            logger.info(f"  🌐 Language: {user_lang} -> Gemini: {gemini_lang}")
-
-            # Step 4: transcribe (for grounding and for the Dose Boundary on
+            # Step 3: transcribe (for grounding and for the Dose Boundary on
             # what Live will say). Without a transcript nothing can be checked,
             # so the traditional pipeline takes over.
             stt_result = await self.stt_service.transcribe_audio(audio_file_path)
             if stt_result.get("status") != "success":
                 raise GeminiLiveError("transcription failed; cannot ground or check the reply")
             query_text = stt_result["text"]
-            detected_lang = stt_result.get("detected_language", user_lang)
+            detected_lang = stt_result.get("detected_language")
+
+            # Step 4: Live only in a language it speaks. Otherwise, before
+            # anything is sent, the traditional pipeline answers in the
+            # participant's own language (or says plainly it cannot).
+            live_voice = self._live_voice(detected_lang)
+            if live_voice is None:
+                raise GeminiLiveError(f"Live cannot speak {detected_lang!r}; using the Sarvam path")
+            detected_lang = get_language(detected_lang).code
+            gemini_lang = live_voice.language
+            logger.info(f"  🌐 Language: {detected_lang} -> Gemini: {gemini_lang}")
             self.user_preferences[from_number] = {"language": detected_lang}
-            gemini_lang = self._get_gemini_language(detected_lang)
             self._update_conversation_history(from_number, f"User (voice): {query_text}")
 
             # Step 5, concurrently: confirm what was heard, open the Live
@@ -1129,7 +1140,7 @@ class EnhancedWhatsAppBot:
             async def open_session():
                 with span("live.session"):
                     return await self.gemini_session_manager.get_or_create_session(
-                        user_id=from_number, language=gemini_lang, voice="Aoede")
+                        user_id=from_number, language=gemini_lang, voice=live_voice.name)
 
             _, session, grounding = await asyncio.gather(
                 confirm(), open_session(),
@@ -1225,8 +1236,8 @@ class EnhancedWhatsAppBot:
                 await self._handle_language_command(text, from_number)
                 return
             
-            # Get user's preferred language (default to Hindi for text)
-            user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
+            # The language the message is written in (or the chosen one)
+            user_lang = self._text_language(from_number, text)
             
             # Query RAG pipeline
             await self._send_typing_indicator(from_number)
@@ -1314,7 +1325,7 @@ class EnhancedWhatsAppBot:
             
             # Extract transcribed text and detected language
             text = stt_result["text"]
-            detected_language = stt_result.get("detected_language", "hi")
+            detected_language, _ = self._answer_language(stt_result.get("detected_language"))
             
             # Update user's language preference
             self.user_preferences[from_number] = {"language": detected_language}
@@ -1392,61 +1403,44 @@ class EnhancedWhatsAppBot:
         await self._handle_audio_message({"audio": voice_data}, from_number)
     
     async def _handle_language_command(self, text: str, from_number: str):
-        """Handle language selection command"""
+        """Handle /lang: list the eleven Supported Languages, or set one and
+        confirm it in that language."""
         try:
             # Parse command: /lang hi, /lang bn, etc.
             parts = text.lower().split()
-            
+
             if len(parts) < 2:
-                help_text = """🌐 Bilingual Response Mode:
-Send: /lang [code]
-
-Supported languages:
-• /lang hi - Hindi (हिंदी)
-• /lang bn - Bengali (বাংলা) 
-• /lang ta - Tamil (தமிழ්)
-• /lang gu - Gujarati (ગુજરાતી)
-• /lang en - English
-
-Example: /lang hi"""
-                
+                lines = "\n".join(
+                    f"• /lang {lang.code} - {lang.name}"
+                    + (f" ({lang.native_name})" if lang.native_name != lang.name else "")
+                    for lang in SUPPORTED_LANGUAGES
+                )
+                help_text = (
+                    "🌐 Bilingual Response Mode:\nSend: /lang [code]\n\n"
+                    f"Supported languages:\n{lines}\n\nExample: /lang hi"
+                )
                 help_text = self._ensure_whatsapp_length_limit(help_text)
                 await self.twilio_api.send_text_message(from_number, help_text)
                 return
-            
-            lang_code = parts[1]
-            
-            if lang_code in self.stt_service.supported_languages:
-                self.user_preferences[from_number] = {"language": lang_code}
-                lang_name = self.stt_service.supported_languages[lang_code]
-                
-                success_msg = f"✅ Language set to {lang_name} ({lang_code})"
-                await self.twilio_api.send_text_message(from_number, success_msg)
-                
-                # Send confirmation in selected language
-                welcome_msgs = {
-                    "hi": "अब मैं आपको हिंदी में जवाब दूंगा।",
-                    "bn": "এখন আমি আপনাকে বাংলায় উত্তর দেব।",
-                    "ta": "இப்போது நான் உங்களுக்கு தமிழில் பதিলளிப்পேন்।",
-                    "gu": "હવે હું તમને ગુજરાતીમાં જવાબ આપીશ।",
-                    "en": "I will now respond to you in English."
-                }
-                
-                if lang_code in welcome_msgs:
-                    await self.twilio_api.send_text_message(
-                        from_number,
-                        welcome_msgs[lang_code]
-                    )
+
+            lang = get_language(parts[1])
+
+            if lang is not None:
+                self.user_preferences[from_number] = {"language": lang.code}
+                await self.twilio_api.send_text_message(
+                    from_number, f"✅ Language set to {lang.name} ({lang.code})")
+                # Confirmation in the selected language, from the table
+                await self.twilio_api.send_text_message(from_number, lang.language_set)
             else:
                 await self.twilio_api.send_text_message(
                     from_number,
-                    f"❌ Unsupported language code: {lang_code}"
+                    f"❌ Unsupported language code: {parts[1]}"
                 )
-                
+
         except Exception as e:
             logger.error(f"Error handling language command: {e}")
             await self._send_error_message(from_number)
-    
+
     async def _handle_clarification_command(self, command: str, from_number: str):
         """Handle clarification flow commands like /skip, /clear, /cancel"""
         try:
@@ -1524,7 +1518,7 @@ Example: /lang hi"""
     async def _process_query_directly(self, from_number: str, query: str):
         """Process query directly without clarification checks"""
         try:
-            user_lang = self.user_preferences.get(from_number, {}).get("language", "hi")
+            user_lang = self._text_language(from_number, query)
             
             logger.debug(f"  🔍 Processing query directly: '{query}', language: '{user_lang}'")
             result = await self._guarded_query(query, from_number, user_lang, answer_language="en")
@@ -1550,8 +1544,6 @@ Example: /lang hi"""
         except Exception as e:
             logger.error(f"Error sending RAG response: {e}")
             await self._send_error_message(from_number)
-
-    LANGUAGE_FLAGS = {"hi": "🇮🇳", "bn": "🇧🇩", "ta": "🇮🇳", "gu": "🇮🇳", "mr": "🇮🇳"}
 
     def _with_header(self, header: str, text: str, footer: str) -> str:
         """header + text + footer within Twilio's WhatsApp limit."""
@@ -1596,17 +1588,19 @@ Example: /lang hi"""
 
             if translation_task is not None:
                 translation = await translation_task
-                spoken_text = answer
-                if translation.get("status") == "success":
-                    spoken_text = translation["translated_text"]
+                translated = translation.get("status") == "success"
+                # Untranslated, the answer is English, so it is spoken in
+                # English rather than read out by another language's voice.
+                spoken_text = translation["translated_text"] if translated else answer
                 if speak:
-                    speech_task = asyncio.create_task(self._speak(spoken_text, language))
-                if translation.get("status") == "success":
-                    flag = self.LANGUAGE_FLAGS.get(language, "🌐")
-                    name = self.stt_service.supported_languages.get(language, language)
+                    speech_task = asyncio.create_task(
+                        self._speak(spoken_text, language if translated else ENGLISH_CODE))
+                if translated:
+                    lang = get_language(language)
+                    name = lang.name if lang else language
                     with span("send.text"):
                         await self.twilio_api.send_text_message(
-                            from_number, self._with_header(f"{flag} {name}:\n", spoken_text, footer))
+                            from_number, self._with_header(f"🇮🇳 {name}:\n", spoken_text, footer))
                 else:
                     logger.error(f"  ❌ Translation failed: {translation.get('error')}")
 
@@ -1614,6 +1608,10 @@ Example: /lang hi"""
                 speech = await speech_task
                 if speech.get("audio_available"):
                     await self._send_audio_file(from_number, speech["audio_file"])
+                elif speech.get("unavailable_message"):
+                    # No voice can speak it: say so plainly, never another language.
+                    with span("send.text"):
+                        await self.twilio_api.send_text_message(from_number, speech["unavailable_message"])
         finally:
             for task in (translation_task, speech_task):
                 if task is not None and not task.done():
