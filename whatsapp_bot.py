@@ -1639,8 +1639,15 @@ Take your medicine as your doctor or nurse advised."""
 I'll remind you when it's time to take your medication.
 Reply 'TAKEN' after taking it."""
             
-            # Add voice call info if set up
-            if voice_reminders_set:
+            # Add voice call info only when the call can be placed: under a
+            # release that does not list Bolna the call is refused (D47), so
+            # nothing promises it (D53).
+            from phone_residency import refusal as phone_refusal
+
+            calls_refused = phone_refusal("bolna")
+            if voice_reminders_set and calls_refused:
+                logger.info(f"Voice call reminders not promised: {calls_refused}")
+            if voice_reminders_set and not calls_refused:
                 confirm_msg += f"\n\n📞 Voice call reminders also set up for: {', '.join(voice_reminders_set)}"
             
             confirm_msg += f"""\n\nTo view all reminders: /myreminders
