@@ -2444,23 +2444,18 @@ ANSWER (2-3 paragraphs followed by Sources line):"""
     async def translate_query_to_english(self, query: str, source_language: str) -> Dict[str, Any]:
         """Translate query from local language to English for better embedding matching"""
         try:
-            # Language mapping for better translation prompts
-            language_names = {
-                "hi": "Hindi",
-                "bn": "Bengali", 
-                "ta": "Tamil",
-                "gu": "Gujarati",
-                "en": "English"
-            }
-            
-            if source_language not in language_names:
+            from supported_languages import get_language
+
+            # Any of the eleven Supported Languages (the one table)
+            lang = get_language(source_language)
+            if lang is None:
                 return {"status": "error", "error": f"Unsupported language: {source_language}"}
             
-            if source_language == "en":
+            if lang.code == "en":
                 # Already in English, no translation needed
                 return {"status": "success", "translated_query": query, "original_query": query}
             
-            source_lang_name = language_names[source_language]
+            source_lang_name = lang.name
             
             prompt = f"""You are an expert medical translator. Translate the following {source_lang_name} medical query to English.
 
@@ -2495,23 +2490,18 @@ Respond with ONLY the English translation, no explanations or additional text.""
     async def translate_text(self, text: str, target_language: str) -> Dict[str, Any]:
         """Translate text to target language with the shared LLM client"""
         try:
-            # Language mapping for better translation prompts
-            language_names = {
-                "hi": "Hindi",
-                "bn": "Bengali",
-                "ta": "Tamil",
-                "gu": "Gujarati", 
-                "en": "English"
-            }
-            
-            if target_language not in language_names:
+            from supported_languages import get_language
+
+            # Any of the eleven Supported Languages (the one table)
+            lang = get_language(target_language)
+            if lang is None:
                 return {"status": "error", "error": f"Unsupported language: {target_language}"}
             
-            if target_language == "en":
+            if lang.code == "en":
                 # No translation needed
                 return {"status": "success", "translated_text": text, "target_language": target_language}
             
-            target_lang_name = language_names[target_language]
+            target_lang_name = lang.name
             
             prompt = f"""You are an expert medical translator. Translate the following English medical text to {target_lang_name}. 
 
