@@ -24,7 +24,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dose_detector import FRACTION_DOSE, NUMERIC_DOSE, detect_doses  # noqa: E402
+from dose_detector import detect_doses  # noqa: E402
 from offline.questions import (  # noqa: E402
     ENGLISH,
     SUPPORTED_LANGUAGES,
@@ -145,16 +145,13 @@ class TestNoDosageQuestion(unittest.TestCase):
                         f"{lang} bundle contains a dosage question: {question!r}",
                     )
 
-    def test_no_question_states_an_amount(self):
+    def test_no_question_states_a_dose(self):
         for lang in SUPPORTED_LANGUAGES:
             for question in questions_for(lang):
                 with self.subTest(lang=lang, question=question[:40]):
-                    amounts = [
-                        f.pattern for f in detect_doses(question)
-                        if f.reason in (NUMERIC_DOSE, FRACTION_DOSE)
-                    ]
+                    found = [f.pattern for f in detect_doses(question)]
                     self.assertEqual(
-                        amounts, [], f"{lang} bundle question states a dose: {question!r}"
+                        found, [], f"{lang} bundle question states a dose: {question!r}"
                     )
 
     def test_the_removed_morphine_dosage_question_is_gone(self):

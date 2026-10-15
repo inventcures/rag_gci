@@ -36,6 +36,7 @@ is needed and match offsets refer to the caller's own text.
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -166,28 +167,72 @@ _COUNT_NOUNS_AFTER_NUMBER: Tuple[str, ...] = _COUNT_NOUNS_AFTER_ARTICLE + (
 _HI_COUNT_NOUNS: Tuple[str, ...] = (
     "गोलियाँ", "गोलियां", "गोली", "टैबलेट", "टेबलेट", "कैप्सूल", "चम्मच",
     "बूँदें", "बूंदें", "बूँद", "बूंद", "पफ", "खुराक",
+    # Plural and oblique forms (whole-word matching would otherwise miss them).
+    "गोलियों", "बूँदों", "बूंदों", "खुराकें", "खुराकों",
 )
 
 # Day and time-of-day words that mark a schedule in Indic answers.
+#
+# The words are matched whole, so each inflected form a schedule uses is listed
+# in its own right: before whole-word matching, "ಬಾರಿ" or "రోజుకు" were caught
+# only because the stem "ಬಾರ" or "రోజ" sat inside them. The second line of each
+# entry holds those forms (plural, oblique, locative and "every day" compounds).
 _INDIC_FREQUENCY_WORDS: Dict[str, Tuple[str, ...]] = {
-    "hi": ("दिनों", "दिन", "रोज़", "रोज", "सुबह", "शाम", "रात", "बार"),
-    "kn": ("ದಿನ", "ದೀನ", "ಬಾರ"),
-    "ta": ("தினம்", "தின", "நாள்", "வாரம்", "முறை"),
-    "te": ("రోజు", "రోజ", "తరువాత", "సార్లు"),
-    "pa": ("ਰੋਜ਼", "ਰੋਜ", "ਵਾਰ"),
-    "gu": ("રોજ", "દિવસ", "વાર"),
-    "od": ("ଦିନ", "ରୋଜ"),
+    "hi": ("दिनों", "दिन", "रोज़", "रोज", "सुबह", "शाम", "रात", "बार",
+           "रोज़ाना", "रोजाना", "प्रतिदिन", "दिनभर", "रात्रि", "रातों"),
+    "mr": ("रात्री", "रात्रीच्या", "दररोज"),
+    "kn": ("ದಿನ", "ದೀನ", "ಬಾರ",
+           "ಬಾರಿ", "ದಿನಕ್ಕೆ", "ದಿನವೂ", "ದಿನಗಳು", "ಪ್ರತಿದಿನ", "ದಿನಾ"),
+    "ta": ("தினம்", "தின", "நாள்", "வாரம்", "முறை",
+           "தினமும்", "தினசரி", "நாளுக்கு", "நாட்கள்", "முறைகள்",
+           "வாரத்திற்கு", "வாரத்துக்கு"),
+    "te": ("రోజు", "రోజ", "తరువాత", "సార్లు",
+           "రోజుకు", "రోజూ", "రోజులు", "ప్రతిరోజు", "ప్రతిరోజూ", "సారి"),
+    "pa": ("ਰੋਜ਼", "ਰੋਜ", "ਵਾਰ",
+           "ਰੋਜ਼ਾਨਾ", "ਰੋਜਾਨਾ", "ਵਾਰੀ", "ਦਿਨ"),
+    "gu": ("રોજ", "દિવસ", "વાર",
+           "દરરોજ", "રોજના", "દિવસમાં", "દિવસે", "દિવસો"),
+    "od": ("ଦିନ", "ରୋଜ",
+           "ପ୍ରତିଦିନ", "ଦିନରେ", "ଦିନକୁ", "ଦିନେ"),
 }
 
 # ---------------------------------------------------------------------------
 # Pattern assembly
 # ---------------------------------------------------------------------------
 
-# Letters and combining marks of the Indic blocks, minus the danda and double
-# danda. Python's \b treats a vowel sign as a non-word character, so Indic words
-# need their own boundary.
-_INDIC_WORD_CHARS = r"\w\u0900-\u0963\u0966-\u0DFF"
-_INDIC_START = rf"(?<![{_INDIC_WORD_CHARS}])"
+
+
+def _letter_or_mark_class() -> str:
+    """
+    A regex character class of every letter and combining mark (Unicode L*, Mn,
+    Mc) in the Latin and Indic blocks, plus the zero-width joiners that sit
+    inside Indic words.
+
+    Python's \\b cannot bound an Indic word: a vowel sign such as "ि" is a
+    combining mark, not \\w, so "बार" inside "बारे" ends on a "boundary". Digits
+    are left out on purpose, so "3गोली" still reads as a count.
+    """
+    chars = [chr(c) for c in range(0x0900, 0x0E00)
+             if unicodedata.category(chr(c))[0] == "L"
+             or unicodedata.category(chr(c)) in ("Mn", "Mc")]
+    ranges: List[Tuple[str, str]] = []
+    for ch in chars:
+        if ranges and ord(ch) == ord(ranges[-1][1]) + 1:
+            ranges[-1] = (ranges[-1][0], ch)
+        else:
+            ranges.append((ch, ch))
+    body = "".join(a if a == b else f"{a}-{b}" for a, b in ranges)
+    return f"[A-Za-z\u200c\u200d{body}]"
+
+
+_LETTER_OR_MARK = _letter_or_mark_class()
+_INDIC_START = rf"(?<!{_LETTER_OR_MARK})"
+_INDIC_END = rf"(?!{_LETTER_OR_MARK})"
+
+
+def _whole_words(words: Sequence[str]) -> str:
+    """An alternation of Indic words that matches only where no letter or mark adjoins."""
+    return _INDIC_START + _alternation(words) + _INDIC_END
 
 
 def _alternation(words: Sequence[str]) -> str:
@@ -202,12 +247,15 @@ def _alternation(words: Sequence[str]) -> str:
 
 _EN_WORD = _alternation(_EN_NUMBER_WORDS)
 _EN_NUMBER_PHRASE = rf"\b{_EN_WORD}(?:(?:\s+|-)(?:and\s+)?(?:a\s+)?{_EN_WORD})*\b"
-_HI_NUMBER_PHRASE = _INDIC_START + _alternation(_HI_NUMBER_WORDS)
+_HI_NUMBER_PHRASE = _whole_words(_HI_NUMBER_WORDS)
 # Not preceded by a letter, so "SpO2 drop" or "B12" does not start a dose.
 _DIGITS = r"(?<![A-Za-z])\d+(?:[.,/]\d+)?"
 _NUMBER = rf"(?:{_DIGITS}|{_EN_NUMBER_PHRASE}|{_HI_NUMBER_PHRASE})"
 
 _LATIN_UNIT = "(?:" + "|".join(_LATIN_UNITS) + r")(?![A-Za-z])"
+# Unit words are not closed on the right: they follow a number, which already
+# anchors them, and they take suffixes (Telugu plural "-లు", Tamil case endings)
+# that a closing boundary would cut off.
 _INDIC_UNIT = _alternation([w for words in UNIT_WORDS.values() for w in words])
 
 _NUMERIC_DOSE_RE = rf"{_NUMBER}\s*(?:{_LATIN_UNIT}|%|{_INDIC_UNIT})"
@@ -217,7 +265,7 @@ _COUNT_DOSE_RE = (
     r"(?:" + "|".join(_COUNT_NOUNS_AFTER_ARTICLE) + r")\b"
     rf"|{_NUMBER}\s+(?:of\s+a\s+)?"
     r"(?:" + "|".join(_COUNT_NOUNS_AFTER_NUMBER) + r")\b"
-    rf"|(?:{_DIGITS}|{_HI_NUMBER_PHRASE})\s*{_alternation(_HI_COUNT_NOUNS)}"
+    rf"|(?:{_DIGITS}|{_HI_NUMBER_PHRASE})\s*{_whole_words(_HI_COUNT_NOUNS)}"
 )
 
 _INTERVAL = rf"(?:\d+(?:\s*(?:-|–|to)\s*\d+)?|{_EN_NUMBER_PHRASE})"
@@ -234,7 +282,7 @@ _FREQUENCY_RE = (
     r"|\bnocte\b|\bmane\b"
     # Upper case only: "bid" and "bd" are ordinary words in lower case.
     r"|(?-i:\b(?:BD|BID|TDS|TID|QDS|QID)\b)"
-    r"|" + _alternation([w for words in _INDIC_FREQUENCY_WORDS.values() for w in words])
+    r"|" + _whole_words([w for words in _INDIC_FREQUENCY_WORDS.values() for w in words])
 )
 
 _TITRATION_RE = (
