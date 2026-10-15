@@ -2,12 +2,17 @@ from pydantic import BaseModel, Field
 from typing import Any, Dict, Literal, Optional, List
 from enum import Enum
 
+from care_role import CareRole
+
 
 class MobileQueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
     language: str = Field(default="en-IN")
     include_context: bool = Field(default=True)
     patient_id: Optional[str] = None
+    # The Active Role the person holding the phone switched to. The study row
+    # records it; absent, the Care Role the device registered with is used.
+    active_role: Optional[CareRole] = None
 
 
 class MobileQueryResponse(BaseModel):
@@ -28,7 +33,7 @@ class VoiceQueryResponse(MobileQueryResponse):
 class DeviceRegistrationRequest(BaseModel):
     name: str
     phone_hash: str
-    role: str
+    role: CareRole
     language: str
     site_id: str
     pin: str = Field(..., min_length=4, max_length=6)

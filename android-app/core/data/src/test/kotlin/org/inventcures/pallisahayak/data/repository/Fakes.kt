@@ -66,7 +66,7 @@ class FakeApi : PalliSahayakApi {
 
     override suspend fun query(body: MobileQueryRequest): Response<MobileQueryResponse> = respond(queryResponse)
 
-    override suspend fun voiceQuery(language: String, audio: RequestBody): Response<VoiceQueryResponse> =
+    override suspend fun voiceQuery(language: String, active_role: String?, audio: RequestBody): Response<VoiceQueryResponse> =
         respond(voiceResponse)
 
     override suspend fun cacheBundle(language: String): Response<CacheBundleResponse> {

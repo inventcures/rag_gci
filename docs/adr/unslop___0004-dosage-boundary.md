@@ -16,7 +16,7 @@ Finally, the corpus is 263 chunks about opioid titration, the WHO pain ladder, h
 
 Crossing the boundary redacts the dose-bearing sentences and keeps the remainder, so a general question about a medicine does not lose its useful half. Redaction is verified by re-running the detector over its own output and escalating to a full refusal on any residue, so it fails closed rather than open.
 
-Three failure modes were found and closed while building this, each of which would have silently disabled the control. A response-text fallback matched the bare word "emergency", so any answer merely mentioning emergencies bypassed the restriction. A HIGH-severity alert ("severe pain") could override the guard when only CRITICAL should. And Indic numerals do not match `\d`, so doses written as `१० मि.ग्रा.` or `๑๐ มิลลิกรัม` evaded detection.
+Three failure modes were found and closed while building this, each of which would have silently disabled the control. A response-text fallback matched the bare word "emergency", so any answer merely mentioning emergencies bypassed the restriction; it was removed in round 3 (ticket 02), so only the emergency alert computed on the question can invoke the override. A HIGH-severity alert ("severe pain") could override the guard when only CRITICAL should. And Indic numerals do not match `\d`, so doses written as `१० मि.ग्रा.` or `๑๐ มิลลิกรัม` evaded detection.
 
 The deferral wording never implies a person has been contacted, per protocol §7.6, since no notification path exists yet.
 

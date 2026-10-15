@@ -13,16 +13,21 @@ the user is left mid-sentence with the app apparently still thinking. So the
 decision is made on measured latency, not on whether a socket opened, and it lives
 here where it can be tested without a provider, a network, or a clock.
 
-Provider availability
----------------------
-`GeminiLiveProvider` imports `gemini_live` lazily. `google-genai` is not
-installed in every environment, and the study build must still work when it is
-not, so the import failing resolves to "Live unavailable" and the Sarvam path
-answers. That is the same shape as the fallback decision itself: a provider that
-cannot serve must not be able to strand a user mid-conversation.
+Where Live runs
+---------------
+Live is served by the web socket (/ws/voice, `web_voice_fallback` watches its
+deadlines) and WhatsApp voice notes, which hold their own Live sessions. This
+router serves the mobile routes, which never offer Live, so it always answers
+on Sarvam and records whether that was the administrator's choice or the
+channel's. An earlier `LiveVoiceProvider` here streamed from a service method
+that does not exist and was never given a service; it was removed (review 3,
+decision D12).
+
+`LiveAvailability` reports whether the Live SDK is importable at all, for the
+admin dashboard. `google-genai` is not installed in every environment, and the
+study build must still work when it is not.
 """
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -30,13 +35,10 @@ from typing import Any, Dict, List, Optional, Protocol
 
 from voice_provider import PROVIDER_LIVE, VoiceProviderControl, get_voice_provider_control
 from voice_session import (
-    FIRST_TOKEN_TIMEOUT_S,
-    PER_TURN_STALL_TIMEOUT_S,
     VOICE_PATH_FALLBACK,
     VOICE_PATH_LIVE,
     VoiceSession,
     VoiceTurn,
-    classify_fallback,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,82 +90,6 @@ class ProviderOutcome:
         return self.turn is not None and self.error is None
 
 
-class LiveVoiceProvider:
-    """
-    Gemini Live, proxied through the server's own session service.
-
-    The client never talks to Google. Audio goes to our endpoint, we hold the Live
-    session, which is what keeps the release identifier and the study log in one
-    place.
-    """
-
-    def __init__(self, service: Any, session: VoiceSession):
-        self.service = service
-        self.session = session
-
-    async def serve(self, audio: bytes) -> ProviderOutcome:
-        """
-        Stream one Live turn, cut short when Live goes quiet.
-
-        The first event must arrive within FIRST_TOKEN_TIMEOUT_S and the final
-        turn within PER_TURN_STALL_TIMEOUT_S of the start (ADR 0007's
-        "first-token timeout or per-turn stall", the release's
-        voice_fallback trigger). Past either, the outcome carries the reason
-        and no turn, so the router answers on Sarvam instead of leaving the
-        caller in silence.
-        """
-        started = time.time()
-        first_token_at: Optional[float] = None
-        stream: Any = None
-        try:
-            stream = self.service.stream_audio(audio, self.session.language)
-            while True:
-                if first_token_at is None:
-                    budget, reason = FIRST_TOKEN_TIMEOUT_S, "first_token_timeout"
-                else:
-                    budget, reason = PER_TURN_STALL_TIMEOUT_S - (time.time() - started), "turn_stalled"
-                try:
-                    event = await asyncio.wait_for(stream.__anext__(), timeout=max(budget, 0.0))
-                except asyncio.TimeoutError:
-                    logger.warning("Live went quiet (%s); falling back to Sarvam", reason)
-                    return ProviderOutcome(
-                        turn=None,
-                        first_token_latency_s=(first_token_at - started) if first_token_at else None,
-                        turn_latency_s=time.time() - started,
-                        error=reason,
-                    )
-                except StopAsyncIteration:
-                    break
-                if first_token_at is None:
-                    first_token_at = time.time()
-                if event.get("final"):
-                    return ProviderOutcome(
-                        turn=event.get("turn"),
-                        first_token_latency_s=first_token_at - started,
-                        turn_latency_s=time.time() - started,
-                    )
-            return ProviderOutcome(
-                turn=None,
-                first_token_latency_s=(first_token_at - started) if first_token_at else None,
-                turn_latency_s=time.time() - started,
-                error="live_produced_no_final_turn",
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Live provider failed: %s", exc)
-            return ProviderOutcome(
-                turn=None,
-                turn_latency_s=time.time() - started,
-                error=f"live_error: {type(exc).__name__}",
-            )
-        finally:
-            aclose = getattr(stream, "aclose", None)
-            if aclose is not None:
-                try:
-                    await aclose()
-                except Exception:  # noqa: BLE001
-                    logger.debug("Live stream did not close cleanly", exc_info=True)
-
-
 class SarvamVoiceProvider:
     """The India-resident turn-based path. Always available in the study build."""
 
@@ -209,21 +135,19 @@ class Arbitration:
 
 class VoiceRouter:
     """
-    Chooses the provider for each turn and reports which one answered.
+    Answers each turn on Sarvam and reports why.
 
-    The router never decides policy. Policy is in `classify_fallback`, which is
-    pure and tested on its own.
+    The router never decides policy: the administrator's override is read
+    from VoiceProviderControl on every turn.
     """
 
     def __init__(
         self,
         handler: SupportsAudioTurns,
-        live_service_factory: Optional[Any] = None,
         control: Optional[VoiceProviderControl] = None,
         channel: str = "mobile_voice",
     ):
         self.handler = handler
-        self.live_service_factory = live_service_factory
         # The deployment's control, so an administrator's override reaches
         # every router (ADR 0007: "deployment-wide").
         self.control = control or get_voice_provider_control()
@@ -244,48 +168,18 @@ class VoiceRouter:
         live_enabled: Optional[bool] = None,
     ) -> ProviderOutcome:
         """
-        Answer one turn.
+        Answer one turn on Sarvam.
 
-        `live_enabled` defaults to whatever the administrator has selected, so an
-        override applies to every session without a restart. Passing it explicitly
-        exists for tests only; the admin dashboard goes through VoiceProviderControl.
+        The turn records "operator_forced_fallback" when the administrator has
+        selected Sarvam, and "live_not_offered" otherwise: this channel has no
+        Live session to offer, which is not Live failing. `live_enabled`
+        defaults to the administrator's selection; passing it exists for tests.
         """
         if live_enabled is None:
             live_enabled = self.control.current().live_enabled
-
-        availability = LiveAvailability.probe()
-        use_live = live_enabled and availability.available and self.live_service_factory
-
-        if not live_enabled:
-            self._count("operator_forced_fallback")
-            return await self._fallback(session, audio, "operator_forced_fallback")
-
-        if not self.live_service_factory:
-            # The channel does not offer Live at all (mobile, ticket 15): not
-            # a degradation, and recorded as such.
-            self._count("live_not_offered")
-            return await self._fallback(session, audio, "live_not_offered")
-
-        if not use_live:
-            self._count("live_unavailable")
-            self._count(f"live_to_fallback:{availability.reason or 'live_unavailable'}")
-            return await self._fallback(session, audio, availability.reason or "live_unavailable")
-
-        live = LiveVoiceProvider(self.live_service_factory(session), session)
-        outcome = await live.serve(audio)
-
-        # A stall the provider cut short names itself; otherwise the timings decide.
-        reason = outcome.error or classify_fallback(
-            outcome.first_token_latency_s, outcome.turn_latency_s)
-        if outcome.ok and reason is None:
-            self._count("live")
-            outcome.turn.voice_path = VOICE_PATH_LIVE
-            return outcome
-
-        # Unhealthy rather than broken: connected, then went quiet, or produced
-        # nothing. Fall back so the user gets an answer instead of silence.
-        self._count(f"live_to_fallback:{reason or 'live_unhealthy'}")
-        return await self._fallback(session, audio, reason or "live_unhealthy")
+        reason = "live_not_offered" if live_enabled else "operator_forced_fallback"
+        self._count(reason)
+        return await self._fallback(session, audio, reason)
 
     async def _fallback(
         self, session: VoiceSession, audio: bytes, reason: str

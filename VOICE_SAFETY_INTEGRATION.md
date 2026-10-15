@@ -380,7 +380,6 @@ Actions:
 1. Call 108 (ambulance) or 102 immediately
 2. Stay with the patient
 3. Do not give food or water if unconscious
-4. A human caregiver has been notified
 ```
 
 ### Critical Emergency (Hindi)
@@ -394,7 +393,6 @@ Actions:
 1. तुरंत 108 (एम्बुलेंस) या 102 पर कॉल करें
 2. मरीज के पास रहें
 3. बेहोश होने पर खाना-पानी न दें
-4. एक मानव देखभाल करने वाले को सूचित किया गया है
 ```
 
 ---
@@ -406,13 +404,10 @@ Actions:
 ```bash
 # Voice safety (enabled by default if safety_enhancements available)
 VOICE_SAFETY_ENABLED=true
-
-# Emergency notification webhook (optional)
-EMERGENCY_WEBHOOK_URL=https://your-hospital.com/api/emergency
-
-# Caregiver phone numbers for alerts (comma-separated)
-CAREGIVER_PHONES=+919876543210,+919876543211
 ```
+
+No emergency notification is sent to caregivers or a hospital: no notification
+path exists (CONTEXT.md), so the reply only tells the caller what to do.
 
 ### Disabling Voice Safety
 

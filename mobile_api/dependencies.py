@@ -6,7 +6,7 @@ _memory_manager = None
 _medication_manager = None
 _memory_agents_store = None
 _memory_agents_query = None
-_meta_evaluator = None
+_feedback_collector = None
 
 
 def init_dependencies(rag_pipeline, safety_manager, memory_manager, medication_manager):
@@ -15,17 +15,6 @@ def init_dependencies(rag_pipeline, safety_manager, memory_manager, medication_m
     _safety_manager = safety_manager
     _memory_manager = memory_manager
     _medication_manager = medication_manager
-
-
-def init_memory_agents(store, query_agent):
-    global _memory_agents_store, _memory_agents_query
-    _memory_agents_store = store
-    _memory_agents_query = query_agent
-
-
-def init_meta_evaluator(evaluator):
-    global _meta_evaluator
-    _meta_evaluator = evaluator
 
 
 def get_rag_pipeline():
@@ -52,5 +41,10 @@ def get_memory_agents_query():
     return _memory_agents_query
 
 
-def get_meta_evaluator():
-    return _meta_evaluator
+def get_feedback_collector():
+    """The store /feedback writes to, built on first use (no LLM is involved)."""
+    global _feedback_collector
+    if _feedback_collector is None:
+        from clinical_validation.feedback import FeedbackCollector
+        _feedback_collector = FeedbackCollector()
+    return _feedback_collector

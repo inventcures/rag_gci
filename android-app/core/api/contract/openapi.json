@@ -141,6 +141,16 @@
         "title": "CacheBundleResponse",
         "type": "object"
       },
+      "CareRole": {
+        "description": "The three Care Roles, by the value the app sends and the study log records.",
+        "enum": [
+          "asha_worker",
+          "family_caregiver",
+          "patient"
+        ],
+        "title": "CareRole",
+        "type": "string"
+      },
       "CreateObservationRequest": {
         "properties": {
           "category": {
@@ -335,8 +345,7 @@
             "type": "string"
           },
           "role": {
-            "title": "Role",
-            "type": "string"
+            "$ref": "#/components/schemas/CareRole"
           },
           "site_id": {
             "title": "Site Id",
@@ -499,6 +508,16 @@
       },
       "MobileQueryRequest": {
         "properties": {
+          "active_role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CareRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "include_context": {
             "default": true,
             "title": "Include Context",
@@ -2384,6 +2403,24 @@
             "schema": {
               "title": "Language",
               "type": "string"
+            }
+          },
+          {
+            "description": "The Active Role the app is switched to; absent, the registered Care Role.",
+            "in": "query",
+            "name": "active_role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CareRole"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The Active Role the app is switched to; absent, the registered Care Role.",
+              "title": "Active Role"
             }
           }
         ],

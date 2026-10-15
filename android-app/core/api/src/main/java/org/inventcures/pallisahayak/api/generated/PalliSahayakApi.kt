@@ -28,7 +28,7 @@ interface PalliSahayakApi {
     @POST(
         "/api/mobile/v1/query/voice"
     )
-    suspend fun voiceQuery(@Query("language") language: String, @Part("audio") audio: RequestBody): Response<VoiceQueryResponse>
+    suspend fun voiceQuery(@Query("language") language: String, @Query("active_role") active_role: String?, @Part("audio") audio: RequestBody): Response<VoiceQueryResponse>
 
     @GET(
         "/api/mobile/v1/cache/bundle"

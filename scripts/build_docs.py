@@ -277,28 +277,19 @@ sequenceDiagram
     participant A as App
     participant S as voice_session
     participant R as voice_router
-    participant L as Gemini Live
     participant V as Sarvam
     participant P as RAG plus safety
 
     U->>A: hold to speak, release
     A->>S: audio over WebSocket
     S->>R: route(audio)
-    R->>R: LiveAvailability.probe
-    alt Live selected and reachable
-        R->>L: stream audio
-        L-->>R: first token
-        R->>R: classify_fallback timing
-        alt healthy
-            L-->>R: grounded turn
-            R-->>S: voice_path is live
-        else slow or silent
-            R->>R: count fallback reason
-            R->>V: stream audio
-        end
-    else admin forced Sarvam
-        R->>V: stream audio
+    Note over R: the app's routes offer no Live;<br/>web voice and WhatsApp hold their own Live sessions
+    alt admin forced Sarvam
+        R->>R: count operator_forced_fallback
+    else Live selected
+        R->>R: count live_not_offered
     end
+    R->>V: stream audio
     V->>P: transcribe, query, filter
     P-->>R: safety filtered turn
     R-->>S: transcript plus answer

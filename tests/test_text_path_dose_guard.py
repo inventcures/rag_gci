@@ -66,6 +66,7 @@ class RealisticRag:
         user_id=None,
         top_k: int = 5,
         source_language: str = "en",
+        care_role: str = "",
     ):
         self.calls.append(
             {"question": question, "user_id": user_id, "source_language": source_language}
@@ -244,7 +245,6 @@ def make_bot(rag):
     bot.stt_service = FakeStt()
     bot.tts_service = FakeTts()
     bot.twilio_api = FakeSender()
-    bot.whatsapp_api = FakeSender()
     bot.user_preferences = {}
     bot.media_files = {}
     bot.whatsapp_char_limit = 1550
@@ -259,7 +259,7 @@ class WhatsAppAnswersAreGuarded(unittest.TestCase):
 
     def everything_sent(self, bot):
         return (
-            bot.twilio_api.texts + bot.whatsapp_api.texts + bot.tts_service.spoken
+            bot.twilio_api.texts + bot.tts_service.spoken
             + list(bot.conversation_history.get(self.NUMBER, []))
         )
 
@@ -292,24 +292,6 @@ class WhatsAppAnswersAreGuarded(unittest.TestCase):
         run(bot._handle_twilio_media_message(self.NUMBER, "https://x/m", "audio/ogg"))
         self.assertTrue(bot.tts_service.spoken, "no TTS text was produced")
         self.assert_bot_clean(bot, "WhatsApp (Twilio voice note, text and TTS)")
-
-    def test_cloud_api_text_message_and_tts(self):
-        bot = make_bot(RealisticRag())
-        message = {"text": {"body": "how much morphine?"}}
-        run(bot._handle_text_message(message, self.NUMBER))
-        self.assertTrue(bot.whatsapp_api.texts and bot.tts_service.spoken)
-        self.assert_bot_clean(bot, "WhatsApp (Cloud API text, text and TTS)")
-
-    def test_cloud_api_voice_note_text_and_tts(self):
-        bot = make_bot(RealisticRag())
-
-        async def download(media_id):
-            return os.path.join(tempfile.mkdtemp(), "note.ogg")
-
-        bot.whatsapp_api.download_media = download
-        run(bot._handle_audio_message({"audio": {"id": "m1"}}, self.NUMBER))
-        self.assertTrue(bot.tts_service.spoken, "no TTS text was produced")
-        self.assert_bot_clean(bot, "WhatsApp (Cloud API voice note, text and TTS)")
 
     def test_every_query_call_goes_through_the_guard(self):
         """A new handler that calls rag_pipeline.query directly would bypass the guard."""

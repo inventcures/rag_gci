@@ -619,15 +619,17 @@ class EmergencyDetectionSystem:
             },
         }
         
+        # No line says anyone was contacted: no notification path exists
+        # (CONTEXT.md), so the reply names only what the caller should do.
         actions = {
             "en": {
-                EmergencyLevel.CRITICAL: "1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious\n4. A human caregiver has been notified",
-                EmergencyLevel.HIGH: "1. Go to nearest hospital emergency\n2. Call your doctor\n3. Do not drive yourself\n4. A human caregiver has been notified",
+                EmergencyLevel.CRITICAL: "1. Call 108 (ambulance) or 102 immediately\n2. Stay with the patient\n3. Do not give food or water if unconscious",
+                EmergencyLevel.HIGH: "1. Go to nearest hospital emergency\n2. Call your doctor\n3. Do not drive yourself",
                 EmergencyLevel.MEDIUM: "1. Schedule doctor appointment\n2. Monitor symptoms\n3. Rest and stay hydrated\n4. Contact if symptoms worsen",
             },
             "hi": {
-                EmergencyLevel.CRITICAL: "1. तुरंत 108 (एम्बुलेंस) या 102 पर कॉल करें\n2. मरीज के पास रहें\n3. बेहोश होने पर खाना-पानी न दें\n4. एक मानव देखभाल करने वाले को सूचित किया गया है",
-                EmergencyLevel.HIGH: "1. निकटतम अस्पताल के आपातकालीन में जाएं\n2. अपने डॉक्टर को कॉल करें\n3. खुद गाड़ी न चलाएं\n4. एक मानव देखभाल करने वाले को सूचित किया गया है",
+                EmergencyLevel.CRITICAL: "1. तुरंत 108 (एम्बुलेंस) या 102 पर कॉल करें\n2. मरीज के पास रहें\n3. बेहोश होने पर खाना-पानी न दें",
+                EmergencyLevel.HIGH: "1. निकटतम अस्पताल के आपातकालीन में जाएं\n2. अपने डॉक्टर को कॉल करें\n3. खुद गाड़ी न चलाएं",
                 EmergencyLevel.MEDIUM: "1. डॉक्टर का समय निर्धारित करें\n2. लक्षणों की निगरानी करें\n3. आराम करें और हाइड्रेटेड रहें\n4. अगर लक्षण बिगड़ें तो संपर्क करें",
             },
         }

@@ -8,8 +8,8 @@ Before this:
   * the administrator's "force Sarvam" setting was read only by the mobile
     router, which never offers Live; web voice (/ws/voice) and WhatsApp voice
     notes opened Live regardless, so forcing Sarvam changed nothing;
-  * `LiveVoiceProvider.serve` had no timeout, so a Live session that went
-    quiet was never cut short and the caller waited in silence;
+  * a web Live session that went quiet was never cut short and the caller
+    waited in silence;
   * operator-forced turns were counted into the Live failure rate;
   * on web voice a turn the Dose Boundary withheld was shown as text only:
     the caller, listening, heard silence.
@@ -35,7 +35,6 @@ import voice_router as vr  # noqa: E402
 from voice_provider import PROVIDER_SARVAM, VoiceProviderControl  # noqa: E402
 from voice_session import VOICE_PATH_FALLBACK, VOICE_PATH_LIVE, VoiceSession, VoiceTurn  # noqa: E402
 
-LIVE_UP = vr.LiveAvailability(available=True)
 
 
 def a_turn() -> VoiceTurn:
@@ -52,28 +51,6 @@ class SarvamHandler:
     async def handle_audio(self, session, audio, voice_path: str = "live"):
         self.calls += 1
         return a_turn()
-
-
-class QuietLive:
-    """A Live session that connects and then says nothing at all."""
-
-    async def stream_audio(self, audio, language):
-        await asyncio.Event().wait()
-        yield {}  # pragma: no cover
-
-
-class StallingLive:
-    """A Live session that starts answering, then goes quiet mid-turn."""
-
-    async def stream_audio(self, audio, language):
-        yield {"final": False}
-        await asyncio.Event().wait()
-
-
-class HealthyLive:
-    async def stream_audio(self, audio, language):
-        yield {"final": False}
-        yield {"final": True, "turn": a_turn()}
 
 
 def forced_sarvam_control(test: unittest.TestCase) -> VoiceProviderControl:
@@ -94,42 +71,16 @@ def fresh_deployment_tally(test: unittest.TestCase) -> None:
     test.addCleanup(patcher.stop)
 
 
-class AStalledLiveSessionFallsBack(unittest.TestCase):
-    """A Live session that goes quiet past the deadline is answered by Sarvam."""
-
-    def route(self, live, **deadlines) -> vr.ProviderOutcome:
-        handler = SarvamHandler()
-        router = vr.VoiceRouter(handler, live_service_factory=lambda s: live)
-        with mock.patch.object(vr.LiveAvailability, "probe", return_value=LIVE_UP), \
-                mock.patch.multiple(vr, create=True, **deadlines):
-            # Bounded: the old code waited on a quiet session for ever.
-            outcome = asyncio.run(asyncio.wait_for(
-                router.route(VoiceSession(), b"\x00", live_enabled=True), timeout=3))
-        self.assertEqual(handler.calls, 1, "Sarvam did not answer")
-        return outcome
-
-    def test_a_live_session_that_never_speaks_is_answered_by_sarvam(self):
-        outcome = self.route(QuietLive(), FIRST_TOKEN_TIMEOUT_S=0.05, PER_TURN_STALL_TIMEOUT_S=0.2)
-        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
-        self.assertEqual(outcome.turn.fallback_reason, "first_token_timeout")
-
-    def test_a_live_session_that_goes_quiet_mid_turn_is_answered_by_sarvam(self):
-        outcome = self.route(StallingLive(), FIRST_TOKEN_TIMEOUT_S=0.5, PER_TURN_STALL_TIMEOUT_S=0.1)
-        self.assertEqual(outcome.turn.voice_path, VOICE_PATH_FALLBACK)
-        self.assertEqual(outcome.turn.fallback_reason, "turn_stalled")
-
-
 class TheLiveFailureRateExcludesOperatorForcedTurns(unittest.TestCase):
     def setUp(self):
         fresh_deployment_tally(self)
 
     def test_forced_turns_are_not_live_failures(self):
-        router = vr.VoiceRouter(SarvamHandler(), live_service_factory=lambda s: HealthyLive())
-        with mock.patch.object(vr.LiveAvailability, "probe", return_value=LIVE_UP):
-            asyncio.run(router.route(VoiceSession(), b"\x00", live_enabled=True))
-            asyncio.run(router.route(VoiceSession(), b"\x00", live_enabled=False))
-            asyncio.run(router.route(VoiceSession(), b"\x00", live_enabled=False))
-        report = router.report()
+        vr.record_voice_path("web_voice", VOICE_PATH_LIVE)
+        router = vr.VoiceRouter(SarvamHandler())
+        asyncio.run(router.route(VoiceSession(), b"\x00", live_enabled=False))
+        asyncio.run(router.route(VoiceSession(), b"\x00", live_enabled=False))
+        report = vr.voice_path_report()
         self.assertEqual(report["live"], 1)
         self.assertEqual(report["operator_forced"], 2)
         self.assertEqual(report["fallback"], 0)

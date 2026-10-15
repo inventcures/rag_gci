@@ -189,7 +189,7 @@ python -c "from gemini_live.service import GeminiLiveService; ..."
 python -c "from gemini_live.audio_handler import AudioHandler; ..."
 
 # Run integration tests
-pytest tests/test_gemini_live.py
+pytest tests/test_web_live_voice.py tests/test_live_tool_safety.py tests/test_live_first_audio.py
 ```
 
 ### Documentation

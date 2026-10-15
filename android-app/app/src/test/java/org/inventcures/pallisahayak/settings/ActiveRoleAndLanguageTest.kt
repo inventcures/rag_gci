@@ -116,6 +116,30 @@ class ActiveRoleAndLanguageTest {
     }
 
     @Test
+    fun `switching the Active Role sends it with the next question so the server records it`() {
+        val settings = ActiveSettings(prefs)
+        val vm = askViewModel(registerAs(CareRole.FAMILY_CAREGIVER), settings)
+
+        vm.ask("how do I turn him in bed?")
+        settings.switchRole(CareRole.ASHA_WORKER)
+        vm.ask("how do I turn him in bed?")
+
+        // The server's study row takes its speaker role from this field (ticket 25).
+        assertThat(fake.queryActiveRoles).containsExactly("family_caregiver", "asha_worker").inOrder()
+    }
+
+    @Test
+    fun `a spoken question carries the Active Role too`() {
+        val settings = ActiveSettings(prefs)
+        val session = registerAs(CareRole.ASHA_WORKER)
+        settings.switchRole(CareRole.PATIENT)
+
+        runBlocking { repository.askByVoice(byteArrayOf(0, 1, 2, 3), settings.applyTo(session)) }
+
+        assertThat(fake.voiceActiveRoles).containsExactly("patient")
+    }
+
+    @Test
     fun `the Active Role is remembered across launches`() {
         val session = registerAs(CareRole.ASHA_WORKER)
         ActiveSettings(prefs).switchRole(CareRole.FAMILY_CAREGIVER)
@@ -167,6 +191,8 @@ private class FakeQueryServer : Dispatcher() {
     val userId = "3f2a8c14-9b7e-4d21-8a55-6c1e0d3b7f92"
     val queryLanguages = CopyOnWriteArrayList<String>()
     val registrationLanguages = CopyOnWriteArrayList<String>()
+    val queryActiveRoles = CopyOnWriteArrayList<String>()
+    val voiceActiveRoles = CopyOnWriteArrayList<String>()
 
     override fun dispatch(request: RecordedRequest): MockResponse {
         val body = request.body.readUtf8()
@@ -179,8 +205,17 @@ private class FakeQueryServer : Dispatcher() {
                 registrationLanguages += languageIn(body)
                 json("""{"user_id":"$userId","token":"access-1","expires_at":1.7E9,"refresh_token":"refresh-1"}""")
             }
+            "/api/mobile/v1/query/voice" -> {
+                voiceActiveRoles += request.requestUrl?.queryParameter("active_role").orEmpty()
+                json(
+                    """{"transcript":"how do I turn him in bed?","answer":"Turn him every two hours.",""" +
+                        """"sources":[],"evidence_level":"B","emergency_level":"none","confidence":0.8,""" +
+                        """"validation_status":"validated","disclaimer":null,"audio_base64":null}""",
+                )
+            }
             "/api/mobile/v1/query" -> {
                 queryLanguages += languageIn(body)
+                queryActiveRoles += Regex("\"active_role\":\"([^\"]*)\"").find(body)?.groupValues?.get(1).orEmpty()
                 json(
                     """{"answer":"Sit the patient upright and open a window.","sources":[],""" +
                         """"evidence_level":"B","emergency_level":"none","confidence":0.8,""" +

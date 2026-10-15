@@ -16,7 +16,8 @@ NEW: Longitudinal Patient Memory (1-5 year tracking):
 """
 
 # Existing modules
-from .user_profile import UserProfile, UserProfileManager, UserRole
+from care_role import CareRole
+from .user_profile import UserProfile, UserProfileManager
 from .context_memory import PatientContext, ContextMemory
 from .interaction_history import InteractionHistory, ConversationTurn
 
@@ -64,18 +65,13 @@ from .temporal_reasoner import (
     CorrelationAnalysis,
 )
 
-from .alert_manager import (
-    AlertManager,
-    AlertNotificationCoordinator,
-    DeliveryStatus,
-    AlertDeliveryResult,
-)
+from .alert_manager import AlertManager
 
 __all__ = [
     # Existing exports
     "UserProfile",
     "UserProfileManager",
-    "UserRole",
+    "CareRole",
     "PatientContext",
     "ContextMemory",
     "InteractionHistory",
@@ -115,7 +111,4 @@ __all__ = [
     "CorrelationAnalysis",
     # Alert management
     "AlertManager",
-    "AlertNotificationCoordinator",
-    "DeliveryStatus",
-    "AlertDeliveryResult",
 ]

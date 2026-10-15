@@ -104,7 +104,7 @@ class AfterTheReply(Case):
             return took
 
         self.assertLess(asyncio.run(go()), 0.3)
-        self.assertEqual(SlowAggregator.calls[0]["transcript"], f"Patient: {QUESTION}")
+        self.assertEqual(SlowAggregator.calls[0]["transcript"], f"Caller: {QUESTION}")
         self.assertNotIn(ANSWER, SlowAggregator.calls[0]["transcript"])
 
 

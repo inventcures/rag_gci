@@ -118,6 +118,10 @@ class MedicationVoiceReminder:
     # the client's last sync.
     updated_at: datetime = field(default_factory=datetime.now)
     notes: str = ""
+    # The household's patient the reminder is for, when the app names one;
+    # adherence is counted per patient from it. user_id is the household
+    # account that owns the reminder.
+    patient_id: Optional[str] = None
 
     # Fields never sent to the app: the dose (decision D10, the stored dose is
     # never spoken or sent) and the call script built from it.
@@ -148,6 +152,7 @@ class MedicationVoiceReminder:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "notes": self.notes,
+            "patient_id": self.patient_id,
         }
 
     def to_client_dict(self) -> Dict[str, Any]:
@@ -324,6 +329,7 @@ class MedicationVoiceReminderSystem:
             created_at=created_at,
             updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else created_at,
             notes=data.get("notes", ""),
+            patient_id=data.get("patient_id"),
         )
     
     def _start_scheduler(self):
@@ -349,13 +355,14 @@ class MedicationVoiceReminderSystem:
         reminder_time: datetime,
         language: str = "en",
         preferred_provider: str = "bolna",
-        max_attempts: int = 3
+        max_attempts: int = 3,
+        patient_id: Optional[str] = None,
     ) -> MedicationVoiceReminder:
         """
         Create a new voice reminder for medication.
         
         Args:
-            user_id: Patient identifier
+            user_id: The account that owns the reminder (the household)
             phone_number: Phone number in E.164 format (+91...)
             medication_name: Name of medication
             dosage: Dosage as entered (e.g., "500mg with food"). Stored with the
@@ -364,6 +371,7 @@ class MedicationVoiceReminderSystem:
             language: Language code (en, hi, bn, ta, gu)
             preferred_provider: "bolna" or "retell"
             max_attempts: Max retry attempts
+            patient_id: The household's patient the reminder is for, if known
 
         Returns:
             MedicationVoiceReminder object
@@ -395,6 +403,7 @@ class MedicationVoiceReminderSystem:
             preferred_provider=preferred_provider,
             max_attempts=max_attempts,
             tts_message=tts_message,
+            patient_id=patient_id,
         )
         
         # Store reminder
@@ -681,8 +690,15 @@ class MedicationVoiceReminderSystem:
         ]
         return sorted(pending, key=lambda x: x["scheduled_time"])
     
-    def get_adherence_stats(self, user_id: str, days: int = 7) -> Dict[str, Any]:
-        """Get medication adherence statistics"""
+    def get_adherence_stats(
+        self, user_id: str, days: int = 7, patient_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Adherence over the last `days` for the reminders `user_id` owns.
+
+        With `patient_id`, only that patient's reminders count. Reminders are
+        keyed by the owning account, never by patient id, so a patient's
+        adherence is the owner's reminders filtered to the patient.
+        """
         reminder_ids = self.user_reminders.get(user_id, [])
         
         cutoff = datetime.now() - timedelta(days=days)
@@ -694,6 +710,8 @@ class MedicationVoiceReminderSystem:
         for r_id in reminder_ids:
             if r_id in self.reminders:
                 r = self.reminders[r_id]
+                if patient_id is not None and r.patient_id != patient_id:
+                    continue
                 if r.scheduled_time >= cutoff:
                     total += 1
                     if r.patient_confirmed:
@@ -703,7 +721,7 @@ class MedicationVoiceReminderSystem:
         
         adherence_rate = (confirmed / total * 100) if total > 0 else 0
         
-        return {
+        stats = {
             "user_id": user_id,
             "period_days": days,
             "total_reminders": total,
@@ -711,6 +729,9 @@ class MedicationVoiceReminderSystem:
             "missed": missed,
             "adherence_rate": round(adherence_rate, 1),
         }
+        if patient_id is not None:
+            stats["patient_id"] = patient_id
+        return stats
 
     def get_client_reminders(self, user_id: str) -> List[Dict[str, Any]]:
         """This household's reminders as the mobile app receives them (no dose)."""

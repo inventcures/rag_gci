@@ -445,12 +445,8 @@ class VoiceSafetyWrapper:
         }
         
         if safety_result.event_type == VoiceSafetyEvent.EMERGENCY_DETECTED:
-            # Notify caregivers
-            if safety_result.emergency_alert and safety_result.emergency_alert.notify_caregivers:
-                # This would integrate with your notification system
-                result["actions_taken"].append("caregiver_notification_queued")
-                logger.info(f"Caregiver notification queued for {safety_result.metadata.get('user_id')}")
-            
+            # No caregiver notification is recorded: no notification path
+            # exists (CONTEXT.md), so none is claimed.
             # Log critical event
             logger.critical(f"Voice emergency escalated from {provider}: {safety_result.emergency_alert}")
             

@@ -405,6 +405,7 @@ private class StubApi : PalliSahayakApi {
 
     override suspend fun voiceQuery(
         @Query("language") language: String,
+        @Query("active_role") active_role: String?,
         @Part("audio") audio: okhttp3.RequestBody,
     ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.VoiceQueryResponse> {
         voiceCallCount++

@@ -56,6 +56,7 @@ data class LoginRequest(
  * scripts/generate_kotlin_client.py instead.
  */
 data class MobileQueryRequest(
+    @Json(name = "active_role") val active_role: String? = null,
     @Json(name = "include_context") val include_context: Boolean? = null,
     @Json(name = "language") val language: String? = null,
     @Json(name = "patient_id") val patient_id: String? = null,
