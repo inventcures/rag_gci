@@ -1,6 +1,7 @@
 package org.inventcures.pallisahayak.safety
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import java.io.File
 import org.junit.jupiter.api.Test
 
@@ -34,6 +35,19 @@ class DoseVocabularyTest {
             .isEqualTo(pythonDict(source, "UNIT_WORDS"))
         assertThat(DoseVocabulary.INDIC_FREQUENCY_WORDS.mapValues { it.value.toSet() })
             .isEqualTo(pythonDict(source, "_INDIC_FREQUENCY_WORDS"))
+        assertThat(DoseVocabulary.INDIC_COUNT_CLASSIFIERS.toSet())
+            .isEqualTo(pythonTuple(source, "INDIC_COUNT_CLASSIFIERS"))
+        val tables = mapOf(
+            "INDIC_NUMBER_WORDS" to DoseVocabulary.INDIC_NUMBER_WORDS,
+            "INDIC_COUNT_NOUNS" to DoseVocabulary.INDIC_COUNT_NOUNS,
+            "INDIC_TIMES_WORDS" to DoseVocabulary.INDIC_TIMES_WORDS,
+            "INDIC_EVERY_WORDS" to DoseVocabulary.INDIC_EVERY_WORDS,
+            "INDIC_INTERVAL_WORDS" to DoseVocabulary.INDIC_INTERVAL_WORDS,
+        )
+        for ((name, table) in tables) {
+            assertWithMessage(name).that(table.mapValues { it.value.toSet() })
+                .isEqualTo(pythonDict(source, name))
+        }
     }
 
     private fun scriptsOf(word: String): Set<Character.UnicodeScript> =

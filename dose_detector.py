@@ -14,14 +14,16 @@ caught, so a second copy is treated as a defect rather than a convenience.
 
 What counts as a dose (one reason per family, reported in the safety record):
 
-    numeric_dose   a number, in digits or in English or Hindi words, followed by
-                   a unit: abbreviated ("mg", "mcg"), spelled out ("milligrams",
-                   "microgrammes") or the unit word of any Supported Language in
-                   its own script ("मिलीग्राम", "এমজি"-style abbreviations, ...)
+    numeric_dose   a number, in digits (with "½", "¼", "¾") or in the words of
+                   any Supported Language, followed by a unit: abbreviated
+                   ("mg", "mcg"), spelled out ("milligrams", "microgrammes") or
+                   the unit word of any Supported Language in its own script
+                   ("मिलीग्राम", "এমজি"-style abbreviations, ...)
     fraction_dose  a count of a dose form: "half a tablet", "two tablets",
-                   "2 puffs", "३ गोली"
+                   "2 puffs", "३ गोली", "দুটি ট্যাবলেট", "2 மாத்திரை"
     frequency      a schedule: "twice daily", "every four hours", "4-hourly",
-                   "q4h", "BD", and the Indic day/time words
+                   "q4h", "BD", the Indic day/time words, and the Indic
+                   "N times" and "every N hours" ("দুবার", "दर चार तासांनी")
     titration      dose changes: "titrate", "step up", "maximum dose"
     start_stop     start, stop and switch decisions
 
@@ -171,6 +173,116 @@ _HI_COUNT_NOUNS: Tuple[str, ...] = (
     "गोलियों", "बूँदों", "बूंदों", "खुराकें", "खुराकों",
 )
 
+# Number words of the other Supported Languages, matched whole. Each list holds
+# one to ten, the halves and the "one and a half" words, and the forms a count
+# takes before a noun (Bengali "দুটি", Odia "ଦୁଇଟି", Malayalam "രണ്ടു").
+# Words shared with Hindi ("एक", "चार") are listed once, under Hindi.
+INDIC_NUMBER_WORDS: Dict[str, Tuple[str, ...]] = {
+    "mr": ("दोन", "पाच", "सहा", "नऊ", "दहा", "अर्धा", "अर्धी", "अर्धे", "दीड",
+           "अडीच", "पाव"),
+    "bn": ("এক", "একটি", "একটা", "দুই", "দু", "দুটি", "দুটো", "তিন", "তিনটি",
+           "তিনটে", "চার", "চারটি", "চারটে", "পাঁচ", "পাঁচটি", "ছয়", "সাত", "আট",
+           "নয়", "দশ", "আধা", "আধ", "অর্ধেক", "দেড়", "আড়াই"),
+    "pa": ("ਇੱਕ", "ਇਕ", "ਦੋ", "ਤਿੰਨ", "ਚਾਰ", "ਪੰਜ", "ਛੇ", "ਸੱਤ", "ਅੱਠ", "ਨੌਂ",
+           "ਦਸ", "ਅੱਧੀ", "ਅੱਧਾ", "ਡੇਢ", "ਢਾਈ"),
+    "gu": ("એક", "બે", "ત્રણ", "ચાર", "પાંચ", "છ", "સાત", "આઠ", "નવ", "દસ",
+           "અડધી", "અડધો", "અડધું", "અર્ધી", "અર્ધો", "દોઢ", "અઢી"),
+    "or": ("ଏକ", "ଗୋଟିଏ", "ଦୁଇ", "ଦୁଇଟି", "ଦୁଇଟା", "ତିନି", "ତିନିଟି", "ଚାରି",
+           "ଚାରିଟି", "ପାଞ୍ଚ", "ଛଅ", "ସାତ", "ଆଠ", "ନଅ", "ଦଶ", "ଅଧା", "ଦେଢ଼",
+           "ଅଢ଼େଇ"),
+    "ta": ("ஒன்று", "ஒரு", "இரண்டு", "இரு", "மூன்று", "மூணு", "நான்கு", "நாலு",
+           "ஐந்து", "ஆறு", "ஏழு", "எட்டு", "ஒன்பது", "பத்து", "அரை", "பாதி",
+           "கால்", "ஒன்றரை"),
+    "te": ("ఒకటి", "ఒక", "రెండు", "మూడు", "నాలుగు", "ఐదు", "ఆరు", "ఏడు",
+           "ఎనిమిది", "తొమ్మిది", "పది", "అర", "సగం", "ఒకటిన్నర", "రెండున్నర"),
+    "kn": ("ಒಂದು", "ಎರಡು", "ಮೂರು", "ನಾಲ್ಕು", "ಐದು", "ಆರು", "ಏಳು", "ಎಂಟು",
+           "ಒಂಬತ್ತು", "ಹತ್ತು", "ಅರ್ಧ", "ಒಂದೂವರೆ", "ಎರಡೂವರೆ"),
+    "ml": ("ഒന്ന്", "ഒരു", "രണ്ട്", "രണ്ടു", "മൂന്ന്", "മൂന്നു", "നാല്", "നാലു",
+           "അഞ്ച്", "അഞ്ചു", "ആറ്", "ഏഴ്", "എട്ട്", "ഒമ്പത്", "പത്ത്", "അര",
+           "പകുതി", "ഒന്നര"),
+}
+
+# The count words Bengali and Odia join to a digit ("২টি ট্যাবলেট").
+INDIC_COUNT_CLASSIFIERS: Tuple[str, ...] = (
+    "টি", "টা", "টো", "টে", "ଟି", "ଟା",
+)
+
+# Counts of a dose form in the other Supported Languages: tablet, capsule,
+# drop, spoon, puff and dose, with the plural and case forms an answer uses.
+# They count only after a number, so "the tablet helps" is not a dose.
+INDIC_COUNT_NOUNS: Dict[str, Tuple[str, ...]] = {
+    "mr": ("गोळी", "गोळ्या", "गोळ्यां", "गोळ्यांचा", "गोळ्यांची", "गोळीचा",
+           "टॅबलेट", "टॅब्लेट", "कॅप्सूल", "थेंब", "चमचा", "चमचे", "डोस"),
+    "bn": ("ট্যাবলেট", "ট্যাবলেটের", "ট্যাবলেটে", "বড়ি", "বড়ির", "ক্যাপসুল",
+           "ক্যাপসুলের", "ফোঁটা", "ফোঁটার", "চামচ", "চামচের", "পাফ", "ডোজ"),
+    "pa": ("ਗੋਲੀ", "ਗੋਲੀਆਂ", "ਟੈਬਲੇਟ", "ਕੈਪਸੂਲ", "ਬੂੰਦ", "ਬੂੰਦਾਂ", "ਤੁਪਕੇ",
+           "ਚਮਚ", "ਚਮਚਾ", "ਚਮਚੇ", "ਪਫ", "ਖੁਰਾਕ", "ਖੁਰਾਕਾਂ"),
+    "gu": ("ગોળી", "ગોળીઓ", "ટેબ્લેટ", "ટેબલેટ", "કેપ્સ્યુલ", "ટીપાં", "ટીપું",
+           "ચમચી", "ચમચા", "પફ", "ડોઝ"),
+    "or": ("ଟାବଲେଟ", "ଟାବଲେଟ୍", "ବଟିକା", "ଗୋଳି", "କ୍ୟାପସୁଲ", "ଟୋପା", "ଚାମଚ",
+           "ପଫ୍", "ଡୋଜ୍"),
+    "ta": ("மாத்திரை", "மாத்திரைகள்", "மாத்திரைகளை", "மாத்திரையை",
+           "மாத்திரைக்கு", "கேப்ஸ்யூல்", "கேப்சூல்", "சொட்டு", "சொட்டுகள்",
+           "துளி", "துளிகள்", "ஸ்பூன்", "கரண்டி", "தேக்கரண்டி", "பஃப்", "டோஸ்"),
+    "te": ("మాత్ర", "మాత్రలు", "మాత్రను", "మాత్రలను", "టాబ్లెట్", "టాబ్లెట్లు",
+           "ట్యాబ్లెట్", "ట్యాబ్లెట్లు", "క్యాప్సూల్", "చుక్క", "చుక్కలు", "చెంచా",
+           "స్పూన్", "పఫ్", "డోస్"),
+    "kn": ("ಮಾತ್ರೆ", "ಮಾತ್ರೆಗಳು", "ಮಾತ್ರೆಗಳನ್ನು", "ಮಾತ್ರೆಯನ್ನು", "ಟ್ಯಾಬ್ಲೆಟ್",
+           "ಕ್ಯಾಪ್ಸೂಲ್", "ಹನಿ", "ಹನಿಗಳು", "ಚಮಚ", "ಪಫ್", "ಡೋಸ್"),
+    "ml": ("ഗുളിക", "ഗുളികകൾ", "ഗുളികയും", "ടാബ്ലെറ്റ്", "ക്യാപ്സ്യൂൾ", "തുള്ളി",
+           "തുള്ളികൾ", "സ്പൂൺ", "ടീസ്പൂൺ", "പഫ്", "ഡോസ്"),
+}
+
+# Words that make "<number> <word>" a schedule: "N times" ("দুই বার", "तीन
+# वेळा", "மூன்று தடவை"), and "once every N hours" written as one word or a
+# fixed phrase ("గంటలకోసారి", "ঘণ্টা পর পর"). Tamil "வேளை" is not here:
+# "ஒரு வேளை" is also "perhaps", so only its multiples are schedule words.
+INDIC_TIMES_WORDS: Dict[str, Tuple[str, ...]] = {
+    "mr": ("वेळा",),
+    "bn": ("বার", "ঘণ্টা অন্তর", "ঘন্টা অন্তর", "ঘণ্টা পর পর", "ঘন্টা পর পর",
+           "ঘণ্টা পরপর", "ঘন্টা পরপর"),
+    "pa": ("ਦਫ਼ਾ", "ਦਫਾ"),
+    "gu": ("વખત",),
+    "or": ("ଥର",),
+    "ta": ("தடவை",),
+    "te": ("మార్లు", "గంటలకోసారి", "గంటకోసారి", "గంటలకు ఒకసారి"),
+    "kn": ("ಸಲ", "ಸಾರಿ", "ಗಂಟೆಗೊಮ್ಮೆ", "ಗಂಟೆಗಳಿಗೊಮ್ಮೆ"),
+    "ml": ("തവണ", "പ്രാവശ്യം", "നേരം", "മണിക്കൂർ ഇടവിട്ട്"),
+}
+
+# "Every", before a number and an interval word: "दर चार तासांनी".
+INDIC_EVERY_WORDS: Dict[str, Tuple[str, ...]] = {
+    "hi": ("हर", "प्रति", "प्रत्येक"),
+    "mr": ("दर",),
+    "bn": ("প্রতি", "প্রত্যেক"),
+    "pa": ("ਹਰ", "ਹਰੇਕ", "ਪ੍ਰਤੀ"),
+    "gu": ("દર", "દરેક", "પ્રત્યેક"),
+    "or": ("ପ୍ରତି", "ପ୍ରତ୍ୟେକ"),
+    "ta": ("ஒவ்வொரு",),
+    "te": ("ప్రతి",),
+    "kn": ("ಪ್ರತಿ",),
+    "ml": ("ഓരോ",),
+}
+
+# Hours, minutes and days after "every <number>", with their case forms. Without
+# "every" they are a time span ("rest for two hours"), not a schedule.
+INDIC_INTERVAL_WORDS: Dict[str, Tuple[str, ...]] = {
+    "hi": ("घंटे", "घंटों", "घंटा", "मिनट", "दिनों"),
+    "mr": ("तास", "तासांनी", "तासाने", "तासाला", "तासांनंतर", "मिनिटांनी",
+           "दिवसांनी"),
+    "bn": ("ঘণ্টা", "ঘন্টা", "ঘণ্টায়", "ঘন্টায়", "ঘণ্টার", "মিনিট", "মিনিটে",
+           "দিন", "দিনে"),
+    "pa": ("ਘੰਟੇ", "ਘੰਟਿਆਂ", "ਘੰਟਾ", "ਮਿੰਟ", "ਮਿੰਟਾਂ", "ਦਿਨਾਂ"),
+    "gu": ("કલાક", "કલાકે", "કલાકમાં", "કલાકના", "મિનિટે", "દિવસે"),
+    "or": ("ଘଣ୍ଟା", "ଘଣ୍ଟାରେ", "ଘଣ୍ଟାର", "ମିନିଟ", "ମିନିଟରେ"),
+    "ta": ("மணி", "மணிநேரம்", "மணிநேரத்திற்கும்", "மணிநேரத்திற்கு",
+           "மணிநேரத்துக்கு", "மணிக்கு", "நிமிடம்", "நிமிடத்திற்கு", "நாட்களுக்கு"),
+    "te": ("గంటలకు", "గంటకు", "గంటల", "గంటలు", "గంట", "నిమిషాలకు", "రోజులకు"),
+    "kn": ("ಗಂಟೆಗೆ", "ಗಂಟೆಗಳಿಗೆ", "ಗಂಟೆ", "ಗಂಟೆಗಳು", "ನಿಮಿಷಕ್ಕೆ", "ದಿನಗಳಿಗೆ"),
+    "ml": ("മണിക്കൂറിലും", "മണിക്കൂറിൽ", "മണിക്കൂർ", "മണിക്കൂറിനും", "മിനിറ്റിലും",
+           "ദിവസത്തിലും"),
+}
+
 # Day and time-of-day words that mark a schedule in Indic answers.
 #
 # The words are matched whole, so each inflected form a schedule uses is listed
@@ -180,12 +292,14 @@ _HI_COUNT_NOUNS: Tuple[str, ...] = (
 _INDIC_FREQUENCY_WORDS: Dict[str, Tuple[str, ...]] = {
     "hi": ("दिनों", "दिन", "रोज़", "रोज", "सुबह", "शाम", "रात", "बार",
            "रोज़ाना", "रोजाना", "प्रतिदिन", "दिनभर", "रात्रि", "रातों"),
-    "mr": ("रात्री", "रात्रीच्या", "दररोज"),
+    "mr": ("रात्री", "रात्रीच्या", "दररोज",
+           "दोनदा", "तीनदा", "चारदा", "दिवसातून"),
     "kn": ("ದಿನ", "ದೀನ", "ಬಾರ",
            "ಬಾರಿ", "ದಿನಕ್ಕೆ", "ದಿನವೂ", "ದಿನಗಳು", "ಪ್ರತಿದಿನ", "ದಿನಾ"),
     "ta": ("தினம்", "தின", "நாள்", "வாரம்", "முறை",
            "தினமும்", "தினசரி", "நாளுக்கு", "நாட்கள்", "முறைகள்",
-           "வாரத்திற்கு", "வாரத்துக்கு"),
+           "வாரத்திற்கு", "வாரத்துக்கு",
+           "இரண்டு வேளை", "மூன்று வேளை", "மூணு வேளை", "நான்கு வேளை"),
     "te": ("రోజు", "రోజ", "తరువాత", "సార్లు",
            "రోజుకు", "రోజూ", "రోజులు", "ప్రతిరోజు", "ప్రతిరోజూ", "సారి"),
     "pa": ("ਰੋਜ਼", "ਰੋਜ", "ਵਾਰ",
@@ -194,6 +308,10 @@ _INDIC_FREQUENCY_WORDS: Dict[str, Tuple[str, ...]] = {
            "દરરોજ", "રોજના", "દિવસમાં", "દિવસે", "દિવસો"),
     "or": ("ଦିନ", "ରୋଜ",
            "ପ୍ରତିଦିନ", "ଦିନରେ", "ଦିନକୁ", "ଦିନେ"),
+    # "Twice", "thrice" and "daily" written as one word, and "once a day".
+    # Bengali "দিন" is not here on its own: it is also "give".
+    "bn": ("দুবার", "দুইবার", "তিনবার", "চারবার", "দিনে একবার", "প্রতিদিন", "রোজ"),
+    "ml": ("ദിവസവും", "ദിവസേന", "പ്രതിദിനം"),
 }
 
 # ---------------------------------------------------------------------------
@@ -235,10 +353,35 @@ def _whole_words(words: Sequence[str]) -> str:
     return _INDIC_START + _alternation(words) + _INDIC_END
 
 
+# The Indic letters with a nukta that Unicode never composes (NFC leaves "ড়" as
+# "ড" + "়"), mapped from the two-character form back to the one character.
+_NUKTA_COMPOSED: Dict[str, str] = {
+    unicodedata.normalize("NFD", chr(c)): chr(c)
+    for c in range(0x0900, 0x0E00)
+    if len(unicodedata.normalize("NFD", chr(c))) == 2
+    and unicodedata.normalize("NFC", unicodedata.normalize("NFD", chr(c))) != chr(c)
+}
+
+
+def _spellings(word: str) -> List[str]:
+    """
+    `word` in each Unicode encoding text arrives in: composed, decomposed, and
+    with any nukta letter as one character ("ড়") or two ("ড" + "়"). The same
+    word typed on two keyboards can differ in this way, and the regex compares
+    code points.
+    """
+    composed = unicodedata.normalize("NFC", word)
+    one_char_nukta = composed
+    for pair, single in _NUKTA_COMPOSED.items():
+        one_char_nukta = one_char_nukta.replace(pair, single)
+    return [word, composed, unicodedata.normalize("NFD", word), one_char_nukta]
+
+
 def _alternation(words: Sequence[str]) -> str:
-    """Join literal words into a regex alternation, longest first."""
+    """Join literal words, in every spelling, into a regex alternation, longest first."""
     escaped = []
-    for word in sorted(set(words), key=len, reverse=True):
+    spelled = {spelling for word in words for spelling in _spellings(word)}
+    for word in sorted(spelled, key=lambda w: (-len(w), w)):
         # A full stop in an abbreviation is often dropped or followed by a space
         # ("मि.ग्रा.", "मि. ग्रा.", "मि.ग्रा").
         escaped.append(re.escape(word).replace(r"\.", r"\.?\s?").replace(r"\ ", r"\s?"))
@@ -247,10 +390,25 @@ def _alternation(words: Sequence[str]) -> str:
 
 _EN_WORD = _alternation(_EN_NUMBER_WORDS)
 _EN_NUMBER_PHRASE = rf"\b{_EN_WORD}(?:(?:\s+|-)(?:and\s+)?(?:a\s+)?{_EN_WORD})*\b"
-_HI_NUMBER_PHRASE = _whole_words(_HI_NUMBER_WORDS)
+_INDIC_NUMBER_PHRASE = _whole_words(
+    list(_HI_NUMBER_WORDS) + [w for words in INDIC_NUMBER_WORDS.values() for w in words]
+)
+# Vulgar fractions are Unicode "No", not digits, so \d alone misses "½ tablet".
+_FRACTIONS = "½¼¾⅓⅔⅛"
 # Not preceded by a letter, so "SpO2 drop" or "B12" does not start a dose.
-_DIGITS = r"(?<![A-Za-z])\d+(?:[.,/]\d+)?"
-_NUMBER = rf"(?:{_DIGITS}|{_EN_NUMBER_PHRASE}|{_HI_NUMBER_PHRASE})"
+_DIGITS = rf"(?<![A-Za-z])(?:\d+(?:[.,/]\d+)?(?:\s?[{_FRACTIONS}])?|[{_FRACTIONS}])"
+_NUMBER = rf"(?:{_DIGITS}|{_EN_NUMBER_PHRASE}|{_INDIC_NUMBER_PHRASE})"
+# A number as Indic answers write it: digits (with a Bengali or Odia count word
+# joined on, "২টি"), or a number word of any Supported Language.
+_INDIC_COUNT = (
+    rf"(?:{_DIGITS}(?:\s?{_whole_words(INDIC_COUNT_CLASSIFIERS)})?|{_INDIC_NUMBER_PHRASE})"
+)
+
+
+def _all(table: Dict[str, Tuple[str, ...]]) -> List[str]:
+    """Every word of a per-language vocabulary table."""
+    return [w for words in table.values() for w in words]
+
 
 _LATIN_UNIT = "(?:" + "|".join(_LATIN_UNITS) + r")(?![A-Za-z])"
 # Unit words are not closed on the right: they follow a number, which already
@@ -265,7 +423,7 @@ _COUNT_DOSE_RE = (
     r"(?:" + "|".join(_COUNT_NOUNS_AFTER_ARTICLE) + r")\b"
     rf"|{_NUMBER}\s+(?:of\s+a\s+)?"
     r"(?:" + "|".join(_COUNT_NOUNS_AFTER_NUMBER) + r")\b"
-    rf"|(?:{_DIGITS}|{_HI_NUMBER_PHRASE})\s*{_whole_words(_HI_COUNT_NOUNS)}"
+    rf"|{_INDIC_COUNT}\s*{_whole_words(list(_HI_COUNT_NOUNS) + _all(INDIC_COUNT_NOUNS))}"
 )
 
 _INTERVAL = rf"(?:\d+(?:\s*(?:-|–|to)\s*\d+)?|{_EN_NUMBER_PHRASE})"
@@ -282,7 +440,12 @@ _FREQUENCY_RE = (
     r"|\bnocte\b|\bmane\b"
     # Upper case only: "bid" and "bd" are ordinary words in lower case.
     r"|(?-i:\b(?:BD|BID|TDS|TID|QDS|QID)\b)"
-    r"|" + _whole_words([w for words in _INDIC_FREQUENCY_WORDS.values() for w in words])
+    r"|" + _whole_words(_all(_INDIC_FREQUENCY_WORDS))
+    # "N times" and "once every N hours" in the Indic languages: "তিন বার".
+    + rf"|{_INDIC_COUNT}\s*{_whole_words(_all(INDIC_TIMES_WORDS))}"
+    # "Every N hours": "दर चार तासांनी", "ஒவ்வொரு நான்கு மணி", "প্রতি ৬ ঘণ্টায়".
+    + rf"|{_whole_words(_all(INDIC_EVERY_WORDS))}\s*{_INDIC_COUNT}"
+    + rf"(?:\s*[-–]\s*{_INDIC_COUNT})?\s*{_whole_words(_all(INDIC_INTERVAL_WORDS))}"
 )
 
 _TITRATION_RE = (
