@@ -78,6 +78,8 @@ class VoiceTurn:
     # What query() retrieved with and what the K26 check found, for the log.
     retrieval: Dict[str, Any] = field(default_factory=dict)
     kg_check: Dict[str, Any] = field(default_factory=dict)
+    # The Dose Boundary's outcome for this answer, for the study row.
+    safety: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -129,6 +131,21 @@ def _as_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def safety_record(safety: Any) -> Dict[str, Any]:
+    """The safety record of a `process_response` result, as the study log
+    stores it (the same fields `guard_query_result` attaches as "safety")."""
+    return {
+        "evidence_level": str(getattr(safety, "evidence_level", "E")),
+        "emergency_level": str(getattr(safety, "emergency_level", "none")),
+        "confidence": _as_float(getattr(safety, "confidence", 0.0)),
+        "validation_status": str(getattr(safety, "validation_status", "not_validated")),
+        "dosage_blocked": bool(getattr(safety, "dosage_blocked", False)),
+        "dosage_reason": getattr(safety, "dosage_reason", None),
+        "emergency_overrode_dosage": bool(getattr(safety, "emergency_overrode_dosage", False)),
+        "dosage_language_fallback": getattr(safety, "dosage_language_fallback", None),
+    }
 
 
 def _answer_kind(safety: Any) -> str:
@@ -297,6 +314,7 @@ class VoiceTurnHandler:
             fallback_reason=fallback_reason,
             retrieval=dict(result.get("retrieval") or {}),
             kg_check=dict(result.get("kg_check") or {}),
+            safety=safety_record(safety),
         )
 
         await self._record(session, turn)
@@ -330,12 +348,8 @@ class VoiceTurnHandler:
                 retrieval=turn.retrieval,
                 kg_check=turn.kg_check,
                 sources=[{"filename": ""} for _ in range(turn.source_count)],
-                safety_result={
-                    "answer_kind": turn.answer_kind,
-                    "evidence_level": turn.evidence_level,
-                    "emergency_level": turn.emergency_level,
-                    "validation_status": "voice_turn",
-                },
+                safety_result={**turn.safety, "answer_kind": turn.answer_kind},
+                voice_path=turn.voice_path,
                 provider=turn.voice_path,
                 stt_model="saaras-v3",
             )

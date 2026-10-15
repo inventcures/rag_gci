@@ -831,24 +831,50 @@ class MetadataLoadError(RuntimeError):
 
 
 async def answer_web_query(pipeline: "SimpleRAGPipeline", query: str,
-                           language: str = "en") -> Dict[str, Any]:
+                           language: str = "en",
+                           caller: Optional[Any] = None) -> Dict[str, Any]:
     """
     Answer one web (`POST /api/query`) question, through the safety boundary.
 
     `pipeline.query()` returns a draft. This passes it through the same
     `process_response` step (emergency, dosage guard, evidence grade) the mobile
     and voice routes apply, so the HTTP body carries only the guarded answer.
+
+    The interaction is written to the study log (channel "web", voice path
+    "text") before the answer is returned. `caller` is the authenticated person
+    behind the request; a participant's row is keyed on them, anyone else's
+    (no token, an administrator) on this request alone.
     """
     from safety_enhancements import guard_query_result
+    from study_logging import VOICE_PATH_TEXT, record_answer
     from supported_languages import ENGLISH_CODE, get_language
 
+    participant = caller is not None and not getattr(caller, "is_admin", False)
+    started = time.perf_counter()
     # The pipeline works in the table's short codes; a language outside the
     # eleven is answered in English. The guard sees what was asked for, so an
     # English Deferral served in its place is recorded as a fallback.
     supported = get_language(language)
     source_language = supported.code if supported else ENGLISH_CODE
-    result = await pipeline.query(query, source_language=source_language)
-    guard_query_result(result, query=query, language=language)
+    result: Dict[str, Any] = {}
+    error: Optional[str] = None
+    try:
+        result = await pipeline.query(query, source_language=source_language)
+        guard_query_result(result, query=query, language=language)
+    except Exception as exc:
+        error = f"web_query_failed: {type(exc).__name__}"
+        raise
+    finally:
+        guarded = result.get("answer") if isinstance(result, dict) and result.get("safety") else ""
+        await record_answer(
+            channel="web", voice_path=VOICE_PATH_TEXT,
+            user_id=caller.user_id if participant else ephemeral("web", uuid.uuid4().hex),
+            site_id=getattr(caller, "site_id", "") if participant else "",
+            care_role=getattr(caller, "role", "") if participant else "",
+            query=query, response=guarded or "", language=language,
+            result=result, started=started,
+            error=error or (None if guarded else str((result or {}).get("status") or "no_answer")),
+        )
     return result
 
 
@@ -5388,7 +5414,8 @@ def create_app(args: Any = None) -> FastAPI:
             else:
                 logger.warning("Mobile API disabled: MOBILE_JWT_SECRET not set")
 
-    async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str):
+    async def stream_gemini_responses(websocket: WebSocket, session: "GeminiLiveSession", user_id: str,
+                                      participant: Optional[Any] = None):
         """
         Relay Gemini Live's turns to the WebSocket client, each one only after
         what Live said has passed the Dose Boundary.
@@ -5400,12 +5427,18 @@ def create_app(args: Any = None) -> FastAPI:
         released), the assistant transcription, the caller's transcription,
         then turn_complete.
 
+        Each checked turn is written to the study log (channel "web_voice",
+        voice path "live") before anything of it is sent.
+
         Args:
             websocket: The WebSocket connection
             session: The active Gemini Live session
-            user_id: User identifier for logging
+            user_id: The session key: the participant's id, or an ephemeral one
+            participant: The signed-in participant, None for an anonymous session
         """
         from gemini_live.turn_release import check_live_turn
+        from study_logging import record_answer
+        from voice_session import VOICE_PATH_LIVE
 
         held: List[bytes] = []
         try:
@@ -5418,6 +5451,16 @@ def create_app(args: Any = None) -> FastAPI:
                         heard = session.get_transcription(clear=True)
                         release = check_live_turn(held, spoken, heard, session.language)
                         held = []
+                        if release.text or release.audio:
+                            await record_answer(
+                                channel="web_voice", voice_path=VOICE_PATH_LIVE, user_id=user_id,
+                                session_id=getattr(session, "session_id", ""),
+                                site_id=getattr(participant, "site_id", ""),
+                                care_role=getattr(participant, "role", ""),
+                                query=heard or "", response=release.text,
+                                language=session.language, safety=release.safety,
+                                provider="gemini_live", stt_model=getattr(session, "model", ""),
+                                tts_model=getattr(session, "model", ""))
 
                         for chunk in release.audio:
                             await websocket.send_bytes(chunk)
@@ -5630,7 +5673,8 @@ def create_app(args: Any = None) -> FastAPI:
                             # Start response stream after first audio is sent
                             if response_task is None or response_task.done():
                                 response_task = asyncio.create_task(
-                                    stream_gemini_responses(websocket, session, user_id)
+                                    stream_gemini_responses(websocket, session, user_id,
+                                                            None if anonymous else caller)
                                 )
                         except Exception as e:
                             logger.error(f"Error sending audio for {user_id}: {e}")
@@ -5741,7 +5785,7 @@ def create_app(args: Any = None) -> FastAPI:
         }
     
     @app.post("/api/query")
-    async def api_query(query: str = Form(...), language: str = Form("en")):
+    async def api_query(request: Request, query: str = Form(...), language: str = Form("en")):
         """Direct API endpoint for queries.
 
         `language` is the Supported Language the question was asked in (a code
@@ -5753,7 +5797,10 @@ def create_app(args: Any = None) -> FastAPI:
         guard cannot run, the except below returns an error, never the draft.
         """
         try:
-            return await answer_web_query(rag_pipeline, query, language=language)
+            from auth.policy import authenticate_connection
+
+            return await answer_web_query(rag_pipeline, query, language=language,
+                                          caller=authenticate_connection(request))
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
@@ -5969,6 +6016,17 @@ def create_app(args: Any = None) -> FastAPI:
             context = data.get("context", "")
             source = data.get("source", "unknown")
             caller_id = bolna_caller_id(data)
+            from study_logging import VOICE_PATH_PHONE, record_answer
+            _started = time.perf_counter()
+
+            async def record_turn(answer: str, result: Optional[Dict[str, Any]] = None,
+                                  safety: Any = None, error: Optional[str] = None) -> None:
+                """The study row for this turn, written before Bolna speaks it."""
+                await record_answer(
+                    channel="bolna", voice_path=VOICE_PATH_PHONE, provider="bolna",
+                    user_id=caller_id, session_id=str(data.get("execution_id") or ""),
+                    query=query, response=answer, language=language,
+                    result=result, safety=safety, started=_started, error=error)
 
             # Enhanced logging for Bolna RAG queries
             import time as _time
@@ -6010,6 +6068,9 @@ def create_app(args: Any = None) -> FastAPI:
                         safety_result, provider="bolna"
                     )
                     
+                    from study_logging import escalation_safety
+                    await record_turn(safety_result.safety_message or "",
+                                      safety=escalation_safety(safety_result))
                     # Return safety message as response
                     return JSONResponse({
                         "status": "safety_escalation",
@@ -6092,6 +6153,7 @@ def create_app(args: Any = None) -> FastAPI:
                 logger.info(f"🎯 Confidence: {confidence:.0%}")
                 logger.info("=" * 60)
 
+                await record_turn(answer, result=rag_result)
                 return JSONResponse({
                     "status": "success",
                     "answer": answer,
@@ -6106,9 +6168,14 @@ def create_app(args: Any = None) -> FastAPI:
                 logger.warning(f"⚠️  RAG PARTIAL ({_query_duration:.2f}s) - Status: {rag_result.get('status')}")
                 logger.warning("📝 Using fallback response")
                 logger.info("=" * 60)
+                fallback = ("I'm having trouble accessing my knowledge base right now. Based on general "
+                            "palliative care principles, I'd recommend consulting with your healthcare "
+                            "provider for specific guidance.")
+                await record_turn(fallback, result=rag_result,
+                                  error=f"rag_{rag_result.get('status') or 'failed'}")
                 return JSONResponse({
                     "status": "partial",
-                    "answer": "I'm having trouble accessing my knowledge base right now. Based on general palliative care principles, I'd recommend consulting with your healthcare provider for specific guidance.",
+                    "answer": fallback,
                     "sources": [],
                     "confidence": 0.3
                 })

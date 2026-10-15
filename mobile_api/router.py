@@ -49,7 +49,7 @@ from evaluation.interaction_logger import MobileInteractionLogger
 import base64
 import json
 
-from study_logging import get_study_logger
+from study_logging import VOICE_PATH_TEXT, get_study_logger
 from voice_router import VoiceRouter, set_voice_router
 from voice_session import (
     VOICE_PATH_FALLBACK,
@@ -256,6 +256,7 @@ async def mobile_query(
         response=safety_result.response,
         language=request.language,
         channel="mobile",
+        voice_path=VOICE_PATH_TEXT,
         stage_latency_ms={"rag": rag_ms},
         total_latency_ms=(time.perf_counter() - t0) * 1000,
         rag_method=str(retrieval.get("rag_method") or ""),
@@ -339,6 +340,8 @@ async def voice_query(
         stage_latency_ms=stage_ms,
         total_latency_ms=(time.perf_counter() - t0) * 1000,
         sources=turn.sources,
+        safety_result=turn.safety,
+        voice_path=turn.voice_path,
         provider=turn.voice_path,
         stt_model="gemini-live"
         if turn.voice_path == VOICE_PATH_LIVE
