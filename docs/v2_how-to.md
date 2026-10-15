@@ -386,20 +386,16 @@ print(f"Role: {profile.role.value}")
 print(f"Total Sessions: {profile.total_sessions}")
 ```
 
-#### 3.2.2 Automatic Role Detection
+#### 3.2.2 Care Role
+
+A profile's role is a Care Role (`care_role.py`): ASHA Worker, Family Caregiver or
+Patient. It is set from the role the person registered with, never guessed from
+what they said (review 3, ticket 25 removed the keyword detection).
 
 ```python
-from personalization.user_profile import UserRole
+from care_role import CareRole
 
-# Detect role from conversation
-text = "I am caring for my mother who has cancer"
-detected_role = profile_manager.detect_role(text, language="en-IN")
-
-if detected_role:
-    print(f"Detected role: {detected_role.value}")  # "caregiver"
-
-    # Update profile
-    await profile_manager.update_role(profile.user_id, detected_role)
+await profile_manager.update_role(profile.user_id, CareRole.FAMILY_CAREGIVER)
 ```
 
 #### 3.2.3 Role-Based Keywords
@@ -888,12 +884,6 @@ class EnhancedRAGPipeline:
         )
         recent_turns = await self.history.get_recent_context(profile.user_id)
 
-        # 4. Detect Role (if unknown)
-        if profile.role.value == "unknown":
-            detected_role = self.profiles.detect_role(query, language)
-            if detected_role:
-                await self.profiles.update_role(profile.user_id, detected_role)
-
         # 5. Update Patient Context from Query
         await self.context.update_from_conversation(
             profile.user_id, query, language
@@ -1086,8 +1076,7 @@ class ValidationMetrics:
 ```python
 class UserProfileManager:
     async def get_or_create_profile(phone_number: str, language: str) -> UserProfile
-    def detect_role(text: str, language: str) -> Optional[UserRole]
-    async def update_role(user_id: str, role: UserRole) -> Optional[UserProfile]
+    async def update_role(user_id: str, role: CareRole) -> Optional[UserProfile]
     async def update_preferences(user_id: str, **preferences) -> Optional[UserProfile]
     def get_system_context(profile: UserProfile) -> str
 ```

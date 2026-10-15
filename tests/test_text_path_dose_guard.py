@@ -66,6 +66,7 @@ class RealisticRag:
         user_id=None,
         top_k: int = 5,
         source_language: str = "en",
+        care_role: str = "",
     ):
         self.calls.append(
             {"question": question, "user_id": user_id, "source_language": source_language}

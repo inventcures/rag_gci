@@ -267,6 +267,7 @@ class VoiceTurnHandler:
                 question=transcript,
                 user_id=session.participant_id or ephemeral("mobile_voice", session.session_id),
                 source_language=session.language,
+                care_role=session.care_role,
             ))
         except asyncio.TimeoutError:
             # Same answer the pipeline gives when the model runs out of time.

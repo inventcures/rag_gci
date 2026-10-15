@@ -218,6 +218,7 @@ from llm.client import GENERATION_FAILED_ANSWER, LLMStreamError, in_voice_turn, 
 from answer_stream import AnswerStream, active_stream
 from retrieval.embedding_runtime import configured_runtime, load_embedding_model
 from study_logging import append_line
+from care_role import parse_care_role
 from observability import record_span, span, trace_request
 from retrieval_index import (
     IndexDrift,
@@ -1756,9 +1757,14 @@ class SimpleRAGPipeline:
             return "unavailable"
 
     async def query(self, question: str, conversation_id: Optional[str] = None,
-                   user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en") -> Dict[str, Any]:
+                   user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en",
+                   care_role: str = "") -> Dict[str, Any]:
         """
         Query the RAG pipeline with safety enhancements.
+
+        `care_role` is the speaker's Care Role (their Active Role, care_role.py);
+        it attributes the observations drawn from the question and never shapes
+        the answer.
 
         Every channel (web, WhatsApp, the Gemini Live search_medical_knowledge
         tool, the Sarvam voice fallback, Retell) calls this one method, so the
@@ -1772,7 +1778,7 @@ class SimpleRAGPipeline:
             trace: Dict[str, Any] = {"stage_latency_ms": {}}
             result = await self._query_impl(
                 question, conversation_id=conversation_id, user_id=user_id,
-                top_k=top_k, source_language=source_language, _trace=trace,
+                top_k=top_k, source_language=source_language, care_role=care_role, _trace=trace,
             )
             trace["stage_latency_ms"]["total"] = round(
                 (time.perf_counter() - answer_span.started) * 1000, 1
@@ -1843,6 +1849,7 @@ class SimpleRAGPipeline:
 
     async def _query_impl(self, question: str, conversation_id: Optional[str] = None,
                           user_id: Optional[str] = None, top_k: int = 5, source_language: str = "en",
+                          care_role: str = "",
                           _trace: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """The answer path itself. See query() for the wrapper that logs it."""
         trace = _trace if _trace is not None else {"stage_latency_ms": {}}
@@ -2283,15 +2290,19 @@ class SimpleRAGPipeline:
             # V25: observations come from what the caller said (the question),
             # never from the generated answer, after the reply, and only for a
             # person: a per-call session id would get a record nobody reads.
+            # They are reported by the speaker's Care Role, never an assumed
+            # "patient": an ASHA Worker's question is the ASHA Worker's report.
             if is_person(user_id) and self.cross_modal_aggregator:
                 aggregator = self.cross_modal_aggregator
+                speaker = parse_care_role(care_role)
                 post_work.append(("observations", functools.partial(
                     aggregator.process_conversation,
                     patient_id=user_id,
                     conversation_id=conversation_id or f"conv_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    transcript=f"Patient: {question}",
+                    transcript=f"{speaker.label if speaker else 'Caller'}: {question}",
                     source_type=DataSourceType.WEB_CHAT,
-                    metadata={"language": source_language, "speaker_role": "patient"},
+                    metadata={"language": source_language,
+                              "speaker_role": speaker.value if speaker else "unknown"},
                 )))
 
             # =================================================================

@@ -58,6 +58,10 @@ def kotlin_type(schema: Dict[str, Any], root: Dict[str, Any], depth: int = 0) ->
 
     ref = schema.get("$ref")
     if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+        # A string enum (the Care Role) travels as its value. The app holds the
+        # values in its own enum (CareRole.wireName), so the wire type is String.
+        if is_string_enum(resolve(schema, root)):
+            return "String"
         return ref.rsplit("/", 1)[-1]
 
     kind = schema.get("type")
@@ -88,6 +92,11 @@ def kotlin_type(schema: Dict[str, Any], root: Dict[str, Any], depth: int = 0) ->
     if kind is None:
         return "Any?"
     return "Any?"
+
+
+def is_string_enum(schema: Dict[str, Any]) -> bool:
+    """True for a component that is a closed set of strings rather than an object."""
+    return isinstance(schema, dict) and schema.get("type") == "string" and bool(schema.get("enum"))
 
 
 def resolve(schema: Dict[str, Any], root: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
@@ -283,6 +292,8 @@ def generate(root: Dict[str, Any]) -> Dict[str, Path]:
             ref = (prop or {}).get("$ref", "")
             if ref:
                 child = ref.rsplit("/", 1)[-1]
+                if is_string_enum(components.get(child) or {}):
+                    continue
                 if child not in referenced:
                     referenced.add(child)
                     queue.append(child)

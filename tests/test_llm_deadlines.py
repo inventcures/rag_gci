@@ -233,7 +233,7 @@ class VoiceFallback(unittest.TestCase):
         from tests.test_voice_session import FakeSafetyManager
 
         class Stuck:
-            async def query(self, question, conversation_id=None, user_id=None, top_k=5, source_language="en"):
+            async def query(self, question, conversation_id=None, user_id=None, top_k=5, source_language="en", care_role=""):
                 await asyncio.sleep(3600)
 
         handler = vs.VoiceTurnHandler(rag_pipeline=Stuck(), safety_manager=FakeSafetyManager())
