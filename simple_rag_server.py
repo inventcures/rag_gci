@@ -1856,6 +1856,7 @@ class SimpleRAGPipeline:
         stage_ms = trace.setdefault("stage_latency_ms", {})
         settings = get_active_settings()
         patient_context_task = None
+        pivot_task = None
         try:
             # =================================================================
             # SAFETY ENHANCEMENTS: Pre-processing checks
@@ -1915,6 +1916,14 @@ class SimpleRAGPipeline:
             # necessary for anything Indic. It is now a wasted LLM round-trip on
             # every query, and it discards the better signal when it succeeds.
             query_for_search = question
+            # The graph retrievers (kg, graphrag, fused) match English names,
+            # so they get the English Pivot. It is translated for them alone,
+            # alongside the probe so the two overlap; the vector path below
+            # still searches the question as written.
+            router = getattr(self, "retrieval_router", None)
+            if _rag_method in ROUTED_METHODS and router is not None and source_language != "en":
+                pivot_task = asyncio.ensure_future(
+                    self._english_pivot(question, source_language))
             # The probe's search is the main search for the question as
             # written: when translation is not needed, the vector path reuses
             # it rather than embedding and searching a second time.
@@ -1930,9 +1939,14 @@ class SimpleRAGPipeline:
                     source_language,
                 )
                 with span("translate", language=source_language):
-                    translation_result = await self.translate_query_to_english(
-                        question, source_language
-                    )
+                    # One Query Translation serves both paths when the graph
+                    # retrievers already asked for the English Pivot.
+                    if pivot_task is not None:
+                        translation_result = await pivot_task
+                    else:
+                        translation_result = await self.translate_query_to_english(
+                            question, source_language
+                        )
                 if translation_result["status"] in ["success", "fallback"]:
                     query_for_search = translation_result["translated_query"]
                     logger.debug(
@@ -1963,11 +1977,22 @@ class SimpleRAGPipeline:
             # A None result means vector retrieval failed there, and the default
             # vector path below runs instead, exactly as it would without a flag.
             routed = None
-            router = getattr(self, "retrieval_router", None)
+            graph_query_record = None
             if _rag_method in ROUTED_METHODS:
                 if router is not None:
+                    graph_query, graph_query_record = await self._graph_query(
+                        question, source_language, pivot_task)
+                    pivot_task = None
                     with span("router.retrieve", method=_rag_method):
-                        routed = await router.retrieve(query_for_search, top_k, method=_rag_method)
+                        routed = await router.retrieve(
+                            query_for_search, top_k, method=_rag_method,
+                            graph_query=graph_query,
+                            graph_empty_note=(
+                                f"English pivot unavailable, so the graph was searched with "
+                                f"the {source_language} question as written"
+                                if graph_query_record["pivot"] == "failed" else ""
+                            ),
+                        )
                 if routed is None:
                     trace["retrieval"] = {
                         "rag_method": "vector",
@@ -1978,6 +2003,7 @@ class SimpleRAGPipeline:
 
             if routed is not None:
                 trace["retrieval"] = routed.record()
+                trace["retrieval"]["graph_query"] = graph_query_record
                 if not routed.passages:
                     stage_ms["retrieval"] = round(record_span(
                         "retrieve", (time.perf_counter() - retrieval_started) * 1000, method=_rag_method,
@@ -2322,6 +2348,37 @@ class SimpleRAGPipeline:
             # An early return (no documents) leaves the fetch unused.
             if patient_context_task is not None and not patient_context_task.done():
                 patient_context_task.cancel()
+            if pivot_task is not None and not pivot_task.done():
+                pivot_task.cancel()
+
+    async def _english_pivot(self, question: str, source_language: str) -> Dict[str, Any]:
+        """Query Translation of `question` into English, as a translation
+        result dict; never raises (a failure is {"status": "error"})."""
+        try:
+            return await self.translate_query_to_english(question, source_language)
+        except Exception as exc:
+            logger.warning("English pivot failed: %s", type(exc).__name__)
+            return {"status": "error", "error": type(exc).__name__}
+
+    async def _graph_query(self, question: str, source_language: str,
+                           pivot_task: Optional["asyncio.Future"]) -> tuple:
+        """What the graph retrievers search, and the record of how it was made.
+
+        Returns (text, {"source_language", "pivot"}), pivot being
+        "not_needed" (an English question), "english" (the English Pivot) or
+        "failed" (no translation came back, so the question as written).
+        The record never holds question text."""
+        record = {"source_language": source_language, "pivot": "not_needed"}
+        if source_language == "en" or pivot_task is None:
+            return question, record
+        result = await pivot_task
+        translated = str(result.get("translated_query") or "").strip()
+        if result.get("status") == "success" and translated:
+            record["pivot"] = "english"
+            return translated, record
+        record["pivot"] = "failed"
+        logger.warning("English pivot unavailable for %s; graph searched as written", source_language)
+        return question, record
 
     async def _patient_context(self, user_id: str, question: str) -> str:
         """The caller's patient history for the prompt, or "" (never raises)."""
@@ -7217,7 +7274,10 @@ def create_app(args: Any = None) -> FastAPI:
             return JSONResponse({
                 "status": "healthy",
                 "initialized": True,
-                "stats": stats
+                "stats": stats,
+                # Off unless region-pinned: searches then answer from the
+                # local index and indexing is refused (ticket 18).
+                "model_layer": graphrag_config.model_residency() if graphrag_config else None,
             })
         except Exception as e:
             return JSONResponse({
@@ -7336,6 +7396,16 @@ def create_app(args: Any = None) -> FastAPI:
                 "status": "error",
                 "error": "GraphRAG not available"
             }, status_code=503)
+
+        # Indexing sends every chunk to GraphRAG's own model layer, which is
+        # not the shared client: refused here, not after a "started" reply.
+        residency = graphrag_config.model_residency() if graphrag_config else {
+            "pinned": False, "reason": "GraphRAG configuration not loaded"}
+        if not residency["pinned"]:
+            return JSONResponse({
+                "status": "error",
+                "error": residency["reason"],
+            }, status_code=409)
 
         try:
             body = await request.json()

@@ -162,6 +162,10 @@ class GraphRAGIndexer:
             self._notify_callbacks("Starting indexing pipeline...", 0)
             logger.info(f"Starting indexing with method: {self.method.value}")
 
+            # Indexing calls GraphRAG's own model layer for every chunk, which
+            # is not the shared client: refused unless it is region-pinned.
+            self.config.require_region_pinned()
+
             # Try to use native GraphRAG
             try:
                 from graphrag.api import build_index

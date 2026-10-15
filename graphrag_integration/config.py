@@ -38,6 +38,20 @@ DEFAULT_CHAT_MODEL = "gemini-3.5-flash"
 DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
 API_KEY_ENV = "GEMINI_API_KEY"
 
+# Residency (ticket 18). GraphRAG's own model layer (LiteLLM) is not the shared
+# client in llm/client.py, so it may run only when every model it would call is
+# pinned to the shared client's Indian region. A Gemini API key is the global
+# endpoint; an api_base override can point anywhere. Either turns the layer off.
+REGION_PINNED_PROVIDERS = ("vertex_ai",)
+try:
+    from llm.client import DEFAULT_LOCATION as REQUIRED_LOCATION
+except ImportError:  # the package can be used without the server's modules
+    REQUIRED_LOCATION = "asia-south1"
+
+
+class ModelLayerOff(Exception):
+    """GraphRAG's model layer may not be called: it is not region-pinned."""
+
 
 @dataclass
 class ModelConfig:
@@ -66,6 +80,19 @@ class ModelConfig:
     retry_strategy: str = "exponential_backoff"
     max_retries: int = 3
     batch_size: int = 16  # For embeddings
+    location: str = ""  # vertex_location: the region a Vertex AI model runs in
+    api_base: str = ""  # an endpoint override; unverifiable, so never region-pinned
+
+    def residency(self) -> Optional[str]:
+        """None when this model's calls stay in REQUIRED_LOCATION, else why not."""
+        if self.model_provider not in REGION_PINNED_PROVIDERS:
+            return f"{self.type} model provider {self.model_provider!r} is a global endpoint"
+        if self.api_base:
+            return f"{self.type} model has an api_base override"
+        if self.location != REQUIRED_LOCATION:
+            return (f"{self.type} model runs in {self.location or 'an unset location'}, "
+                    f"not {REQUIRED_LOCATION}")
+        return None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -80,6 +107,8 @@ class ModelConfig:
             "retry_strategy": self.retry_strategy,
             "max_retries": self.max_retries,
             "batch_size": self.batch_size,
+            "location": self.location,
+            "api_base": self.api_base,
         }
 
 
@@ -314,6 +343,12 @@ class GraphRAGConfig:
                 retry_strategy=model_settings.get("retry_strategy", "exponential_backoff"),
                 max_retries=model_settings.get("max_retries", 3),
                 batch_size=model_settings.get("batch_size", 16),
+                location=str(
+                    model_settings.get("vertex_location")
+                    or (model_settings.get("call_args") or {}).get("vertex_location")
+                    or ""
+                ),
+                api_base=str(model_settings.get("api_base") or ""),
             )
 
         # Parse chunking
@@ -383,6 +418,44 @@ class GraphRAGConfig:
             model=DEFAULT_EMBEDDING_MODEL,
             api_key=os.environ.get(API_KEY_ENV, ""),
         )
+
+    def model_residency(self) -> Dict[str, Any]:
+        """
+        Whether GraphRAG's own model layer is region-pinned to India.
+
+        Every model GraphRAG could call (the default chat and embedding models
+        and any other configured model) must be a Vertex AI model in
+        REQUIRED_LOCATION with no endpoint override. Native search and indexing
+        run only when this says pinned; otherwise search answers from the local
+        index and indexing is refused.
+
+        Returns:
+            {"pinned": bool, "required_location": str, "reason": str,
+             "models": {model_id: reason or "pinned"}}
+        """
+        models = {
+            "default_chat_model": self.get_chat_model(),
+            "default_embedding_model": self.get_embedding_model(),
+            **self._models,
+        }
+        problems = {model_id: model.residency() for model_id, model in models.items()}
+        unpinned = [f"{mid}: {why}" for mid, why in problems.items() if why]
+        return {
+            "pinned": not unpinned,
+            "required_location": REQUIRED_LOCATION,
+            "reason": (
+                f"GraphRAG model layer is region-pinned to {REQUIRED_LOCATION}"
+                if not unpinned else
+                "GraphRAG model layer is not region-pinned (" + "; ".join(unpinned) + ")"
+            ),
+            "models": {mid: why or "pinned" for mid, why in problems.items()},
+        }
+
+    def require_region_pinned(self) -> None:
+        """Raise ModelLayerOff unless GraphRAG's model layer is region-pinned."""
+        residency = self.model_residency()
+        if not residency["pinned"]:
+            raise ModelLayerOff(residency["reason"])
 
     def get_model(self, model_id: str) -> Optional[ModelConfig]:
         """
@@ -482,6 +555,7 @@ class GraphRAGConfig:
             "chunking": self.chunking.to_dict(),
             "extraction": self.extraction.to_dict(),
             "search": self.search.to_dict(),
+            "model_residency": self.model_residency(),
             "paths": {
                 "input_dir": str(self.input_dir),
                 "output_dir": str(self.output_dir),

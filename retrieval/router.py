@@ -15,12 +15,19 @@ configured are left out and recorded; the answer is then drafted from what did
 come back. If vector retrieval itself fails, `retrieve` returns None and
 `query()` falls back to the unchanged default vector path.
 
+Language: the graph retrievers match English names, so they are given the
+English Pivot of the question (`graph_query`), while the vector retriever (and
+PageIndex) search the question as written, keeping ADR 0003's probe-first rule.
+Every empty retriever records why it was empty (`retrievers_empty`).
+
 Data residency: the knowledge-graph retriever runs template Cypher against the
 deployment's own Neo4j and the GraphRAG retriever reads the local parquet index
 (no LLM, no embedding API). The user's question is not sent anywhere new on
-either path. GraphRAG's own `local_search` / `global_search` call the model
-configured in data/graphrag/settings.yaml (OpenAI by default, which is not on the
-approved list), so they are deliberately not used here.
+either path; the English Pivot comes from the one shared LLM client. GraphRAG's
+own `local_search` / `global_search` call the model layer configured in
+data/graphrag/settings.yaml, which is not the shared client, so they are
+deliberately not used here (and are off unless that model layer is
+region-pinned: graphrag_integration.config.GraphRAGConfig.model_residency).
 
 Dose safety: graph and GraphRAG text is passed through the dosage guard's
 redaction before it can reach a prompt, and the knowledge-graph retriever never
@@ -65,13 +72,35 @@ class Passage:
     distance: Optional[float] = None
 
 
+class EmptyResult(list):
+    """No passages, with the reason the retriever found none.
+
+    A retriever returns this instead of a bare empty list so the record can say
+    why the graph contributed nothing (no entity recognised, no facts, no
+    match) rather than only that it did not."""
+
+    def __init__(self, reason: str):
+        super().__init__()
+        self.reason = reason
+
+
+# Said when a retriever returns a bare empty list.
+DEFAULT_EMPTY_REASONS = {
+    "vector": f"no passage within the relevance threshold ({VECTOR_RELEVANCE_THRESHOLD})",
+    "pageindex": "no PageIndex section selected",
+}
+
+# The retrievers that match English graph names and so take the English Pivot.
+GRAPH_RETRIEVERS = ("kg", "graphrag")
+
+
 @dataclass
 class RetrieverOutcome:
     name: str
     status: str  # ok | empty | unavailable | timeout | error | not_configured
     passages: List[Passage] = field(default_factory=list)
     latency_ms: float = 0.0
-    detail: str = ""
+    detail: str = ""  # for "empty", why nothing was found
 
 
 @dataclass
@@ -116,6 +145,7 @@ class RoutedRetrieval:
             "retrievers_requested": [o.name for o in self.outcomes],
             "retrievers_active": self.active,
             "retrievers_failed": self.failed,
+            "retrievers_empty": {o.name: o.detail for o in self.outcomes if o.status == "empty"},
             "contributing": sorted({p.retriever for p in self.passages}),
             "fusion": self.fusion,
             "stage_latency_ms": {
@@ -248,7 +278,7 @@ class KnowledgeGraphRetriever:
         mentions = self.extractor.mentions(query)
         names = list(dict.fromkeys(m.name for m in mentions))
         if not names:
-            return []
+            return EmptyResult("no clinical entity recognised in the question")
         facts: List[Fact] = await self.graph.facts_about(names, limit=self.facts_limit)
         asked = {n.lower() for n in names}
 
@@ -272,6 +302,11 @@ class KnowledgeGraphRetriever:
                 continue
             scored.append((links, n, text))
 
+        if not scored:
+            return EmptyResult(
+                f"no facts in the graph for {', '.join(names)}"
+                if not any(by_entity.values()) else f"every fact about {', '.join(names)} was a dose and was withheld"
+            )
         scored.sort(key=lambda t: -t[0])
         return [
             Passage(
@@ -315,6 +350,8 @@ class GraphRAGRetriever:
         if loader is None:
             raise GraphUnavailable("GraphRAG index not loaded")
         entities = await loader.search_entities(query, top_k=top_k)
+        if not entities:
+            return EmptyResult("no GraphRAG entity matched the question")
         passages = []
         for ent in entities:
             name = str(ent.get("title") or ent.get("name") or "")
@@ -343,6 +380,8 @@ class GraphRAGRetriever:
                     },
                 )
             )
+        if not passages:
+            return EmptyResult("matched GraphRAG entities had no usable text")
         return passages
 
 
@@ -377,7 +416,9 @@ class RetrievalRouter:
             "pageindex": self.settings.pageindex_timeout_s,
         }.get(name)
 
-    async def _run(self, name: str, query: str) -> RetrieverOutcome:
+    async def _run(self, name: str, query: str, empty_note: str = "") -> RetrieverOutcome:
+        """Run one retriever under its timeout; `empty_note` is added to the
+        reason recorded when it finds nothing."""
         started = time.perf_counter()
         retriever = self.retrievers.get(name)
         if retriever is None:
@@ -386,8 +427,13 @@ class RetrievalRouter:
             coro = retriever.retrieve(query, self.settings.per_retriever_top_k)
             timeout = self._timeout_for(name)
             passages = await (asyncio.wait_for(coro, timeout) if timeout else coro)
-            status = "ok" if passages else "empty"
-            return RetrieverOutcome(name, status, passages, (time.perf_counter() - started) * 1000)
+            latency_ms = (time.perf_counter() - started) * 1000
+            if passages:
+                return RetrieverOutcome(name, "ok", list(passages), latency_ms)
+            reason = getattr(passages, "reason", "") or DEFAULT_EMPTY_REASONS.get(name, "no match")
+            if empty_note:
+                reason = f"{reason}; {empty_note}"
+            return RetrieverOutcome(name, "empty", [], latency_ms, detail=reason)
         except asyncio.TimeoutError:
             logger.warning("Retriever %s timed out; continuing without it", name)
             return RetrieverOutcome(name, "timeout", latency_ms=(time.perf_counter() - started) * 1000,
@@ -401,15 +447,27 @@ class RetrievalRouter:
             return RetrieverOutcome(name, "error", latency_ms=(time.perf_counter() - started) * 1000,
                                     detail=f"{type(e).__name__}: {e}")
 
-    async def retrieve(self, query: str, top_k: int, method: Optional[str] = None) -> Optional[RoutedRetrieval]:
+    async def retrieve(self, query: str, top_k: int, method: Optional[str] = None,
+                       graph_query: Optional[str] = None,
+                       graph_empty_note: str = "") -> Optional[RoutedRetrieval]:
         """
         Fused passages for `method`, or None when the caller must use the
         default vector path (vector retrieval failed).
+
+        `query` is what the vector and PageIndex retrievers search (the
+        question as written, ADR 0003). `graph_query` is what the graph
+        retrievers search: the English Pivot of the question, or `query` when
+        none is given. `graph_empty_note` is added to an empty graph
+        retriever's reason (for example, that the pivot was unavailable).
         """
         method = method or self.settings.rag_method
         names: Sequence[str] = METHOD_RETRIEVERS.get(method, ("vector",))
         started = time.perf_counter()
-        outcomes = list(await asyncio.gather(*(self._run(n, query) for n in names)))
+        graph_text = graph_query or query
+        outcomes = list(await asyncio.gather(*(
+            self._run(n, graph_text, graph_empty_note) if n in GRAPH_RETRIEVERS else self._run(n, query)
+            for n in names
+        )))
 
         vector = next((o for o in outcomes if o.name == "vector"), None)
         if vector is None or vector.status not in ("ok", "empty"):

@@ -8,6 +8,14 @@ Removing the translation hop also removes an LLM round-trip from every query, wh
 
 ## Consequences
 
+- The graph retrievers are the one exception (round-3 ticket 18). The knowledge
+  graph and the GraphRAG index match English entity names, so in the kg, graphrag
+  and fused modes they search the English Pivot of a non-English question,
+  translated alongside the probe. The vector path keeps the probe-first rule and
+  searches the question as written; when the probe is weak, the one translation
+  serves both. A graph retriever that finds nothing records why
+  (`retrievers_empty`), and `graph_query.pivot` records whether the pivot was
+  used, not needed or unavailable.
 - `data/chroma_db` must be reindexed with **bge-m3**, chosen by measurement rather
   than by vendor claim. See `evaluation/retrieval_eval/` and the decision below.
 - Reindexing 263 chunks takes ~295 s on CPU; query encoding is ~104 ms, both
