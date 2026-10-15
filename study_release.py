@@ -36,21 +36,162 @@ Usage:
     release.attach_logger(logging.getLogger(__name__))
 """
 
+import functools
 import hashlib
 import json
 import logging
 import os
 import subprocess
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_RELEASE_PATH = Path("./data/study/release.yaml")
 DRIFT_DIR = Path("./data/study/drift")
+# The server's own record of what is in the vector index
+# (SimpleRAGPipeline.metadata_file). Every upload and removal rewrites it.
+DEFAULT_CORPUS_MANIFEST = Path("./data/document_metadata.json")
+
+# Components that exist so that a change cannot be silent. For these a missing
+# entry in the record is not "not compared": it compares as UNRECORDED, so a
+# release that never named its corpus, Live model or outside providers drifts
+# until the record names them.
+REQUIRED_COMPONENTS = ("corpus.snapshot", "voice.live.model", "providers.outside_india")
+UNRECORDED = "unrecorded"
+
+
+def component_error(component: str, exc: BaseException) -> str:
+    """Log a fingerprint component that could not be read, and return the value
+    that stands in for it. The value names the failure, so it never matches a
+    recorded value and shows as drift instead of passing as "unknown"."""
+    logger.error("Release fingerprint: could not read %s: %s", component, exc, exc_info=exc)
+    return f"error:{type(exc).__name__}"
+
+
+# ---------------------------------------------------------------------------
+# Running commit
+# ---------------------------------------------------------------------------
+
+@functools.lru_cache(maxsize=1)
+def running_commit() -> str:
+    """
+    The commit this process is running, read once per process.
+
+    Read once on purpose: a `git pull` without a restart moves HEAD but not the
+    code in memory, so the first reading is the true one. Falls back to the
+    platform's build variable (Railway sets RAILWAY_GIT_COMMIT_SHA) where the
+    deployment has no .git directory.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+            cwd=Path(__file__).resolve().parent,
+        )
+        commit = out.stdout.strip()
+        if commit:
+            return commit
+        reason = out.stderr.strip() or f"git exited {out.returncode}"
+    except (OSError, subprocess.SubprocessError) as exc:
+        reason = f"{type(exc).__name__}: {exc}"
+    platform = os.getenv("RAILWAY_GIT_COMMIT_SHA", "").strip()
+    if platform:
+        return platform
+    logger.error("Release fingerprint: running commit unreadable (%s); release_id will say so", reason)
+    return "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Outside providers
+# ---------------------------------------------------------------------------
+# A provider that receives participant audio or text outside India registers a
+# check here. The fingerprint lists every one whose check says enabled, and the
+# release record lists the approved ones under providers.outside_india.
+
+_OUTSIDE_PROVIDERS: Dict[str, Callable[[], bool]] = {}
+
+
+def register_outside_provider(name: str, is_enabled: Callable[[], bool]) -> None:
+    """Register a provider that sends participant audio or text outside India.
+
+    `is_enabled` must read the same setting the server reads when it decides
+    to use the provider, so the fingerprint cannot disagree with what runs.
+    Registering the same name again replaces the check.
+    """
+    _OUTSIDE_PROVIDERS[name] = is_enabled
+
+
+def unregister_outside_provider(name: str) -> None:
+    """Remove a registered provider check (tests)."""
+    _OUTSIDE_PROVIDERS.pop(name, None)
+
+
+def enabled_outside_providers() -> List[str]:
+    """Names of the outside providers enabled now, sorted.
+
+    A check that raises is logged and listed as `name=error:<Type>`: unknown
+    is not the same as off.
+    """
+    enabled: List[str] = []
+    for name, is_enabled in sorted(_OUTSIDE_PROVIDERS.items()):
+        try:
+            if is_enabled():
+                enabled.append(name)
+        except Exception as exc:  # a provider check is third-party config code
+            enabled.append(f"{name}={component_error('providers.outside_india.' + name, exc)}")
+    return enabled
+
+
+def _gemini_live_enabled() -> bool:
+    """Gemini Live (no Indian region; raw voice leaves India, ADR 0007)."""
+    from gemini_live.config import GeminiLiveConfig, live_enabled
+
+    return live_enabled(GeminiLiveConfig.from_yaml())
+
+
+register_outside_provider("gemini_live", _gemini_live_enabled)
+
+
+def provider_list(value: Any) -> Optional[str]:
+    """A recorded or live provider list as one comparable value."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = [value]
+    return ",".join(sorted(str(v) for v in value)) or "none"
+
+
+# ---------------------------------------------------------------------------
+# Corpus snapshot
+# ---------------------------------------------------------------------------
+
+def corpus_snapshot(manifest: Path = DEFAULT_CORPUS_MANIFEST) -> str:
+    """
+    sha256 over what the index holds, read from the server's document manifest.
+
+    Each document contributes its id, filename and chunk count. Upload time is
+    left out, so copying the same index to another machine gives the same
+    hash; a new upload has a new id, and a re-chunked document a new count. A
+    missing manifest is an empty corpus, as it is to the server.
+    """
+    entries: Dict[str, Any] = {}
+    if manifest.exists():
+        loaded = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError(f"{manifest} is not a mapping")
+        entries = loaded
+    canonical = [
+        [doc_id, str((meta or {}).get("filename", "")), int((meta or {}).get("chunk_count", 0))]
+        for doc_id, meta in sorted(entries.items())
+    ]
+    digest = hashlib.sha256(json.dumps(canonical, separators=(",", ":")).encode("utf-8"))
+    return digest.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +240,7 @@ class StudyRelease:
     """The approved release record, plus drift detection against the live system."""
     record: Dict[str, Any] = field(default_factory=dict)
     path: Path = DEFAULT_RELEASE_PATH
+    corpus_manifest: Path = DEFAULT_CORPUS_MANIFEST
     # Drift needs git and the vector store, so it is computed once (at startup,
     # or on first use) and reused until refresh_drift() or a reload.
     _drift: Optional[List["DriftFinding"]] = field(default=None, repr=False, compare=False)
@@ -114,6 +256,36 @@ class StudyRelease:
         self._drift = self.check_drift()
         return self._drift
 
+    def corpus_changed(
+        self,
+        target_logger: Optional[logging.Logger] = None,
+        manifest: Optional[Path] = None,
+    ) -> List["DriftFinding"]:
+        """
+        Recheck drift after the corpus changed (an upload or a removal).
+
+        Without this the cached drift from start-up would keep reporting the
+        old corpus, and a new document would change answers with nothing
+        noticing. A drift that the change introduces is logged and persisted
+        the same way start-up drift is. Runs git and reads the manifest, so
+        call it off the event loop.
+
+        `manifest` is the file the pipeline just wrote; it becomes the corpus
+        manifest the fingerprint hashes, so the two cannot name different files.
+        """
+        log = target_logger or logger
+        if manifest is not None:
+            self.corpus_manifest = Path(manifest)
+        findings = self.refresh_drift()
+        corpus = [f for f in findings if f.component == "corpus.snapshot"]
+        if corpus:
+            log.error(
+                "RELEASE DRIFT: the corpus no longer matches release %s:\n%s",
+                self.release_id, "\n".join(f.describe() for f in corpus),
+            )
+            self.persist_drift(findings)
+        return findings
+
     # -- identity ----------------------------------------------------------
     @property
     def release_name(self) -> str:
@@ -128,12 +300,13 @@ class StudyRelease:
         """
         Short identifier stamped onto every interaction.
 
-        Derived from the release name and the commit, so that two runs of the
-        same commit under the same release name are distinguishable from a
-        different commit, and so that the id is stable across restarts.
+        The release name and the commit that is actually running, so a study
+        row names the code that answered it. The record's `source.commit` is
+        only compared against the running commit (the `commit` drift
+        component); it never stands in for it, or every row of a drifted
+        build would claim the approved one.
         """
-        commit = self._dig("source", "commit") or "unknown"
-        return f"{self.release_name}@{str(commit)[:7]}"
+        return f"{self.release_name}@{running_commit()[:7]}"
 
     @property
     def is_activated(self) -> bool:
@@ -185,7 +358,27 @@ class StudyRelease:
             "retrieval.rag_method": retrieval["rag_method"],
             "retrieval.kg_check": retrieval["kg_check"],
             "commit": self._git_commit(),
+            "corpus.snapshot": self._corpus_snapshot(),
+            "voice.live.model": self._live_model(),
+            "providers.outside_india": provider_list(enabled_outside_providers()),
         }
+
+    def _corpus_snapshot(self) -> str:
+        """The live corpus hash (see corpus_snapshot)."""
+        try:
+            return corpus_snapshot(self.corpus_manifest)
+        except (OSError, ValueError, TypeError) as exc:
+            return component_error("corpus.snapshot", exc)
+
+    @staticmethod
+    def _live_model() -> str:
+        """The Live model a voice session opens with (config.yaml, GEMINI_LIVE_MODEL)."""
+        try:
+            from gemini_live.config import GeminiLiveConfig
+
+            return GeminiLiveConfig.from_yaml().model
+        except Exception as exc:  # import of the Live stack can fail many ways
+            return component_error("voice.live.model", exc)
 
     @staticmethod
     def _llm_settings() -> Dict[str, Any]:
@@ -203,9 +396,9 @@ class StudyRelease:
                 "thinking": compact_mapping(d.get("thinking")),
                 "deadlines": compact_mapping(d.get("deadlines")),
             }
-        except Exception:
-            return {"provider": "unknown", "model": "unknown", "location": "unknown", "fallback": "unknown",
-                    "thinking": "unknown", "deadlines": "unknown"}
+        except Exception as exc:  # settings loading reads env, yaml and the SDK
+            value = component_error("llm", exc)
+            return {key: value for key in ("provider", "model", "location", "fallback", "thinking", "deadlines")}
 
     @staticmethod
     def _retrieval_settings() -> Dict[str, str]:
@@ -215,8 +408,9 @@ class StudyRelease:
 
             active = get_active_settings()
             return {"rag_method": active.rag_method, "kg_check": active.kg_check_mode}
-        except Exception:
-            return {"rag_method": "unknown", "kg_check": "unknown"}
+        except Exception as exc:
+            value = component_error("retrieval", exc)
+            return {"rag_method": value, "kg_check": value}
 
     @staticmethod
     def _embedding_runtime() -> str:
@@ -229,30 +423,24 @@ class StudyRelease:
             config_path = Path("config.yaml")
             config = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
             return configured_runtime(config or {})
-        except Exception:
-            return "unknown"
+        except Exception as exc:
+            return component_error("embedding.runtime", exc)
 
     @staticmethod
-    def _module_present(module_name: str) -> bool:
+    def _module_present(module_name: str) -> Any:
+        """True when the module imports; a failed import is logged and named."""
         try:
             __import__(module_name)
             return True
-        except Exception:
+        except ImportError:
             return False
+        except Exception as exc:  # the module exists but raised on import
+            return component_error(f"module {module_name}", exc)
 
     @staticmethod
     def _git_commit() -> str:
-        try:
-            out = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=False,
-            )
-            return out.stdout.strip() or "unknown"
-        except Exception:
-            return "unknown"
+        """The running commit (see running_commit)."""
+        return running_commit()
 
     @staticmethod
     def _live_embedding_model() -> str:
@@ -269,8 +457,8 @@ class StudyRelease:
             # 384-dimensional; a multilingual model would not be.
             dim = len(collection.get(limit=1, include=["embeddings"])["embeddings"][0])
             return f"unknown-{dim}d"
-        except Exception:
-            return "unavailable"
+        except Exception as exc:  # chromadb raises its own and sqlite errors
+            return component_error("embedding.model", exc)
 
     @staticmethod
     def _speech_models() -> Dict[str, str]:
@@ -282,8 +470,11 @@ class StudyRelease:
                 "stt_model": str(getattr(cfg, "SARVAM_STT_MODEL", "saaras-v3")),
                 "tts_model": str(getattr(cfg, "SARVAM_TTS_MODEL", "bulbul-v3")),
             }
-        except Exception:
-            return {"stt_provider": "sarvam", "stt_model": "saaras-v3", "tts_model": "bulbul-v3"}
+        except Exception as exc:
+            # Not the defaults: claiming the approved models when the
+            # configuration could not be read is the silent "unknown" again.
+            value = component_error("speech", exc)
+            return {"stt_provider": value, "stt_model": value, "tts_model": value}
 
     # -- drift --------------------------------------------------------------
     def check_drift(self) -> List[DriftFinding]:
@@ -293,7 +484,10 @@ class StudyRelease:
         Only components that the record actually names are compared. A component
         recorded as null, or as a marker like "unknown-*", is not treated as a
         discrepancy -- otherwise an unpopulated field would raise a permanent
-        false alarm and train everyone to ignore the warning.
+        false alarm and train everyone to ignore the warning. The exception is
+        REQUIRED_COMPONENTS (corpus, Live model, outside providers): those
+        compare an absent record as "unrecorded", because the point of them is
+        that the corpus or a residency choice cannot change unnoticed.
         """
         live = self.live_fingerprint()
         recorded: Dict[str, Any] = {
@@ -314,7 +508,13 @@ class StudyRelease:
             "retrieval.rag_method": self._dig("retrieval", "rag_method"),
             "retrieval.kg_check": self._dig("retrieval", "kg_check"),
             "commit": self._dig("source", "commit"),
+            "corpus.snapshot": self._dig("knowledge", "snapshot_sha256"),
+            "voice.live.model": self._dig("models", "voice_primary", "model"),
+            "providers.outside_india": provider_list(self._dig("providers", "outside_india")),
         }
+        for component in REQUIRED_COMPONENTS:
+            if recorded[component] is None:
+                recorded[component] = UNRECORDED
 
         findings: List[DriftFinding] = []
         for component, recorded_value in recorded.items():

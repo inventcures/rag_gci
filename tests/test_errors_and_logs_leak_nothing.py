@@ -303,6 +303,15 @@ class BolnaRoutesLogNothingIdentifiable(unittest.TestCase):
                             "caller_phone": PHONE}},
     ]
 
+    @staticmethod
+    def verified(app):
+        """Skip webhook verification: these tests are about logs, and
+        tests/test_webhook_verification.py covers the verifier itself."""
+        from webhook_auth import require_bolna
+
+        app.dependency_overrides[require_bolna] = lambda: None
+        return app
+
     def post_events(self, client):
         with CapturedLogs() as logs:
             for event in self.EVENTS:
@@ -312,7 +321,7 @@ class BolnaRoutesLogNothingIdentifiable(unittest.TestCase):
     def test_the_webhook_route_logs_no_summary_or_concern(self):
         from fastapi.testclient import TestClient
 
-        self.post_events(TestClient(build_server_app()))
+        self.post_events(TestClient(self.verified(build_server_app())))
 
     def test_the_fallback_webhook_without_the_handler_logs_no_summary_or_concern(self):
         from fastapi.testclient import TestClient
@@ -321,7 +330,7 @@ class BolnaRoutesLogNothingIdentifiable(unittest.TestCase):
 
         with mock.patch.object(srv, "BOLNA_AVAILABLE", False):
             app = build_server_app()
-        self.post_events(TestClient(app))
+        self.post_events(TestClient(self.verified(app)))
 
     def test_the_rag_query_route_logs_no_question_caller_or_answer(self):
         from fastapi.testclient import TestClient
@@ -331,7 +340,7 @@ class BolnaRoutesLogNothingIdentifiable(unittest.TestCase):
             return {"status": "success", "answer": ANSWER,
                     "sources": [{"filename": "handbook.pdf"}]}
 
-        client = TestClient(build_server_app())
+        client = TestClient(self.verified(build_server_app()))
         with CapturedLogs() as logs, mock.patch.object(_FakePipeline, "query", query, create=True):
             response = client.post("/api/bolna/query", json={
                 "query": QUESTION, "language": "en", "from_number": PHONE, "execution_id": "e1"})
