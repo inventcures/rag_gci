@@ -1,6 +1,8 @@
 package org.inventcures.pallisahayak.data
 
 import android.content.Context
+import android.database.SQLException
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +14,7 @@ import org.inventcures.pallisahayak.data.auth.ApiClients
 import org.inventcures.pallisahayak.data.auth.AuthState
 import org.inventcures.pallisahayak.data.auth.KeystoreTokenStore
 import org.inventcures.pallisahayak.data.auth.SessionManager
+import org.inventcures.pallisahayak.data.household.HouseholdRepository
 import org.inventcures.pallisahayak.data.local.PalliDatabase
 import org.inventcures.pallisahayak.data.model.Language
 import org.inventcures.pallisahayak.data.offline.ConnectivityMonitor
@@ -20,6 +23,7 @@ import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
 import org.inventcures.pallisahayak.data.offline.OfflineBundleDownloader
 import org.inventcures.pallisahayak.data.prefs.SharedPreferencesStore
 import org.inventcures.pallisahayak.data.release.ReleaseGate
+import org.inventcures.pallisahayak.data.reminders.ReminderRepository
 import org.inventcures.pallisahayak.data.release.SharedPreferencesReleaseCache
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
 import org.inventcures.pallisahayak.data.settings.ActiveSettings
@@ -69,6 +73,20 @@ object ServiceLocator {
     @Volatile
     private var voiceInstance: VoiceEngine? = null
 
+    @Volatile
+    private var householdsInstance: HouseholdRepository? = null
+
+    @Volatile
+    private var remindersInstance: ReminderRepository? = null
+
+    /**
+     * Moves the alarm for the next reminder. Set by the app module, which owns the
+     * alarm and the notification, before [initialise]; this module only says when
+     * the set of reminders has changed.
+     */
+    @Volatile
+    var onRemindersChanged: () -> Unit = {}
+
     /**
      * Everything the offline screens need, built once alongside the repository.
      *
@@ -95,6 +113,14 @@ object ServiceLocator {
      */
     val voice: VoiceEngine
         get() = voiceInstance ?: notInitialised()
+
+    /** The people the participant cares for, and what was noticed about them. */
+    val households: HouseholdRepository
+        get() = householdsInstance ?: notInitialised()
+
+    /** The medicine reminders kept on this phone. */
+    val reminders: ReminderRepository
+        get() = remindersInstance ?: notInitialised()
 
     /** The Active Role and language the settings screen switches. */
     val settings: ActiveSettings
@@ -136,6 +162,31 @@ object ServiceLocator {
 
         settingsInstance = ActiveSettings(SharedPreferencesStore(context))
         voiceInstance = AndroidVoiceEngine(context.applicationContext)
+
+        // An observation is stored by queuing it for the next sync, under the
+        // person's random reference and never their name. True only once the row
+        // is in the queue, so the screen never reports a dropped one as saved.
+        householdsInstance = HouseholdRepository(
+            dao = database.households(),
+            observationSink = { member, observation ->
+                try {
+                    queue.enqueueObservation(
+                        patientId = member.patientRef,
+                        category = OBSERVATION_CATEGORY_SYMPTOM,
+                        entityName = observation.symptom,
+                        severity = observation.severity,
+                    )
+                    true
+                } catch (error: SQLException) {
+                    Log.w(TAG, "an observation could not be queued", error)
+                    false
+                }
+            },
+        )
+        remindersInstance = ReminderRepository(
+            dao = database.reminders(),
+            onChanged = { onRemindersChanged() },
+        )
 
         repositoryInstance = PalliSahayakRepository(
             api = api.api,
@@ -194,6 +245,11 @@ object ServiceLocator {
     }
 
     private const val HTTP_CACHE_DIR = "http"
+
+    private const val TAG = "PalliServices"
+
+    /** The server's observation category for a symptom (`longitudinal_memory.py`). */
+    private const val OBSERVATION_CATEGORY_SYMPTOM = "symptom"
 
     /** Room for several languages' bundles; OkHttp evicts the oldest past this. */
     private const val HTTP_CACHE_BYTES = 10L * 1024 * 1024

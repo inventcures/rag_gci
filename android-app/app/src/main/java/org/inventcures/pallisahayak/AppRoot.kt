@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 
 import org.inventcures.pallisahayak.app.ui.AppScaffold
 import org.inventcures.pallisahayak.app.ui.HistoryList
+import org.inventcures.pallisahayak.app.ui.HouseholdScreen
 import org.inventcures.pallisahayak.app.ui.LanguagePicker
 import org.inventcures.pallisahayak.app.ui.OfflineBanner
 import org.inventcures.pallisahayak.app.ui.RegistrationScreen
@@ -26,6 +27,7 @@ import org.inventcures.pallisahayak.app.ui.SettingsScreen
 import org.inventcures.pallisahayak.app.ui.SignInScreen
 import org.inventcures.pallisahayak.data.AskViewModel
 import org.inventcures.pallisahayak.data.ServiceLocator
+import org.inventcures.pallisahayak.data.household.HouseholdViewModel
 import org.inventcures.pallisahayak.data.model.CareRole
 import org.inventcures.pallisahayak.data.model.Language
 import org.inventcures.pallisahayak.data.offline.HistoryEntry
@@ -123,6 +125,21 @@ private fun SignedInApp(storeOwner: ViewModelStoreOwner, session: SessionContext
         },
     )["ask:${session.participantId}", AskViewModel::class.java] // not user-facing: a ViewModel store key
 
+    val householdModel = ViewModelProvider(
+        owner = storeOwner,
+        factory = viewModelFactory {
+            initializer {
+                HouseholdViewModel(
+                    households = ServiceLocator.households,
+                    reminders = ServiceLocator.reminders,
+                    session = session,
+                    settings = ServiceLocator.settings,
+                )
+            }
+        },
+    )["household:${session.participantId}", HouseholdViewModel::class.java] // not user-facing: a ViewModel store key
+    val household by householdModel.state.collectAsState()
+
     val graph = ServiceLocator.offline
     val settings = ServiceLocator.settings
     val switchedRole: CareRole? by settings.role.collectAsState()
@@ -150,6 +167,15 @@ private fun SignedInApp(storeOwner: ViewModelStoreOwner, session: SessionContext
         },
         ask = { AskScreen(viewModel, offline = !online) },
         history = { HistoryList(entries = history) },
+        household = {
+            HouseholdScreen(
+                state = household,
+                onAddMember = householdModel::addMember,
+                onRecordObservation = householdModel::recordObservation,
+                onAddReminder = householdModel::addReminder,
+                onRemoveReminder = householdModel::removeReminder,
+            )
+        },
         settings = {
             SettingsScreen(
                 activeRole = switchedRole ?: CareRole.fromWire(session.careRole),

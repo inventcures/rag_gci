@@ -81,6 +81,10 @@ interface ReminderDao {
 
     @Query("DELETE FROM reminders WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Every day's row of one reminder: they share a medication reference. */
+    @Query("DELETE FROM reminders WHERE medication_ref = :medicationRef")
+    suspend fun deleteAllFor(medicationRef: String)
 }
 
 /** One reminder that should fire now. */

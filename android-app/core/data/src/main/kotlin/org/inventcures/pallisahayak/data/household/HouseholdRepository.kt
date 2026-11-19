@@ -7,6 +7,18 @@ import org.inventcures.pallisahayak.data.model.Language
 import java.util.UUID
 
 /**
+ * What a carer noticed about one person: which symptom, and how bad.
+ *
+ * Chosen from fixed lists, never typed. Free text on its way to the server's
+ * patient record could carry a name or a dose, and neither belongs there.
+ * [severity] is the server's scale, 0 (none) to 4 (very severe).
+ */
+data class Observation(
+    val symptom: String,
+    val severity: Int,
+)
+
+/**
  * Registering a household and recording observations against it.
  *
  * Every call takes the caller as its first argument and passes it to the DAO, which
@@ -17,13 +29,14 @@ class HouseholdRepository(
     private val dao: HouseholdDao,
     /**
      * Where an observation is sent once its member is proven to belong to this
-     * caller.
+     * caller: the sync queue, in the app. True only when it was stored.
      *
      * A constructor dependency rather than a settable field. A mutable sink lets one
      * part of the app replace where another part's observations go, which is not a
-     * capability anything here needs.
+     * capability anything here needs. Required: with no sink this used to answer
+     * "saved" and keep nothing (Android review, R2).
      */
-    private val observationSink: ((HouseholdMemberEntity, String) -> Boolean)? = null,
+    private val observationSink: suspend (HouseholdMemberEntity, Observation) -> Boolean,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
@@ -92,16 +105,22 @@ class HouseholdRepository(
      * The member id is resolved through [HouseholdDao.memberFor] with the caller in
      * the query, so an identifier from another household returns null rather than
      * being recorded. Silently dropping an observation would leave a gap nobody
-     * notices, so this returns null and lets the caller decide.
+     * notices, so this returns false and lets the caller say so.
      */
     suspend fun recordObservation(
         ownerId: String,
         memberId: String,
-        observation: String,
+        observation: Observation,
     ): Boolean {
-        require(observation.isNotBlank()) { "an observation cannot be empty" }
+        require(observation.symptom.isNotBlank()) { "an observation cannot be empty" }
+        require(observation.severity in SEVERITY_RANGE) { "severity is 0 to 4" }
 
         val member = dao.memberFor(ownerId, memberId) ?: return false
-        return observationSink?.let { it(member, observation) } ?: true
+        return observationSink(member, observation)
+    }
+
+    private companion object {
+        /** The server's SeverityLevel: none, mild, moderate, severe, very severe. */
+        val SEVERITY_RANGE = 0..4
     }
 }
