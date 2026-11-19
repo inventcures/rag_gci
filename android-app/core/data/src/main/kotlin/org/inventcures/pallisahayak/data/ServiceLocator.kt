@@ -26,11 +26,8 @@ import org.inventcures.pallisahayak.data.settings.ActiveSettings
 import org.inventcures.pallisahayak.data.start.AppStart
 import org.inventcures.pallisahayak.data.sync.SyncQueue
 import org.inventcures.pallisahayak.data.sync.SyncScheduler
-<<<<<<< HEAD
 import org.inventcures.pallisahayak.data.voice.AndroidVoiceEngine
 import org.inventcures.pallisahayak.data.voice.VoiceEngine
-=======
->>>>>>> origin/main
 import java.io.File
 
 /**

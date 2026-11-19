@@ -30,11 +30,8 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import org.inventcures.pallisahayak.app.ui.ActionGlyphs
 import org.inventcures.pallisahayak.app.ui.MicrophoneWhenOffline
-<<<<<<< HEAD
 import org.inventcures.pallisahayak.app.ui.OfflineMissNotice
 import org.inventcures.pallisahayak.data.offline.OfflineMiss
-=======
->>>>>>> origin/main
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -110,7 +107,6 @@ fun AskScreen(
             MicrophoneButton(
                 isListening = state.isListening,
                 enabled = !state.isAsking && !state.isSpeaking,
-<<<<<<< HEAD
                 onPress = {
                     if (viewModel.needsMicrophonePermission()) {
                         askForMicrophone.launch(Manifest.permission.RECORD_AUDIO)
@@ -118,9 +114,6 @@ fun AskScreen(
                         viewModel.onMicPressed()
                     }
                 },
-=======
-                onPress = viewModel::onMicPressed,
->>>>>>> origin/main
                 onRelease = viewModel::onMicReleased,
             )
         }
