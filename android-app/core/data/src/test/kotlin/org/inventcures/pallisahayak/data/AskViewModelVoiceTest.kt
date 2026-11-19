@@ -73,12 +73,15 @@ class AskViewModelVoiceTest {
         api.voice("what is morphine used for?", "Morphine is a strong opioid used for severe cancer pain.",
             audioBase64 = serverAudioBase64)
 
-        val state = askByVoice().state.value
+        val vm = askByVoice()
 
-        assertEquals(AnswerKind.ANSWER, state.answerKind)
+        assertEquals(AnswerKind.ANSWER, vm.state.value.answerKind)
         assertEquals(1, speaker.played.size)
         assertArrayEquals(serverAudio, speaker.played.single())
-        assertTrue(state.canReplay)
+
+        // Replay is offered once the answer has been heard, not over it.
+        speaker.finishPlaying()
+        assertTrue(vm.state.value.canReplay)
     }
 
     @Test
