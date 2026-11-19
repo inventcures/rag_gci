@@ -56,7 +56,12 @@ class MigrationTest {
 
     @Test
     fun `every version before the current one has a committed schema to upgrade from`() {
-        val current = open().use { it.openHelper.readableDatabase.version }
+        val db = open()
+        val current = try {
+            db.openHelper.readableDatabase.version
+        } finally {
+            db.close()
+        }
         for (version in 1 until current) {
             assertTrue("schemas/$version.json is missing", schemaFile(version).exists())
         }
@@ -65,13 +70,17 @@ class MigrationTest {
     private fun upgradesFrom(version: Int) {
         createAsBuilt(version)
 
-        open().use { db ->
+        val db = open()
+        try {
+            // Opening runs the migrations and Room's check of the result.
             val upgraded = db.openHelper.writableDatabase
             assertTrue("did not upgrade past $version", upgraded.version > version)
             upgraded.query("SELECT COUNT(*) FROM interactions WHERE id = '$KEPT'").use { rows ->
                 rows.moveToFirst()
                 assertEquals("the interaction recorded on version $version", 1, rows.getInt(0))
             }
+        } finally {
+            db.close()
         }
     }
 
