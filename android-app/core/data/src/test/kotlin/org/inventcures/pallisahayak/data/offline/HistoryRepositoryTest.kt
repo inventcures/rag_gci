@@ -169,6 +169,5 @@ class HistoryRepositoryTest {
     @Test
     fun `an empty history is reported as empty rather than failing`() = runTest {
         assertTrue(history.recent().isEmpty())
-        assertFalse(history.hasHistory().first())
     }
 }

@@ -20,7 +20,6 @@ import org.inventcures.pallisahayak.data.local.CachedAnswerDao
 import org.inventcures.pallisahayak.data.local.CachedAnswerEntity
 import org.inventcures.pallisahayak.data.local.InteractionDao
 import org.inventcures.pallisahayak.data.local.InteractionEntity
-import org.inventcures.pallisahayak.data.local.LanguageCount
 import retrofit2.Response
 import java.io.IOException
 
@@ -131,16 +130,6 @@ class FakeInteractionDao : InteractionDao {
 
     override fun observeRecent(): Flow<List<InteractionEntity>> = MutableStateFlow(rows.toList())
 
-    override suspend fun participantsWithActivitySince(since: Long): Int = error("not used")
-
-    override suspend fun substantiveSince(since: Long): List<InteractionEntity> = error("not used")
-
-    override suspend fun dosageBlockedCount(): Int = rows.count { it.dosageBlocked }
-
-    override suspend fun emergencyCount(): Int = rows.count { it.emergencyLevel != "none" }
-
-    override suspend fun callsByLanguage(): List<LanguageCount> = error("not used")
-
     override suspend fun pruneBefore(before: Long) {
         rows.removeAll { it.occurredAt < before }
     }
@@ -159,12 +148,6 @@ class FakeCachedAnswerDao : CachedAnswerDao {
 
     override suspend fun find(hash: String, language: String): CachedAnswerEntity? =
         rows.firstOrNull { it.queryHash == hash && it.language == language }
-
-    override suspend fun versions(): List<String> = rows.map { it.bundleVersion }.distinct()
-
-    override suspend fun deleteOtherVersions(keepVersion: String) {
-        rows.removeAll { it.bundleVersion != keepVersion }
-    }
 
     override suspend fun deleteStale(language: String, keepVersion: String) {
         rows.removeAll { it.language == language && it.bundleVersion != keepVersion }

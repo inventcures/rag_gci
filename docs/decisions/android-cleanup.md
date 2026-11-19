@@ -43,3 +43,74 @@ Ordered by how much they matter. Each has a recommendation.
 | R10 | Dead or test-only API surface: `GateDecision.Blocked.headline/detail` (English text the screen never shows; it uses `reason`), `CareRole.iconKey` (Material icon names; the icons are drawn by hand), `AskViewModel.clearError`, `HistoryRepository.recent/hasHistory`, `OfflineAnswerResolver.hasBundle`, `SyncQueue.enqueueObservation/pendingCount`, `CachedAnswerDao.versions/deleteOtherVersions`, `ActiveSettings.activeRole`, `PreferencesStore.languageChosen/clear`. | Remove in a follow-up together with their tests, once R1 and R2 decide which features stay. |
 | R11 | Release build: `versionCode` is fixed at 1 and there is no signing config, so a release APK cannot be installed as an update. | Derive `versionCode` from the release record or CI run number and add signing from CI secrets before the first phone install. |
 | R12 | AGENTS.md says no in-code comments; the Android sources are heavily commented (round 3, D15). | Still the project lead's call. |
+
+## Round 2: fixing the review list (2026-11-19)
+
+tp53 asked for the review list above to be fixed without a spec step, and chose, on R2, to build the household, observation and reminder screens and the alarm now. Decisions continue the numbering as A15 onward. The rows above are left as they were written; this section says what became of each.
+
+Nothing here was run on a phone or an emulator. The cloud session cannot download the Android SDK, so the GitHub Android job (compile, unit and Robolectric tests, the release build and its size budget) is the only build. The microphone, the speaker, the permission dialogs, the alarm and the notification cannot be exercised by those tests. They need a session on a real phone against the study server before the build goes to participants; the list is under "Not verified" below.
+
+### What became of R1 to R12
+
+| # | Outcome |
+|---|---|
+| R1 | Fixed (A15 to A19). Needs a phone test. |
+| R2 | Built (A20 to A28). Needs a phone test, and the clinical lead's review of the new words and the symptom list. |
+| R3 | Fixed (A29). The migration test runs every older schema through the real migrations. `4.json` is committed from the CI build's output, and CI now fails when a schema file the build writes is not committed. |
+| R4 | Not pruned (A30). The unused study-metric queries are removed. |
+| R5 | Fixed with an existing string (A31). |
+| R6 | Fixed (A31). |
+| R7 | Documented, not renamed (A32). |
+| R8 | Fixed (A33). |
+| R9 | Not done (A34). |
+| R10 | Removed (A35). |
+| R11 | Fixed in the build; the key itself is the study team's to make and keep (A36). |
+| R12 | Unchanged: still the project lead's call. New code follows the style of the files around it. |
+
+### Decisions
+
+| # | Decision | Why |
+|---|---|---|
+| A15 | One voice engine for the process, built at start and given to the Ask screen's ViewModel. | Nothing ever constructed one, so the hold-to-speak button did nothing. Two recorders cannot share a microphone, and a second player would talk over the first. |
+| A16 | The Ask screen asks for the microphone with Android's own dialog, the first time the mic is pressed without it. The press that raised the dialog records nothing; a refusal shows the existing "Microphone access is needed" notice. | Only a screen can show the dialog. No new wording was needed. After two refusals Android stops showing the dialog and answers "no" itself, so the notice still appears, but the participant then has to allow it in system settings and the app does not yet say so. |
+| A17 | The recording is uploaded as a WAV file with a header and a filename. The generated client takes a ready-made file part, and the form field's name comes from the contract as a generated constant. | Without a filename FastAPI reads the part as a text field and answers 422. Without a header the speech-to-text is told "WAV" and given bare samples. The fix is in `scripts/generate_kotlin_client.py`, so regeneration keeps it. |
+| A18 | The answer is played with MediaPlayer from memory. | The server sends Sarvam's WAV file at 22.05 kHz; the old player assumed bare 16 kHz samples, so it would have played the header as noise and the speech slow. MediaPlayer reads the file's own format, and nothing is written to disk. |
+| A19 | "Speaking" is true from the start of playback until it ends, fails or is stopped. A recording stops at one minute. Leaving the screen for good releases the microphone and the speaker. | The Stop button depends on that state, which was never set after an answer and never cleared after a replay. A button held down in a pocket must not fill a 2 GB phone. |
+| A20 | A fourth tab, Household, holds the people cared for, symptom observations and medicine reminders. | tp53's choice on the decision card. One screen, with one form open at a time under the person it is about. |
+| A21 | A person's name is stored on the phone only and is never sent. The server knows a person by a random reference made on the phone. | The household table's own design, and the answer to R2's question about names on the device: the app's data is private to the app, excluded from backup, and a name never leaves it. The first observation pushed under a new reference makes that record this participant's (`claim_or_check` on the server). |
+| A22 | An observation is one of four symptoms (pain, breathlessness, nausea or vomiting, constipation) with a severity from none to very severe. Nothing is typed. | Free text bound for the patient record could carry a name or a dose. The names and the 0 to 4 scale are the server's own. Which four symptoms is a clinical choice: I took the first of the server's symptom list, and the clinical lead should confirm or change them. |
+| A23 | "Saved" is shown only once the observation is in the sync queue; otherwise the screen says it was not saved. The repository's sink is now required. | With no sink the repository answered "saved" and kept nothing. |
+| A24 | A queued observation reaches the server on the next sync push: at once when signal returns, else within 15 minutes while online and the app is open. | The existing sync scheduler, unchanged. The screen says "when there is a connection". |
+| A25 | A reminder is daily, at a time, and says the medicine's name and the person's. It is stored as seven weekly rows, with no schema change. | The table keeps one row a weekday. Reminders on chosen weekdays can use the same rows later. |
+| A26 | A medicine name that carries an amount is refused, with a notice to write only the name. | Project rule: never give a dose. The on-device dose detector that guards answers is run on the name. |
+| A27 | Reminders stay on the phone and are not pushed to the server. | The server turns a synced reminder into a voice-call reminder, which the default release refuses and which needs a phone number. The phone's own alarm is what criterion 5 asks for. |
+| A28 | The alarm is inexact (`setAndAllowWhileIdle`), one at a time for the next reminder, and set again after a restart, a clock or time zone change, an app update and each time the app opens. A reminder is shown once a day, as a notification with sound, in the language it was made in. | An exact alarm needs a permission Android gives only to clock and calendar apps or that the user must grant in system settings. The cost is that a reminder can be some minutes late; it counts as due for 30 minutes. On Android 13 and later the participant must allow notifications, which the app asks for when a reminder is saved. |
+| A29 | Migrations are tested by building each older database from its committed schema file, adding an interaction, and opening it with the real migrations under Robolectric. | Room checks the result against the compiled schema and throws on any difference, and the test also checks the interaction survived. An instrumented test would need an emulator CI does not have. |
+| A30 | Interactions are not pruned. | Deleting study records from a phone cannot be undone, and no retention period has been agreed with the study team. `pruneBefore` stays for when one is. |
+| A31 | A server error while online shows "Could not reach the service. Please try again." An offline miss shows which of its two reasons it is, with the notice that already existed. | The first told someone with signal to go and find signal. Both use existing strings, so no new clinical-language review is needed. Two strings no screen uses any more (`history_heading`, `problem_offline_not_saved`) are removed from both languages. |
+| A32 | `text_is_scrubbed` keeps its name and gains a comment that says which way round it reads. | It is a study data field already in three schema versions; renaming it is a migration on every phone for a label. The analysis plan should quote the comment. |
+| A33 | The Ask screen no longer keeps its own "Earlier" list. | It duplicated the Visits tab without the answer kinds and forgot everything on restart. The Ask screen now scrolls, since an answer can be longer than the screen. |
+| A34 | Moshi stays on reflection. | Generated adapters change how every reply is read in the minified release build, and a mistake there shows only on a release build running on a phone, which nothing here can run. Worth doing with a phone to hand. |
+| A35 | Removed with their tests: `GateDecision.Blocked.headline/detail`, `CareRole.iconKey`, `AskViewModel.clearError`, `HistoryRepository.hasHistory`, `OfflineAnswerResolver.hasBundle`, `SyncQueue.pendingCount`, `CachedAnswerDao.versions/deleteOtherVersions`, `ActiveSettings.activeRole`, `PreferencesStore.languageChosen/clear`, and the five study-metric queries on `InteractionDao`. `HistoryRepository.recent` stays: ten tests read through it. `SyncQueue.enqueueObservation` is now used. | Each was checked for callers in main and test sources. None changes the database schema. |
+| A36 | `versionCode` comes from `-PpalliVersionCode` (CI passes its run number; a local build is 1). A release is signed when `PALLI_KEYSTORE_FILE`, `PALLI_KEYSTORE_PASSWORD`, `PALLI_KEY_ALIAS` and `PALLI_KEY_PASSWORD` are set, and unsigned otherwise, as before. | A phone installs an update only with a higher version code and the same signing key. The key must be made once, kept out of the repository and kept for the length of the study. |
+
+### Not verified
+
+To check on a real phone against the study server, before participants:
+
+1. Hold to speak: the permission dialog, a question recorded and answered, the answer spoken at the right speed, Stop and replay.
+2. A refused microphone permission, twice, then allowing it in system settings.
+3. A reminder set a few minutes ahead: with the app closed, with the phone idle and unplugged, after a restart, and with notifications refused.
+4. An observation saved offline, then seen on the server's patient record after signal returns.
+5. The release build (minified) doing all of the above, not only the debug build.
+
+### For review
+
+| # | For whom | What |
+|---|---|---|
+| R13 | Clinical lead | The 34 new strings in English and machine-drafted Hindi (the household block at the end of each `strings.xml`), and the choice of four symptoms (A22). |
+| R14 | Study team | Whether observations from the app belong in the protocol's data flows, and that they sit in the server's patient record under a random reference (A21). |
+| R15 | Project lead | A spoken reminder. The reminder is a notification with the phone's sound; reading it aloud offline needs the phone's own text-to-speech, which varies by language and phone. |
+| R16 | Project lead | People cannot yet be renamed or removed, and a reminder is daily only. |
+| R17 | Project lead | When the server answers "nothing was heard" to a voice question, the app shows "Could not reach the service". A truer sentence needs a new string. |
+| R18 | Project lead | A reminder due in the last half hour before midnight that is delivered after midnight is missed for that day (`ReminderDueResolver` compares within one day). |

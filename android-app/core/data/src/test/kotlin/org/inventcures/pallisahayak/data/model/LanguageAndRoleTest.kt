@@ -98,30 +98,6 @@ class LanguageAndRoleTest {
     }
 
     @Test
-    fun `the three role icons differ in silhouette, not only in detail`() {
-        // ADR 0006: three similar human figures are indistinguishable at small sizes
-        // to someone who cannot read the label, so the glyphs must differ in outline.
-        val icons = CareRole.ALL.map { it.iconKey }
-        assertEquals(3, icons.toSet().size)
-    }
-
-    @Test
-    fun `no role presents itself with a lock or a shield`() {
-        // The switch must never look like a privacy control. Any glyph in this set
-        // would imply a boundary ADR 0006 says does not exist.
-        val forbidden = listOf("lock", "shield", "key", "fingerprint", "verified_user", "security")
-        CareRole.ALL.forEach { role ->
-            val icon = role.iconKey.lowercase()
-            forbidden.forEach { glyph ->
-                assertFalse(
-                    "${role.wireName} uses $glyph, which implies access control",
-                    icon.contains(glyph),
-                )
-            }
-        }
-    }
-
-    @Test
     fun `role wire names are distinct and stable`() {
         val names = CareRole.ALL.map { it.wireName }
         assertEquals(3, names.toSet().size)

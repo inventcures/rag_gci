@@ -4,15 +4,39 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+// The version Android compares to decide whether an APK is an update. It has to
+// rise with every build handed to a phone, or the phone refuses to install it
+// over the one it has. Passed by the release pipeline (`-PpalliVersionCode=`, the
+// CI run number); a developer's own build is 1.
+val palliVersionCode: Int = providers.gradleProperty("palliVersionCode").orNull?.toIntOrNull() ?: 1
+
+// The release signing key, from the environment of whoever builds the release
+// and never from the repository. With none set the release APK is unsigned, as
+// it always was, which is what CI builds to measure its size. A phone only
+// accepts an update signed with the same key as the app it has, so the key must
+// be kept for the length of the study.
+val releaseKeystore: String? = System.getenv("PALLI_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "org.inventcures.pallisahayak"
     compileSdk = 35
+
+    signingConfigs {
+        releaseKeystore?.let { keystore ->
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = System.getenv("PALLI_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("PALLI_KEY_ALIAS")
+                keyPassword = System.getenv("PALLI_KEY_PASSWORD")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "org.inventcures.pallisahayak"
         minSdk = 26          // §3.1 device constraints
         targetSdk = 35
-        versionCode = 1
+        versionCode = palliVersionCode
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -24,6 +48,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

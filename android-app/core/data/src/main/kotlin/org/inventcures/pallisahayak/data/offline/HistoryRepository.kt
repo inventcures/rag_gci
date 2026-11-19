@@ -42,14 +42,6 @@ class HistoryRepository(private val dao: InteractionDao) {
     suspend fun recent(limit: Int = 50): List<HistoryEntry> =
         dao.recent(limit).map { it.toEntry() }
 
-    /**
-     * Whether anything is readable offline.
-     *
-     * Used by the offline screen to tell "nothing recorded yet" apart from "nothing
-     * can be shown", which lead to different behaviour and confuse a worker.
-     */
-    fun hasHistory(): Flow<Boolean> = dao.observeRecent().map { it.isNotEmpty() }
-
     private fun InteractionEntity.toEntry() = HistoryEntry(
         id = id,
         question = query,
