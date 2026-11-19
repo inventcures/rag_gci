@@ -1,0 +1,28 @@
+# Decisions: the web voice demo on Railway
+
+Request (tp53, 2026-11-19): deploy the Gemini web voice app on Railway for demos at events. One tap starts a free-flowing spoken conversation in any Indian language Gemini supports, with answers grounded in the Palli Sahayak corpus. Also: can the backend still be deployed on Railway?
+
+Builds on the `api` service ([railway-api.md](railway-api.md), PR #17). Operator guide: [deploy_voice_demo.md](../deploy_voice_demo.md).
+
+## Decisions
+
+| # | Decision | Why |
+|---|---|---|
+| VD1 | Serve the demo from the existing `api` service at `/voice/`. No second Railway service. | The server already mounts `web_client/` at `/voice/` and the socket at `/ws/voice`. A second service would load a second copy of bge-m3 (3 to 4 GB of memory), need its own 5 GB volume and download, and double the bill, for the same code. Both uses are test-only. |
+| VD2 | Hobby plan or higher. | Free and trial plans cap memory at 0.5 / 1 GB, volumes at 0.5 GB and images at 4 GB. Hobby allows 48 GB memory, 5 GB volumes and 100 GB images per service. Checked against docs.railway.com/reference/pricing/plans on 2026-11-19. |
+| VD3 | Keep the conversation mode the page already has: one tap opens the microphone, Gemini Live's own speech detection ends each turn, the caller can interrupt. Fix the status text, which said "Tap to speak" after every answer while the microphone was still open. | Live's automatic activity detection already gives a free-flowing conversation. Push-to-talk per turn would be slower and less natural at a booth. |
+| VD4 | When Live ends a session while the caller keeps talking, the socket opens a new one on the next audio and sends `session_renewed`. After a failed attempt it waits 5 seconds before the next. | Live sessions last about 15 minutes, and the session manager closes them 14 minutes after the last `start_audio`. Before this, the socket kept sending audio to the closed session, and the conversation went silent with only an error in the log. The backoff stops a Live outage from becoming one reconnect per audio chunk (about 8 a second). |
+| VD5 | The renewed session starts without the earlier conversation. Live session resumption is not used. | The service records resumption handles but nothing resumes with them, and resuming changes what Live hears, which needs a study release. A booth conversation rarely passes 15 minutes. |
+| VD6 | Add an optional access code, `WEB_VOICE_ACCESS_CODE`. When set, `/ws/voice` refuses a socket without `?code=` with close code 1008, before any Live session opens. The page reads `code` from its own address; the link is `/voice/?code=...`. | The socket is anonymous by design (latency decision 07). On a public address shown on a slide, anyone could hold Live sessions open on tp53's Gemini bill. A code in the link keeps the one-tap flow (QR code) and costs nothing to rotate after the event. The page itself stays public; it holds no data. |
+| VD7 | `/api/voice/demo` tells the page whether a code is needed. It never returns the code. | The page can ask for the code up front, rather than fail on the first tap. |
+| VD8 | The made-up-people notice shows on any Railway deployment by default (`RAILWAY_ENVIRONMENT_NAME` is set), and `WEB_VOICE_DEMO_NOTICE` overrides it. | Railway has no India region, so no Railway deployment may hold identifiable data. Visitors at a booth do not read the guide; the page has to tell them. Zero configuration means it cannot be forgotten. |
+| VD9 | Show the knowledge-base sources under each answer that came from a lookup, from the tool's own result. Log each released turn that had no lookup. Do not label turns "not grounded". | The known gap: Live decides by itself whether to call the tool, and nothing detects a health answer given without it. Showing sources makes grounded turns visible at the booth and in testing. A "not grounded" label would also mark greetings and could be wrong when the tool result lands across a turn boundary; the log line is for checking after the event. |
+| VD10 | No change to the model, the system instruction, the tool, the thinking level or the dose check. | Each would change answers and needs a study release. The demo runs the release's Live model (`gemini-3.1-flash-live-preview`, PI confirmation still open). |
+| VD11 | The image build fails if `web_client/index.html`, `gemini_live/service.py` or `web_demo.py` is missing. | `.railwayignore` (the review console's) excludes `web_client/` and `gemini_live/`. Without them the server starts, but `/voice/` is missing or Live is off, which looks like a working deploy. |
+| VD12 | The start script warns when `WEB_VOICE_ACCESS_CODE` is not set. `.railway/railway.ts` declares it with `preserve()`. | The code is optional, so it must not stop the server, but an open demo should be visible in the deploy log. `preserve()` keeps the value in Railway and out of this public repository. |
+
+## Not done
+
+* **Forcing the tool call.** The Live API has no way to require a function call on health turns only. Detecting an ungrounded health answer needs a classifier on each transcript, and changes what is released. It is a study-release item.
+* **Sarvam stall fallback in conversation mode.** The fallback watches for a reply after `stop_audio`, which a continuous conversation only sends at the end. A Live stall mid-conversation is therefore not answered on Sarvam. The caller hears nothing and can ask again.
+* **Real run.** No Gemini key and no Railway account in this session, so the demo was not run against Gemini Live or Railway. The socket behaviour is tested with the scripted Live harness (`tests/test_web_voice_demo.py`).

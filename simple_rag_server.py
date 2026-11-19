@@ -5588,6 +5588,15 @@ def create_app(args: Any = None) -> FastAPI:
                                      "text": release.text}
                             if release.withheld:
                                 frame["withheld"] = True
+                            # The knowledge-base sources this answer drew on,
+                            # so the caller sees which turns were grounded.
+                            take = getattr(session, "take_turn_sources", None)
+                            looked_up, sources = take() if callable(take) else (False, [])
+                            if sources:
+                                frame["sources"] = sources
+                            elif not looked_up:
+                                logger.info(f"Live turn for {user_id} answered without a "
+                                            "knowledge-base lookup")
                             await websocket.send_json(frame)
                         if heard:
                             await websocket.send_json({
@@ -5658,9 +5667,18 @@ def create_app(args: Any = None) -> FastAPI:
         from auth.policy import authenticate_connection
         from participants import ephemeral
         from voice_provider import get_voice_provider_control
+        from web_demo import LIVE_REOPEN_BACKOFF_S, access_code_matches
         from web_voice_fallback import (
             MAX_TURN_PCM_BYTES, OPERATOR_FORCED, LiveTurnClock, WebSarvamTurns,
         )
+
+        # A public demo address can require a code (WEB_VOICE_ACCESS_CODE),
+        # so a link seen on a slide cannot run up Gemini charges.
+        if not access_code_matches(websocket.query_params.get("code")):
+            await websocket.send_json({"type": "error", "code": "access_code",
+                                       "error": "This voice demo needs its access code."})
+            await websocket.close(code=1008, reason="Access code required")
+            return
 
         caller = authenticate_connection(websocket)
 
@@ -5702,6 +5720,10 @@ def create_app(args: Any = None) -> FastAPI:
         turn_pcm = bytearray()
         clock = LiveTurnClock()
         stall_task = None
+        # When the last attempt to reopen an ended Live session failed: the
+        # next is not tried for LIVE_REOPEN_BACKOFF_S, rather than on every
+        # audio chunk.
+        reopen_failed_at = None
 
         async def answer_if_live_stalls(pcm: bytes) -> None:
             """Wait for Live's reply to this recording; on a stall, close the
@@ -5860,7 +5882,33 @@ def create_app(args: Any = None) -> FastAPI:
                     # Kept for the Sarvam path: it answers the whole recording.
                     if len(turn_pcm) + len(data["bytes"]) <= MAX_TURN_PCM_BYTES:
                         turn_pcm.extend(data["bytes"])
-                    if session and not forced:
+                    if session is not None and not forced and not session.is_active:
+                        # Live ended the session (its ~15 minute limit, a
+                        # go_away, or the manager's cleanup) while the caller
+                        # kept talking. Open a new one so a long conversation
+                        # carries on, rather than going silent.
+                        now = asyncio.get_running_loop().time()
+                        if reopen_failed_at is None or now - reopen_failed_at >= LIVE_REOPEN_BACKOFF_S:
+                            if response_task and not response_task.done():
+                                response_task.cancel()
+                            response_task = None
+                            try:
+                                session = await gemini_session_manager.get_or_create_session(
+                                    user_id=user_id, language=language, voice="Aoede", model=None)
+                                reopen_failed_at = None
+                                logger.info(f"Live session ended mid-conversation for {user_id}; reopened")
+                                await websocket.send_json({
+                                    "type": "session_renewed",
+                                    "session_id": getattr(session, "session_id", user_id),
+                                })
+                            except Exception as e:
+                                reopen_failed_at = now
+                                logger.error(f"Could not reopen Live session for {user_id}: {e}")
+                                await websocket.send_json({
+                                    "type": "error",
+                                    "error": "The voice session ended and could not be reopened.",
+                                })
+                    if session and not forced and session.is_active:
                         try:
                             await session.send_audio(data["bytes"])
 
@@ -5906,6 +5954,15 @@ def create_app(args: Any = None) -> FastAPI:
                     logger.info(f"Session closed for {user_id}")
                 except Exception as e:
                     logger.error(f"Error closing session for {user_id}: {e}")
+
+    @app.get("/api/voice/demo")
+    async def voice_demo():
+        """What the web voice page shows before a conversation: whether this
+        deployment is a demo (the made-up-people notice) and whether the
+        socket needs an access code (web_demo)."""
+        from web_demo import demo_settings
+
+        return demo_settings()
 
     @app.get("/api/voice/models")
     async def voice_models():
