@@ -14,9 +14,8 @@ internal fun bearer(token: String): String = "Bearer $token"
 /**
  * Signs every call with the participant's access token.
  *
- * Also signs the voice socket's upgrade request, since OkHttp runs application
- * interceptors for a WebSocket handshake too. A call made before sign-in goes
- * out unsigned and the server answers 401, which is the honest result.
+ * A call made before sign-in goes out unsigned and the server answers 401,
+ * which is the honest result.
  */
 class BearerTokenInterceptor(private val sessions: SessionManager) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {

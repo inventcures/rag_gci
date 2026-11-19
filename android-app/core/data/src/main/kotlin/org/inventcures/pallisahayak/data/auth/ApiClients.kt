@@ -36,8 +36,8 @@ class ApiClients(
 
     val sessions: SessionManager = SessionManager(authApi, tokens)
 
-    /** The signed client, for the voice socket as well as [api]. */
-    val client: OkHttpClient = base.newBuilder()
+    /** The signed client, behind [api] and [sync]. */
+    private val client: OkHttpClient = base.newBuilder()
         .addInterceptor(BearerTokenInterceptor(sessions))
         .authenticator(TokenRefreshAuthenticator(sessions))
         .build()

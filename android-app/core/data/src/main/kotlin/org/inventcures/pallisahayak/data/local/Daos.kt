@@ -72,8 +72,12 @@ interface InteractionDao {
      * A Flow is a stream that emits on demand. The screen subscribes once and
      * gets a new value whenever the database changes, instead of the screen having
      * to remember to re-query.
+     *
+     * The latest fifty, the history screen's bound. Unbounded, every new answer
+     * re-read the whole table, which grows by every question for the length of
+     * the study, and the screen drew all of it.
      */
-    @Query("SELECT * FROM interactions ORDER BY occurred_at DESC")
+    @Query("SELECT * FROM interactions ORDER BY occurred_at DESC LIMIT 50")
     fun observeRecent(): Flow<List<InteractionEntity>>
 
     @Query(

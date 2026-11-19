@@ -46,6 +46,10 @@ class OfflineBundleDownloader(
         }
         val body = response.body()
         if (!response.isSuccessful || body == null) return null
+        // The server said 304: the bundle is the one already stored. OkHttp hands
+        // back its cached copy as a 200, and storing that again would only rewrite
+        // the same rows.
+        if (response.raw().networkResponse?.code == HTTP_NOT_MODIFIED) return null
 
         val fetchedAt = clock()
         val rows = body.queries.mapNotNull { entry ->
@@ -72,5 +76,6 @@ class OfflineBundleDownloader(
 
     private companion object {
         const val TAG = "PalliBundle"
+        const val HTTP_NOT_MODIFIED = 304
     }
 }

@@ -83,8 +83,6 @@ data class AskUiState(
      * render an empty answer card.
      */
     val hasAnswer: Boolean get() = answer.isNotBlank()
-
-    val isDeferral: Boolean get() = answerKind != AnswerKind.ANSWER
 }
 
 /**
@@ -213,7 +211,7 @@ class AskViewModel(
 
         _state.update { it.copy(isAsking = true, problem = null) }
         val asked = currentSession()
-        scope?.launch { sendVoice(audio, asked) }
+        workScope.launch { sendVoice(audio, asked) }
     }
 
     /** The session the next interaction runs under: the Active Role and language now. */
@@ -226,7 +224,7 @@ class AskViewModel(
                 _state.update {
                     it.copy(
                         isAsking = false,
-                        answerKind = org.inventcures.pallisahayak.safety.AnswerKind.DEFERRAL,
+                        answerKind = AnswerKind.DEFERRAL,
                         problem = AskProblem.UNREACHABLE,
                     )
                 }

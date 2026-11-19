@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.inventcures.pallisahayak.data.auth.ApiClients
@@ -25,6 +26,7 @@ import org.inventcures.pallisahayak.data.settings.ActiveSettings
 import org.inventcures.pallisahayak.data.start.AppStart
 import org.inventcures.pallisahayak.data.sync.SyncQueue
 import org.inventcures.pallisahayak.data.sync.SyncScheduler
+import java.io.File
 
 /**
  * Builds the object graph.
@@ -91,13 +93,25 @@ object ServiceLocator {
         if (repositoryInstance != null) return
 
         // BASIC logs the request line and status, never headers, so the bearer
-        // token does not reach logcat.
+        // token does not reach logcat. Debug builds only: a study phone has no use
+        // for a log line per request, and the URLs carry the participant's language.
+        //
+        // The HTTP cache is what makes the Cached Answer Bundle's ETag work. The
+        // server answers a bundle the phone already holds with 304, but only to a
+        // request that names it in If-None-Match, which OkHttp sends only when it
+        // holds the earlier response in a cache. Without one, every reconnection
+        // downloaded the whole bundle again over 2G.
         val base = OkHttpClient.Builder()
-            .addInterceptor(
-                HttpLoggingInterceptor().apply {
-                    level = HttpLoggingInterceptor.Level.BASIC
-                },
-            )
+            .cache(Cache(File(context.cacheDir, HTTP_CACHE_DIR), HTTP_CACHE_BYTES))
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(
+                        HttpLoggingInterceptor().apply {
+                            level = HttpLoggingInterceptor.Level.BASIC
+                        },
+                    )
+                }
+            }
             .build()
 
         val api = ApiClients(baseUrl = baseUrl, tokens = KeystoreTokenStore(context), base = base)
@@ -107,7 +121,6 @@ object ServiceLocator {
         val bundle = OfflineAnswerResolver(database.cachedAnswers())
         val connectivity = ConnectivityMonitor(context)
         val queue = SyncQueue(database.syncQueue(), api.sync)
-        syncQueueInstance = queue
 
         settingsInstance = ActiveSettings(SharedPreferencesStore(context))
 
@@ -154,13 +167,6 @@ object ServiceLocator {
         ).start()
     }
 
-    /** The sync queue, for screens that record an observation offline. */
-    val syncQueue: SyncQueue
-        get() = syncQueueInstance ?: notInitialised()
-
-    @Volatile
-    private var syncQueueInstance: SyncQueue? = null
-
     /** Lives as long as the process; sync and bundle downloads run here. */
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -173,6 +179,11 @@ object ServiceLocator {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         return "${info.versionName}:${info.lastUpdateTime}"
     }
+
+    private const val HTTP_CACHE_DIR = "http"
+
+    /** Room for several languages' bundles; OkHttp evicts the oldest past this. */
+    private const val HTTP_CACHE_BYTES = 10L * 1024 * 1024
 
     private fun notInitialised(): Nothing = error(
         "ServiceLocator.initialise(context) has not been called. " +

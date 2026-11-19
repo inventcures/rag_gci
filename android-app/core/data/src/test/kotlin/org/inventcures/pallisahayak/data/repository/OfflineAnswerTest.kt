@@ -170,4 +170,31 @@ class OfflineAnswerTest {
         assertEquals(null, stored)
         assertEquals(1, cached.rows.size)
     }
+
+    @Test
+    fun `a bundle the server says is unchanged is not stored again`() = runTest {
+        bundle()
+        api.notModified = true
+        api.bundle = CacheBundleResponse(
+            emergency_keywords = emptyMap(),
+            evidence_badge_metadata = emptyMap(),
+            generated_at = 1_700_000_000.0,
+            language = "hi",
+            queries = listOf(
+                mapOf(
+                    "query_hash" to resolver.hashOf(bundledQuestion),
+                    "query_text" to bundledQuestion,
+                    "response_text" to bundledAnswer,
+                ),
+            ),
+            treatments = emptyList(),
+            version = "v1",
+        )
+        val before = cached.rows.toList()
+
+        val stored = OfflineBundleDownloader(api, cached).refresh(Language.HINDI)
+
+        assertEquals(null, stored)
+        assertEquals(before, cached.rows)
+    }
 }

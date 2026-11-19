@@ -2,6 +2,9 @@ package org.inventcures.pallisahayak.data.repository
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.squareup.moshi.JsonDataException
+import okhttp3.Protocol
+import okhttp3.Request
 import okhttp3.RequestBody
 import org.inventcures.pallisahayak.api.generated.AuthResponse
 import org.inventcures.pallisahayak.api.generated.CacheBundleResponse
@@ -23,10 +26,14 @@ import java.io.IOException
 
 /**
  * The server, as the repository sees it. Set [offline] to make every call fail
- * the way a phone with no signal fails: with an IOException.
+ * the way a phone with no signal fails: with an IOException. Set [unreadable]
+ * to make every reply one Moshi cannot read, and [notModified] to answer the way
+ * OkHttp's cache does when the server says 304.
  */
 class FakeApi : PalliSahayakApi {
     var offline = false
+    var unreadable = false
+    var notModified = false
     var queryResponse: MobileQueryResponse? = null
     var voiceResponse: VoiceQueryResponse? = null
     var bundle: CacheBundleResponse? = null
@@ -66,7 +73,20 @@ class FakeApi : PalliSahayakApi {
 
     private fun <T> respond(body: T?): Response<T> {
         if (offline) throw IOException("no signal")
-        return Response.success(body ?: error("the fake server has no response set"))
+        if (unreadable) throw JsonDataException("Required value 'release_id' missing")
+        val value = body ?: error("the fake server has no response set")
+        if (!notModified) return Response.success(value)
+        // What OkHttp hands back on a 304: the cached 200, with the 304 that
+        // confirmed it as the network response.
+        val request = Request.Builder().url("http://localhost/").build()
+        val network = okhttp3.Response.Builder()
+            .request(request).protocol(Protocol.HTTP_1_1).code(304).message("Not Modified")
+            .build()
+        val raw = okhttp3.Response.Builder()
+            .request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+            .networkResponse(network)
+            .build()
+        return Response.success(value, raw)
     }
 
     override suspend fun query(body: MobileQueryRequest): Response<MobileQueryResponse> = respond(queryResponse)

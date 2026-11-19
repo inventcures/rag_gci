@@ -111,14 +111,33 @@ private object NavGlyphs {
         lineTo(3.0f, 18.5f); close()
     } }
 
-    val history: androidx.compose.ui.graphics.vector.ImageVector by lazy { glyph("History") {
-        moveTo(12.0f, 2.0f)
-        lineTo(12.0f, 4.4f); lineTo(12.0f, 19.6f); lineTo(12.0f, 22.0f)
-        close()
-        moveTo(2.0f, 12.0f)
-        lineTo(4.4f, 12.0f); lineTo(19.6f, 12.0f); lineTo(22.0f, 12.0f)
-        close()
-    } }
+    /**
+     * A clock: a ring with two hands. The ring is the outer disc with the inner one
+     * cut out (even-odd fill), and the hands sit inside the cut-out, so they fill.
+     *
+     * It used to be two lines with no width, which fill nothing: the History tab
+     * had a blank icon, and only its label to go by.
+     */
+    val history: androidx.compose.ui.graphics.vector.ImageVector by lazy {
+        glyph("History", androidx.compose.ui.graphics.PathFillType.EvenOdd) {
+            // Outer disc, radius 10.
+            moveTo(12.0f, 2.0f)
+            arcToRelative(10.0f, 10.0f, 0.0f, true, true, 0.0f, 20.0f)
+            arcToRelative(10.0f, 10.0f, 0.0f, true, true, 0.0f, -20.0f)
+            close()
+            // Inner disc, radius 7.6, cut out of the outer one.
+            moveTo(12.0f, 4.4f)
+            arcToRelative(7.6f, 7.6f, 0.0f, true, true, 0.0f, 15.2f)
+            arcToRelative(7.6f, 7.6f, 0.0f, true, true, 0.0f, -15.2f)
+            close()
+            // Hour hand, pointing up, and minute hand, pointing right. They do not
+            // overlap, or the even-odd rule would cut the overlap out again.
+            moveTo(10.9f, 6.6f); lineTo(13.1f, 6.6f); lineTo(13.1f, 13.1f)
+            lineTo(10.9f, 13.1f); close()
+            moveTo(13.1f, 10.9f); lineTo(17.2f, 10.9f); lineTo(17.2f, 13.1f)
+            lineTo(13.1f, 13.1f); close()
+        }
+    }
 
     val settings: androidx.compose.ui.graphics.vector.ImageVector by lazy { glyph("Settings") {
         moveTo(12.0f, 7.2f)
@@ -135,6 +154,7 @@ private object NavGlyphs {
 
     private fun glyph(
         name: String,
+        fillType: androidx.compose.ui.graphics.PathFillType = androidx.compose.ui.graphics.PathFillType.NonZero,
         body: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit,
     ) = androidx.compose.ui.graphics.vector.ImageVector
         .Builder(name, 24.dp, 24.dp, 24f, 24f)
@@ -143,6 +163,7 @@ private object NavGlyphs {
                 fill = androidx.compose.ui.graphics.SolidColor(
                     androidx.compose.ui.graphics.Color.Black,
                 ),
+                pathFillType = fillType,
             ) { body() }
         }
         .build()

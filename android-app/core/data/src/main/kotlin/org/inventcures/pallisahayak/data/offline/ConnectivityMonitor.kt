@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,11 +32,17 @@ class ConnectivityMonitor(context: Context) {
     private val _online = MutableStateFlow(currentlyOnline())
     val online: StateFlow<Boolean> = _online.asStateFlow()
 
+    /**
+     * Follows the default network only, the one requests actually go out on.
+     *
+     * It used to watch every network and to report online the moment one appeared.
+     * That said "online" before the network was validated, which is the stall this
+     * class exists to prevent, and let a second, unvalidated network (a captive
+     * Wi-Fi next to working mobile data) flip the app offline. On the default
+     * network, onCapabilitiesChanged always follows onAvailable, so that is where
+     * validation is read.
+     */
     private val callback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            _online.value = true
-        }
-
         override fun onLost(network: Network) {
             _online.value = currentlyOnline()
         }
@@ -46,12 +51,13 @@ class ConnectivityMonitor(context: Context) {
             network: Network,
             capabilities: NetworkCapabilities,
         ) {
-            _online.value = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            _online.value = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         }
     }
 
     init {
-        manager?.registerNetworkCallback(NetworkRequest.Builder().build(), callback)
+        manager?.registerDefaultNetworkCallback(callback)
     }
 
     /**

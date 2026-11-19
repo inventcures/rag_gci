@@ -12,6 +12,7 @@ import org.inventcures.pallisahayak.api.generated.RefreshRequest
 import org.inventcures.pallisahayak.data.model.CareRole
 import org.inventcures.pallisahayak.data.model.Language
 import retrofit2.Response
+import com.squareup.moshi.JsonDataException
 import java.io.IOException
 
 /**
@@ -136,11 +137,18 @@ class SessionManager(
         _state.value = AuthState.NeedsPin(signedOut.userId)
     }
 
-    /** Run a call, or return null when the server could not be reached. */
+    /**
+     * Run a call, or return null when the server could not be reached or its reply
+     * could not be read. An unreadable reply is reported as unreachable rather than
+     * thrown, because these run from the sign-in screen and the refresh
+     * authenticator, where an exception would crash the app.
+     */
     private suspend fun <T> call(block: suspend () -> Response<T>): Response<T>? =
         try {
             block()
         } catch (error: IOException) {
+            null
+        } catch (error: JsonDataException) {
             null
         }
 

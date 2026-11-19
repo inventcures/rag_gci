@@ -174,14 +174,6 @@ class PalliSahayakRepository(
      * that deliberately: a route that ever bypassed the server filter must not be
      * able to put a dose on screen. ADR 0004 calls this defence in depth.
      */
-    companion object {
-        private const val TAG = "PalliRepo"
-        const val VOICE_PATH_LIVE = "live"
-        const val VOICE_PATH_FALLBACK = "fallback"
-        const val VOICE_PATH_CACHE = "cache"
-        private val AUDIO_MEDIA_TYPE = "audio/wav".toMediaType()
-    }
-
     suspend fun ask(question: String, session: SessionContext): AnsweredQuestion {
         val answered = request(question, session)
         record(question, answered, session)
@@ -346,5 +338,11 @@ class PalliSahayakRepository(
         // waits in the outbox until a sync acknowledges it. Without its text: the
         // study counts it, and free text could still hold a name.
         if (row.isOffline) outbox?.enqueue(offlineInteractionLog(row))
+    }
+
+    companion object {
+        private const val TAG = "PalliRepo"
+        const val VOICE_PATH_LIVE = "live"
+        private val AUDIO_MEDIA_TYPE = "audio/wav".toMediaType()
     }
 }
