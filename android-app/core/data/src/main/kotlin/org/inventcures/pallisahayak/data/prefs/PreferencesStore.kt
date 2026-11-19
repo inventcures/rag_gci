@@ -24,9 +24,6 @@ interface PreferencesStore {
     /** Null until a language has been chosen. Never a default. */
     fun language(): Language?
 
-    /** True once the worker has made the choice, so onboarding does not reappear. */
-    fun languageChosen(): Boolean
-
     /**
      * The Active Role chosen in settings, or null until someone switches it. Null
      * rather than a default, so an unswitched phone runs as the registered role and
@@ -37,8 +34,6 @@ interface PreferencesStore {
     fun setLanguage(language: Language)
 
     fun setCareRole(role: CareRole)
-
-    fun clear()
 }
 
 /**
@@ -56,8 +51,6 @@ class SharedPreferencesStore(context: Context) : PreferencesStore {
 
     override fun language(): Language? = Language.fromTag(prefs.getString(KEY_LANGUAGE, null))
 
-    override fun languageChosen(): Boolean = prefs.contains(KEY_LANGUAGE)
-
     override fun careRole(): CareRole? =
         prefs.getString(KEY_ROLE, null)?.let { stored -> CareRole.ALL.firstOrNull { it.wireName == stored } }
 
@@ -68,10 +61,6 @@ class SharedPreferencesStore(context: Context) : PreferencesStore {
     override fun setCareRole(role: CareRole) {
         // No PIN, no confirmation, no lock. One tap, per ADR 0006.
         prefs.edit().putString(KEY_ROLE, role.wireName).apply()
-    }
-
-    override fun clear() {
-        prefs.edit().clear().apply()
     }
 
     private companion object {
@@ -99,8 +88,6 @@ class InMemoryPreferencesStore(
 
     override fun language(): Language? = language
 
-    override fun languageChosen(): Boolean = language != null
-
     override fun careRole(): CareRole? = role
 
     override fun setLanguage(language: Language) {
@@ -110,12 +97,6 @@ class InMemoryPreferencesStore(
 
     override fun setCareRole(role: CareRole) {
         this.role = role
-        changes.value += 1
-    }
-
-    override fun clear() {
-        language = null
-        role = null
         changes.value += 1
     }
 }

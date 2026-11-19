@@ -43,8 +43,7 @@ class ReleaseGateTest {
         val blocked = decision as GateDecision.Blocked
         assertTrue(blocked.awaitingApproval)
         // Criterion 6 says the app says why. A refusal with no reason is not one.
-        assertTrue(blocked.headline.isNotBlank())
-        assertTrue(blocked.detail.isNotBlank())
+        assertTrue(blocked.reason == BlockReason.NOT_APPROVED)
     }
 
     @Test
@@ -68,7 +67,7 @@ class ReleaseGateTest {
         // Drift is a different conversation from approval: someone has to go and look
         // at what changed, rather than sign something.
         assertTrue(blocked.awaitingApproval.not())
-        assertTrue(blocked.headline.contains("changed"))
+        assertTrue(blocked.reason == BlockReason.DRIFTING)
     }
 
     @Test
@@ -78,7 +77,6 @@ class ReleaseGateTest {
         val decision = ReleaseGate(developmentBuild = false).evaluate(ReleaseStatus.unknown())
 
         assertTrue("unknown must block, was $decision", decision is GateDecision.Blocked)
-        assertTrue((decision as GateDecision.Blocked).headline.isNotBlank())
     }
 
     @Test

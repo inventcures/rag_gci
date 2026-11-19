@@ -18,7 +18,6 @@ import org.inventcures.pallisahayak.data.auth.StoredSession
 import org.inventcures.pallisahayak.data.auth.TokenStore
 import org.inventcures.pallisahayak.data.local.InteractionDao
 import org.inventcures.pallisahayak.data.local.InteractionEntity
-import org.inventcures.pallisahayak.data.local.LanguageCount
 import org.inventcures.pallisahayak.data.model.CareRole
 import org.inventcures.pallisahayak.data.model.Language
 import org.inventcures.pallisahayak.data.prefs.InMemoryPreferencesStore
@@ -147,7 +146,7 @@ class ActiveRoleAndLanguageTest {
         val relaunched = ActiveSettings(prefs)
         askViewModel(session, relaunched).ask("how do I turn him in bed?")
 
-        assertThat(relaunched.activeRole(session)).isEqualTo(CareRole.FAMILY_CAREGIVER)
+        assertThat(relaunched.role.value).isEqualTo(CareRole.FAMILY_CAREGIVER)
         assertThat(rows.inserted.single().careRole).isEqualTo("family_caregiver")
     }
 
@@ -253,10 +252,5 @@ private class RecordingInteractions : InteractionDao {
     }
     override suspend fun recent(limit: Int): List<InteractionEntity> = inserted.take(limit)
     override fun observeRecent(): Flow<List<InteractionEntity>> = flowOf(inserted.toList())
-    override suspend fun participantsWithActivitySince(since: Long): Int = 0
-    override suspend fun substantiveSince(since: Long): List<InteractionEntity> = emptyList()
-    override suspend fun dosageBlockedCount(): Int = 0
-    override suspend fun emergencyCount(): Int = 0
-    override suspend fun callsByLanguage(): List<LanguageCount> = emptyList()
     override suspend fun pruneBefore(before: Long) = Unit
 }

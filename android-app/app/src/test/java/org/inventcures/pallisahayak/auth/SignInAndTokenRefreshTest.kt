@@ -15,7 +15,6 @@ import org.inventcures.pallisahayak.data.auth.StoredSession
 import org.inventcures.pallisahayak.data.auth.TokenStore
 import org.inventcures.pallisahayak.data.local.InteractionDao
 import org.inventcures.pallisahayak.data.local.InteractionEntity
-import org.inventcures.pallisahayak.data.local.LanguageCount
 import org.inventcures.pallisahayak.data.model.CareRole
 import org.inventcures.pallisahayak.data.model.Language
 import org.inventcures.pallisahayak.data.release.GateDecision
@@ -340,10 +339,5 @@ private class NoopInteractions : InteractionDao {
     override suspend fun insert(row: InteractionEntity) = Unit
     override suspend fun recent(limit: Int): List<InteractionEntity> = emptyList()
     override fun observeRecent(): Flow<List<InteractionEntity>> = flowOf(emptyList())
-    override suspend fun participantsWithActivitySince(since: Long): Int = 0
-    override suspend fun substantiveSince(since: Long): List<InteractionEntity> = emptyList()
-    override suspend fun dosageBlockedCount(): Int = 0
-    override suspend fun emergencyCount(): Int = 0
-    override suspend fun callsByLanguage(): List<LanguageCount> = emptyList()
     override suspend fun pruneBefore(before: Long) = Unit
 }

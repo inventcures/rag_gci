@@ -19,21 +19,20 @@ package org.inventcures.pallisahayak.data.model
  *  - Family Caregiver diversity_2        two figures, shoulder to shoulder
  *  - Patient          bed                a figure lying down
  *
- * These are Material icon names, resolved in [iconKey]. They differ in outline
- * shape at 24dp, which is the size the persistent badge draws at.
+ * The glyphs are drawn by hand in the app module (`RoleIcons.kt`), for APK size.
+ * They differ in outline shape at 24dp, which is the size the persistent badge
+ * draws at.
  */
 enum class CareRole(
     /** What the study reports. The server and every metric use this. */
     val wireName: String,
-    /** Material icon name, drawn persistently so it is recognisable unread. */
-    val iconKey: String,
 ) {
     // How the app frames each role ("Speaking as a patient") is a string resource
     // in the app module, so it reads in the participant's language. An English
     // label here reached the Hindi screens until ticket 24.
-    ASHA_WORKER("asha_worker", "medical_services"),
-    FAMILY_CAREGIVER("family_caregiver", "diversity_2"),
-    PATIENT("patient", "bed");
+    ASHA_WORKER("asha_worker"),
+    FAMILY_CAREGIVER("family_caregiver"),
+    PATIENT("patient");
 
     companion object {
         val ALL: List<CareRole> = entries

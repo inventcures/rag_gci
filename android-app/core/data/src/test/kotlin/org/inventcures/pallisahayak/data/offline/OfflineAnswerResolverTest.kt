@@ -211,9 +211,8 @@ class OfflineAnswerResolverTest {
     }
 
     @Test
-    fun `bundle size and presence are reported for the offline banner`() = runTest {
+    fun `bundle size is reported for the offline banner`() = runTest {
         assertEquals(0, resolver.bundleSize(Language.BENGALI))
-        assertTrue(!resolver.hasBundle(Language.BENGALI))
 
         db.cachedAnswers().insertAll(
             listOf(
@@ -223,6 +222,5 @@ class OfflineAnswerResolverTest {
         )
 
         assertEquals(2, resolver.bundleSize(Language.BENGALI))
-        assertTrue(resolver.hasBundle(Language.BENGALI))
     }
 }

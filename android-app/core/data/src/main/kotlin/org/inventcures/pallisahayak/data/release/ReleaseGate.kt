@@ -49,11 +49,10 @@ sealed interface GateDecision {
     object Open : GateDecision
 
     /**
-     * Refused, and the reason is one the owner can fix.
+     * Refused, and the reason is one the owner can fix. The words for each
+     * [reason] are the app's string resources, in the participant's language.
      */
     data class Blocked(
-        val headline: String,
-        val detail: String,
         /** True when the cause is a record that is unsigned rather than a bad build. */
         val awaitingApproval: Boolean = false,
         /** Which refusal this is, so the screen can say it in the participant's language. */
@@ -110,9 +109,6 @@ class ReleaseGate(
         // release, or the gate passes exactly the build it exists to catch.
         if (status.drifting) {
             return GateDecision.Blocked(
-                headline = "This build has changed since it was approved",
-                detail = "It no longer matches the approved record. The study team " +
-                    "needs to look at this before anyone uses it.",
                 reason = BlockReason.DRIFTING,
             )
         }
@@ -121,9 +117,6 @@ class ReleaseGate(
 
         if (!status.approved) {
             return GateDecision.Blocked(
-                headline = "This version is not approved yet",
-                detail = "It has not been signed off by the study team. Nothing is " +
-                    "lost, and it will open once it is approved.",
                 awaitingApproval = true,
                 reason = BlockReason.NOT_APPROVED,
             )
@@ -131,16 +124,11 @@ class ReleaseGate(
 
         if (!status.activated) {
             return GateDecision.Blocked(
-                headline = "This version is not open yet",
-                detail = "It is approved but the study has not started using it yet.",
                 awaitingApproval = true,
                 reason = BlockReason.NOT_ACTIVATED,
             )
         }
 
-        return GateDecision.Blocked(
-            headline = "This version cannot be used",
-            detail = "The study team has to resolve this before it is used.",
-        )
+        return GateDecision.Blocked()
     }
 }

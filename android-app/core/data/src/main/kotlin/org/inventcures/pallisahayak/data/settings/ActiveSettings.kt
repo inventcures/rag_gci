@@ -43,10 +43,6 @@ class ActiveSettings(private val store: PreferencesStore) {
         _language.value = language
     }
 
-    /** The Active Role for a registered [session]: the switched one, else the registered one. */
-    fun activeRole(session: SessionContext): CareRole =
-        role.value ?: CareRole.fromWire(session.careRole)
-
     /**
      * The session the next interaction runs under.
      *

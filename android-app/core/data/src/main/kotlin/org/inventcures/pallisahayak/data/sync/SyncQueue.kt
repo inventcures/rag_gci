@@ -91,9 +91,6 @@ interface SyncQueueDao {
 
     @Query("UPDATE sync_queue SET refused_reason = :reason WHERE id = :id")
     suspend fun refuse(id: String, reason: String)
-
-    @Query("SELECT COUNT(*) FROM sync_queue WHERE refused_reason IS NULL")
-    suspend fun pendingCount(): Int
 }
 
 /** What one push did. */
@@ -164,9 +161,6 @@ class SyncQueue(
             ),
         ),
     )
-
-    /** Items still waiting to be sent. */
-    suspend fun pendingCount(): Int = dao.pendingCount()
 
     /** Push what is queued, and keep exactly what the server did not accept. */
     suspend fun push(): SyncOutcome = pushing.withLock {

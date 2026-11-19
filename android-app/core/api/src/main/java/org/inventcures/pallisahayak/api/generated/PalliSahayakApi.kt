@@ -7,7 +7,7 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Multipart
 import retrofit2.http.Part
-import okhttp3.RequestBody
+import okhttp3.MultipartBody
 
 /**
  * Generated from the API contract. Do not edit by hand.
@@ -28,7 +28,7 @@ interface PalliSahayakApi {
     @POST(
         "/api/mobile/v1/query/voice"
     )
-    suspend fun voiceQuery(@Query("language") language: String, @Query("active_role") active_role: String?, @Part("audio") audio: RequestBody): Response<VoiceQueryResponse>
+    suspend fun voiceQuery(@Query("language") language: String, @Query("active_role") active_role: String?, @Part audio: MultipartBody.Part): Response<VoiceQueryResponse>
 
     @GET(
         "/api/mobile/v1/cache/bundle"
@@ -54,4 +54,9 @@ interface PalliSahayakApi {
         "/api/mobile/v1/release/status"
     )
     suspend fun releaseStatus(): Response<ReleaseStatusResponse>
+
+    companion object {
+        /** The form field the server reads the uploaded file from. */
+        const val VOICE_QUERY_AUDIO_PART = "audio"
+    }
 }

@@ -243,7 +243,7 @@ class NoRoleIsGuessed(unittest.TestCase):
     def test_the_app_and_the_server_share_one_care_role_vocabulary(self) -> None:
         from care_role import CareRole
 
-        wire = re.findall(r'^\s*[A-Z_]+\("([a-z_]+)",', ANDROID_CARE_ROLE.read_text(), re.M)
+        wire = re.findall(r'^\s*[A-Z_]+\("([a-z_]+)"\)', ANDROID_CARE_ROLE.read_text(), re.M)
         self.assertEqual(sorted(wire), sorted(r.value for r in CareRole))
 
     def test_the_profile_never_guesses_a_role_from_what_was_said(self) -> None:

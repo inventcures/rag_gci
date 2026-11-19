@@ -81,6 +81,4 @@ class OfflineAnswerResolver(private val dao: CachedAnswerDao) {
     }
 
     suspend fun bundleSize(language: Language): Int = dao.countForLanguage(language.tag)
-
-    suspend fun hasBundle(language: Language): Boolean = dao.countForLanguage(language.tag) > 0
 }
