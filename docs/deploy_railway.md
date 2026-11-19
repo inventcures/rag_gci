@@ -132,4 +132,6 @@ A redeploy has a short outage. Railway cannot run two deployments that mount the
 
 When the domain is ready, add `api.pallisahayak.org` as a custom domain on this service (Settings, Networking) and set `PALLI_TEST_BASE_URL` to `https://api.pallisahayak.org/`. The study itself needs an India-hosted server; this one stays for testing.
 
+To demo the web voice page at an event, see [deploy_voice_demo.md](deploy_voice_demo.md).
+
 Decisions behind this setup: [docs/decisions/railway-api.md](decisions/railway-api.md).

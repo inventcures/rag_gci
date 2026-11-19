@@ -15,7 +15,7 @@ Features:
 import asyncio
 import logging
 import re
-from typing import Optional, Dict, Any, AsyncGenerator, List, Set
+from typing import Optional, Dict, Any, AsyncGenerator, List, Set, Tuple
 
 from llm.client import within_voice_deadline
 from safety_enhancements import get_safety_manager, guard_query_result
@@ -1055,7 +1055,22 @@ class GeminiLiveSession:
         # Session resumption
         self.resumption_handle: Optional[str] = None
 
+        # Knowledge-base sources of the lookups served since the last released
+        # turn (take_turn_sources). A turn with none was answered without a
+        # lookup: shown to the caller, so an ungrounded turn is visible.
+        self._turn_sources: List[str] = []
+        self._turn_looked_up = False
+
         logger.debug(f"GeminiLiveSession created: {session_id}")
+
+    def take_turn_sources(self) -> Tuple[bool, List[str]]:
+        """Whether the knowledge base was searched since the last call, and
+        the source names it returned (in order, without repeats). Clears both."""
+        looked_up = getattr(self, "_turn_looked_up", False)
+        sources = list(dict.fromkeys(getattr(self, "_turn_sources", [])))
+        self._turn_looked_up = False
+        self._turn_sources = []
+        return looked_up, sources
 
     @property
     def rag_user_id(self) -> str:
@@ -1357,6 +1372,7 @@ class GeminiLiveSession:
             "No relevant information found in the knowledge base. Give only "
             "general comfort guidance and advise consulting their doctor."
         )
+        self._turn_looked_up = True
         if not query or not self.service.rag_pipeline:
             return no_info
 
@@ -1381,9 +1397,12 @@ class GeminiLiveSession:
         if result.get("status") != "success" or not result.get("answer"):
             return no_info
 
-        sources = ", ".join(
-            s.get("filename", "Unknown")[:40] for s in result.get("sources", [])[:3]
-        )
+        names = [str(s.get("filename") or s.get("title") or "Unknown")[:40]
+                 for s in result.get("sources", [])[:3]]
+        sources = ", ".join(names)
+        # getattr: sessions built without __init__ (tests) have no list yet.
+        self._turn_sources = [*getattr(self, "_turn_sources", []),
+                              *(n for n in names if n != "Unknown")]
         answer = result["answer"]
 
         # Apply the same boundary the text route applies, here, before the model

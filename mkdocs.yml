@@ -84,3 +84,5 @@ nav:
   - Deployment:
       - Railway, for testing only: deploy_railway.md
       - Railway decisions: decisions/railway-api.md
+      - Voice demo at events: deploy_voice_demo.md
+      - Voice demo decisions: decisions/railway-voice-demo.md

@@ -67,6 +67,7 @@ NO_ANSWER_TEXT: Dict[str, str] = {
     "GET /openapi.json": _STATIC,
     "GET /api/voice/models": "voice model list",
     "GET /api/voice/languages": "language list",
+    "GET /api/voice/demo": "demo notice and access-code flag",
     "GET /api/debug": "vector store diagnostics for staff",
     "POST /api/upload": "queues a document upload",
     "GET /api/upload/{job_id}": "indexing job status",

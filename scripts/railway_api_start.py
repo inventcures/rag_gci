@@ -208,6 +208,9 @@ def main() -> None:
     for name in RECOMMENDED:
         if not env.get(name, "").strip():
             logger.warning("%s is not set; the part of the server that needs it is off.", name)
+    if not env.get("WEB_VOICE_ACCESS_CODE", "").strip():
+        logger.warning("WEB_VOICE_ACCESS_CODE is not set: anyone with the address can talk to "
+                       "the web voice demo at /voice/ (docs/deploy_voice_demo.md).")
 
     volume_path = env.get("RAILWAY_VOLUME_MOUNT_PATH", "").strip()
     if volume_path:

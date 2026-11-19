@@ -393,6 +393,53 @@
                 color: #FEEBC8;
             }
         }
+
+        /* Demo deployment notice and access code (web_demo.py) */
+        .demo-notice {
+            background: #FFF7E6;
+            border: 1px solid var(--warning);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+
+        .demo-notice[hidden], .access-form[hidden] {
+            display: none;
+        }
+
+        .access-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .access-form input {
+            flex: 1;
+            min-width: 0;
+            padding: 8px 12px;
+            border: 1px solid var(--text-light);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .access-form button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            background: var(--primary);
+            color: var(--white);
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        /* Knowledge-base sources under a grounded answer */
+        .message .sources {
+            margin-top: 6px;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -408,6 +455,19 @@
             <span id="connectionText">Initializing...</span>
         </div>
 
+        <!-- Shown on a demo deployment (GET /api/voice/demo) -->
+        <div class="demo-notice" id="demoNotice" role="note" hidden>
+            Demo only. Please do not share real names, phone numbers or a real patient's details.
+            Answers come from the Palli Sahayak knowledge base and never include medicine doses.
+        </div>
+
+        <!-- Shown when the deployment needs an access code and the link had none -->
+        <form class="access-form" id="accessForm" hidden>
+            <input id="accessCode" type="password" autocomplete="off" placeholder="Access code"
+                   aria-label="Access code">
+            <button type="submit">Continue</button>
+        </form>
+
         <!-- Language Selector: filled from /api/voice/languages, the
              Supported Languages Live speaks (supported_languages.py) -->
         <nav class="language-selector" id="languageSelector" aria-label="Language selection"></nav>
@@ -415,7 +475,7 @@
         <!-- Conversation -->
         <section class="conversation" id="conversation" aria-live="polite" aria-label="Conversation history">
             <div class="message assistant">
-                Hello! I'm your palliative care voice assistant. I can help answer questions about pain management, symptom control, comfort care, and emotional support. Tap the microphone to speak with me in your preferred language.
+                Hello! I'm your palliative care voice assistant. I can help answer questions about pain management, symptom control, comfort care, and emotional support. Tap the microphone once and talk to me in your language. I answer when you pause, and you can interrupt me at any time. Tap again to end the conversation.
             </div>
         </section>
 
@@ -432,15 +492,15 @@
                 <div class="bar"></div>
             </div>
 
-            <button class="record-btn" id="recordBtn" aria-label="Start recording">
+            <button class="record-btn" id="recordBtn" aria-label="Start conversation">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93V7h2v1c0 2.76 2.24 5 5 5s5-2.24 5-5V7h2v1c0 4.08-3.06 7.44-7 7.93V19h3v2H9v-2h3v-3.07z"/>
                 </svg>
-                <span class="visually-hidden">Start recording</span>
+                <span class="visually-hidden">Start conversation</span>
             </button>
 
             <div class="status-text" id="status" aria-live="polite">
-                Tap the microphone to speak
+                Tap the microphone to start a conversation
             </div>
         </div>
     </main>
@@ -470,13 +530,22 @@
         // The greeting shown when the participant picks each language, by tag
         let greetings = {};
 
+        // Access code for a demo deployment: from the page's own address
+        // (?code=...) or typed into the form. Sent on the socket's address.
+        const pageParams = new URLSearchParams(window.location.search);
+        let accessCode = pageParams.get('code') || '';
+        let codeRequired = false;
+
         // Initialize Gemini client
         async function init() {
             try {
                 updateConnectionStatus('connecting');
 
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-                const wsUrl = `${wsProtocol}://${window.location.host}/ws/voice`;
+                let wsUrl = `${wsProtocol}://${window.location.host}/ws/voice`;
+                if (accessCode) {
+                    wsUrl += `?code=${encodeURIComponent(accessCode)}`;
+                }
 
                 geminiClient = new GeminiLiveClient({
                     serverUrl: wsUrl,
@@ -490,7 +559,7 @@
 
                 await geminiClient.initialize();
                 updateConnectionStatus('connected');
-                updateStatus('Tap the microphone to speak');
+                updateStatus('Tap the microphone to start a conversation');
 
             } catch (error) {
                 console.error('Initialization error:', error);
@@ -595,18 +664,18 @@
                     await geminiClient.startRecording();
                     isRecording = true;
                     recordBtn.classList.add('recording');
-                    recordBtn.setAttribute('aria-label', 'Stop recording');
+                    recordBtn.setAttribute('aria-label', 'End conversation');
                     waveform.classList.add('active');
-                    updateStatus('Listening... Speak now');
+                    updateStatus('Listening... speak whenever you are ready');
                     status.classList.add('active');
                 } else {
                     // Stop recording
                     await geminiClient.stopRecording();
                     isRecording = false;
                     recordBtn.classList.remove('recording');
-                    recordBtn.setAttribute('aria-label', 'Start recording');
+                    recordBtn.setAttribute('aria-label', 'Start conversation');
                     waveform.classList.remove('active');
-                    updateStatus('Processing your message...');
+                    updateStatus('Conversation ended. Tap the microphone to start again.');
                     status.classList.remove('active');
                 }
             } catch (error) {
@@ -639,7 +708,7 @@
 
         // Handle transcription messages
         function handleTranscription(data) {
-            const { type, text, partial } = data;
+            const { type, text, partial, sources } = data;
 
             if (!text || (type !== 'user' && type !== 'assistant')) {
                 return;
@@ -650,8 +719,19 @@
             if (partial) {
                 appendToMessage(text, type);
             } else {
-                addMessage(text, type);
+                const bubble = addMessage(text, type);
+                if (type === 'assistant' && sources && sources.length) {
+                    addSources(bubble, sources);
+                }
             }
+        }
+
+        // The knowledge-base documents an answer drew on
+        function addSources(bubble, sources) {
+            const line = document.createElement('div');
+            line.className = 'sources';
+            line.textContent = `From the Palli Sahayak knowledge base: ${sources.join(', ')}`;
+            bubble.insertBefore(line, bubble.querySelector('.timestamp'));
         }
 
         // Open bubbles receiving partial fragments, one per speaker.
@@ -695,16 +775,22 @@
         function handleError(error) {
             console.error('Gemini error:', error);
 
+            if (error && error.code === 'access_code') {
+                showAccessForm();
+            }
+
             isRecording = false;
             recordBtn.classList.remove('recording');
-            recordBtn.setAttribute('aria-label', 'Start recording');
+            recordBtn.setAttribute('aria-label', 'Start conversation');
             waveform.classList.remove('active');
 
             status.classList.add('error');
             updateStatus('An error occurred. Tap to try again.');
 
             // Add error message to conversation
-            addMessage('Sorry, I encountered an error. Please try again.', 'system');
+            addMessage(error && error.code === 'access_code'
+                ? 'This demo needs its access code. Please enter it above.'
+                : 'Sorry, I encountered an error. Please try again.', 'system');
 
             // Clear error state after delay
             setTimeout(() => {
@@ -727,9 +813,47 @@
             }
         });
 
+        // Demo deployment: the made-up-people notice and the access code
+        async function loadDemoSettings() {
+            try {
+                const response = await fetch('/api/voice/demo');
+                if (!response.ok) return;
+                const data = await response.json();
+                document.getElementById('demoNotice').hidden = !data.notice;
+                codeRequired = !!data.code_required;
+            } catch (error) {
+                console.warn('Could not load the demo settings:', error);
+            }
+        }
+
+        function showAccessForm() {
+            const form = document.getElementById('accessForm');
+            form.hidden = false;
+            document.getElementById('accessCode').focus();
+        }
+
+        document.getElementById('accessForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            accessCode = document.getElementById('accessCode').value.trim();
+            if (!accessCode) return;
+            document.getElementById('accessForm').hidden = true;
+            if (geminiClient) {
+                geminiClient.disconnect();
+                geminiClient = null;
+            }
+            await init();
+        });
+
         // Initialize on load
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             loadLanguages().catch(console.error);
+            await loadDemoSettings();
+            if (codeRequired && !accessCode) {
+                updateConnectionStatus('error');
+                updateStatus('Enter the access code to start');
+                showAccessForm();
+                return;
+            }
             init().catch(console.error);
         });
 

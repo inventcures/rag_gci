@@ -38,9 +38,11 @@ RUN pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.1.0" 
 
 COPY . .
 
-# Fail the build, not the boot, if the build context lost the server. A
-# .railwayignore written for the review console excludes it.
+# Fail the build, not the boot, if the build context lost the server or the
+# web voice demo (/voice/). A .railwayignore written for the review console
+# excludes all of them.
 RUN test -f simple_rag_server.py && test -f config.yaml && test -f data/study/release.yaml \
+    && test -f web_client/index.html && test -f gemini_live/service.py && test -f web_demo.py \
     || (echo "Build context is missing the server files; check .railwayignore and .dockerignore" && exit 1)
 
 # The shipped copy of each directory the server writes to. The start script

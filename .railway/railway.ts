@@ -50,6 +50,8 @@ export default defineRailway(() => {
       GEMINI_API_KEY: preserve(),
       SARVAM_API_KEY: preserve(),
       STUDY_LOG_SALT: preserve(),
+      // Optional: the web voice demo's access code (docs/deploy_voice_demo.md).
+      WEB_VOICE_ACCESS_CODE: preserve(),
     },
   });
 

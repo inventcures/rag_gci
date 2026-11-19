@@ -156,8 +156,11 @@ class GeminiLiveClient {
                     console.log('WebSocket closed:', event.code, event.reason);
                     this.onConnectionChange('disconnected');
 
-                    // Attempt reconnection if not intentionally closed
-                    if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+                    // Attempt reconnection if not intentionally closed. A
+                    // policy close (1008: wrong access code, voice disabled)
+                    // would only be refused again.
+                    if (event.code !== 1000 && event.code !== 1008 &&
+                        this.reconnectAttempts < this.maxReconnectAttempts) {
                         this.scheduleReconnect();
                     }
                 };
@@ -322,14 +325,21 @@ class GeminiLiveClient {
                     this.onTranscription({
                         type: message.role,
                         text: message.text,
-                        partial: message.partial || false
+                        partial: message.partial || false,
+                        sources: message.sources || []
                     });
                     break;
 
                 case 'turn_complete':
                     if (!this.isPlaying) {
-                        this.onStatusChange('Tap to speak');
+                        this.onStatusChange(this.idleStatus());
                     }
+                    break;
+
+                case 'session_renewed':
+                    // Live's session reached its time limit and the server
+                    // opened a new one; the conversation carries on.
+                    console.log('Voice session renewed:', message.session_id);
                     break;
 
                 case 'interrupted':
@@ -343,10 +353,13 @@ class GeminiLiveClient {
                     console.log('Session created:', message.session_id);
                     break;
 
-                case 'error':
+                case 'error': {
                     console.error('Server error:', message.error);
-                    this.onError(new Error(message.error));
+                    const error = new Error(message.error);
+                    error.code = message.code;
+                    this.onError(error);
                     break;
+                }
 
                 case 'rag_context':
                     console.log('RAG context injected:', message.chars, 'characters');
@@ -429,7 +442,7 @@ class GeminiLiveClient {
                     if (this.activeSources.size === 0 && this.audioQueue.length === 0) {
                         this.isPlaying = false;
                         this.setMicGate(false);
-                        this.onStatusChange('Tap to speak');
+                        this.onStatusChange(this.idleStatus());
                     }
                 };
             }
@@ -440,6 +453,15 @@ class GeminiLiveClient {
             this.isPlaying = false;
             this.setMicGate(false);
         }
+    }
+
+    /**
+     * What the status line says when nobody is speaking: in a conversation
+     * the microphone stays open, so the caller just talks.
+     * @returns {string}
+     */
+    idleStatus() {
+        return this.isRecording ? 'Listening...' : 'Tap to speak';
     }
 
     /**
