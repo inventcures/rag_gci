@@ -1,1 +1,66 @@
-[]
+[
+  {
+    "user_id": "call-s",
+    "level": "simple",
+    "avg_message_length": 22,
+    "vocabulary_complexity": 0.0,
+    "question_types": [],
+    "last_updated": "2026-11-19T17:38:27.929338"
+  },
+  {
+    "user_id": "bolna_+919812345678",
+    "level": "moderate",
+    "avg_message_length": 34,
+    "vocabulary_complexity": 0.148986198,
+    "question_types": [
+      "how"
+    ],
+    "last_updated": "2026-11-19T17:38:55.586854"
+  },
+  {
+    "user_id": "call-1",
+    "level": "moderate",
+    "avg_message_length": 32,
+    "vocabulary_complexity": 0.09252426357992577,
+    "question_types": [
+      "how"
+    ],
+    "last_updated": "2026-11-19T17:39:01.733293"
+  },
+  {
+    "user_id": "call-dl",
+    "level": "moderate",
+    "avg_message_length": 32,
+    "vocabulary_complexity": 0.0,
+    "question_types": [],
+    "last_updated": "2026-11-19T17:38:45.044008"
+  },
+  {
+    "user_id": "+919800000111",
+    "level": "moderate",
+    "avg_message_length": 40,
+    "vocabulary_complexity": 0.0,
+    "question_types": [
+      "how"
+    ],
+    "last_updated": "2026-11-19T17:38:56.526221"
+  },
+  {
+    "user_id": "call-2",
+    "level": "simple",
+    "avg_message_length": 19,
+    "vocabulary_complexity": 0.0,
+    "question_types": [],
+    "last_updated": "2026-11-19T17:39:01.721152"
+  },
+  {
+    "user_id": "+919876543210",
+    "level": "simple",
+    "avg_message_length": 17,
+    "vocabulary_complexity": 0.0,
+    "question_types": [
+      "what"
+    ],
+    "last_updated": "2026-11-19T17:39:07.893728"
+  }
+]

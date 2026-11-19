@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-19T02:34:40+00:00",
-  "commit": "92f0d2a",
-  "branch": "claude/project-thread-s1e22l",
-  "dirty": false,
+  "generated_at": "2026-11-19T17:39:18+00:00",
+  "commit": "fbd1fa7",
+  "branch": "claude/project-thread-4bvymm",
+  "dirty": true,
   "invariants": {
     "SI-1": {
       "statement": "A response containing a specific dose is not returned verbatim.",
