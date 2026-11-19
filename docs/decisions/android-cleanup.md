@@ -108,7 +108,7 @@ To check on a real phone against the study server, before participants:
 
 | # | For whom | What |
 |---|---|---|
-| R13 | Clinical lead | The 34 new strings in English and machine-drafted Hindi (the household block at the end of each `strings.xml`), and the choice of four symptoms (A22). |
+| R13 | Clinical lead | The 33 new strings in English and machine-drafted Hindi (the household block at the end of each `strings.xml`), and the choice of four symptoms (A22). |
 | R14 | Study team | Whether observations from the app belong in the protocol's data flows, and that they sit in the server's patient record under a random reference (A21). |
 | R15 | Project lead | A spoken reminder. The reminder is a notification with the phone's sound; reading it aloud offline needs the phone's own text-to-speech, which varies by language and phone. |
 | R16 | Project lead | People cannot yet be renamed or removed, and a reminder is daily only. |

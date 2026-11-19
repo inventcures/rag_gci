@@ -17,12 +17,9 @@ import kotlinx.coroutines.launch
 import org.inventcures.pallisahayak.AppLocale
 import org.inventcures.pallisahayak.MainActivity
 import org.inventcures.pallisahayak.R
-import org.inventcures.pallisahayak.data.local.PalliDatabase
 import org.inventcures.pallisahayak.data.model.Language
+import org.inventcures.pallisahayak.data.reminders.DeviceReminders
 import org.inventcures.pallisahayak.data.reminders.DueReminder
-import org.inventcures.pallisahayak.data.reminders.ReminderFiring
-import org.inventcures.pallisahayak.data.reminders.ReminderSchedule
-import org.inventcures.pallisahayak.data.reminders.SharedPreferencesFiredReminders
 import java.time.ZonedDateTime
 
 /**
@@ -62,10 +59,7 @@ object ReminderAlarms {
     /** Show whatever is due now, then set the alarm for the next one. */
     internal suspend fun fireAndReschedule(context: Context) {
         try {
-            val dao = PalliDatabase.get(context).reminders()
-            val due = ReminderFiring(dao, SharedPreferencesFiredReminders(context))
-                .takeDue(ZonedDateTime.now())
-            due.forEach { show(context, it) }
+            DeviceReminders.takeDue(context, ZonedDateTime.now()).forEach { show(context, it) }
         } catch (error: RuntimeException) {
             // The next alarm must still be set, or one bad read ends every reminder.
             Log.w(TAG, "could not show the reminders due", error) // not user-facing: logcat
@@ -82,10 +76,7 @@ object ReminderAlarms {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val next = try {
-            ReminderSchedule.nextTrigger(
-                PalliDatabase.get(context).reminders().enabled(),
-                ZonedDateTime.now(),
-            )
+            DeviceReminders.nextTrigger(context, ZonedDateTime.now())
         } catch (error: RuntimeException) {
             Log.w(TAG, "could not read the reminders", error) // not user-facing: logcat
             return
