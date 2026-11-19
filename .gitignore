@@ -41,3 +41,6 @@ data/study/voice_provider_audit.jsonl
 # Never commit it: it would nest a built copy of the docs inside the repo and
 # pull stale pages into every clone.
 .mkdocs-site/
+
+# Railway IaC SDK (.railway/package.json); installed by the operator, never committed.
+.railway/node_modules/

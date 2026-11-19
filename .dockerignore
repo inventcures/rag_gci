@@ -1,0 +1,16 @@
+# Build context for Dockerfile.api (the study server). Keep it small and keep
+# secrets out of the image. Runtime data is never in git, so it is not here.
+.git/
+.github/
+.env
+.env.*
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+android-app/
+evah_study_docs/
+.mkdocs-site/
+*.pptx
+*.mov
+*.mp4
