@@ -16,9 +16,9 @@ import androidx.compose.ui.unit.dp
  * which is the one action that must always be reachable.
  *
  * Drawn rather than imported, for the size reason in RoleIcons, and chosen to differ
- * in silhouette the way the role glyphs do: a filled circle, a solid square, and a
- * triangle in a ring. Silhouette is what survives at small size and for a user who
- * cannot read the label beside it.
+ * in silhouette the way the role glyphs do: a microphone, a solid square, and a
+ * triangle. Silhouette is what survives at small size and for a user who cannot
+ * read the label beside it.
  */
 object ActionGlyphs {
 

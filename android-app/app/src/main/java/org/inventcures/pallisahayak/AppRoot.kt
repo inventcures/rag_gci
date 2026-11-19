@@ -128,10 +128,19 @@ private fun SignedInApp(storeOwner: ViewModelStoreOwner, session: SessionContext
     val online: Boolean by graph.connectivity.online.collectAsStateSafe(initial = false)
     val history: List<HistoryEntry> by graph.history.observe().collectAsStateSafe(emptyList())
 
+    // The banner says how many questions can be answered without a connection,
+    // which is the Cached Answer Bundle's size in the language in force, not how
+    // many past interactions there are. Read again whenever the connection or the
+    // language changes, since a download lands while online.
+    val bundleLanguage: Language? = language ?: Language.fromTag(session.language)
+    val savedAnswers: Int by produceState(0, bundleLanguage, online) {
+        value = bundleLanguage?.let { graph.bundle.bundleSize(it) } ?: 0
+    }
+
     AppScaffold(
         offlineBanner = {
             if (!online) {
-                OfflineBanner(cachedCount = history.size)
+                OfflineBanner(cachedCount = savedAnswers)
             }
         },
         ask = { AskScreen(viewModel, offline = !online) },

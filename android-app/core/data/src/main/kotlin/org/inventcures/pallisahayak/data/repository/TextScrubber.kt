@@ -39,9 +39,8 @@ object TextScrubber {
         val wasScrubbed: Boolean get() = labels.isNotEmpty()
 
         /**
-         * True when structured identifiers were found, meaning the text is
-         * trustworthy for analysis. False is the common case and says nothing
-         * about names.
+         * True when no structured identifier (number, email, URL) was found.
+         * It says nothing about names, which this scrubber cannot detect.
          */
         val isClean: Boolean get() = labels.isEmpty()
     }
@@ -61,29 +60,5 @@ object TextScrubber {
             }
         }
         return Scrubbed(out, found.distinct())
-    }
-
-    /**
-     * Over-firing would destroy the corpus the study's topic analysis depends on,
-     * so these have to survive untouched.
-     */
-    private val FALSE_POSITIVES = listOf(
-        Regex("""\b\d+\s*(?:chapter|section|page|step|grade|level|site)s?\b""", RegexOption.IGNORE_CASE),
-        Regex("""\b(?:age|aged)\s*\d+\b""", RegexOption.IGNORE_CASE),
-        Regex("""\b\d+\s*(?:mm|cm)\s*(?:diameter|width|length|depth)\b""", RegexOption.IGNORE_CASE),
-        Regex("""\b\d+\s*(?:hours?|hrs?|minutes?|mins?|days?|weeks?)\b""", RegexOption.IGNORE_CASE),
-    )
-
-    /**
-     * Numeric clinical phrasing that is not an identifier.
-     *
-     * Used by the repository before recording, so a study question like "turn the
-     * patient every 2 hours" is not stored as `[DIGITS_REDACTED]`.
-     */
-    fun looksLikeIdentifier(candidate: String): Boolean {
-        val digits = Regex("""[\d\s+-]{4,}""").find(candidate)?.value.orEmpty()
-        if (digits.isBlank()) return false
-        if (FALSE_POSITIVES.any { it.containsMatchIn(candidate) }) return false
-        return digits.any { it.isDigit() }
     }
 }

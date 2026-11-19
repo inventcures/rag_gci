@@ -117,4 +117,16 @@ class OfflineStartTest {
 
         assertTrue(screen is StartScreen.Refused)
     }
+
+    @Test
+    fun `a status reply the app cannot read is treated as no signal, not a crash`() = runTest {
+        val start = AppStart(api, gate, sessions)
+        api.release = release(approved = true)
+        start.decide()
+
+        api.unreadable = true
+        val screen = start.decide()
+
+        assertTrue("unreadable start was $screen", screen is StartScreen.Ready)
+    }
 }

@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import org.inventcures.pallisahayak.app.ui.ActionGlyphs
+import org.inventcures.pallisahayak.app.ui.MicrophoneWhenOffline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -78,12 +79,21 @@ fun AskScreen(
             onSubmit = viewModel::submit,
         )
 
-        MicrophoneButton(
-            isListening = state.isListening,
-            enabled = !state.isAsking && !state.isSpeaking,
-            onPress = viewModel::onMicPressed,
-            onRelease = viewModel::onMicReleased,
-        )
+        if (offline) {
+            // Criterion 4: visible, inert, and saying why. Voice needs the server.
+            MicrophoneWhenOffline(
+                offline = true,
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            MicrophoneButton(
+                isListening = state.isListening,
+                enabled = !state.isAsking && !state.isSpeaking,
+                onPress = viewModel::onMicPressed,
+                onRelease = viewModel::onMicReleased,
+            )
+        }
 
         if (state.isSpeaking) {
             StopSpeakingButton(onStop = viewModel::stopSpeaking)
@@ -298,8 +308,14 @@ private fun MicrophoneButton(
                         if (enabled) {
                             onPress()
                             down.consume()
-                            awaitPointerEvent().changes.firstOrNull { it.changedToUp() }
-                                ?.consume()
+                            // Wait for the finger to lift. The next event is usually a
+                            // move, since a held finger drifts; taking that as the
+                            // release stopped the recording a moment after it began.
+                            do {
+                                val event = awaitPointerEvent()
+                                val up = event.changes.firstOrNull { it.changedToUp() }
+                                up?.consume()
+                            } while (up == null)
                             onRelease()
                         }
                     }

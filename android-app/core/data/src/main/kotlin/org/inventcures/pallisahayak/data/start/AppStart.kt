@@ -10,6 +10,7 @@ import org.inventcures.pallisahayak.data.release.ReleaseGate
 import org.inventcures.pallisahayak.data.release.ReleaseStatus
 import org.inventcures.pallisahayak.data.release.ReleaseStatusCache
 import org.inventcures.pallisahayak.data.repository.SessionContext
+import com.squareup.moshi.JsonDataException
 import java.io.IOException
 
 /** The first screen the app shows, and what it needs to show it. */
@@ -73,6 +74,10 @@ class AppStart(
         val response = try {
             api.releaseStatus()
         } catch (error: IOException) {
+            return null
+        } catch (error: JsonDataException) {
+            // A reply the client cannot read (a proxy's error page, a schema this
+            // build predates) is a server that could not say, not a crash at start.
             return null
         }
         val body = response.body()

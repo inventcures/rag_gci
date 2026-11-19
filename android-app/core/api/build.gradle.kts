@@ -31,9 +31,10 @@ dependencies {
     api(libs.retrofit.converter.moshi)
     api(libs.okhttp)
     api(libs.moshi)
-    implementation(libs.moshi.kotlin)
-    implementation(libs.okhttp.logging)
-    implementation(libs.kotlinx.coroutines.android)
+    // Nothing else. The module is the generated interface and its data classes;
+    // the Moshi Kotlin adapter, the logging interceptor and coroutines belong to
+    // :core:data, which builds the clients and declares them itself. They were
+    // listed here too, and coroutines-android is an Android artifact in a JVM module.
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

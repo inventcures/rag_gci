@@ -55,8 +55,8 @@ object RoleIcons {
                 viewportHeight = 24f,
             )
             .apply {
-                // Color.Unspecified leaves the tint to whoever draws it, so the same
-                // glyph can carry a role colour rather than being baked black.
+                // Drawn black; Icon's tint replaces the colour, so the same glyph
+                // carries whichever role colour it is drawn with.
                 path(fill = SolidColor(Color.Black)) { block() }
             }
             .build()
