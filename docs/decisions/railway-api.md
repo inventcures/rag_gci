@@ -31,7 +31,7 @@ Operator guide: [docs/deploy_railway.md](../deploy_railway.md).
 
 * `tests/test_railway_api_start.py`: first boot, redeploy (new release record arrives; index, records, logs and uploads stay), a second run in one container, no volume, the variable check, the key file mode, and the server command.
 * `.railway/railway.ts` evaluates with the pinned SDK and type-checks under `tsc --strict`.
-* The image was built and booted locally, except the `apt-get` step and the PyTorch CPU index, which this sandbox's network blocks (both were replaced by PyPI torch and no system packages for the local build only). See the PR for the boot result.
+* The image was built locally with `requirements.txt` installed. This sandbox's network blocks the Debian mirrors, the PyTorch CPU index and Hugging Face, so the local build skipped `apt-get` and took torch from PyPI. Booted with a Docker volume at `/data`: the variable check ran, the four directories became links into the volume (194 shipped files on the first boot, 172 on the second, as the index is seeded once), the GraphRAG input link resolved to the volume's `uploads/`, and the server started and reached the bge-m3 download, where the sandbox's block on Hugging Face stopped it.
 
 ## Not verified, and why
 
