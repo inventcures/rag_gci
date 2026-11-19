@@ -32,9 +32,18 @@ WORKDIR /app
 # CPU torch first. The default PyPI wheel brings several GB of CUDA libraries
 # that a Railway container cannot use. requirements.txt then finds torch
 # already installed.
+#
+# torchvision comes from the same index in the same command, so it is built
+# for this torch. Otherwise requirements.txt pulls it from PyPI (through
+# timm / unstructured-inference) built for another torch, and importing
+# sentence_transformers fails with "operator torchvision::nms does not exist".
 COPY requirements.txt .
-RUN pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.1.0" \
+RUN pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.1.0" torchvision \
     && pip install -r requirements.txt
+
+# Fail the build, not a 15-minute health check, if the embedding stack does
+# not import.
+RUN python -c "import torch, torchvision, sentence_transformers; print('torch', torch.__version__, 'torchvision', torchvision.__version__)"
 
 COPY . .
 

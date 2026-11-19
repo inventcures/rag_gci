@@ -20,6 +20,7 @@ Builds on the `api` service ([railway-api.md](railway-api.md), PR #17). Operator
 | VD10 | No change to the model, the system instruction, the tool, the thinking level or the dose check. | Each would change answers and needs a study release. The demo runs the release's Live model (`gemini-3.1-flash-live-preview`, PI confirmation still open). |
 | VD11 | The image build fails if `web_client/index.html`, `gemini_live/service.py` or `web_demo.py` is missing. | `.railwayignore` (the review console's) excludes `web_client/` and `gemini_live/`. Without them the server starts, but `/voice/` is missing or Live is off, which looks like a working deploy. |
 | VD12 | The start script warns when `WEB_VOICE_ACCESS_CODE` is not set. `.railway/railway.ts` declares it with `preserve()`. | The code is optional, so it must not stop the server, but an open demo should be visible in the deploy log. `preserve()` keeps the value in Railway and out of this public repository. |
+| VD13 | Install torchvision from the PyTorch CPU index in the same command as torch, and import torch, torchvision and sentence_transformers at build time. | The first Railway deploy (2026-11-19) built, then crashed at boot: `operator torchvision::nms does not exist`. CPU torch 2.15.0 came from the PyTorch index, but torchvision came from PyPI through timm and unstructured-inference, built for another torch. The boot failed only after the 15-minute health check. The build-time import makes the same fault fail the build in minutes. |
 
 ## Not done
 
