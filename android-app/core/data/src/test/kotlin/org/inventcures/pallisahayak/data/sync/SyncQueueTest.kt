@@ -239,8 +239,6 @@ class FakeSyncQueueDao : SyncQueueDao {
         val index = rows.indexOfFirst { it.id == id }
         if (index >= 0) rows[index] = rows[index].copy(refusedReason = reason)
     }
-
-    override suspend fun pendingCount(): Int = rows.count { it.refusedReason == null }
 }
 
 /** The server's sync push, answering with [acks]. */

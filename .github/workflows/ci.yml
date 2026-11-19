@@ -141,7 +141,7 @@ jobs:
         # which is about 84 seconds of sustained 2G. A dependency added without
         # noticing is invisible until this fails.
         run: |
-          ./gradlew :app:assembleRelease
+          ./gradlew :app:assembleRelease -PpalliVersionCode="${GITHUB_RUN_NUMBER}"
           python ../scripts/check_apk_budget.py
 
       - name: Unit tests, contract drift and generated client
@@ -157,6 +157,53 @@ jobs:
                     :core:api:verifyApiContract \
                     :core:api:verifyGeneratedClient \
                     :app:assembleDebug
+
+      - name: Build an APK for testing on a phone
+        # The debug build above talks to the emulator's address for a developer's
+        # machine, which a phone cannot reach, and the release build is unsigned
+        # until the study has a signing key, so a phone refuses it. This is the
+        # debug build (signed with the debug key, so it installs; it skips the
+        # release gate) pointed at a real server: the repository variable
+        # PALLI_TEST_BASE_URL, else the release default. Not for participants.
+        working-directory: android-app
+        env:
+          PALLI_TEST_BASE_URL: ${{ vars.PALLI_TEST_BASE_URL || 'https://api.pallisahayak.org/' }}
+        run: |
+          ./gradlew :app:assembleDebug -PpalliDebugBaseUrl="${PALLI_TEST_BASE_URL}" -PpalliVersionCode="${GITHUB_RUN_NUMBER}"
+          ls -l app/build/outputs/apk/debug/
+
+      - name: Keep the phone test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: palli-sahayak-phone-test-apk
+          path: android-app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Room schema is committed
+        # The build writes core/data/schemas/<version>.json from the entities. A
+        # version whose file is not committed has nothing for the next migration
+        # test to upgrade from, and version 4 went unnoticed that way. The file is
+        # printed here so it can be committed from the log by someone without the
+        # Android SDK.
+        if: always()
+        working-directory: android-app
+        run: |
+          changed="$(git status --porcelain -- core/data/schemas)"
+          if [ -z "$changed" ]; then
+            echo "The committed Room schemas match the build."
+            exit 0
+          fi
+          echo "::error::core/data/schemas differs from what the build generates. Commit the files below."
+          echo "$changed"
+          git --no-pager diff -- core/data/schemas
+          for file in $(git ls-files --others --exclude-standard -- core/data/schemas); do
+            echo "----- BEGIN $file"
+            cat "$file"
+            echo
+            echo "----- END $file"
+          done
+          exit 1
 
   dosage-evidence:
     name: Dosage restriction evidence

@@ -107,7 +107,6 @@
     <string name="problem_unexpected">Something went wrong. Please try again.</string>
     <string name="problem_microphone_needed">Microphone access is needed to ask by voice.</string>
     <string name="problem_unreachable">Could not reach the service. Please try again.</string>
-    <string name="problem_offline_not_saved">No connection, and this question is not one of the saved ones. Try again when there is signal.</string>
 
     <!--
       Found by the lint, not by an audit.
@@ -116,7 +115,6 @@
       matters: a Hindi worker reading an English "call 108" during a crisis is a
       worse outcome than a slower answer.
     -->
-    <string name="history_heading">Earlier</string>
     <string name="ask_button_idle">Hold to speak</string>
     <string name="ask_button_listening">Listening, let go to send</string>
     <string name="ask_button_send">Ask</string>
@@ -159,4 +157,45 @@
     <string name="sign_in_button">Sign in</string>
     <string name="sign_in_refused">That PIN was not accepted. After 5 wrong tries, wait 15 minutes before trying again.</string>
     <string name="server_unreachable">Could not reach the service. Try again when there is signal.</string>
+
+    <!--
+      Household (Android review, R2): the people a participant cares for, a symptom
+      noticed about one of them, and their medicine reminders. Names stay on the
+      phone. A reminder never carries an amount of medicine. The four symptoms and
+      these words await the clinical lead's review, like the Hindi.
+    -->
+    <string name="nav_household">Household</string>
+    <string name="household_title">People you care for</string>
+    <string name="household_explainer">Names stay on this phone and are not sent anywhere.</string>
+    <string name="household_empty">No one has been added yet.</string>
+    <string name="household_name_label">Name</string>
+    <string name="household_add_person">Add person</string>
+    <string name="observation_open">Record a symptom</string>
+    <string name="observation_symptom_title">Which symptom?</string>
+    <string name="symptom_pain">Pain</string>
+    <string name="symptom_breathlessness">Breathlessness</string>
+    <string name="symptom_nausea">Nausea or vomiting</string>
+    <string name="symptom_constipation">Constipation</string>
+    <string name="observation_severity_title">How bad is it?</string>
+    <string name="severity_none">None</string>
+    <string name="severity_mild">Mild</string>
+    <string name="severity_moderate">Moderate</string>
+    <string name="severity_severe">Severe</string>
+    <string name="severity_very_severe">Very severe</string>
+    <string name="observation_save">Save</string>
+    <string name="observation_saved">Saved on this phone. It will be sent to the care record when there is a connection.</string>
+    <string name="observation_failed">This could not be saved. Please try again.</string>
+    <string name="reminder_open">Add a medicine reminder</string>
+    <string name="reminder_medicine_label">Name of the medicine</string>
+    <string name="reminder_time_title">Time, every day</string>
+    <string name="reminder_notifications_needed">Allow notifications when the phone asks, or the reminder cannot appear.</string>
+    <string name="reminder_save">Save reminder</string>
+    <string name="reminder_saved">Reminder saved. This phone will remind you every day, even without a connection.</string>
+    <string name="reminder_has_dose">Write only the name of the medicine, not the amount. The amount is on the prescription.</string>
+    <string name="reminders_title">Medicine reminders</string>
+    <string name="reminders_empty">No reminders yet.</string>
+    <string name="reminder_remove">Remove</string>
+    <!-- What a reminder says: the medicine, then the person. No amount, ever. -->
+    <string name="reminder_text_format">%1$s for %2$s</string>
+    <string name="reminder_notification_title">Time for medicine</string>
 </resources>

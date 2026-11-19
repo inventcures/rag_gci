@@ -63,9 +63,7 @@
     <string name="problem_unexpected">कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।</string>
     <string name="problem_microphone_needed">आवाज़ से पूछने के लिए माइक्रोफ़ोन की अनुमति ज़रूरी है।</string>
     <string name="problem_unreachable">सेवा से संपर्क नहीं हो सका। कृपया फिर से कोशिश करें।</string>
-    <string name="problem_offline_not_saved">कनेक्शन नहीं है, और यह सवाल सहेजे गए सवालों में से नहीं है। सिग्नल आने पर फिर से कोशिश करें।</string>
 
-    <string name="history_heading">पहले के सवाल</string>
     <string name="ask_button_idle">बोलने के लिए दबाकर रखें</string>
     <string name="ask_button_listening">सुन रहे हैं, भेजने के लिए छोड़ें</string>
     <string name="ask_button_send">पूछें</string>
@@ -99,4 +97,38 @@
     <string name="sign_in_button">साइन इन करें</string>
     <string name="sign_in_refused">यह पिन स्वीकार नहीं हुआ। 5 गलत कोशिशों के बाद, फिर से कोशिश करने से पहले 15 मिनट रुकें।</string>
     <string name="server_unreachable">सेवा से संपर्क नहीं हो सका। सिग्नल आने पर फिर से कोशिश करें।</string>
+
+    <string name="nav_household">परिवार</string>
+    <string name="household_title">जिनकी आप देखभाल करते हैं</string>
+    <string name="household_explainer">नाम इसी फ़ोन में रहते हैं और कहीं भेजे नहीं जाते।</string>
+    <string name="household_empty">अभी तक किसी को जोड़ा नहीं गया है।</string>
+    <string name="household_name_label">नाम</string>
+    <string name="household_add_person">व्यक्ति जोड़ें</string>
+    <string name="observation_open">लक्षण दर्ज करें</string>
+    <string name="observation_symptom_title">कौन सा लक्षण?</string>
+    <string name="symptom_pain">दर्द</string>
+    <string name="symptom_breathlessness">सांस फूलना</string>
+    <string name="symptom_nausea">मितली या उल्टी</string>
+    <string name="symptom_constipation">कब्ज़</string>
+    <string name="observation_severity_title">कितना ज़्यादा है?</string>
+    <string name="severity_none">बिल्कुल नहीं</string>
+    <string name="severity_mild">हल्का</string>
+    <string name="severity_moderate">मध्यम</string>
+    <string name="severity_severe">तेज़</string>
+    <string name="severity_very_severe">बहुत तेज़</string>
+    <string name="observation_save">सहेजें</string>
+    <string name="observation_saved">इस फ़ोन में सहेज लिया गया। कनेक्शन मिलने पर यह देखभाल के रिकॉर्ड में भेजा जाएगा।</string>
+    <string name="observation_failed">यह सहेजा नहीं जा सका। कृपया फिर से कोशिश करें।</string>
+    <string name="reminder_open">दवा का रिमाइंडर जोड़ें</string>
+    <string name="reminder_medicine_label">दवा का नाम</string>
+    <string name="reminder_time_title">समय, हर दिन</string>
+    <string name="reminder_notifications_needed">जब फ़ोन पूछे तो सूचनाओं की अनुमति दें, नहीं तो रिमाइंडर नहीं दिखेगा।</string>
+    <string name="reminder_save">रिमाइंडर सहेजें</string>
+    <string name="reminder_saved">रिमाइंडर सहेज लिया गया। यह फ़ोन आपको हर दिन याद दिलाएगा, बिना कनेक्शन के भी।</string>
+    <string name="reminder_has_dose">केवल दवा का नाम लिखें, मात्रा नहीं। मात्रा डॉक्टर की पर्ची पर लिखी है।</string>
+    <string name="reminders_title">दवा के रिमाइंडर</string>
+    <string name="reminders_empty">अभी कोई रिमाइंडर नहीं है।</string>
+    <string name="reminder_remove">हटाएँ</string>
+    <string name="reminder_text_format">%2$s के लिए %1$s</string>
+    <string name="reminder_notification_title">दवा का समय</string>
 </resources>

@@ -80,42 +80,9 @@ interface InteractionDao {
     @Query("SELECT * FROM interactions ORDER BY occurred_at DESC LIMIT 50")
     fun observeRecent(): Flow<List<InteractionEntity>>
 
-    @Query(
-        "SELECT COUNT(DISTINCT participant_id) FROM interactions " +
-            "WHERE interaction_class = 'substantive' AND occurred_at >= :since",
-    )
-    suspend fun participantsWithActivitySince(since: Long): Int
-
-    /**
-     * Protocol §4.1: sustained use means an interaction in at least two distinct
-     * weeks of the preceding 28 days. SQLite has no week-of-year function, so the
-     * distinct weeks are counted in Kotlin from the rows this query returns.
-     */
-    @Query(
-        "SELECT * FROM interactions " +
-            "WHERE interaction_class = 'substantive' AND occurred_at >= :since",
-    )
-    suspend fun substantiveSince(since: Long): List<InteractionEntity>
-
-    @Query("SELECT COUNT(*) FROM interactions WHERE dosage_blocked = 1")
-    suspend fun dosageBlockedCount(): Int
-
-    @Query("SELECT COUNT(*) FROM interactions WHERE emergency_level != 'none'")
-    suspend fun emergencyCount(): Int
-
-    /** Protocol §4.4 requires every metric broken out by language. */
-    @Query("SELECT language, COUNT(*) AS calls FROM interactions GROUP BY language")
-    suspend fun callsByLanguage(): List<LanguageCount>
-
     @Query("DELETE FROM interactions WHERE occurred_at < :before")
     suspend fun pruneBefore(before: Long)
 }
-
-/** Row shape for the grouped language query. Room needs a concrete return type. */
-data class LanguageCount(
-    val language: String,
-    val calls: Int,
-)
 
 @Dao
 interface CachedAnswerDao {
@@ -133,23 +100,11 @@ interface CachedAnswerDao {
     )
     suspend fun find(hash: String, language: String): CachedAnswerEntity?
 
-    @Query("SELECT DISTINCT bundle_version FROM cached_answers")
-    suspend fun versions(): List<String>
-
-    /**
-     * Replace the bundle atomically enough for this purpose.
-     *
-     * A newer bundle's rows land first, then rows from older versions go, so a
-     * failed download leaves the previous bundle usable instead of emptying the
-     * table.
-     */
-    @Query("DELETE FROM cached_answers WHERE bundle_version != :keepVersion")
-    suspend fun deleteOtherVersions(keepVersion: String)
-
     /**
      * Drop one language's rows from older bundles, once a newer bundle for that
-     * language has landed. Scoped to the language, unlike [deleteOtherVersions],
-     * because each language's bundle has its own version.
+     * language has landed. Scoped to the language, because each language's bundle
+     * has its own version. The newer rows land first, so a failed download leaves
+     * the previous bundle usable instead of emptying the table.
      */
     @Query("DELETE FROM cached_answers WHERE language = :language AND bundle_version != :keepVersion")
     suspend fun deleteStale(language: String, keepVersion: String)

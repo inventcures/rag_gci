@@ -52,7 +52,7 @@ class HouseholdRepositoryTest {
         repo = HouseholdRepository(
             dao = db.households(),
             observationSink = { member, observation ->
-                sent += member.id to observation
+                sent += member.id to observation.symptom
                 true
             },
             clock = { 1_700_000_000L },
@@ -89,9 +89,9 @@ class HouseholdRepositoryTest {
         val kamala = repo.addMember(ownerA, household.id, "Kamala", "p-1")
         repo.addMember(ownerA, household.id, "Suresh", "p-2")
 
-        assertTrue(repo.recordObservation(ownerA, kamala.id, "Slept better overnight"))
+        assertTrue(repo.recordObservation(ownerA, kamala.id, Observation("pain", 2)))
 
-        assertEquals(listOf(kamala.id to "Slept better overnight"), sent)
+        assertEquals(listOf(kamala.id to "pain"), sent)
     }
 
     @Test
@@ -101,7 +101,7 @@ class HouseholdRepositoryTest {
         repo.register(ownerB, "site-1", Language.HINDI, "rel-1")
 
         // The identifier is known. It still changes nothing.
-        assertFalse(repo.recordObservation(ownerB, kamala.id, "Guessed write"))
+        assertFalse(repo.recordObservation(ownerB, kamala.id, Observation("pain", 4)))
         assertTrue("a refused observation reached the sink", sent.isEmpty())
     }
 
@@ -128,7 +128,7 @@ class HouseholdRepositoryTest {
         val hA = repo.register(ownerA, "site-1", Language.HINDI, "rel-1")
         val member = repo.addMember(ownerA, hA.id, "Kamala", "p-1")
 
-        assertTrue(runCatching { repo.recordObservation(ownerA, member.id, "  ") }.isFailure)
+        assertTrue(runCatching { repo.recordObservation(ownerA, member.id, Observation("  ", 1)) }.isFailure)
         assertTrue(sent.isEmpty())
     }
 

@@ -32,9 +32,9 @@ import androidx.compose.ui.res.stringResource
 import org.inventcures.pallisahayak.R
 
 /**
- * The three destinations, held in state rather than in a navigation library.
+ * The four destinations, held in state rather than in a navigation library.
  *
- * The app has three screens. Navigation Compose would add a dependency and a
+ * The app has four screens. Navigation Compose would add a dependency and a
  * transitive set for no behaviour this needs, and the APK carries an explicit budget
  * for 2G devices. Revisit when there are back stacks, deep links or saved state per
  * destination; none of which exist.
@@ -42,6 +42,7 @@ import org.inventcures.pallisahayak.R
 enum class Destination(@StringRes val label: Int) {
     ASK(R.string.nav_ask),
     HISTORY(R.string.nav_history),
+    HOUSEHOLD(R.string.nav_household),
     SETTINGS(R.string.nav_settings),
 }
 
@@ -57,6 +58,7 @@ fun AppScaffold(
     offlineBanner: @Composable () -> Unit = {},
     ask: @Composable () -> Unit,
     history: @Composable () -> Unit,
+    household: @Composable () -> Unit,
     settings: @Composable () -> Unit,
 ) {
     var destination by rememberSaveable { mutableStateOf(Destination.ASK) }
@@ -66,6 +68,7 @@ fun AppScaffold(
             when (destination) {
                 Destination.ASK -> ask()
                 Destination.HISTORY -> history()
+                Destination.HOUSEHOLD -> household()
                 Destination.SETTINGS -> settings()
             }
         }
@@ -93,12 +96,13 @@ fun AppScaffold(
     }
 }
 
-/** The three nav glyphs, again drawn rather than imported for APK size. */
+/** The four nav glyphs, again drawn rather than imported for APK size. */
 private object NavGlyphs {
 
     fun forDestination(destination: Destination) = when (destination) {
         Destination.ASK -> ask
         Destination.HISTORY -> history
+        Destination.HOUSEHOLD -> household
         Destination.SETTINGS -> settings
     }
 
@@ -138,6 +142,13 @@ private object NavGlyphs {
             lineTo(13.1f, 13.1f); close()
         }
     }
+
+    /** A house: a roof over a body. Unlike the other three in silhouette. */
+    val household: androidx.compose.ui.graphics.vector.ImageVector by lazy { glyph("Household") {
+        moveTo(12.0f, 3.0f); lineTo(22.0f, 12.0f); lineTo(2.0f, 12.0f); close()
+        moveTo(5.0f, 13.0f); lineTo(19.0f, 13.0f); lineTo(19.0f, 21.0f)
+        lineTo(5.0f, 21.0f); close()
+    } }
 
     val settings: androidx.compose.ui.graphics.vector.ImageVector by lazy { glyph("Settings") {
         moveTo(12.0f, 7.2f)

@@ -10,6 +10,7 @@ import org.inventcures.pallisahayak.data.repository.FakeInteractionDao
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
 import org.inventcures.pallisahayak.data.repository.SessionContext
 import org.inventcures.pallisahayak.data.voice.VoiceEngine
+import org.inventcures.pallisahayak.data.voice.WavAudio
 import org.inventcures.pallisahayak.safety.AnswerKind
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -72,12 +73,15 @@ class AskViewModelVoiceTest {
         api.voice("what is morphine used for?", "Morphine is a strong opioid used for severe cancer pain.",
             audioBase64 = serverAudioBase64)
 
-        val state = askByVoice().state.value
+        val vm = askByVoice()
 
-        assertEquals(AnswerKind.ANSWER, state.answerKind)
+        assertEquals(AnswerKind.ANSWER, vm.state.value.answerKind)
         assertEquals(1, speaker.played.size)
         assertArrayEquals(serverAudio, speaker.played.single())
-        assertTrue(state.canReplay)
+
+        // Replay is offered once the answer has been heard, not over it.
+        speaker.finishPlaying()
+        assertTrue(vm.state.value.canReplay)
     }
 
     @Test
@@ -110,6 +114,102 @@ class AskViewModelVoiceTest {
         assertTrue(speaker.played.isEmpty())
         assertNull(state.spokenAnswer)
     }
+
+    // -- the Stop button's state (Android review, R1) ----------------------------
+
+    private fun spokenAnswer() = api.voice(
+        "what is morphine used for?", "Morphine is a strong opioid used for severe cancer pain.",
+        audioBase64 = serverAudioBase64,
+    )
+
+    @Test
+    fun `the answer is speaking while it plays and not once it ends`() = runTest {
+        spokenAnswer()
+
+        val vm = askByVoice()
+        assertTrue("Stop must be offered while the answer plays", vm.state.value.isSpeaking)
+        assertFalse(vm.state.value.canReplay)
+
+        speaker.finishPlaying()
+        assertFalse("Stop must go once the answer has ended", vm.state.value.isSpeaking)
+        assertTrue(vm.state.value.canReplay)
+    }
+
+    @Test
+    fun `stopping an answer leaves it replayable, and the replay is speaking again`() = runTest {
+        spokenAnswer()
+        val vm = askByVoice()
+
+        vm.stopSpeaking()
+        assertFalse(vm.state.value.isSpeaking)
+
+        vm.replayAnswer()
+        assertTrue(vm.state.value.isSpeaking)
+        assertEquals(2, speaker.played.size)
+
+        speaker.finishPlaying()
+        assertFalse(vm.state.value.isSpeaking)
+    }
+
+    @Test
+    fun `audio the phone cannot play is not shown as speaking`() = runTest {
+        spokenAnswer()
+        speaker.playable = false
+
+        val state = askByVoice().state.value
+
+        assertFalse(state.isSpeaking)
+        assertTrue("the answer is still on screen", state.answer.contains("strong opioid"))
+    }
+
+    // -- the microphone permission (Android review, R1) ---------------------------
+
+    @Test
+    fun `without the permission the screen is told to ask, and nothing is recorded`() = runTest {
+        speaker.permitted = false
+        val vm = viewModel()
+
+        assertTrue(vm.needsMicrophonePermission())
+
+        vm.onMicrophonePermission(granted = false)
+        assertEquals(AskProblem.MICROPHONE_NEEDED, vm.state.value.problem)
+        assertFalse(vm.state.value.isListening)
+    }
+
+    @Test
+    fun `once the permission is granted the notice goes and the mic is not asked for again`() = runTest {
+        speaker.permitted = false
+        val vm = viewModel()
+        vm.onMicrophonePermission(granted = false)
+
+        speaker.permitted = true
+        vm.onMicrophonePermission(granted = true)
+
+        assertNull(vm.state.value.problem)
+        assertFalse(vm.needsMicrophonePermission())
+    }
+
+    // -- what is uploaded (Android review, R1) -------------------------------------
+
+    @Test
+    fun `the recording is uploaded as a named WAV file`() = runTest {
+        spokenAnswer()
+
+        askByVoice()
+
+        val part = api.voiceParts.single()
+        val disposition = part.headers?.get("Content-Disposition").orEmpty()
+        assertTrue(disposition, disposition.contains("name=\"audio\""))
+        // Without a filename FastAPI reads the part as text and answers 422.
+        assertTrue(disposition, disposition.contains("filename=\"question.wav\""))
+
+        val body = okio.Buffer().also { part.body.writeTo(it) }.readByteArray()
+        assertEquals("RIFF", String(body, 0, 4, Charsets.US_ASCII))
+        assertEquals("WAVE", String(body, 8, 4, Charsets.US_ASCII))
+        // The recording engine's fake gives 16,000 bytes of PCM.
+        assertEquals(WavAudio.HEADER_BYTES + 16_000, body.size)
+        assertEquals("audio/wav", part.body.contentType().toString())
+    }
 }
 
 /** Stands in for the microphone and speaker; keeps every buffer it is asked to play. */
@@ -118,7 +218,7 @@ private class RecordingVoiceEngine : VoiceEngine {
     private var listening = false
     private var speaking = false
 
-    override fun canRecord(): Boolean = true
+    override fun canRecord(): Boolean = permitted
     override val isListening: Boolean get() = listening
     override val isSpeaking: Boolean get() = speaking
 
@@ -132,12 +232,31 @@ private class RecordingVoiceEngine : VoiceEngine {
         return ByteArray(16_000)
     }
 
-    override fun speak(pcm: ByteArray) {
-        played.add(pcm)
+    /** Set false to stand in for a phone that cannot play the file. */
+    var playable = true
+
+    /** Set false to stand in for a refused microphone permission. */
+    var permitted = true
+
+    private var onFinished: (() -> Unit)? = null
+
+    override fun speak(audio: ByteArray, onFinished: () -> Unit): Boolean {
+        if (!playable) return false
+        played.add(audio)
         speaking = true
+        this.onFinished = onFinished
+        return true
+    }
+
+    /** The audio reaches its end, as the real player reports it. */
+    fun finishPlaying() {
+        speaking = false
+        onFinished?.also { onFinished = null }?.invoke()
     }
 
     override fun stopSpeaking() {
         speaking = false
+        // As the real engine: a stopped playback never calls back.
+        onFinished = null
     }
 }
