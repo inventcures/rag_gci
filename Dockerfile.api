@@ -1,0 +1,54 @@
+# Image for the study server (simple_rag_server.py), the Railway "api" service.
+#
+# Not named "Dockerfile" on purpose. Railway picks up a root Dockerfile for any
+# service whose builder is not set, and the expert review console (railway.toml)
+# must not start building this image when Railway stops reading railway.toml.
+#
+# Build locally:  docker build -f Dockerfile.api -t palli-api .
+# Run locally:    docker run -p 8000:8000 -e PORT=8000 -e MOBILE_JWT_SECRET=... \
+#                   -e GEMINI_API_KEY=... -e RAILWAY_VOLUME_MOUNT_PATH=/data \
+#                   -v palli-data:/data palli-api
+#
+# Operator guide: docs/deploy_railway.md
+
+FROM python:3.12-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# ffmpeg: pydub (voice notes). pandoc: pypandoc. poppler, tesseract, libgl and
+# libmagic: unstructured, for PDF and image uploads. build-essential: the few
+# dependencies without a wheel for this platform.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential ffmpeg pandoc poppler-utils tesseract-ocr \
+        libgl1 libglib2.0-0 libmagic1 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# CPU torch first. The default PyPI wheel brings several GB of CUDA libraries
+# that a Railway container cannot use. requirements.txt then finds torch
+# already installed.
+COPY requirements.txt .
+RUN pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.1.0" \
+    && pip install -r requirements.txt
+
+COPY . .
+
+# Fail the build, not the boot, if the build context lost the server. A
+# .railwayignore written for the review console excludes it.
+RUN test -f simple_rag_server.py && test -f config.yaml && test -f data/study/release.yaml \
+    || (echo "Build context is missing the server files; check .railwayignore and .dockerignore" && exit 1)
+
+# The shipped copy of each directory the server writes to. The start script
+# fills the Railway volume from it (scripts/railway_api_start.py).
+RUN mkdir -p /opt/palli/seed uploads cache logs \
+    && cp -a data uploads cache logs /opt/palli/seed/
+
+ENV PORT=8000
+EXPOSE 8000
+
+CMD ["python", "scripts/railway_api_start.py"]

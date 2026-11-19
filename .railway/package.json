@@ -1,0 +1,9 @@
+{
+  "name": "palli-sahayak-railway",
+  "private": true,
+  "type": "module",
+  "description": "Evaluated by `railway config plan` and `railway config apply` only. See docs/deploy_railway.md.",
+  "devDependencies": {
+    "railway": "3.16.0"
+  }
+}

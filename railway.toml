@@ -1,6 +1,10 @@
 # Railway deployment config for the Palli Sahayak expert review console.
 # https://docs.railway.com/reference/config-as-code
 #
+# Review console only. The study server (simple_rag_server.py) is a separate
+# Railway service declared in .railway/railway.ts; see docs/deploy_railway.md.
+# Railway stops reading this file on 2026-12-01 (docs/decisions/railway-api.md, O1).
+#
 # Deploy:
 #   1. Push this repo to GitHub (already done).
 #   2. In Railway dashboard: New Project -> Deploy from GitHub repo

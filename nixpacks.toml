@@ -1,4 +1,5 @@
 # Nixpacks build plan for Railway (and any Nixpacks-compatible host).
+# The study server builds from Dockerfile.api instead (docs/deploy_railway.md).
 # Only the review_app is deployed — the large root-level RAG dependencies
 # (chromadb, neo4j, sarvam, etc.) are NOT needed for the review console.
 

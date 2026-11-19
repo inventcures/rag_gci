@@ -81,3 +81,6 @@ nav:
   - Android specifications:
       - Android app specification: android-app-specs/v0_27march2026_0923st_210s_detailed-android-app-specs.md
       - Implementation spec: android-app-specs/v1_03oct2026_android-app-implementation-spec.md
+  - Deployment:
+      - Railway, for testing only: deploy_railway.md
+      - Railway decisions: decisions/railway-api.md

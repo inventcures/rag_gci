@@ -278,6 +278,10 @@ python simple_rag_server.py --host 0.0.0.0 --port 8000
 python simple_rag_server.py --host 0.0.0.0 --port 8000 --ngrok
 ```
 
+**Option 4: On Railway, for phone testing with made-up people**
+
+See [deploy_railway.md](deploy_railway.md). Railway has no India region, so it is not for study data.
+
 **Startup Output:**
 ```
 🚀 RAG SERVER WITH WHATSAPP BOT
