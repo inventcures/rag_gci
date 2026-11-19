@@ -113,7 +113,12 @@ private fun SignedInApp(storeOwner: ViewModelStoreOwner, session: SessionContext
         owner = storeOwner,
         factory = viewModelFactory {
             initializer {
-                AskViewModel(ServiceLocator.repository, session, settings = ServiceLocator.settings)
+                AskViewModel(
+                    repository = ServiceLocator.repository,
+                    session = session,
+                    voiceEngine = ServiceLocator.voice,
+                    settings = ServiceLocator.settings,
+                )
             }
         },
     )["ask:${session.participantId}", AskViewModel::class.java] // not user-facing: a ViewModel store key

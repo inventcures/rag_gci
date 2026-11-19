@@ -99,7 +99,16 @@ data class InteractionEntity(
     @ColumnInfo(name = "interaction_class")
     val interactionClass: String,
 
-    /** False when free text still holds a participant name. See `scrub` below. */
+    /**
+     * True when the scrubber found no structured identifier (a phone, Aadhaar or
+     * ABHA number, an email, a URL) in the question or the answer. False when it
+     * found one and replaced it before the row was written.
+     *
+     * The name reads the other way round, so for analysis: false means "something
+     * was removed", not "something is still there". Either way the text may hold
+     * a person's name, which the scrubber cannot detect (see TextScrubber). The
+     * column is a study field and keeps its name (Android review, R7).
+     */
     @ColumnInfo(name = "text_is_scrubbed")
     val textIsScrubbed: Boolean,
 )

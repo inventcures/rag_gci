@@ -25,7 +25,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT = ROOT / "android-app" / "core" / "api" / "contract" / "openapi.json"
@@ -176,7 +176,7 @@ def emit_api(root: Dict[str, Any]) -> str:
         "import retrofit2.http.Query",
         "import retrofit2.http.Multipart",
         "import retrofit2.http.Part",
-        "import okhttp3.RequestBody",
+        "import okhttp3.MultipartBody",
         "",
         "/**",
         " * Generated from the API contract. Do not edit by hand.",
@@ -191,6 +191,9 @@ def emit_api(root: Dict[str, Any]) -> str:
 
     components = (root.get("components") or {}).get("schemas") or {}
     needed: List[str] = []
+    # (operation, form field) of each uploaded file, so the caller names the
+    # part from the contract rather than from a string of its own.
+    file_parts: List[Tuple[str, str]] = []
 
     for verb, path, fn_name in CLIENT_OPERATIONS:
         operation = (paths.get(path) or {}).get(verb.lower())
@@ -222,8 +225,15 @@ def emit_api(root: Dict[str, Any]) -> str:
                 prop = body["properties"][part] or {}
                 kind = kotlin_type(prop, root)
                 if kind == "String":
-                    # A file part arrives as binary, not as a JSON string.
-                    kind = "RequestBody"
+                    # A file part arrives as binary, not as a JSON string, and it
+                    # must carry a filename: FastAPI reads a part without one as a
+                    # text field and answers 422 to an `UploadFile` parameter. A
+                    # named `@Part("audio") RequestBody` has no filename, so the
+                    # caller builds the part (`MultipartBody.Part.createFormData`),
+                    # which names both the field and the file.
+                    params.append(f"@Part {name_of(part)}: MultipartBody.Part")
+                    file_parts.append((fn_name, part))
+                    continue
                 params.append(f'@Part("{part}") {name_of(part)}: {kind}')
         elif "application/json" in content:
             body_schema = content["application/json"].get("schema") or {}
@@ -259,6 +269,15 @@ def emit_api(root: Dict[str, Any]) -> str:
         # An operation with no parameters takes none. This once emitted a
         # `language` argument for every such route, which no server reads.
         methods.append(f"    suspend fun {fn_name}({args}): {return_type}")
+
+    if file_parts:
+        methods.append("")
+        methods.append("    companion object {")
+        for fn_name, part in file_parts:
+            constant = re.sub(r"(?<!^)(?=[A-Z])", "_", fn_name).upper() + "_" + part.upper() + "_PART"
+            methods.append(f"        /** The form field the server reads the uploaded file from. */")
+            methods.append(f'        const val {constant} = "{part}"')
+        methods.append("    }")
 
     methods.append("}")
     return "\n".join(methods)

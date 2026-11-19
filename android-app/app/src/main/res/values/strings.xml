@@ -107,7 +107,6 @@
     <string name="problem_unexpected">Something went wrong. Please try again.</string>
     <string name="problem_microphone_needed">Microphone access is needed to ask by voice.</string>
     <string name="problem_unreachable">Could not reach the service. Please try again.</string>
-    <string name="problem_offline_not_saved">No connection, and this question is not one of the saved ones. Try again when there is signal.</string>
 
     <!--
       Found by the lint, not by an audit.
@@ -116,7 +115,6 @@
       matters: a Hindi worker reading an English "call 108" during a crisis is a
       worse outcome than a slower answer.
     -->
-    <string name="history_heading">Earlier</string>
     <string name="ask_button_idle">Hold to speak</string>
     <string name="ask_button_listening">Listening, let go to send</string>
     <string name="ask_button_send">Ask</string>

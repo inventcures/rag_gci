@@ -63,9 +63,7 @@
     <string name="problem_unexpected">कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।</string>
     <string name="problem_microphone_needed">आवाज़ से पूछने के लिए माइक्रोफ़ोन की अनुमति ज़रूरी है।</string>
     <string name="problem_unreachable">सेवा से संपर्क नहीं हो सका। कृपया फिर से कोशिश करें।</string>
-    <string name="problem_offline_not_saved">कनेक्शन नहीं है, और यह सवाल सहेजे गए सवालों में से नहीं है। सिग्नल आने पर फिर से कोशिश करें।</string>
 
-    <string name="history_heading">पहले के सवाल</string>
     <string name="ask_button_idle">बोलने के लिए दबाकर रखें</string>
     <string name="ask_button_listening">सुन रहे हैं, भेजने के लिए छोड़ें</string>
     <string name="ask_button_send">पूछें</string>

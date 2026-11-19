@@ -17,7 +17,6 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
-import okhttp3.RequestBody
 import java.util.concurrent.Executor as JavaExecutor
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -406,7 +405,7 @@ private class StubApi : PalliSahayakApi {
     override suspend fun voiceQuery(
         @Query("language") language: String,
         @Query("active_role") active_role: String?,
-        @Part("audio") audio: okhttp3.RequestBody,
+        @Part audio: okhttp3.MultipartBody.Part,
     ): retrofit2.Response<org.inventcures.pallisahayak.api.generated.VoiceQueryResponse> {
         voiceCallCount++
         return retrofit2.Response.success(
@@ -496,9 +495,10 @@ private class FakeVoiceEngine : VoiceEngine {
         return captured
     }
 
-    override fun speak(pcm: ByteArray) {
+    override fun speak(audio: ByteArray, onFinished: () -> Unit): Boolean {
         speaking = true
-        spokenBytes += pcm.size
+        spokenBytes += audio.size
+        return true
     }
 
     override fun stopSpeaking() {

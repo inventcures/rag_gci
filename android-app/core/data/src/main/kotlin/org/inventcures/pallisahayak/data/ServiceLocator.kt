@@ -26,6 +26,8 @@ import org.inventcures.pallisahayak.data.settings.ActiveSettings
 import org.inventcures.pallisahayak.data.start.AppStart
 import org.inventcures.pallisahayak.data.sync.SyncQueue
 import org.inventcures.pallisahayak.data.sync.SyncScheduler
+import org.inventcures.pallisahayak.data.voice.AndroidVoiceEngine
+import org.inventcures.pallisahayak.data.voice.VoiceEngine
 import java.io.File
 
 /**
@@ -64,6 +66,9 @@ object ServiceLocator {
     @Volatile
     private var settingsInstance: ActiveSettings? = null
 
+    @Volatile
+    private var voiceInstance: VoiceEngine? = null
+
     /**
      * Everything the offline screens need, built once alongside the repository.
      *
@@ -83,6 +88,13 @@ object ServiceLocator {
     /** The release gate and the first screen. */
     val start: AppStart
         get() = startInstance ?: notInitialised()
+
+    /**
+     * The microphone and the speaker. One for the process: two recorders cannot
+     * hold the microphone at once, and a second player would talk over the first.
+     */
+    val voice: VoiceEngine
+        get() = voiceInstance ?: notInitialised()
 
     /** The Active Role and language the settings screen switches. */
     val settings: ActiveSettings
@@ -123,6 +135,7 @@ object ServiceLocator {
         val queue = SyncQueue(database.syncQueue(), api.sync)
 
         settingsInstance = ActiveSettings(SharedPreferencesStore(context))
+        voiceInstance = AndroidVoiceEngine(context.applicationContext)
 
         repositoryInstance = PalliSahayakRepository(
             api = api.api,

@@ -1,6 +1,11 @@
 package org.inventcures.pallisahayak
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,8 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -27,6 +30,8 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import org.inventcures.pallisahayak.app.ui.ActionGlyphs
 import org.inventcures.pallisahayak.app.ui.MicrophoneWhenOffline
+import org.inventcures.pallisahayak.app.ui.OfflineMissNotice
+import org.inventcures.pallisahayak.data.offline.OfflineMiss
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,9 +71,21 @@ fun AskScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
+    // The system's own dialog asks for the microphone, the first time the mic is
+    // pressed without it. The press that raised the dialog records nothing; the
+    // participant presses again once they have answered. A refusal is reported
+    // on the screen, and after a second refusal Android answers for them without
+    // showing the dialog, so the notice still appears.
+    val askForMicrophone = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+        viewModel::onMicrophonePermission,
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // The answer can be longer than the screen, more so at a large font.
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -90,7 +107,13 @@ fun AskScreen(
             MicrophoneButton(
                 isListening = state.isListening,
                 enabled = !state.isAsking && !state.isSpeaking,
-                onPress = viewModel::onMicPressed,
+                onPress = {
+                    if (viewModel.needsMicrophonePermission()) {
+                        askForMicrophone.launch(Manifest.permission.RECORD_AUDIO)
+                    } else {
+                        viewModel.onMicPressed()
+                    }
+                },
                 onRelease = viewModel::onMicReleased,
             )
         }
@@ -107,35 +130,35 @@ fun AskScreen(
             EmergencyBanner(state.emergency)
         }
 
-        state.problem?.let { problem ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFF4E5),
-                ),
-            ) {
-                Text(
-                    text = stringResource(problem.message),
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+        when (val problem = state.problem) {
+            null -> Unit
+            // Criterion 7: an offline miss says which of its two reasons it is,
+            // because the remedies differ (connect once, or find signal).
+            AskProblem.OFFLINE_NO_BUNDLE -> OfflineMissNotice(OfflineMiss.NO_BUNDLE_DOWNLOADED)
+            AskProblem.OFFLINE_NOT_SAVED -> OfflineMissNotice(OfflineMiss.NOT_IN_BUNDLE)
+            else -> ProblemNotice(problem.message)
         }
 
+        // Earlier questions are on the Visits tab, which reads them from the
+        // database with their answer kinds. A second, in-memory list here showed
+        // the same interactions without those kinds and forgot them on restart.
         AnswerCard(state)
+    }
+}
 
-        if (state.history.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.history_heading),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.history) { (question, answer) ->
-                    HistoryRow(question, answer)
-                }
-            }
-        }
+@Composable
+private fun ProblemNotice(message: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFF4E5),
+        ),
+    ) {
+        Text(
+            text = stringResource(message),
+            modifier = Modifier.padding(12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -258,21 +281,6 @@ private fun EmergencyBanner(severity: EmergencySeverity) {
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF8B1A1A),
             )
-        }
-    }
-}
-
-@Composable
-private fun HistoryRow(question: String, answer: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = question,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(text = answer, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -405,11 +413,16 @@ private fun ReplayButton(onReplay: () -> Unit) {
     }
 }
 
-/** The words for each [AskProblem], in the screen's language. */
+/**
+ * The words for each [AskProblem], in the screen's language. The two offline
+ * misses are drawn by [OfflineMissNotice]; these are their words for any other
+ * caller.
+ */
 private val AskProblem.message: Int
     get() = when (this) {
         AskProblem.UNEXPECTED -> R.string.problem_unexpected
         AskProblem.MICROPHONE_NEEDED -> R.string.problem_microphone_needed
         AskProblem.UNREACHABLE -> R.string.problem_unreachable
-        AskProblem.OFFLINE_NOT_SAVED -> R.string.problem_offline_not_saved
+        AskProblem.OFFLINE_NOT_SAVED -> R.string.offline_miss_not_in_bundle
+        AskProblem.OFFLINE_NO_BUNDLE -> R.string.offline_miss_no_bundle
     }

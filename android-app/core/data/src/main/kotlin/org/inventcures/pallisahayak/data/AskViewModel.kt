@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import org.inventcures.pallisahayak.data.offline.OfflineMiss
 import org.inventcures.pallisahayak.data.repository.AnsweredQuestion
 import org.inventcures.pallisahayak.data.repository.AnswerSource
 import org.inventcures.pallisahayak.data.repository.PalliSahayakRepository
@@ -34,8 +35,11 @@ enum class AskProblem {
     /** The service could not be reached. */
     UNREACHABLE,
 
-    /** Offline, and the question is not one of the saved ones. */
+    /** Offline, and the question is not one of the saved ones. Find signal. */
     OFFLINE_NOT_SAVED,
+
+    /** Offline, and no saved answers have been downloaded yet. Connect once. */
+    OFFLINE_NO_BUNDLE,
 }
 
 /**
@@ -54,7 +58,6 @@ data class AskUiState(
     val emergency: EmergencySeverity = EmergencySeverity.NONE,
     val cameFromCache: Boolean = false,
     val sourceCount: Int = 0,
-    val history: List<Pair<String, String>> = emptyList(),
     /** What went wrong, if anything. The screen words it in the participant's language. */
     val problem: AskProblem? = null,
 
@@ -72,7 +75,10 @@ data class AskUiState(
      */
     val transcript: String = "",
 
-    /** Held so the user can replay. A spoken answer nobody can re-read is lost. */
+    /**
+     * The server's audio file for the answer, held so the user can replay it.
+     * A spoken answer nobody can hear again is lost.
+     */
     val spokenAnswer: ByteArray? = null,
 ) {
     /** True when the last answer can be played again. */
@@ -156,8 +162,6 @@ class AskViewModel(
                         cameFromCache = answered.source is AnswerSource.Bundle,
                         sourceCount = answered.sourceCount,
                         problem = unavailableProblem(answered),
-                        history = (listOf(question to answered.text) + current.history)
-                            .take(HISTORY_LIMIT),
                     )
                 }
             } catch (error: Exception) {
@@ -177,6 +181,20 @@ class AskViewModel(
      * Holding is the interaction. A tap produces too little audio to be a
      * question, so the button is pressed-and-held rather than tapped.
      */
+    /**
+     * True when the microphone permission has to be asked for before the mic can
+     * be held. The screen asks, since only it can show the system's dialog, and
+     * reports the answer to [onMicrophonePermission].
+     */
+    fun needsMicrophonePermission(): Boolean = voiceEngine?.canRecord() == false
+
+    /** The participant's answer to the system's microphone question. */
+    fun onMicrophonePermission(granted: Boolean) {
+        _state.update {
+            it.copy(problem = if (granted) null else AskProblem.MICROPHONE_NEEDED)
+        }
+    }
+
     fun onMicPressed() {
         val engine = voiceEngine ?: return
         if (!engine.canRecord()) {
@@ -188,7 +206,9 @@ class AskViewModel(
         if (_state.value.isAsking || _state.value.isSpeaking) return
 
         engine.startRecording()
-        _state.update { it.copy(isListening = true, problem = null) }
+        // Read back from the engine: a microphone another app holds does not start,
+        // and "Listening" over a recording that is not running is a false promise.
+        _state.update { it.copy(isListening = engine.isListening, problem = null) }
     }
 
     /**
@@ -237,7 +257,7 @@ class AskViewModel(
             // is neither played nor kept for replay (final review, finding 10).
             val audioToPlay = (answered.source as? AnswerSource.LiveVoice)?.audioBase64
                 ?.takeIf { answered.kind == AnswerKind.ANSWER }
-            val pcm = audioToPlay?.let { decodeBase64(it) }
+            val audio = audioToPlay?.let { decodeBase64(it) }?.takeIf { it.isNotEmpty() }
 
             _state.update { current ->
                 current.copy(
@@ -249,13 +269,11 @@ class AskViewModel(
                     emergency = answered.emergency,
                     cameFromCache = false,
                     sourceCount = answered.sourceCount,
-                    spokenAnswer = pcm,
-                    history = (listOf(answered.transcript to answered.text) + current.history)
-                        .take(HISTORY_LIMIT),
+                    spokenAnswer = audio,
                 )
             }
 
-            pcm?.let { voiceEngine?.speak(it) }
+            audio?.let { play(it) }
         } catch (error: Exception) {
             _state.update {
                 it.copy(isAsking = false, problem = AskProblem.UNEXPECTED)
@@ -276,10 +294,30 @@ class AskViewModel(
 
     /** Play the last answer again. */
     fun replayAnswer() {
-        val pcm = _state.value.spokenAnswer ?: return
-        voiceEngine?.stopSpeaking()
-        voiceEngine?.speak(pcm)
+        val audio = _state.value.spokenAnswer ?: return
+        play(audio)
+    }
+
+    /**
+     * Play [audio] and keep [AskUiState.isSpeaking] true for exactly as long as it
+     * plays, so the Stop button is there while there is something to stop and gone
+     * once the answer ends. The engine calls back only for the playback it
+     * started, so an answer that was stopped or replaced cannot clear the state of
+     * the one after it.
+     */
+    private fun play(audio: ByteArray) {
+        val engine = voiceEngine ?: return
         _state.update { it.copy(isSpeaking = true) }
+        val started = engine.speak(audio) {
+            _state.update { it.copy(isSpeaking = false) }
+        }
+        if (!started) _state.update { it.copy(isSpeaking = false) }
+    }
+
+    /** The screen is gone: let go of the microphone and the speaker. */
+    override fun onCleared() {
+        voiceEngine?.stopRecording()
+        voiceEngine?.stopSpeaking()
     }
 
     /**
@@ -291,14 +329,16 @@ class AskViewModel(
         runCatching { java.util.Base64.getMimeDecoder().decode(value) }
             .getOrNull()
 
-    fun clearError() {
-        _state.update { it.copy(problem = null) }
-    }
-
-    private fun unavailableProblem(answered: AnsweredQuestion): AskProblem? =
-        if (answered.source is AnswerSource.Unavailable) AskProblem.OFFLINE_NOT_SAVED else null
-
-    private companion object {
-        const val HISTORY_LIMIT = 20
+    /**
+     * Why there is no answer. Offline, the two reasons the Cached Answer Bundle
+     * can miss need different remedies. Online, the server answered with an
+     * error, and telling that participant they have no connection sends them
+     * looking for signal they already have.
+     */
+    private fun unavailableProblem(answered: AnsweredQuestion): AskProblem? = when {
+        answered.source !is AnswerSource.Unavailable -> null
+        !answered.offline -> AskProblem.UNREACHABLE
+        answered.offlineMiss == OfflineMiss.NO_BUNDLE_DOWNLOADED -> AskProblem.OFFLINE_NO_BUNDLE
+        else -> AskProblem.OFFLINE_NOT_SAVED
     }
 }

@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import com.squareup.moshi.JsonDataException
 import okhttp3.Protocol
 import okhttp3.Request
-import okhttp3.RequestBody
+import okhttp3.MultipartBody
 import org.inventcures.pallisahayak.api.generated.AuthResponse
 import org.inventcures.pallisahayak.api.generated.CacheBundleResponse
 import org.inventcures.pallisahayak.api.generated.DeviceRegistrationRequest
@@ -91,8 +91,17 @@ class FakeApi : PalliSahayakApi {
 
     override suspend fun query(body: MobileQueryRequest): Response<MobileQueryResponse> = respond(queryResponse)
 
-    override suspend fun voiceQuery(language: String, active_role: String?, audio: RequestBody): Response<VoiceQueryResponse> =
-        respond(voiceResponse)
+    /** Every audio part uploaded, as the server would receive it. */
+    val voiceParts = mutableListOf<MultipartBody.Part>()
+
+    override suspend fun voiceQuery(
+        language: String,
+        active_role: String?,
+        audio: MultipartBody.Part,
+    ): Response<VoiceQueryResponse> {
+        voiceParts.add(audio)
+        return respond(voiceResponse)
+    }
 
     override suspend fun cacheBundle(language: String): Response<CacheBundleResponse> {
         bundleRequests.add(language)

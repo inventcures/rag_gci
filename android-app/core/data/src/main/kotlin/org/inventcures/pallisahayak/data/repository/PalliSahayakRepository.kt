@@ -2,6 +2,7 @@ package org.inventcures.pallisahayak.data.repository
 
 import android.util.Log
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.inventcures.pallisahayak.api.generated.MobileQueryRequest
 import org.inventcures.pallisahayak.api.generated.MobileQueryResponse
@@ -13,9 +14,12 @@ import org.inventcures.pallisahayak.data.local.InteractionEntity
 import org.inventcures.pallisahayak.data.model.CareRole
 import org.inventcures.pallisahayak.data.model.Language
 import org.inventcures.pallisahayak.data.offline.OfflineAnswerResolver
+import org.inventcures.pallisahayak.data.offline.OfflineMiss
 import org.inventcures.pallisahayak.data.offline.OfflineResolution
 import org.inventcures.pallisahayak.data.sync.SyncOutbox
 import org.inventcures.pallisahayak.data.sync.offlineInteractionLog
+import org.inventcures.pallisahayak.data.voice.AndroidVoiceEngine
+import org.inventcures.pallisahayak.data.voice.WavAudio
 import org.inventcures.pallisahayak.safety.AnswerKind
 import org.inventcures.pallisahayak.safety.DeferralCopy
 import org.inventcures.pallisahayak.safety.DoseBoundary
@@ -61,6 +65,8 @@ data class AnsweredQuestion(
     val transcript: String = "",
     /** True when the server could not be reached, whatever answered instead. */
     val offline: Boolean = false,
+    /** Why the Cached Answer Bundle had no answer, when it was asked and missed. */
+    val offlineMiss: OfflineMiss? = null,
 )
 
 /** Who is using the phone right now, and which study release they are on. */
@@ -114,6 +120,11 @@ class PalliSahayakRepository(
      *
      * Returns the answer so the screen can also show it, because a spoken answer
      * a worker wants to re-read is not re-readable.
+     *
+     * [audio] is the recording as the microphone gave it: 16-bit PCM, mono, at
+     * [AndroidVoiceEngine.SAMPLE_RATE]. It is uploaded as a WAV file, with a
+     * header and a filename, which is what the server's `UploadFile` and the
+     * speech-to-text behind it read.
      */
     suspend fun askByVoice(
         audio: ByteArray,
@@ -126,7 +137,11 @@ class PalliSahayakRepository(
                 language = session.language,
                 // The Active Role: the server's study row records who is speaking.
                 active_role = session.activeRoleOnTheWire(),
-                audio = audio.toRequestBody(AUDIO_MEDIA_TYPE),
+                audio = MultipartBody.Part.createFormData(
+                    PalliSahayakApi.VOICE_QUERY_AUDIO_PART,
+                    AUDIO_FILE_NAME,
+                    WavAudio.fromPcm(audio, AndroidVoiceEngine.SAMPLE_RATE).toRequestBody(AUDIO_MEDIA_TYPE),
+                ),
             )
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
@@ -249,7 +264,8 @@ class PalliSahayakRepository(
      */
     private suspend fun offlineOrUnavailable(question: String, session: SessionContext): AnsweredQuestion {
         val emergency = emergencyDetector.detect(question, session.language)
-        val cached = findInBundle(question, session.language)
+        val resolution = resolveInBundle(question, session.language)
+        val cached = (resolution as? OfflineResolution.Found)?.answer
             ?: return AnsweredQuestion(
                 text = "",
                 kind = AnswerKind.DEFERRAL,
@@ -257,6 +273,7 @@ class PalliSahayakRepository(
                 source = AnswerSource.Unavailable,
                 sourceCount = 0,
                 offline = session.isOffline,
+                offlineMiss = (resolution as? OfflineResolution.Missed)?.reason,
             )
 
         val safety = doseBoundary.apply(
@@ -281,10 +298,10 @@ class PalliSahayakRepository(
         )
     }
 
-    private suspend fun findInBundle(question: String, language: String): CachedAnswerEntity? {
+    private suspend fun resolveInBundle(question: String, language: String): OfflineResolution? {
         val resolver = bundle ?: return null
         val supported = Language.fromTag(language) ?: return null
-        return (resolver.resolve(question, supported) as? OfflineResolution.Found)?.answer
+        return resolver.resolve(question, supported)
     }
 
     /**
@@ -344,5 +361,8 @@ class PalliSahayakRepository(
         private const val TAG = "PalliRepo"
         const val VOICE_PATH_LIVE = "live"
         private val AUDIO_MEDIA_TYPE = "audio/wav".toMediaType()
+
+        /** The server reads the part as a file only when it has a name. */
+        private const val AUDIO_FILE_NAME = "question.wav"
     }
 }
