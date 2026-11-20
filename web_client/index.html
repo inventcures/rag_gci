@@ -398,7 +398,9 @@
         .demo-notice {
             background: #FFF7E6;
             border: 1px solid var(--warning);
-            color: var(--text);
+            /* Fixed dark text: --text turns light in dark mode, and this
+               background does not change. */
+            color: #5C3B00;
             border-radius: 8px;
             padding: 10px 14px;
             margin-bottom: 12px;
