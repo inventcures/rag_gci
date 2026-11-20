@@ -193,5 +193,29 @@ class TheLiveToolRecordsItsSources(unittest.TestCase):
         self.assertEqual(session.take_turn_sources(), (True, []))
 
 
+class TheLiveClientUsesTheWorkingApiVersion(unittest.TestCase):
+    """With an API key, Live connects on v1alpha: v1beta answered HTTP 404 for
+    every Live model on the Railway demo (2026-11-20)."""
+
+    def _client_kwargs(self, env):
+        from gemini_live import service as live
+
+        svc = live.GeminiLiveService.__new__(live.GeminiLiveService)
+        svc.config = mock.Mock(api_key="test-key")
+        svc.project_id = None
+        with mock.patch.dict(os.environ, env), mock.patch.object(live.genai, "Client") as client:
+            svc._create_client()
+        return client.call_args.kwargs
+
+    def test_an_api_key_client_uses_v1alpha(self):
+        kwargs = self._client_kwargs({"GEMINI_LIVE_API_VERSION": ""})
+        self.assertEqual(kwargs["api_key"], "test-key")
+        self.assertEqual(kwargs["http_options"], {"api_version": "v1alpha"})
+
+    def test_the_version_can_be_overridden(self):
+        kwargs = self._client_kwargs({"GEMINI_LIVE_API_VERSION": "v1beta"})
+        self.assertEqual(kwargs["http_options"], {"api_version": "v1beta"})
+
+
 if __name__ == "__main__":
     unittest.main()

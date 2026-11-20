@@ -14,6 +14,7 @@ Features:
 
 import asyncio
 import logging
+import os
 import re
 from typing import Optional, Dict, Any, AsyncGenerator, List, Set, Tuple
 
@@ -470,6 +471,9 @@ class GeminiLiveError(Exception):
 # does not generate its (audio) response until the tool result is sent,
 # which guarantees the spoken answer is grounded in the knowledge base
 # rather than world knowledge alone.
+# The Gemini API version Live sessions use with an API key (not Vertex).
+LIVE_API_VERSION = "v1alpha"
+
 RAG_TOOL_NAME = "search_medical_knowledge"
 
 RAG_TOOL = types.Tool(
@@ -588,8 +592,14 @@ class GeminiLiveService:
             # Check if we have credentials
             if self.config.api_key:
                 # Use API key authentication
-                client = genai.Client(api_key=self.config.api_key)
-                logger.info("GenAI client created with API key")
+                # The Live WebSocket on the default v1beta answers HTTP 404
+                # for every Live model with API keys (seen 2026-11-20 on the
+                # Railway demo); v1alpha serves the release's model.
+                # GEMINI_LIVE_API_VERSION overrides it.
+                api_version = os.getenv("GEMINI_LIVE_API_VERSION", "").strip() or LIVE_API_VERSION
+                client = genai.Client(api_key=self.config.api_key,
+                                      http_options={"api_version": api_version})
+                logger.info(f"GenAI client created with API key (Live API {api_version})")
                 return client
             elif self.project_id and not self.project_id.startswith("$"):
                 # Use Vertex AI with ADC
